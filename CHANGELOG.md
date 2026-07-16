@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.1 — Analyzer hotfix
+
+- Moved the account-detail mapping import before repository declarations.
+- Restored compatibility with Dart analyzer and Flutter CI.
+
 ## 0.7.0 — Floating details and parties
 
 - Added live floating-detail list and creation flow.
