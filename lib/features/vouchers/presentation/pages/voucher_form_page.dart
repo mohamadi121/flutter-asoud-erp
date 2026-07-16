@@ -30,7 +30,9 @@ class _VoucherFormPageState extends State<VoucherFormPage> {
   void dispose() {
     _cubit.close();
     _description.dispose();
-    for (final row in _rows) row.dispose();
+    for (final row in _rows) {
+      row.dispose();
+    }
     super.dispose();
   }
 

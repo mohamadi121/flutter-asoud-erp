@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.1 — Analyzer hotfix
+
+- Wrapped voucher row disposal in a block to satisfy Flutter lint rules.
+
 ## 0.8.0 — Double-entry accounting vouchers
 
 - Added live voucher list and shared create/edit form.
