@@ -78,3 +78,4 @@ class _RolesSetupView extends StatelessWidget {
           ),
         ),
       );
+}

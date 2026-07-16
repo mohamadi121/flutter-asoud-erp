@@ -61,3 +61,4 @@ class _StartupGateState extends State<StartupGate> {
           };
         },
       );
+}

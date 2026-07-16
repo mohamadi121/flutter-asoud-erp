@@ -11,6 +11,14 @@ class SetupStatus extends Equatable {
     this.enabledRoles = const [],
   });
 
+  factory SetupStatus.fromJson(Map<String, dynamic> json) => SetupStatus(
+        company: json['company']?.toString(),
+        officeSaved: json['office_saved'] == true,
+        accountingSaved: json['accounting_saved'] == true,
+        rolesSaved: json['roles_saved'] == true,
+        enabledRoles: ((json['enabled_roles'] as List?) ?? const []).map((value) => value.toString()).toList(),
+      );
+
   final String? company;
   final bool officeSaved;
   final bool accountingSaved;
@@ -24,14 +32,6 @@ class SetupStatus extends Equatable {
     if (!rolesSaved) return SetupStep.roles;
     return SetupStep.complete;
   }
-
-  factory SetupStatus.fromJson(Map<String, dynamic> json) => SetupStatus(
-        company: json['company']?.toString(),
-        officeSaved: json['office_saved'] == true,
-        accountingSaved: json['accounting_saved'] == true,
-        rolesSaved: json['roles_saved'] == true,
-        enabledRoles: ((json['enabled_roles'] as List?) ?? const []).map((value) => value.toString()).toList(),
-      );
 
   @override
   List<Object?> get props => [company, officeSaved, accountingSaved, rolesSaved, enabledRoles];
