@@ -43,6 +43,10 @@
 - Initialized Flutter feature-first architecture.
 - Added BLoC office setup flow.
 - Added personal/legal office selection and shared form.
+# 0.5.1
+
+- اصلاح `AsoudApiResponse.parse` به factory constructor سازگار با generic type در Dart
+
 # 0.5.0
 
 - افزودن parser استاندارد قرارداد API اختصاصی ASOUD

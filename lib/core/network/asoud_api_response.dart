@@ -3,10 +3,7 @@ import 'api_exception.dart';
 class AsoudApiResponse<T> {
   const AsoudApiResponse({required this.data, required this.apiVersion});
 
-  final T data;
-  final String apiVersion;
-
-  static AsoudApiResponse<T> parse<T>(
+  factory AsoudApiResponse.parse(
     Map<String, dynamic> body,
     T Function(Object? value) decode,
   ) {
@@ -25,4 +22,7 @@ class AsoudApiResponse<T> {
       apiVersion: version ?? 'v1',
     );
   }
+
+  final T data;
+  final String apiVersion;
 }
