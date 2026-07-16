@@ -10,6 +10,7 @@ class OfficeFormState extends Equatable {
     this.economicCode = '',
     this.generateDetailCode = true,
     this.status = OfficeFormStatus.editing,
+    this.errorMessage,
   });
 
   final OfficeType officeType;
@@ -18,6 +19,7 @@ class OfficeFormState extends Equatable {
   final String economicCode;
   final bool generateDetailCode;
   final OfficeFormStatus status;
+  final String? errorMessage;
 
   bool get isValid {
     if (name.trim().length < 3) return false;
@@ -31,6 +33,8 @@ class OfficeFormState extends Equatable {
     String? economicCode,
     bool? generateDetailCode,
     OfficeFormStatus? status,
+    String? errorMessage,
+    bool clearError = false,
   }) {
     return OfficeFormState(
       officeType: officeType,
@@ -39,6 +43,7 @@ class OfficeFormState extends Equatable {
       economicCode: economicCode ?? this.economicCode,
       generateDetailCode: generateDetailCode ?? this.generateDetailCode,
       status: status ?? OfficeFormStatus.editing,
+      errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
     );
   }
 
@@ -50,6 +55,7 @@ class OfficeFormState extends Equatable {
         economicCode,
         generateDetailCode,
         status,
+        errorMessage,
       ];
 }
 

@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
 import '../../domain/entities/office.dart';
+import '../../domain/repositories/office_repository.dart';
 import '../bloc/office_form_bloc.dart';
 import '../../../base_setup/presentation/pages/base_accounting_setup_page.dart';
 
@@ -13,7 +14,10 @@ class OfficeFormPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) => OfficeFormBloc(officeType: officeType),
+      create: (context) => OfficeFormBloc(
+        officeType: officeType,
+        repository: context.read<OfficeRepository>(),
+      ),
       child: const _OfficeFormView(),
     );
   }
@@ -33,6 +37,10 @@ class _OfficeFormView extends StatelessWidget {
             MaterialPageRoute<void>(
               builder: (_) => const BaseAccountingSetupPage(),
             ),
+          );
+        } else if (state.status == OfficeFormStatus.failure) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(state.errorMessage ?? 'ذخیره دفتر انجام نشد. دوباره تلاش کنید.')),
           );
         }
       },
@@ -64,8 +72,12 @@ class _OfficeFormView extends StatelessWidget {
               )),
               const SizedBox(height: 24),
               BlocBuilder<OfficeFormBloc, OfficeFormState>(builder: (context, state) => FilledButton(
-                onPressed: () => context.read<OfficeFormBloc>().add(const OfficeFormSubmitted()),
-                child: const Text('ایجاد دفتر'),
+                onPressed: state.status == OfficeFormStatus.submitting
+                    ? null
+                    : () => context.read<OfficeFormBloc>().add(const OfficeFormSubmitted()),
+                child: state.status == OfficeFormStatus.submitting
+                    ? const SizedBox.square(dimension: 22, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Text('ایجاد دفتر'),
               )),
               BlocBuilder<OfficeFormBloc, OfficeFormState>(builder: (context, state) {
                 if (state.status != OfficeFormStatus.invalid) return const SizedBox.shrink();

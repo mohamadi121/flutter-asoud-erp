@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/config/app_config.dart';
 import '../../../accounting/presentation/pages/accounting_home_page.dart';
 import '../../domain/entities/erp_module.dart';
 
@@ -31,7 +32,7 @@ class DashboardPage extends StatelessWidget {
           children: [
             const Text('سلام، خوش آمدید', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800)),
             const SizedBox(height: 5),
-            const Text('دفتر فعال: دفتر مرکزی', style: TextStyle(color: AsoudColors.muted)),
+            Text('دفتر فعال: ${AppConfig.companyName}', style: const TextStyle(color: AsoudColors.muted)),
             const SizedBox(height: 22),
             const _SummaryCard(),
             const SizedBox(height: 24),

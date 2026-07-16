@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.1 — Persistent initial setup
+
+- Connected office creation, company accounting settings, and enabled office roles to ASOUD API v1.
+- Added company-scoped setup recovery and startup routing to the first incomplete step.
+- Added loading, API failure, retry, and duplicate-submit protection to the setup flow.
+
 ## 0.9.0 — Accounting reports
 
 - Added live trial balance with opening, period, and closing columns.
