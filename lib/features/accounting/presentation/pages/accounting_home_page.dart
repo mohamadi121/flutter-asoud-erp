@@ -6,6 +6,8 @@ import '../../../parties/presentation/pages/floating_details_page.dart';
 import '../../../parties/presentation/pages/parties_page.dart';
 import '../../../parties/presentation/pages/account_mapping_page.dart';
 import '../../../vouchers/presentation/pages/vouchers_page.dart';
+import '../../../reports/presentation/pages/ledger_page.dart';
+import '../../../reports/presentation/pages/trial_balance_page.dart';
 
 class AccountingHomePage extends StatelessWidget {
   const AccountingHomePage({super.key});
@@ -17,7 +19,7 @@ class AccountingHomePage extends StatelessWidget {
       ('سرفصل حساب‌ها', Icons.account_tree_rounded, Color(0xFF5C6BC0)),
       ('تراز آزمایشی', Icons.balance_rounded, Color(0xFF26A69A)),
       ('دفتر کل', Icons.menu_book_rounded, Color(0xFF42A5F5)),
-      ('مرور حساب‌ها', Icons.manage_search_rounded, Color(0xFFEF6C5B)),
+      ('دفتر معین', Icons.manage_search_rounded, Color(0xFFEF6C5B)),
       ('گزارش‌های مالی', Icons.analytics_rounded, Color(0xFF7E57C2)),
       ('تفصیلی‌های شناور', Icons.hub_rounded, Color(0xFF008291)),
       ('اشخاص و طرف‌حساب‌ها', Icons.groups_rounded, Color(0xFF690C36)),
@@ -38,6 +40,9 @@ class AccountingHomePage extends StatelessWidget {
             trailing: const Icon(Icons.chevron_left_rounded),
             onTap: switch (action.$1) {
               'سند حسابداری' => () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const VouchersPage())),
+              'تراز آزمایشی' => () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const TrialBalancePage())),
+              'دفتر کل' => () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const LedgerPage(title: 'دفتر کل'))),
+              'دفتر معین' => () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const LedgerPage(title: 'دفتر معین', allowParty: true))),
               'سرفصل حساب‌ها' => () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const ChartOfAccountsPage())),
               'تفصیلی‌های شناور' => () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const FloatingDetailsPage())),
               'اشخاص و طرف‌حساب‌ها' => () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const PartiesPage())),

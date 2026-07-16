@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.0 — Accounting reports
+
+- Added live trial balance with opening, period, and closing columns.
+- Added general and subsidiary ledger views with running balances.
+- Added company, date, account, and optional party filters.
+- Connected all reports to ERPNext GL Entry through ASOUD API v1.
+
 ## 0.8.1 — Analyzer hotfix
 
 - Wrapped voucher row disposal in a block to satisfy Flutter lint rules.
