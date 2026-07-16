@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.0 — Double-entry accounting vouchers
+
+- Added live voucher list and shared create/edit form.
+- Added dynamic debit and credit rows with client-side balance validation.
+- Added draft and submit-for-approval actions.
+- Connected vouchers to the ASOUD ERPNext API.
+
 ## 0.7.1 — Analyzer hotfix
 
 - Moved the account-detail mapping import before repository declarations.

@@ -5,6 +5,7 @@ import 'chart_of_accounts_page.dart';
 import '../../../parties/presentation/pages/floating_details_page.dart';
 import '../../../parties/presentation/pages/parties_page.dart';
 import '../../../parties/presentation/pages/account_mapping_page.dart';
+import '../../../vouchers/presentation/pages/vouchers_page.dart';
 
 class AccountingHomePage extends StatelessWidget {
   const AccountingHomePage({super.key});
@@ -36,6 +37,7 @@ class AccountingHomePage extends StatelessWidget {
             title: Text(action.$1, style: const TextStyle(fontWeight: FontWeight.w700)),
             trailing: const Icon(Icons.chevron_left_rounded),
             onTap: switch (action.$1) {
+              'سند حسابداری' => () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const VouchersPage())),
               'سرفصل حساب‌ها' => () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const ChartOfAccountsPage())),
               'تفصیلی‌های شناور' => () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const FloatingDetailsPage())),
               'اشخاص و طرف‌حساب‌ها' => () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const PartiesPage())),
