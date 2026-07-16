@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import '../config/app_config.dart';
 import 'api_exception.dart';
+import 'asoud_api_response.dart';
 
 class FrappeClient {
   FrappeClient({Dio? dio}) : _dio = dio ?? Dio() {
@@ -45,6 +46,22 @@ class FrappeClient {
     return _request('POST', '/api/method/$method', data: data);
   }
 
+  Future<AsoudApiResponse<T>> callAsoudMethod<T>(
+    String method,
+    T Function(Object? value) decode, {
+    Map<String, dynamic>? data,
+  }) async {
+    final response = await callMethod(method, data: data);
+    final message = response['message'];
+    if (message is! Map) {
+      throw const ApiException('قالب پاسخ API آسود معتبر نیست.');
+    }
+    return AsoudApiResponse<T>.parse(
+      Map<String, dynamic>.from(message),
+      decode,
+    );
+  }
+
   Future<Map<String, dynamic>> _request(
     String method,
     String path, {
@@ -66,4 +83,3 @@ class FrappeClient {
     }
   }
 }
-

@@ -43,3 +43,8 @@
 - Initialized Flutter feature-first architecture.
 - Added BLoC office setup flow.
 - Added personal/legal office selection and shared form.
+# 0.5.0
+
+- افزودن parser استاندارد قرارداد API اختصاصی ASOUD
+- افزودن متد `callAsoudMethod` برای بازکردن پاسخ‌های Frappe
+- افزودن تست موفقیت و خطای قرارداد API
