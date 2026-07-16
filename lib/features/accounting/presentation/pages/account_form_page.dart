@@ -3,27 +3,30 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
 import '../../domain/entities/account_node.dart';
+import '../../domain/repositories/chart_of_accounts_repository.dart';
 import '../cubit/account_form_cubit.dart';
 
 class AccountFormPage extends StatelessWidget {
-  const AccountFormPage({this.account, super.key});
+  const AccountFormPage({
+    required this.repository,
+    this.accounts = const [],
+    this.account,
+    super.key,
+  });
+  final ChartOfAccountsRepository repository;
+  final List<AccountNode> accounts;
   final AccountNode? account;
 
   @override
   Widget build(BuildContext context) => BlocProvider(
-        create: (_) => AccountFormCubit(account: account),
-        child: const _AccountFormView(),
+        create: (_) => AccountFormCubit(account: account, repository: repository),
+        child: _AccountFormView(accounts: accounts),
       );
 }
 
 class _AccountFormView extends StatelessWidget {
-  const _AccountFormView();
-
-  static const parents = {
-    AccountLevel.general: [('1', 'دارایی‌ها'), ('2', 'بدهی‌ها'), ('3', 'حقوق مالکانه'), ('4', 'درآمدها'), ('5', 'هزینه‌ها')],
-    AccountLevel.ledger: [('11', 'دارایی‌های جاری'), ('21', 'بدهی‌های جاری')],
-    AccountLevel.detail: [('1101', 'موجودی نقد و بانک'), ('1102', 'حساب‌ها و اسناد دریافتنی')],
-  };
+  const _AccountFormView({required this.accounts});
+  final List<AccountNode> accounts;
 
   @override
   Widget build(BuildContext context) {
@@ -31,12 +34,12 @@ class _AccountFormView extends StatelessWidget {
       listenWhen: (previous, current) => previous.status != current.status,
       listener: (context, state) {
         if (state.status == AccountFormStatus.success) {
-          Navigator.of(context).pop(state.toEntity());
+          Navigator.of(context).pop(state.savedAccount ?? state.toEntity());
         }
       },
       builder: (context, state) {
         final cubit = context.read<AccountFormCubit>();
-        final parentItems = parents[state.level] ?? const <(String, String)>[];
+        final parentItems = _parentItems(state.level);
         return Scaffold(
           appBar: AppBar(title: Text(state.mode == AccountFormMode.create ? 'سرفصل جدید' : 'ویرایش سرفصل')),
           body: SafeArea(
@@ -50,7 +53,6 @@ class _AccountFormView extends StatelessWidget {
                     DropdownMenuItem(value: AccountLevel.group, child: Text('گروه')),
                     DropdownMenuItem(value: AccountLevel.general, child: Text('کل')),
                     DropdownMenuItem(value: AccountLevel.ledger, child: Text('معین')),
-                    DropdownMenuItem(value: AccountLevel.detail, child: Text('تفصیلی')),
                   ],
                   onChanged: (value) { if (value != null) cubit.setLevel(value); },
                 ),
@@ -60,7 +62,9 @@ class _AccountFormView extends StatelessWidget {
                     key: ValueKey(state.level),
                     initialValue: parentItems.any((item) => item.$1 == state.parentId) ? state.parentId : null,
                     decoration: InputDecoration(labelText: '${_parentLevelTitle(state.level)} والد *'),
-                    items: parentItems.map((item) => DropdownMenuItem(value: item.$1, child: Text('${item.$1} — ${item.$2}'))).toList(),
+                    items: parentItems
+                        .map((item) => DropdownMenuItem(value: item.$1, child: Text(item.$2)))
+                        .toList(),
                     onChanged: cubit.setParent,
                   ),
                 if (state.requiresParent) const SizedBox(height: 14),
@@ -86,6 +90,11 @@ class _AccountFormView extends StatelessWidget {
                     decoration: const InputDecoration(labelText: 'کد حساب *'),
                     onChanged: cubit.setCode,
                   ),
+                if (state.autoCode && state.code.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text('کد پیشنهادی: ${state.code}'),
+                  ),
                 const SizedBox(height: 14),
                 DropdownButtonFormField<AccountNature>(
                   initialValue: state.nature,
@@ -105,8 +114,24 @@ class _AccountFormView extends StatelessWidget {
                     padding: EdgeInsets.only(top: 10),
                     child: Text('عنوان، حساب والد و کد حساب را بررسی کنید.', style: TextStyle(color: Colors.red)),
                   ),
+                if (state.status == AccountFormStatus.failure)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Text(
+                      state.message ?? 'ذخیره حساب انجام نشد.',
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                  ),
                 const SizedBox(height: 22),
-                FilledButton(onPressed: cubit.submit, child: Text(state.mode == AccountFormMode.create ? 'ایجاد سرفصل' : 'ذخیره تغییرات')),
+                FilledButton(
+                  onPressed: state.status == AccountFormStatus.saving ? null : cubit.submit,
+                  child: state.status == AccountFormStatus.saving
+                      ? const SizedBox.square(
+                          dimension: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(state.mode == AccountFormMode.create ? 'ایجاد سرفصل' : 'ذخیره تغییرات'),
+                ),
               ],
             ),
           ),
@@ -121,6 +146,27 @@ class _AccountFormView extends StatelessWidget {
         AccountLevel.detail => 'حساب معین',
         AccountLevel.group => '',
       };
+
+  List<(String, String)> _parentItems(AccountLevel level) {
+    final requiredLevel = switch (level) {
+      AccountLevel.general => AccountLevel.group,
+      AccountLevel.ledger => AccountLevel.general,
+      AccountLevel.detail => AccountLevel.ledger,
+      AccountLevel.group => null,
+    };
+    if (requiredLevel == null) return const [];
+    return _flatten(accounts)
+        .where((account) => account.level == requiredLevel)
+        .map((account) => (account.id, '${account.code} — ${account.title}'))
+        .toList();
+  }
+
+  Iterable<AccountNode> _flatten(List<AccountNode> nodes) sync* {
+    for (final node in nodes) {
+      yield node;
+      yield* _flatten(node.children);
+    }
+  }
 }
 
 class _FloatingDetailHelp extends StatelessWidget {

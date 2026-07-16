@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.6.0 — Live chart of accounts
+
+- Connected the account tree to the ASOUD ERPNext API.
+- Replaced sample parent choices with live ERPNext accounts.
+- Added backend preview for the next available account code.
+- Connected create and update forms to the repository.
+- Added loading, empty, retry, saving, and API failure states.
+- Kept floating details outside native ERPNext Account creation.
+
 ## 0.4.1 — Automatic account codes
 
 - Clarified backend-generated codes for every account level.

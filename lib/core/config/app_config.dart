@@ -6,7 +6,10 @@ abstract final class AppConfig {
 
   static const apiKey = String.fromEnvironment('ERPNEXT_API_KEY');
   static const apiSecret = String.fromEnvironment('ERPNEXT_API_SECRET');
+  static const companyName = String.fromEnvironment(
+    'ERPNEXT_COMPANY',
+    defaultValue: 'ASOUD',
+  );
 
   static bool get hasApiCredentials => apiKey.isNotEmpty && apiSecret.isNotEmpty;
 }
-

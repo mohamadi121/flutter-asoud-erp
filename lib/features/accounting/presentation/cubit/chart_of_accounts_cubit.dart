@@ -2,13 +2,28 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
 import '../../domain/entities/account_node.dart';
+import '../../domain/repositories/chart_of_accounts_repository.dart';
 
 part 'chart_of_accounts_state.dart';
 
 class ChartOfAccountsCubit extends Cubit<ChartOfAccountsState> {
-  ChartOfAccountsCubit() : super(const ChartOfAccountsState());
+  ChartOfAccountsCubit([this._repository]) : super(const ChartOfAccountsState());
 
-  void load() => emit(ChartOfAccountsState(status: ChartStatus.success, accounts: _sampleAccounts));
+  final ChartOfAccountsRepository? _repository;
+
+  Future<void> load() async {
+    if (_repository == null) {
+      emit(const ChartOfAccountsState(status: ChartStatus.success, accounts: _sampleAccounts));
+      return;
+    }
+    emit(const ChartOfAccountsState(status: ChartStatus.loading));
+    try {
+      final accounts = await _repository.getAccounts();
+      emit(ChartOfAccountsState(status: ChartStatus.success, accounts: accounts));
+    } catch (error) {
+      emit(ChartOfAccountsState(status: ChartStatus.failure, message: error.toString()));
+    }
+  }
 }
 
 const _sampleAccounts = [
@@ -25,4 +40,3 @@ const _sampleAccounts = [
   AccountNode(id: '4', code: '4', title: 'درآمدها', level: AccountLevel.group),
   AccountNode(id: '5', code: '5', title: 'هزینه‌ها', level: AccountLevel.group),
 ];
-
