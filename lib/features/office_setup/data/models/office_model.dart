@@ -20,30 +20,29 @@ class OfficeModel extends Office {
       );
 
   factory OfficeModel.fromJson(Map<String, dynamic> json) => OfficeModel(
-        name: json['company_name'] as String? ?? json['name'] as String? ?? '',
-        type: json['custom_office_type'] == 'Legal' ? OfficeType.legal : OfficeType.personal,
-        fiscalYearStart: DateTime.tryParse(json['date_of_establishment'] as String? ?? '') ?? DateTime.now(),
-        nationalId: json['tax_id'] as String?,
-        economicCode: json['custom_economic_code'] as String?,
-        generateDetailCode: json['custom_generate_detail_code'] != 0,
+        name: json['company'] as String? ?? json['company_name'] as String? ?? '',
+        type: json['office_type'] == 'Legal' ? OfficeType.legal : OfficeType.personal,
+        fiscalYearStart: DateTime.now(),
+        nationalId: json['national_id'] as String?,
+        economicCode: json['economic_code'] as String?,
+        generateDetailCode: json['auto_generate_detail_code'] != false,
       );
 
-  Map<String, dynamic> toJson() => {
+  Map<String, dynamic> toSetupJson() => {
         'company_name': name,
-        'abbr': _abbreviation(name),
-        'default_currency': 'IRR',
-        'country': 'Iran',
-        'date_of_establishment': fiscalYearStart.toIso8601String().split('T').first,
-        'tax_id': nationalId,
-        'custom_office_type': type == OfficeType.legal ? 'Legal' : 'Personal',
-        'custom_economic_code': economicCode,
-        'custom_generate_detail_code': generateDetailCode ? 1 : 0,
+        'office_type': type == OfficeType.legal ? 'Legal' : 'Personal',
+        if (nationalId?.isNotEmpty ?? false) 'national_id': nationalId,
+        if (economicCode?.isNotEmpty ?? false) 'economic_code': economicCode,
+        'auto_generate_detail_code': generateDetailCode ? 1 : 0,
       };
 
-  static String _abbreviation(String value) {
-    final words = value.trim().split(RegExp(r'\s+'));
-    final result = words.where((word) => word.isNotEmpty).take(3).map((word) => word[0]).join();
-    return result.isEmpty ? 'ASD' : result.toUpperCase();
-  }
+  OfficeModel copyWithName(String value) => OfficeModel(
+        name: value,
+        type: type,
+        fiscalYearStart: fiscalYearStart,
+        nationalId: nationalId,
+        economicCode: economicCode,
+        generateDetailCode: generateDetailCode,
+      );
 }
 
