@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.0 — Floating details and parties
+
+- Added live floating-detail list and creation flow.
+- Added shared individual/organization party form.
+- Added multiple simultaneous party roles.
+- Added Customer and Supplier synchronization with ERPNext.
+- Added ledger-to-detail-group mapping screen.
+- Added BLoC validation and repository tests.
+
 ## 0.6.0 — Live chart of accounts
 
 - Connected the account tree to the ASOUD ERPNext API.
