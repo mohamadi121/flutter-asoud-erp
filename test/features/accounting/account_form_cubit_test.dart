@@ -1,0 +1,30 @@
+import 'package:asoud_erp/features/accounting/domain/entities/account_node.dart';
+import 'package:asoud_erp/features/accounting/presentation/cubit/account_form_cubit.dart';
+import 'package:bloc_test/bloc_test.dart';
+
+void main() {
+  blocTest<AccountFormCubit, AccountFormState>(
+    'حساب معین بدون والد نامعتبر است',
+    build: AccountFormCubit.new,
+    act: (cubit) => cubit
+      ..setTitle('بانک‌ها')
+      ..submit(),
+    verify: (cubit) {
+      assert(cubit.state.status == AccountFormStatus.invalid);
+    },
+  );
+
+  blocTest<AccountFormCubit, AccountFormState>(
+    'تفصیلی با والد و کد خودکار معتبر است',
+    build: AccountFormCubit.new,
+    act: (cubit) => cubit
+      ..setLevel(AccountLevel.detail)
+      ..setParent('1101')
+      ..setTitle('بانک ملت')
+      ..submit(),
+    verify: (cubit) {
+      assert(cubit.state.status == AccountFormStatus.success);
+      assert(cubit.state.toEntity().level == AccountLevel.detail);
+    },
+  );
+}
