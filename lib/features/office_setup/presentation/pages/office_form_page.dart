@@ -241,28 +241,25 @@ class _BaseSection extends StatelessWidget {
           _ResponsivePair(
               children: legal
                   ? [
-                      _field(context, 'registrationNumber', 'شماره ثبت *',
+                      _field(context, 'registrationNumber', 'شماره ثبت',
                           state.registrationNumber,
                           numeric: true),
-                      _field(context, 'nationalId', 'شناسه ملی *',
-                          state.nationalId,
+                      _field(
+                          context, 'nationalId', 'شناسه ملی', state.nationalId,
                           numeric: true),
                     ]
                   : [
+                      _field(context, 'ownerFullName',
+                          'نام و نام خانوادگی صاحب دفتر', state.ownerFullName),
                       _field(
-                          context,
-                          'ownerFullName',
-                          'نام و نام خانوادگی صاحب دفتر *',
-                          state.ownerFullName),
-                      _field(context, 'nationalId', 'شماره ملی *',
-                          state.nationalId,
+                          context, 'nationalId', 'شماره ملی', state.nationalId,
                           numeric: true),
                     ]),
           const SizedBox(height: 8),
           _select(
               context,
               legal ? 'companyType' : 'activityType',
-              legal ? 'نوع شرکت *' : 'نوع فعالیت *',
+              legal ? 'نوع شرکت' : 'نوع فعالیت',
               legal ? state.companyType : state.activityType,
               legal
                   ? const ['سهامی خاص', 'مسئولیت محدود', 'تعاونی', 'مؤسسه']
@@ -306,7 +303,7 @@ class _ContactSection extends StatelessWidget {
           icon: Icons.location_on_outlined,
           children: [
             _ResponsivePair(children: [
-              _field(context, 'phone', 'شماره موبایل یا تلفن *', state.phone,
+              _field(context, 'phone', 'شماره موبایل یا تلفن', state.phone,
                   numeric: true),
               _field(context, 'email', 'ایمیل', state.email,
                   keyboard: TextInputType.emailAddress)
@@ -316,16 +313,16 @@ class _ContactSection extends StatelessWidget {
                 keyboard: TextInputType.url),
             const SizedBox(height: 8),
             _ResponsivePair(children: [
-              _select(context, 'province', 'استان *', state.province,
+              _select(context, 'province', 'استان', state.province,
                   locations.keys.toList()),
-              _select(context, 'city', 'شهر *', state.city,
+              _select(context, 'city', 'شهر', state.city,
                   locations[state.province] ?? const [],
                   enabled: state.province.isNotEmpty)
             ]),
             const SizedBox(height: 8),
-            _field(context, 'address', 'آدرس قانونی *', state.address),
+            _field(context, 'address', 'آدرس قانونی', state.address),
             const SizedBox(height: 8),
-            _field(context, 'postalCode', 'کد پستی *', state.postalCode,
+            _field(context, 'postalCode', 'کد پستی', state.postalCode,
                 numeric: true),
           ]);
 }
@@ -340,12 +337,12 @@ class _FinancialSection extends StatelessWidget {
           icon: Icons.tune_rounded,
           children: [
             _ResponsivePair(children: [
-              _select(context, 'fiscalYear', 'سال مالی *', state.fiscalYear,
+              _select(context, 'fiscalYear', 'سال مالی', state.fiscalYear,
                   const ['۱۴۰۵', '۱۴۰۶']),
               _select(
                   context,
                   'chartTemplate',
-                  'الگوی کدینگ *',
+                  'الگوی کدینگ',
                   state.chartTemplate,
                   const ['استاندارد ایران', 'خدماتی', 'بازرگانی', 'تولیدی'])
             ]),

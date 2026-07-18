@@ -5,7 +5,11 @@ import '../../../../core/widgets/asoud_ui.dart';
 import '../../../dashboard/presentation/pages/dashboard_page.dart';
 
 class RolesSetupPage extends StatefulWidget {
-  const RolesSetupPage({super.key});
+  const RolesSetupPage(
+      {this.officeName, this.offlinePreview = false, super.key});
+
+  final String? officeName;
+  final bool offlinePreview;
 
   @override
   State<RolesSetupPage> createState() => _RolesSetupPageState();
@@ -57,13 +61,31 @@ class _RolesSetupPageState extends State<RolesSetupPage> {
       bottomNavigationBar: AsoudBottomActions(
           primaryLabel: 'تکمیل تنظیمات پایه',
           onPrimary: () {
+            if (!widget.offlinePreview) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    'ذخیره نقش‌ها نیازمند اتصال و پاسخ موفق ERPNext است.',
+                  ),
+                ),
+              );
+              return;
+            }
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                  content: Text('تنظیمات پایه ذخیره شد.'),
-                  backgroundColor: AsoudColors.success),
+                content: Text(
+                  'پیش‌نمایش آفلاین؛ تنظیمات روی سرور ذخیره نشده است.',
+                ),
+                backgroundColor: AsoudColors.warning,
+              ),
             );
             Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute<void>(builder: (_) => const DashboardPage()),
+              MaterialPageRoute<void>(
+                builder: (_) => DashboardPage(
+                  officeName: widget.officeName,
+                  offlinePreview: true,
+                ),
+              ),
               (route) => false,
             );
           }),

@@ -53,15 +53,15 @@ void main() {
     );
 
     blocTest<OfficeFormBloc, OfficeFormState>(
-      'ارسال فرم ناقص خطاهای فیلدی ایجاد می‌کند',
+      'فقط نام دفتر فیلد اجباری است',
       build: () => OfficeFormBloc(
           officeType: OfficeType.legal, repository: FakeOfficeRepository()),
       act: (bloc) => bloc.add(const OfficeFormSubmitted()),
       verify: (bloc) {
         expect(bloc.state.status, OfficeFormStatus.invalid);
         expect(bloc.state.errors, contains('officeName'));
-        expect(bloc.state.errors, contains('registrationNumber'));
-        expect(bloc.state.errors, contains('nationalId'));
+        expect(bloc.state.errors, isNot(contains('registrationNumber')));
+        expect(bloc.state.errors, isNot(contains('nationalId')));
       },
     );
 

@@ -7,7 +7,7 @@ void main() {
     build: ChartOfAccountsCubit.new,
     act: (cubit) => cubit.load(),
     verify: (cubit) {
-      assert(cubit.state.status == ChartStatus.success);
+      assert(cubit.state.status == ChartStatus.failure);
       assert(cubit.state.accounts.isEmpty);
     },
   );

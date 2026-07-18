@@ -17,9 +17,24 @@ class OfficeFormBloc extends Bloc<OfficeFormEvent, OfficeFormState> {
     required OfficeRepository repository,
     this.allowOfflinePreview = AppConfig.offlineDemoMode,
   })  : _repository = repository,
-        super(OfficeFormState(officeType: officeType)) {
-    on<OfficeTypeChanged>(
-        (event, emit) => emit(state.copyWith(officeType: event.value)));
+        super(OfficeFormState(
+          officeType: officeType,
+          activityType: 'بازرگانی',
+          companyType: officeType == OfficeType.legal ? 'سهامی خاص' : '',
+          parentOffice: 'ندارد',
+          province: 'تهران',
+          city: 'تهران',
+          fiscalYear: '۱۴۰۵',
+          chartTemplate: 'استاندارد ایران',
+        )) {
+    on<OfficeTypeChanged>((event, emit) => emit(state.copyWith(
+          officeType: event.value,
+          activityType: state.activityType.isEmpty ? 'بازرگانی' : null,
+          companyType:
+              event.value == OfficeType.legal && state.companyType.isEmpty
+                  ? 'سهامی خاص'
+                  : null,
+        )));
     on<OfficeFieldChanged>(_fieldChanged);
     on<OfficeLogoChanged>((event, emit) => emit(event.bytes == null
         ? state.copyWith(clearLogo: true)
@@ -83,6 +98,21 @@ class OfficeFormBloc extends Bloc<OfficeFormEvent, OfficeFormState> {
         type: state.officeType,
         fiscalYearStart: DateTime(DateTime.now().year, 1),
         nationalId: state.nationalId.trim(),
+        ownerFullName: state.ownerFullName.trim(),
+        registrationNumber: state.registrationNumber.trim(),
+        activityType: state.activityType.trim(),
+        companyType: state.companyType.trim(),
+        parentOffice: state.parentOffice.trim(),
+        phone: state.phone.trim(),
+        email: state.email.trim(),
+        website: state.website.trim(),
+        province: state.province.trim(),
+        city: state.city.trim(),
+        address: state.address.trim(),
+        postalCode: state.postalCode.trim(),
+        fiscalYear: state.fiscalYear.trim(),
+        chartTemplate: state.chartTemplate.trim(),
+        description: state.description.trim(),
       ));
       emit(state.copyWith(
           status: OfficeFormStatus.success,
@@ -111,6 +141,21 @@ class OfficeFormBloc extends Bloc<OfficeFormEvent, OfficeFormState> {
         type: state.officeType,
         fiscalYearStart: DateTime(DateTime.now().year, 1),
         nationalId: state.nationalId.trim(),
+        ownerFullName: state.ownerFullName.trim(),
+        registrationNumber: state.registrationNumber.trim(),
+        activityType: state.activityType.trim(),
+        companyType: state.companyType.trim(),
+        parentOffice: state.parentOffice.trim(),
+        phone: state.phone.trim(),
+        email: state.email.trim(),
+        website: state.website.trim(),
+        province: state.province.trim(),
+        city: state.city.trim(),
+        address: state.address.trim(),
+        postalCode: state.postalCode.trim(),
+        fiscalYear: state.fiscalYear.trim(),
+        chartTemplate: state.chartTemplate.trim(),
+        description: state.description.trim(),
       );
 
   Map<String, String> _validate(OfficeFormState s) {
@@ -120,22 +165,11 @@ class OfficeFormBloc extends Bloc<OfficeFormEvent, OfficeFormState> {
     }
 
     required('officeName', s.officeName);
-    required(s.officeType == OfficeType.legal ? 'companyType' : 'activityType',
-        s.officeType == OfficeType.legal ? s.companyType : s.activityType);
-    required(
-        s.officeType == OfficeType.legal
-            ? 'registrationNumber'
-            : 'ownerFullName',
-        s.officeType == OfficeType.legal
-            ? s.registrationNumber
-            : s.ownerFullName);
-    required('nationalId', s.nationalId);
     final digits = s.nationalId.replaceAll(RegExp(r'\D'), '');
     if (digits.isNotEmpty &&
         digits.length != (s.officeType == OfficeType.legal ? 11 : 10)) {
       e['nationalId'] = 'تعداد ارقام معتبر نیست.';
     }
-    required('phone', s.phone);
     if (s.phone.isNotEmpty && !RegExp(r'^0\d{9,10}$').hasMatch(s.phone)) {
       e['phone'] = 'شماره تماس معتبر نیست.';
     }
@@ -147,16 +181,10 @@ class OfficeFormBloc extends Bloc<OfficeFormEvent, OfficeFormState> {
         Uri.tryParse(s.website)?.hasAbsolutePath != true) {
       e['website'] = 'نشانی وب معتبر نیست.';
     }
-    required('province', s.province);
-    required('city', s.city);
-    required('address', s.address);
-    required('postalCode', s.postalCode);
     if (s.postalCode.isNotEmpty &&
         !RegExp(r'^\d{10}$').hasMatch(s.postalCode)) {
       e['postalCode'] = 'کد پستی باید ۱۰ رقم باشد.';
     }
-    required('fiscalYear', s.fiscalYear);
-    required('chartTemplate', s.chartTemplate);
     return e;
   }
 }

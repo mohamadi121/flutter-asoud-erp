@@ -3,9 +3,13 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import 'chart_of_accounts_page.dart';
+import 'detail_groups_page.dart';
+import '../../domain/repositories/chart_of_accounts_repository.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 class AccountingHomePage extends StatelessWidget {
-  const AccountingHomePage({super.key});
+  const AccountingHomePage({this.company, super.key});
+  final String? company;
 
   @override
   Widget build(BuildContext context) {
@@ -16,6 +20,7 @@ class AccountingHomePage extends StatelessWidget {
       ('دفتر کل', Icons.menu_book_rounded, Color(0xFF42A5F5)),
       ('مرور حساب‌ها', Icons.manage_search_rounded, Color(0xFFEF6C5B)),
       ('گزارش‌های مالی', Icons.analytics_rounded, Color(0xFF7E57C2)),
+      ('گروه تفصیلی شناور', Icons.hub_outlined, Color(0xFF00ACC1)),
     ];
     return Scaffold(
       appBar: const AsoudHeader(
@@ -38,10 +43,20 @@ class AccountingHomePage extends StatelessWidget {
                         style: const TextStyle(fontWeight: FontWeight.w700)),
                     trailing: const Icon(Icons.chevron_left_rounded),
                     onTap: action.$1 == 'سرفصل حساب‌ها'
-                        ? () => Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                                builder: (_) => const ChartOfAccountsPage()))
-                        : null,
+                        ? () =>
+                            Navigator.of(context).push(MaterialPageRoute<void>(
+                                builder: (_) => ChartOfAccountsPage(
+                                      company: company,
+                                      repository: context
+                                          .read<ChartOfAccountsRepository>(),
+                                    )))
+                        : action.$1 == 'گروه تفصیلی شناور'
+                            ? () => Navigator.of(context).push(
+                                  MaterialPageRoute<void>(
+                                    builder: (_) => const DetailGroupsPage(),
+                                  ),
+                                )
+                            : null,
                   ),
                 )),
           ])),

@@ -4,15 +4,23 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../domain/entities/account_node.dart';
+import '../../domain/repositories/chart_of_accounts_repository.dart';
 import '../cubit/account_form_cubit.dart';
 
 class AccountFormPage extends StatelessWidget {
-  const AccountFormPage({this.account, super.key});
+  const AccountFormPage(
+      {this.account, this.company, this.repository, super.key});
   final AccountNode? account;
+  final String? company;
+  final ChartOfAccountsRepository? repository;
 
   @override
   Widget build(BuildContext context) => BlocProvider(
-        create: (_) => AccountFormCubit(account: account),
+        create: (_) => AccountFormCubit(
+          account: account,
+          company: company,
+          repository: repository,
+        ),
         child: const _AccountFormView(),
       );
 }
@@ -28,7 +36,7 @@ class _AccountFormView extends StatelessWidget {
       listenWhen: (previous, current) => previous.status != current.status,
       listener: (context, state) {
         if (state.status == AccountFormStatus.success) {
-          Navigator.of(context).pop(state.toEntity());
+          Navigator.of(context).pop(state.savedAccount ?? state.toEntity());
         }
       },
       builder: (context, state) {
@@ -135,6 +143,12 @@ class _AccountFormView extends StatelessWidget {
                     child: Text('عنوان، حساب والد و کد حساب را بررسی کنید.',
                         style: TextStyle(color: Colors.red)),
                   ),
+                if (state.status == AccountFormStatus.failure)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Text(state.message ?? 'ذخیره حساب انجام نشد.',
+                        style: const TextStyle(color: Colors.red)),
+                  ),
                 const SizedBox(height: 22),
               ],
             ),
@@ -143,7 +157,8 @@ class _AccountFormView extends StatelessWidget {
             primaryLabel: state.mode == AccountFormMode.create
                 ? 'ذخیره حساب'
                 : 'ذخیره تغییرات',
-            onPrimary: cubit.submit,
+            onPrimary:
+                state.status == AccountFormStatus.saving ? null : cubit.submit,
             secondaryLabel: 'انصراف',
             onSecondary: () => Navigator.of(context).pop(),
           ),

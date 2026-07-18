@@ -16,6 +16,8 @@ class AccountFormState extends Equatable {
     this.isActive = true,
     this.autoCode = true,
     this.status = AccountFormStatus.editing,
+    this.message,
+    this.savedAccount,
   });
 
   final AccountFormMode mode;
@@ -28,6 +30,8 @@ class AccountFormState extends Equatable {
   final bool isActive;
   final bool autoCode;
   final AccountFormStatus status;
+  final String? message;
+  final AccountNode? savedAccount;
 
   bool get requiresParent => level != AccountLevel.group;
   bool get isValid =>
@@ -55,6 +59,9 @@ class AccountFormState extends Equatable {
     bool? isActive,
     bool? autoCode,
     AccountFormStatus? status,
+    String? message,
+    bool clearMessage = false,
+    AccountNode? savedAccount,
   }) =>
       AccountFormState(
         mode: mode,
@@ -67,6 +74,8 @@ class AccountFormState extends Equatable {
         isActive: isActive ?? this.isActive,
         autoCode: autoCode ?? this.autoCode,
         status: status ?? AccountFormStatus.editing,
+        message: clearMessage ? null : message ?? this.message,
+        savedAccount: savedAccount ?? this.savedAccount,
       );
 
   @override
@@ -80,6 +89,8 @@ class AccountFormState extends Equatable {
         nature,
         isActive,
         autoCode,
-        status
+        status,
+        message,
+        savedAccount,
       ];
 }

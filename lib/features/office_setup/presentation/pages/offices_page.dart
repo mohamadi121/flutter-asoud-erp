@@ -113,34 +113,50 @@ class _OfficesView extends StatelessWidget {
           const AsoudSectionTitle(title: 'دفتر پیش‌فرض'),
           _OfficeCard(
               office: office, onMenu: () => _showActions(context, office)),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => DashboardPage(
-                  officeName: office.name,
-                  offlinePreview: state.offlinePreview,
+          const SizedBox(height: 14),
+          SizedBox(
+            height: 52,
+            child: FilledButton.icon(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => DashboardPage(
+                    officeName: office.name,
+                    offlinePreview: state.offlinePreview,
+                  ),
                 ),
               ),
+              icon: const Icon(Icons.arrow_back_rounded),
+              label: const Text('ورود به دفتر کار'),
             ),
-            icon: const Icon(Icons.arrow_back_rounded),
-            label: const Text('ورود به دفتر کار'),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
         ],
-        OutlinedButton.icon(
-          onPressed: () => _create(context),
-          icon: const Icon(Icons.add_circle_outline_rounded),
-          label: const Text('ایجاد دفتر کار جدید'),
+        SizedBox(
+          height: 52,
+          child: OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: AsoudColors.primary, width: 1.4),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: () => _create(context),
+            icon: const Icon(Icons.add_circle_outline_rounded),
+            label: const Text('ایجاد دفتر کار جدید'),
+          ),
         ),
         const SizedBox(height: 22),
         const AsoudSectionTitle(title: 'دفترهای موجود'),
-        TextField(
-          key: const ValueKey('office-search'),
-          onChanged: context.read<OfficesCubit>().search,
-          decoration: const InputDecoration(
+        SizedBox(
+          height: 44,
+          child: TextField(
+            key: const ValueKey('office-search'),
+            onChanged: context.read<OfficesCubit>().search,
+            decoration: const InputDecoration(
               hintText: 'جست‌وجو در دفترها...',
-              prefixIcon: Icon(Icons.search_rounded)),
+              prefixIcon: Icon(Icons.search_rounded, size: 20),
+              contentPadding: EdgeInsets.symmetric(vertical: 8),
+            ),
+          ),
         ),
         const SizedBox(height: 12),
         if (state.filteredOffices.isEmpty)
@@ -261,43 +277,101 @@ class _OfficeCard extends StatelessWidget {
   final VoidCallback onMenu;
   @override
   Widget build(BuildContext context) => Card(
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            AsoudIconBox(
-              icon: office.type == OfficeType.legal
-                  ? Icons.apartment_rounded
-                  : Icons.person_rounded,
-              color: office.type == OfficeType.legal
-                  ? AsoudColors.primary
-                  : AsoudColors.success,
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                  Text(office.name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+        child: Column(children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              AsoudIconBox(
+                icon: office.type == OfficeType.legal
+                    ? Icons.apartment_rounded
+                    : Icons.person_rounded,
+                color: office.type == OfficeType.legal
+                    ? AsoudColors.primary
+                    : AsoudColors.success,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                    Text(office.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 15, fontWeight: FontWeight.w900)),
+                    const SizedBox(height: 6),
+                    Text(
+                      office.type == OfficeType.legal
+                          ? 'حقوقی • ${office.city?.isNotEmpty == true ? office.city : 'تهران'}، ایران'
+                          : 'حقیقی • ${office.city?.isNotEmpty == true ? office.city : 'تهران'}، ایران',
                       style: const TextStyle(
-                          fontSize: 13, fontWeight: FontWeight.w800)),
-                  const SizedBox(height: 6),
-                  Wrap(spacing: 6, runSpacing: 6, children: [
-                    _Badge(
+                          color: AsoudColors.muted, fontSize: 10),
+                    ),
+                    const SizedBox(height: 13),
+                    Wrap(spacing: 6, runSpacing: 6, children: [
+                      _Badge(
+                          label: office.type == OfficeType.legal
+                              ? 'حقوقی'
+                              : 'حقیقی',
+                          color: AsoudColors.primary),
+                      const _Badge(label: 'فعال', color: AsoudColors.success),
+                      _Badge(
                         label:
-                            office.type == OfficeType.legal ? 'حقوقی' : 'حقیقی',
-                        color: AsoudColors.primary),
-                    const _Badge(label: 'فعال', color: AsoudColors.success),
-                  ]),
-                ])),
-            IconButton(
-                key: ValueKey('office-menu-${office.name}'),
-                onPressed: onMenu,
-                icon: const Icon(Icons.more_vert_rounded)),
-          ]),
-        ),
+                            'سال مالی ${office.fiscalYear?.isNotEmpty == true ? office.fiscalYear : _persianFiscalYear(office.fiscalYearStart)}',
+                        color: AsoudColors.warning,
+                      ),
+                    ]),
+                    const SizedBox(height: 12),
+                    const Divider(height: 1),
+                    const SizedBox(height: 8),
+                    Text(
+                      'آخرین همگام‌سازی: ${_syncLabel(office.lastSyncedAt)}',
+                      style: const TextStyle(
+                        color: AsoudColors.muted,
+                        fontSize: 9,
+                      ),
+                    ),
+                  ])),
+              IconButton(
+                  key: ValueKey('office-menu-${office.name}'),
+                  onPressed: onMenu,
+                  icon: const Icon(Icons.more_vert_rounded)),
+            ]),
+          ),
+          const Divider(height: 1),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 11),
+            decoration: const BoxDecoration(
+              color: Color(0xFFEAF8F0),
+              borderRadius: BorderRadius.vertical(bottom: Radius.circular(14)),
+            ),
+            child: const Text('دفتر فعال',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    color: AsoudColors.success,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800)),
+          ),
+        ]),
       );
+
+  static String _persianFiscalYear(DateTime date) {
+    final year = date.year > 1700 ? date.year - 621 : date.year;
+    const digits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+    return year
+        .toString()
+        .split('')
+        .map((value) => digits[int.parse(value)])
+        .join();
+  }
+
+  static String _syncLabel(DateTime? value) {
+    if (value == null) return 'زمان ثبت نشده';
+    final local = value.toLocal();
+    String two(int number) => number.toString().padLeft(2, '0');
+    return '${two(local.hour)}:${two(local.minute)}، ${local.year}/${two(local.month)}/${two(local.day)}';
+  }
 }
 
 class _Badge extends StatelessWidget {

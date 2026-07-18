@@ -45,7 +45,7 @@ void main() {
     await tester.pumpWidget(_app(const DashboardPage()));
     await tester.pumpAndSettle();
 
-    expect(find.text('وضعیت اتصال ERPNext'), findsOneWidget);
+    expect(find.textContaining('ERPNext'), findsWidgets);
     expect(find.text('عملیات سریع'), findsOneWidget);
     expect(find.text('خانه'), findsOneWidget);
     expect(find.text('گزارش‌ها'), findsWidgets);

@@ -15,7 +15,7 @@ void main() {
   );
 
   blocTest<AccountFormCubit, AccountFormState>(
-    'تفصیلی با والد و کد خودکار معتبر است',
+    'فرم معتبر بدون repository موفقیت ساختگی صادر نمی‌کند',
     build: AccountFormCubit.new,
     act: (cubit) => cubit
       ..setLevel(AccountLevel.detail)
@@ -23,7 +23,7 @@ void main() {
       ..setTitle('بانک ملت')
       ..submit(),
     verify: (cubit) {
-      assert(cubit.state.status == AccountFormStatus.success);
+      assert(cubit.state.status == AccountFormStatus.failure);
       assert(cubit.state.toEntity().level == AccountLevel.detail);
     },
   );

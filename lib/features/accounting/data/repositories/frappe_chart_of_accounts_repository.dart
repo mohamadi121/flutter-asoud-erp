@@ -7,63 +7,75 @@ class FrappeChartOfAccountsRepository implements ChartOfAccountsRepository {
   final FrappeClient _client;
 
   @override
-  Future<List<AccountNode>> getAccounts() async {
-    final response = await _client.callMethod(
-      'frappe.client.get_list',
+  Future<List<AccountNode>> getAccounts(String company) async {
+    final response = await _client.callAsoudMethod(
+      'asoud_erp.api.v1.account.list_accounts',
+      data: {'company': company},
+    );
+    if (response is! List) return const [];
+    return response
+        .whereType<Map>()
+        .map((item) => _fromJson(Map<String, dynamic>.from(item)))
+        .toList(growable: false);
+  }
+
+  @override
+  Future<AccountNode> createAccount(String company, AccountNode account,
+      {required bool autoCode}) async {
+    final response = await _client.callAsoudMethod(
+      'asoud_erp.api.v1.account.create_account',
       data: {
-        'doctype': 'Account',
-        'fields': [
-          'name',
-          'account_number',
-          'account_name',
-          'parent_account',
-          'is_group'
-        ],
-        'order_by': 'account_number asc',
-        'limit_page_length': 500,
+        'company': company,
+        'account_name': account.title,
+        'level': _levelToApi(account.level),
+        'parent_account': account.parentId,
+        'account_number': account.code.isEmpty ? null : account.code,
+        'auto_code': autoCode ? 1 : 0,
+        'root_type': _rootType(account.nature),
       },
     );
-    final message = response['message'];
-    if (message is! List) return const [];
-    return message.whereType<Map<String, dynamic>>().map(_fromJson).toList();
+    if (response is! Map) return account;
+    return _fromJson(Map<String, dynamic>.from(response));
   }
 
   @override
-  Future<AccountNode> createAccount(AccountNode account) async {
-    final response = await _client.createResource('Account', _toJson(account));
-    return response['data'] is Map<String, dynamic>
-        ? _fromJson(response['data'] as Map<String, dynamic>)
-        : account;
-  }
-
-  @override
-  Future<AccountNode> updateAccount(AccountNode account) async {
-    final response =
-        await _client.updateResource('Account', account.id, _toJson(account));
-    return response['data'] is Map<String, dynamic>
-        ? _fromJson(response['data'] as Map<String, dynamic>)
-        : account;
+  Future<AccountNode> updateAccount(String company, AccountNode account) async {
+    final response = await _client.callAsoudMethod(
+      'asoud_erp.api.v1.account.update_account',
+      data: {
+        'company': company,
+        'account': account.id,
+        'account_name': account.title,
+        'parent_account': account.parentId,
+        'disabled': account.isActive ? 0 : 1,
+        'root_type': _rootType(account.nature),
+      },
+    );
+    if (response is! Map) return account;
+    return _fromJson(Map<String, dynamic>.from(response));
   }
 
   AccountNode _fromJson(Map<String, dynamic> json) => AccountNode(
         id: json['name'] as String? ?? '',
         code: json['account_number']?.toString() ?? '',
         title: json['account_name'] as String? ?? '',
-        level: json['is_group'] == 1 ? AccountLevel.group : AccountLevel.ledger,
+        level: _levelFromApi(json['asoud_level'] as String?),
         parentId: json['parent_account'] as String?,
         nature: _natureFromRootType(json['root_type'] as String?),
       );
 
-  Map<String, dynamic> _toJson(AccountNode account) => {
-        'account_name': account.title,
-        'account_number': account.code,
-        'parent_account': account.parentId,
-        'is_group': account.level == AccountLevel.group ||
-                account.level == AccountLevel.general
-            ? 1
-            : 0,
-        'disabled': account.isActive ? 0 : 1,
-        'root_type': _rootType(account.nature),
+  AccountLevel _levelFromApi(String? value) => switch (value) {
+        'Group' => AccountLevel.group,
+        'General' => AccountLevel.general,
+        'Detail' => AccountLevel.detail,
+        _ => AccountLevel.ledger,
+      };
+
+  String _levelToApi(AccountLevel value) => switch (value) {
+        AccountLevel.group => 'Group',
+        AccountLevel.general => 'General',
+        AccountLevel.ledger => 'Ledger',
+        AccountLevel.detail => 'Detail',
       };
 
   AccountNature _natureFromRootType(String? value) => switch (value) {

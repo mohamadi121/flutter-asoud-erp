@@ -4,20 +4,28 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../domain/entities/account_node.dart';
+import '../../domain/repositories/chart_of_accounts_repository.dart';
 import '../cubit/chart_of_accounts_cubit.dart';
 import 'account_form_page.dart';
 
 class ChartOfAccountsPage extends StatelessWidget {
-  const ChartOfAccountsPage({super.key});
+  const ChartOfAccountsPage({this.company, this.repository, super.key});
+  final String? company;
+  final ChartOfAccountsRepository? repository;
   @override
   Widget build(BuildContext context) => BlocProvider(
-        create: (_) => ChartOfAccountsCubit()..load(),
-        child: const _ChartOfAccountsView(),
+        create: (_) => ChartOfAccountsCubit(
+          company: company,
+          repository: repository,
+        )..load(),
+        child: _ChartOfAccountsView(company: company, repository: repository),
       );
 }
 
 class _ChartOfAccountsView extends StatefulWidget {
-  const _ChartOfAccountsView();
+  const _ChartOfAccountsView({required this.company, required this.repository});
+  final String? company;
+  final ChartOfAccountsRepository? repository;
   @override
   State<_ChartOfAccountsView> createState() => _ChartOfAccountsViewState();
 }
@@ -35,7 +43,10 @@ class _ChartOfAccountsViewState extends State<_ChartOfAccountsView> {
         floatingActionButton: FloatingActionButton.extended(
           onPressed: () => Navigator.of(context).push(
             MaterialPageRoute<AccountNode>(
-                builder: (_) => const AccountFormPage()),
+                builder: (_) => AccountFormPage(
+                      company: widget.company,
+                      repository: widget.repository,
+                    )),
           ),
           icon: const Icon(Icons.add_rounded),
           label: const Text('سرفصل جدید'),
@@ -48,6 +59,15 @@ class _ChartOfAccountsViewState extends State<_ChartOfAccountsView> {
           return ListView(
               padding: const EdgeInsets.fromLTRB(16, 10, 16, 90),
               children: [
+                if (state.status == ChartStatus.loading)
+                  const LinearProgressIndicator(),
+                if (state.status == ChartStatus.failure) ...[
+                  _ChartMessage(
+                    message: state.message ?? 'دریافت اطلاعات ممکن نشد.',
+                    onRetry: context.read<ChartOfAccountsCubit>().load,
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 SegmentedButton<int>(
                   segments: const [
                     ButtonSegment(
@@ -86,7 +106,11 @@ class _ChartOfAccountsViewState extends State<_ChartOfAccountsView> {
                 if (visible.isEmpty)
                   const _EmptyAccounts()
                 else
-                  ...visible.map((account) => _AccountTile(account: account)),
+                  ...visible.map((account) => _AccountTile(
+                        account: account,
+                        company: widget.company,
+                        repository: widget.repository,
+                      )),
               ]);
         })),
       );
@@ -164,6 +188,27 @@ class _ChartOfAccountsViewState extends State<_ChartOfAccountsView> {
       };
 }
 
+class _ChartMessage extends StatelessWidget {
+  const _ChartMessage({required this.message, required this.onRetry});
+  final String message;
+  final VoidCallback onRetry;
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AsoudColors.warning.withValues(alpha: .08),
+          border: Border.all(color: AsoudColors.warning.withValues(alpha: .4)),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(children: [
+          const Icon(Icons.cloud_off_rounded, color: AsoudColors.warning),
+          const SizedBox(width: 8),
+          Expanded(child: Text(message, style: const TextStyle(fontSize: 10))),
+          TextButton(onPressed: onRetry, child: const Text('تلاش مجدد')),
+        ]),
+      );
+}
+
 class _EmptyAccounts extends StatelessWidget {
   const _EmptyAccounts();
   @override
@@ -182,8 +227,14 @@ class _EmptyAccounts extends StatelessWidget {
 }
 
 class _AccountTile extends StatelessWidget {
-  const _AccountTile({required this.account});
+  const _AccountTile({
+    required this.account,
+    required this.company,
+    required this.repository,
+  });
   final AccountNode account;
+  final String? company;
+  final ChartOfAccountsRepository? repository;
   @override
   Widget build(BuildContext context) {
     final hasChildren = account.children.isNotEmpty;
@@ -200,7 +251,11 @@ class _AccountTile extends StatelessWidget {
           children: account.children
               .map((child) => Padding(
                   padding: const EdgeInsets.only(right: 12),
-                  child: _AccountTile(account: child)))
+                  child: _AccountTile(
+                    account: child,
+                    company: company,
+                    repository: repository,
+                  )))
               .toList(),
         ),
       );
@@ -216,7 +271,11 @@ class _AccountTile extends StatelessWidget {
           icon: const Icon(Icons.edit_outlined),
           onPressed: () => Navigator.of(context).push(
             MaterialPageRoute<AccountNode>(
-                builder: (_) => AccountFormPage(account: account)),
+                builder: (_) => AccountFormPage(
+                      account: account,
+                      company: company,
+                      repository: repository,
+                    )),
           ),
         ),
       ),

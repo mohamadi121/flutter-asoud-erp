@@ -89,8 +89,10 @@ void main() {
     await tester.pump();
     expect(find.text('دفتری با این عبارت پیدا نشد.'), findsOneWidget);
 
-    await tester
-        .tap(find.byKey(const ValueKey('office-menu-شرکت نمونه توسعه آریا')));
+    final officeMenu =
+        find.byKey(const ValueKey('office-menu-شرکت نمونه توسعه آریا'));
+    await tester.ensureVisible(officeMenu);
+    await tester.tap(officeMenu);
     await tester.pumpAndSettle();
     expect(find.text('عملیات دفتر'), findsOneWidget);
     expect(find.text('حذف دفتر'), findsOneWidget);
@@ -131,7 +133,9 @@ void main() {
     expect(find.byType(DashboardPage), findsOneWidget);
     expect(find.textContaining('حالت موقت آفلاین'), findsOneWidget);
 
-    await tester.tap(find.text('تکمیل'));
+    final setupButton = find.text('تکمیل تنظیمات پایه');
+    await tester.ensureVisible(setupButton);
+    await tester.tap(setupButton);
     await tester.pumpAndSettle();
     expect(find.byType(BaseAccountingSetupPage), findsOneWidget);
     expect(find.textContaining('پیش‌نمایش آفلاین'), findsOneWidget);
