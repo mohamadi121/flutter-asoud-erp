@@ -13,6 +13,8 @@ import '../features/accounting/domain/repositories/detail_group_repository.dart'
 import '../features/base_setup/data/repositories/frappe_base_setup_repository.dart';
 import '../features/base_setup/domain/repositories/base_setup_repository.dart';
 import '../features/auth/presentation/pages/splash_page.dart';
+import '../features/parties/data/repositories/frappe_party_repository.dart';
+import '../features/parties/domain/repositories/party_repository.dart';
 
 class AsoudErpApp extends StatelessWidget {
   const AsoudErpApp({super.key});
@@ -34,6 +36,9 @@ class AsoudErpApp extends StatelessWidget {
         ),
         RepositoryProvider<BaseSetupRepository>.value(
           value: FrappeBaseSetupRepository(client),
+        ),
+        RepositoryProvider<PartyRepository>.value(
+          value: FrappePartyRepository(client),
         ),
       ],
       child: MaterialApp(

@@ -6,6 +6,7 @@ import 'chart_of_accounts_page.dart';
 import 'detail_groups_page.dart';
 import '../../domain/repositories/chart_of_accounts_repository.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../parties/presentation/pages/party_management_page.dart';
 
 class AccountingHomePage extends StatelessWidget {
   const AccountingHomePage({this.company, super.key});
@@ -21,6 +22,7 @@ class AccountingHomePage extends StatelessWidget {
       ('مرور حساب‌ها', Icons.manage_search_rounded, Color(0xFFEF6C5B)),
       ('گزارش‌های مالی', Icons.analytics_rounded, Color(0xFF7E57C2)),
       ('گروه تفصیلی شناور', Icons.hub_outlined, Color(0xFF00ACC1)),
+      ('مدیریت اشخاص', Icons.people_alt_outlined, Color(0xFF1769F6)),
     ];
     return Scaffold(
       appBar: const AsoudHeader(
@@ -56,7 +58,15 @@ class AccountingHomePage extends StatelessWidget {
                                     builder: (_) => const DetailGroupsPage(),
                                   ),
                                 )
-                            : null,
+                            : action.$1 == 'مدیریت اشخاص'
+                                ? () => Navigator.of(context).push(
+                                      MaterialPageRoute<void>(
+                                        builder: (_) => PartyManagementPage(
+                                          company: company,
+                                        ),
+                                      ),
+                                    )
+                                : null,
                   ),
                 )),
           ])),
