@@ -15,6 +15,7 @@ void main() {
     ));
 
     expect(find.text('ورود تا آماده‌شدن سرور غیرفعال است'), findsOneWidget);
+    expect(find.text('ادامه موقت بدون ورود'), findsOneWidget);
     expect(tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
         isNull);
   });
