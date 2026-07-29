@@ -55,6 +55,7 @@ class _OfficesView extends StatelessWidget {
           ),
           body: SafeArea(child: _body(context, state)),
           bottomNavigationBar: NavigationBar(
+            height: 62,
             selectedIndex: 2,
             onDestinationSelected: (index) {
               if (index != 2) _unavailable(context);
@@ -104,7 +105,7 @@ class _OfficesView extends StatelessWidget {
           const _OfflineBanner(),
           const SizedBox(height: 16),
         ],
-        if (state.showCreatedBanner) ...[
+        if (state.showCreatedBanner && !state.offlinePreview) ...[
           _SuccessBanner(
               onClose: context.read<OfficesCubit>().dismissCreatedBanner),
           const SizedBox(height: 16),
@@ -112,7 +113,9 @@ class _OfficesView extends StatelessWidget {
         if (state.defaultOffice case final office?) ...[
           const AsoudSectionTitle(title: 'دفتر پیش‌فرض'),
           _OfficeCard(
-              office: office, onMenu: () => _showActions(context, office)),
+            office: office,
+            onMenu: () => _showActions(context, office),
+          ),
           const SizedBox(height: 14),
           SizedBox(
             height: 52,
@@ -147,7 +150,7 @@ class _OfficesView extends StatelessWidget {
         const SizedBox(height: 22),
         const AsoudSectionTitle(title: 'دفترهای موجود'),
         SizedBox(
-          height: 44,
+          height: 42,
           child: TextField(
             key: const ValueKey('office-search'),
             onChanged: context.read<OfficesCubit>().search,
@@ -229,7 +232,8 @@ class _SuccessBanner extends StatelessWidget {
   final VoidCallback onClose;
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(12),
+        constraints: const BoxConstraints(minHeight: 62),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
           color: const Color(0xFFEAF8F0),
           border: Border.all(color: AsoudColors.success.withValues(alpha: .3)),
@@ -272,86 +276,109 @@ class _OfflineBanner extends StatelessWidget {
 }
 
 class _OfficeCard extends StatelessWidget {
-  const _OfficeCard({required this.office, required this.onMenu});
+  const _OfficeCard({
+    required this.office,
+    required this.onMenu,
+  });
   final Office office;
   final VoidCallback onMenu;
   @override
-  Widget build(BuildContext context) => Card(
-        child: Column(children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
-            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              AsoudIconBox(
-                icon: office.type == OfficeType.legal
-                    ? Icons.apartment_rounded
-                    : Icons.person_rounded,
-                color: office.type == OfficeType.legal
-                    ? AsoudColors.primary
-                    : AsoudColors.success,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                    Text(office.name,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+  Widget build(BuildContext context) => Material(
+        key: ValueKey('office-card-${office.name}'),
+        color: Colors.white,
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(
+          side: const BorderSide(color: AsoudColors.border),
+          borderRadius: BorderRadius.circular(15),
+        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 148),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 18, 14, 12),
+              child:
+                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                AsoudIconBox(
+                  icon: office.type == OfficeType.legal
+                      ? Icons.apartment_rounded
+                      : Icons.person_rounded,
+                  color: office.type == OfficeType.legal
+                      ? AsoudColors.primary
+                      : AsoudColors.success,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                      Text(office.name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontSize: 15, fontWeight: FontWeight.w900)),
+                      const SizedBox(height: 5),
+                      Text(
+                        office.type == OfficeType.legal
+                            ? 'حقوقی • ${office.city?.isNotEmpty == true ? office.city : 'تهران'}، ایران'
+                            : 'حقیقی • ${office.city?.isNotEmpty == true ? office.city : 'تهران'}، ایران',
                         style: const TextStyle(
-                            fontSize: 15, fontWeight: FontWeight.w900)),
-                    const SizedBox(height: 6),
-                    Text(
-                      office.type == OfficeType.legal
-                          ? 'حقوقی • ${office.city?.isNotEmpty == true ? office.city : 'تهران'}، ایران'
-                          : 'حقیقی • ${office.city?.isNotEmpty == true ? office.city : 'تهران'}، ایران',
-                      style: const TextStyle(
-                          color: AsoudColors.muted, fontSize: 10),
-                    ),
-                    const SizedBox(height: 13),
-                    Wrap(spacing: 6, runSpacing: 6, children: [
-                      _Badge(
-                          label: office.type == OfficeType.legal
-                              ? 'حقوقی'
-                              : 'حقیقی',
-                          color: AsoudColors.primary),
-                      const _Badge(label: 'فعال', color: AsoudColors.success),
-                      _Badge(
-                        label:
-                            'سال مالی ${office.fiscalYear?.isNotEmpty == true ? office.fiscalYear : _persianFiscalYear(office.fiscalYearStart)}',
-                        color: AsoudColors.warning,
+                            color: AsoudColors.muted, fontSize: 10),
                       ),
-                    ]),
-                    const SizedBox(height: 12),
-                    const Divider(height: 1),
-                    const SizedBox(height: 8),
-                    Text(
-                      'آخرین همگام‌سازی: ${_syncLabel(office.lastSyncedAt)}',
-                      style: const TextStyle(
-                        color: AsoudColors.muted,
-                        fontSize: 9,
+                      const SizedBox(height: 12),
+                      Wrap(spacing: 6, runSpacing: 6, children: [
+                        _Badge(
+                            label: office.type == OfficeType.legal
+                                ? 'حقوقی'
+                                : 'حقیقی',
+                            color: AsoudColors.primary),
+                        const _Badge(label: 'فعال', color: AsoudColors.success),
+                        _Badge(
+                          label:
+                              'سال مالی ${office.fiscalYear?.isNotEmpty == true ? office.fiscalYear : _persianFiscalYear(office.fiscalYearStart)}',
+                          color: AsoudColors.warning,
+                        ),
+                      ]),
+                      const SizedBox(height: 11),
+                      const Divider(height: 1, color: AsoudColors.border),
+                      const SizedBox(height: 9),
+                      Text(
+                        'آخرین همگام‌سازی: ${_syncLabel(office.lastSyncedAt)}',
+                        style: const TextStyle(
+                          color: AsoudColors.muted,
+                          fontSize: 9,
+                        ),
                       ),
-                    ),
-                  ])),
-              IconButton(
-                  key: ValueKey('office-menu-${office.name}'),
-                  onPressed: onMenu,
-                  icon: const Icon(Icons.more_vert_rounded)),
-            ]),
-          ),
-          const Divider(height: 1),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 11),
-            decoration: const BoxDecoration(
-              color: Color(0xFFEAF8F0),
-              borderRadius: BorderRadius.vertical(bottom: Radius.circular(14)),
+                    ])),
+                IconButton(
+                    key: ValueKey('office-menu-${office.name}'),
+                    onPressed: onMenu,
+                    icon: const Icon(Icons.more_vert_rounded)),
+              ]),
             ),
-            child: const Text('دفتر فعال',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                    color: AsoudColors.success,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800)),
+          ),
+          Container(
+            height: 1,
+            color: AsoudColors.success.withValues(alpha: .22),
+          ),
+          Container(
+            key: ValueKey('office-active-footer-${office.name}'),
+            width: double.infinity,
+            height: 38,
+            alignment: Alignment.center,
+            color: const Color(0xFFEAF8F0),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.check_circle_rounded,
+                    size: 15, color: AsoudColors.success),
+                SizedBox(width: 5),
+                Text('دفتر فعال',
+                    style: TextStyle(
+                        color: AsoudColors.success,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800)),
+              ],
+            ),
           ),
         ]),
       );

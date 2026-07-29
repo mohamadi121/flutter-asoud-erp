@@ -10,9 +10,10 @@ class AccountFormState extends Equatable {
     this.originalId,
     this.code = '',
     this.title = '',
-    this.level = AccountLevel.ledger,
+    this.level = AccountLevel.group,
     this.parentId,
     this.nature = AccountNature.debit,
+    this.accountType = '',
     this.isActive = true,
     this.autoCode = true,
     this.status = AccountFormStatus.editing,
@@ -27,6 +28,7 @@ class AccountFormState extends Equatable {
   final AccountLevel level;
   final String? parentId;
   final AccountNature nature;
+  final String accountType;
   final bool isActive;
   final bool autoCode;
   final AccountFormStatus status;
@@ -46,6 +48,7 @@ class AccountFormState extends Equatable {
         level: level,
         parentId: parentId,
         nature: nature,
+        accountType: accountType,
         isActive: isActive,
       );
 
@@ -56,6 +59,7 @@ class AccountFormState extends Equatable {
     String? parentId,
     bool clearParent = false,
     AccountNature? nature,
+    String? accountType,
     bool? isActive,
     bool? autoCode,
     AccountFormStatus? status,
@@ -71,6 +75,7 @@ class AccountFormState extends Equatable {
         level: level ?? this.level,
         parentId: clearParent ? null : parentId ?? this.parentId,
         nature: nature ?? this.nature,
+        accountType: accountType ?? this.accountType,
         isActive: isActive ?? this.isActive,
         autoCode: autoCode ?? this.autoCode,
         status: status ?? AccountFormStatus.editing,
@@ -87,6 +92,7 @@ class AccountFormState extends Equatable {
         level,
         parentId,
         nature,
+        accountType,
         isActive,
         autoCode,
         status,

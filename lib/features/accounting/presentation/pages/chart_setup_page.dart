@@ -5,6 +5,8 @@ import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../domain/repositories/chart_of_accounts_repository.dart';
 import 'chart_of_accounts_page.dart';
+import 'chart_excel_import_page.dart';
+import 'chart_template_page.dart';
 
 class ChartSetupPage extends StatelessWidget {
   const ChartSetupPage({required this.company, super.key});
@@ -23,7 +25,19 @@ class ChartSetupPage extends StatelessWidget {
             children: [
               const _WarningCard(),
               const SizedBox(height: 18),
-              const _TemplateCard(),
+              _TemplateCard(
+                onTap: () async {
+                  final created = await Navigator.of(context).push<bool>(
+                    MaterialPageRoute<bool>(
+                      builder: (_) => ChartTemplatePage(
+                        company: company,
+                        repository: context.read<ChartOfAccountsRepository>(),
+                      ),
+                    ),
+                  );
+                  if (created == true && context.mounted) _openChart(context);
+                },
+              ),
               const SizedBox(height: 12),
               Row(children: [
                 Expanded(
@@ -37,18 +51,26 @@ class ChartSetupPage extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 10),
-                const Expanded(
+                Expanded(
                   child: _ChoiceCard(
                     icon: Icons.upload_file_rounded,
                     color: AsoudColors.warning,
                     title: 'ورود از اکسل',
                     subtitle: 'از کدینگ حساب‌ها فایل اکسل دارید؟',
-                    action: 'نیازمند API ورود فایل',
+                    action: 'انتخاب فایل اکسل',
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<bool>(
+                        builder: (_) => ChartExcelImportPage(
+                          company: company,
+                          repository: context.read<ChartOfAccountsRepository>(),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ]),
-              const SizedBox(height: 100),
-              const _PreviewCard(),
+              const SizedBox(height: 28),
+              const _PreviewHintCard(),
             ],
           ),
         ),
@@ -104,31 +126,37 @@ class _WarningCard extends StatelessWidget {
 }
 
 class _TemplateCard extends StatelessWidget {
-  const _TemplateCard();
+  const _TemplateCard({required this.onTap});
+  final VoidCallback onTap;
   @override
   Widget build(BuildContext context) => Card(
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(children: [
-            const AsoudIconBox(
-                icon: Icons.check_rounded,
-                color: AsoudColors.primary,
-                size: 38),
-            const SizedBox(width: 10),
-            const Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('استفاده از قالب آماده',
-                      style: TextStyle(fontWeight: FontWeight.w900)),
-                  SizedBox(height: 4),
-                  Text('سرفصل پیشنهادی متناسب با الگوی استاندارد ایران',
-                      style: TextStyle(fontSize: 9, color: AsoudColors.muted)),
-                ],
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(children: [
+              const AsoudIconBox(
+                  icon: Icons.check_rounded,
+                  color: AsoudColors.primary,
+                  size: 38),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('استفاده از قالب آماده',
+                        style: TextStyle(fontWeight: FontWeight.w900)),
+                    SizedBox(height: 4),
+                    Text('سرفصل پیشنهادی متناسب با الگوی استاندارد ایران',
+                        style:
+                            TextStyle(fontSize: 9, color: AsoudColors.muted)),
+                  ],
+                ),
               ),
-            ),
-            const Chip(label: Text('پیشنهادی')),
-          ]),
+              const Chip(label: Text('پیشنهادی')),
+            ]),
+          ),
         ),
       );
 }
@@ -172,26 +200,27 @@ class _ChoiceCard extends StatelessWidget {
       );
 }
 
-class _PreviewCard extends StatelessWidget {
-  const _PreviewCard();
+class _PreviewHintCard extends StatelessWidget {
+  const _PreviewHintCard();
   @override
-  Widget build(BuildContext context) => Card(
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child:
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('پیش‌نمایش ساختار کدینگ',
-                style: TextStyle(fontWeight: FontWeight.w900)),
-            const SizedBox(height: 10),
-            for (final item in const ['دارایی‌ها', 'بدهی‌ها', 'حقوق مالکانه'])
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 3),
-                child: Row(children: [
-                  const Icon(Icons.chevron_left_rounded, size: 17),
-                  Text(item, style: const TextStyle(fontSize: 10)),
-                ]),
-              ),
-          ]),
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(13),
+        decoration: BoxDecoration(
+          color: AsoudColors.primary.withValues(alpha: .06),
+          borderRadius: BorderRadius.circular(14),
         ),
+        child: const Row(children: [
+          AsoudIconBox(
+              icon: Icons.visibility_outlined,
+              color: AsoudColors.primary,
+              size: 36),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'برای دیدن ساختار واقعی قالب، «استفاده از قالب آماده» را انتخاب کنید. تا قبل از تأیید شما هیچ حسابی در ERPNext ایجاد نمی‌شود.',
+              style: TextStyle(fontSize: 9, color: AsoudColors.muted),
+            ),
+          ),
+        ]),
       );
 }

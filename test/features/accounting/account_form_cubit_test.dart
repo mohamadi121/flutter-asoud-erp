@@ -7,6 +7,7 @@ void main() {
     'حساب معین بدون والد نامعتبر است',
     build: AccountFormCubit.new,
     act: (cubit) => cubit
+      ..setLevel(AccountLevel.ledger)
       ..setTitle('بانک‌ها')
       ..submit(),
     verify: (cubit) {

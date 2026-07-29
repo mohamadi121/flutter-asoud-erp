@@ -24,15 +24,23 @@ class FrappeDetailGroupRepository implements DetailGroupRepository {
 
   @override
   Future<DetailGroup> saveGroup(
-      {required String code, required String title}) async {
+      {required String code, required String title, String? id}) async {
     final data = await _client.callAsoudMethod(
       'asoud_erp.api.v1.detail_group.save_detail_group',
-      data: {'group_code': code, 'group_name': title},
+      data: {'group_code': code, 'group_name': title, 'name': id},
     );
     if (data is! Map) {
       throw StateError('Invalid detail group response');
     }
     return _parse([data]).single;
+  }
+
+  @override
+  Future<void> disableGroup(String id) async {
+    await _client.callAsoudMethod(
+      'asoud_erp.api.v1.detail_group.disable_detail_group',
+      data: {'name': id},
+    );
   }
 
   List<DetailGroup> _parse(dynamic data) {

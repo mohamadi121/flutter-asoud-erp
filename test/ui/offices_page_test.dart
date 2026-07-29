@@ -142,4 +142,26 @@ void main() {
     expect(tester.takeException(), isNull);
     await tester.binding.setSurfaceSize(null);
   });
+
+  testWidgets('کارت دفتر فعال بدنه و نوار سبز مستقل دارد', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    await tester.pumpWidget(app(OfficesPage(
+      initialState: OfficesState(
+        status: OfficesStatus.success,
+        offices: [defaultOffice],
+        defaultOffice: defaultOffice,
+      ),
+    )));
+    await tester.pumpAndSettle();
+    final card = tester.getSize(
+        find.byKey(const ValueKey('office-card-شرکت نمونه توسعه آریا')).first);
+    final footer = tester.getSize(find
+        .byKey(const ValueKey('office-active-footer-شرکت نمونه توسعه آریا'))
+        .first);
+    expect(card.height, greaterThanOrEqualTo(187));
+    expect(footer.height, 38);
+    expect(find.text('دفتر فعال'), findsWidgets);
+    expect(tester.takeException(), isNull);
+    await tester.binding.setSurfaceSize(null);
+  });
 }

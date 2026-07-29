@@ -1,7 +1,7 @@
 name: asoud_erp
 description: Iranian ERP mobile client for ERPNext/Frappe.
 publish_to: none
-version: 0.4.7+11
+version: 0.5.1+15
 
 environment:
   sdk: '>=3.4.0 <4.0.0'
@@ -18,6 +18,8 @@ dependencies:
   cookie_jar: ^4.0.9
   dio_cookie_manager: ^3.4.0
   image_picker: ^1.2.1
+  file_picker: ^10.3.10
+  excel: ^4.0.6
 
 dev_dependencies:
   flutter_test:

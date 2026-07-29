@@ -7,6 +7,7 @@ import '../../domain/entities/account_node.dart';
 import '../../domain/repositories/chart_of_accounts_repository.dart';
 import '../cubit/chart_of_accounts_cubit.dart';
 import 'account_form_page.dart';
+import 'account_level_page.dart';
 
 class ChartOfAccountsPage extends StatelessWidget {
   const ChartOfAccountsPage({this.company, this.repository, super.key});
@@ -41,13 +42,18 @@ class _ChartOfAccountsViewState extends State<_ChartOfAccountsView> {
             title: 'سرفصل‌های حسابداری',
             subtitle: 'ساختار گروه، کل، معین و تفصیلی'),
         floatingActionButton: FloatingActionButton.extended(
-          onPressed: () => Navigator.of(context).push(
-            MaterialPageRoute<AccountNode>(
-                builder: (_) => AccountFormPage(
-                      company: widget.company,
-                      repository: widget.repository,
-                    )),
-          ),
+          onPressed: () async {
+            final saved = await Navigator.of(context).push<AccountNode>(
+              MaterialPageRoute<AccountNode>(
+                  builder: (_) => AccountFormPage(
+                        company: widget.company,
+                        repository: widget.repository,
+                      )),
+            );
+            if (saved != null && context.mounted) {
+              context.read<ChartOfAccountsCubit>().load();
+            }
+          },
           icon: const Icon(Icons.add_rounded),
           label: const Text('سرفصل جدید'),
         ),
@@ -68,20 +74,19 @@ class _ChartOfAccountsViewState extends State<_ChartOfAccountsView> {
                   ),
                   const SizedBox(height: 12),
                 ],
-                SegmentedButton<int>(
-                  segments: const [
-                    ButtonSegment(
+                AsoudSegmentedControl<int>(
+                  value: _view,
+                  options: const [
+                    AsoudSegmentedOption(
                         value: 0,
-                        icon: Icon(Icons.account_tree_outlined),
-                        label: Text('نمای درختی')),
-                    ButtonSegment(
+                        icon: Icons.account_tree_outlined,
+                        label: 'نمای درختی'),
+                    AsoudSegmentedOption(
                         value: 1,
-                        icon: Icon(Icons.view_list_outlined),
-                        label: Text('نمای مرحله‌ای')),
+                        icon: Icons.view_list_outlined,
+                        label: 'نمای مرحله‌ای'),
                   ],
-                  selected: {_view},
-                  onSelectionChanged: (value) =>
-                      setState(() => _view = value.first),
+                  onChanged: (value) => setState(() => _view = value),
                 ),
                 const SizedBox(height: 12),
                 TextField(
@@ -131,6 +136,7 @@ class _ChartOfAccountsViewState extends State<_ChartOfAccountsView> {
                 parentId: account.parentId,
                 isActive: account.isActive,
                 nature: account.nature,
+                accountType: account.accountType,
                 children: children,
               )
             : null;
@@ -148,6 +154,7 @@ class _ChartOfAccountsViewState extends State<_ChartOfAccountsView> {
             parentId: account.parentId,
             isActive: account.isActive,
             nature: account.nature,
+            accountType: account.accountType,
           ),
           ..._flatten(account.children),
         ],
@@ -248,6 +255,32 @@ class _AccountTile extends StatelessWidget {
           title: Text(account.title,
               style: const TextStyle(fontWeight: FontWeight.w700)),
           subtitle: Text(_levelTitle(account.level)),
+          trailing: account.level == AccountLevel.group ||
+                  account.level == AccountLevel.general
+              ? IconButton(
+                  tooltip: account.level == AccountLevel.group
+                      ? 'مشاهده حساب‌های کل'
+                      : 'مشاهده حساب‌های معین',
+                  onPressed: company == null || repository == null
+                      ? null
+                      : () async {
+                          final changed =
+                              await Navigator.of(context).push<bool>(
+                            MaterialPageRoute<bool>(
+                              builder: (_) => AccountLevelPage(
+                                parent: account,
+                                company: company!,
+                                repository: repository!,
+                              ),
+                            ),
+                          );
+                          if (changed == true && context.mounted) {
+                            context.read<ChartOfAccountsCubit>().load();
+                          }
+                        },
+                  icon: const Icon(Icons.chevron_left_rounded),
+                )
+              : null,
           children: account.children
               .map((child) => Padding(
                   padding: const EdgeInsets.only(right: 12),
@@ -269,14 +302,19 @@ class _AccountTile extends StatelessWidget {
         subtitle: Text(_levelTitle(account.level)),
         trailing: IconButton(
           icon: const Icon(Icons.edit_outlined),
-          onPressed: () => Navigator.of(context).push(
-            MaterialPageRoute<AccountNode>(
-                builder: (_) => AccountFormPage(
-                      account: account,
-                      company: company,
-                      repository: repository,
-                    )),
-          ),
+          onPressed: () async {
+            final saved = await Navigator.of(context).push<AccountNode>(
+              MaterialPageRoute<AccountNode>(
+                  builder: (_) => AccountFormPage(
+                        account: account,
+                        company: company,
+                        repository: repository,
+                      )),
+            );
+            if (saved != null && context.mounted) {
+              context.read<ChartOfAccountsCubit>().load();
+            }
+          },
         ),
       ),
     );

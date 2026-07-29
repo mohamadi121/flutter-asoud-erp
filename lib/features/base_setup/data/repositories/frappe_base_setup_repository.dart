@@ -34,6 +34,80 @@ class FrappeBaseSetupRepository implements BaseSetupRepository {
     return _parse(data);
   }
 
+  @override
+  Future<List<FiscalYearInfo>> getFiscalYears(String company) async {
+    final data = await _client.callAsoudMethod(
+      'asoud_erp.api.v1.setup.list_fiscal_years',
+      data: {'company': company},
+    );
+    if (data is! List) return const [];
+    return data.whereType<Map>().map((raw) => _fiscalYear(raw)).toList();
+  }
+
+  @override
+  Future<FiscalYearInfo> createFiscalYear(
+      String company, int year, int month, int day) async {
+    final data = await _client.callAsoudMethod(
+      'asoud_erp.api.v1.setup.create_fiscal_year',
+      data: {
+        'company': company,
+        'fiscal_year': year,
+        'start_month': month,
+        'start_day': day,
+      },
+    );
+    if (data is! Map) throw StateError('Invalid fiscal year response');
+    return _fiscalYear(data);
+  }
+
+  @override
+  Future<AccountCodeSettings> getAccountCodeSettings(String company) async {
+    final data = await _client.callAsoudMethod(
+      'asoud_erp.api.v1.setup.get_account_code_settings',
+      data: {'company': company},
+    );
+    return _parseCodeSettings(data);
+  }
+
+  @override
+  Future<AccountCodeSettings> saveAccountCodeSettings(
+      String company, AccountCodeSettings settings) async {
+    final data = await _client.callAsoudMethod(
+      'asoud_erp.api.v1.setup.update_account_code_settings',
+      data: {
+        'company': company,
+        'auto_generate_account_code': settings.autoGenerate ? 1 : 0,
+        'group_code_digits': settings.groupDigits,
+        'general_code_digits': settings.generalDigits,
+        'ledger_code_digits': settings.ledgerDigits,
+      },
+    );
+    return _parseCodeSettings(data);
+  }
+
+  AccountCodeSettings _parseCodeSettings(dynamic raw) {
+    if (raw is! Map) throw StateError('Invalid account code settings response');
+    final data = Map<String, dynamic>.from(raw);
+    return AccountCodeSettings(
+      autoGenerate: data['auto_generate_account_code'] != false &&
+          data['auto_generate_account_code'] != 0,
+      groupDigits: (data['group_code_digits'] as num?)?.toInt() ?? 1,
+      generalDigits: (data['general_code_digits'] as num?)?.toInt() ?? 2,
+      ledgerDigits: (data['ledger_code_digits'] as num?)?.toInt() ?? 2,
+    );
+  }
+
+  FiscalYearInfo _fiscalYear(Map raw) {
+    final data = Map<String, dynamic>.from(raw);
+    return FiscalYearInfo(
+      id: data['name']?.toString() ?? '',
+      year: data['year']?.toString() ?? '',
+      startDate: data['year_start_date']?.toString() ?? '',
+      endDate: data['year_end_date']?.toString() ?? '',
+      disabled: data['disabled'] == true || data['disabled'] == 1,
+    );
+  }
+
   CompanyAccountingSettings _parse(dynamic raw) {
     if (raw is! Map) throw StateError('Invalid setup response');
     final data = Map<String, dynamic>.from(raw);

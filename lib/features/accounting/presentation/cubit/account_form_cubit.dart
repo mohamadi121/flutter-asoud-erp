@@ -9,6 +9,8 @@ part 'account_form_state.dart';
 class AccountFormCubit extends Cubit<AccountFormState> {
   AccountFormCubit({
     AccountNode? account,
+    AccountLevel? initialLevel,
+    String? initialParentId,
     this.company,
     this.repository,
   }) : super(AccountFormState(
@@ -16,9 +18,10 @@ class AccountFormCubit extends Cubit<AccountFormState> {
           originalId: account?.id,
           code: account?.code ?? '',
           title: account?.title ?? '',
-          level: account?.level ?? AccountLevel.ledger,
-          parentId: account?.parentId,
+          level: account?.level ?? initialLevel ?? AccountLevel.group,
+          parentId: account?.parentId ?? initialParentId,
           nature: account?.nature ?? AccountNature.debit,
+          accountType: account?.accountType ?? '',
           isActive: account?.isActive ?? true,
           autoCode: account == null,
         ));
@@ -33,6 +36,7 @@ class AccountFormCubit extends Cubit<AccountFormState> {
   void setParent(String? value) =>
       emit(state.copyWith(parentId: value, clearParent: value == null));
   void setNature(AccountNature value) => emit(state.copyWith(nature: value));
+  void setAccountType(String value) => emit(state.copyWith(accountType: value));
   void setActive(bool value) => emit(state.copyWith(isActive: value));
   void setAutoCode(bool value) => emit(state.copyWith(autoCode: value));
 

@@ -150,3 +150,75 @@ class AsoudSectionTitle extends StatelessWidget {
         ]),
       );
 }
+
+class AsoudSegmentedOption<T> {
+  const AsoudSegmentedOption(
+      {required this.value, required this.label, this.icon});
+  final T value;
+  final String label;
+  final IconData? icon;
+}
+
+class AsoudSegmentedControl<T> extends StatelessWidget {
+  const AsoudSegmentedControl({
+    required this.value,
+    required this.options,
+    required this.onChanged,
+    super.key,
+  });
+  final T value;
+  final List<AsoudSegmentedOption<T>> options;
+  final ValueChanged<T> onChanged;
+  @override
+  Widget build(BuildContext context) => Container(
+        height: 48,
+        padding: const EdgeInsets.all(3),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: AsoudColors.border),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(children: [
+          for (final option in options)
+            Expanded(
+              child: InkWell(
+                onTap: () => onChanged(option.value),
+                borderRadius: BorderRadius.circular(9),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 160),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: option.value == value
+                        ? AsoudColors.primary
+                        : Colors.white,
+                    borderRadius: BorderRadius.circular(9),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (option.icon != null) ...[
+                        Icon(option.icon,
+                            size: 18,
+                            color: option.value == value
+                                ? Colors.white
+                                : AsoudColors.text),
+                        const SizedBox(width: 6),
+                      ],
+                      Flexible(
+                        child: Text(option.label,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: option.value == value
+                                  ? Colors.white
+                                  : AsoudColors.text,
+                              fontWeight: FontWeight.w800,
+                            )),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ]),
+      );
+}

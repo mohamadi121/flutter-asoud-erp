@@ -45,7 +45,7 @@ class _DetailGroupsView extends StatelessWidget {
                   child: FilledButton.icon(
                     onPressed: state.status == DetailGroupsStatus.loading
                         ? null
-                        : () => _showAddDialog(context),
+                        : () => _showGroupDialog(context),
                     icon: const Icon(Icons.add_rounded),
                     label: const Text('افزودن گروه'),
                   ),
@@ -66,7 +66,14 @@ class _DetailGroupsView extends StatelessWidget {
                   ),
                 if (state.status == DetailGroupsStatus.empty)
                   const _EmptyCard(),
-                if (state.groups.isNotEmpty) _GroupsGrid(groups: state.groups),
+                if (state.groups.isNotEmpty)
+                  _GroupsGrid(
+                    groups: state.groups,
+                    onEdit: (group) => _showGroupDialog(context, group: group),
+                    onDisable: (group) => context
+                        .read<DetailGroupsCubit>()
+                        .disableGroup(group.id),
+                  ),
                 const SizedBox(height: 10),
                 const _FooterHelp(),
               ],
@@ -75,14 +82,16 @@ class _DetailGroupsView extends StatelessWidget {
         ),
       );
 
-  Future<void> _showAddDialog(BuildContext context) async {
-    final title = TextEditingController();
-    final code = TextEditingController();
+  Future<void> _showGroupDialog(BuildContext context,
+      {DetailGroup? group}) async {
+    final title = TextEditingController(text: group?.title);
+    final code = TextEditingController(text: group?.code);
     final cubit = context.read<DetailGroupsCubit>();
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('افزودن گروه تفصیلی'),
+        title:
+            Text(group == null ? 'افزودن گروه تفصیلی' : 'ویرایش گروه تفصیلی'),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
           TextField(
             controller: title,
@@ -101,7 +110,11 @@ class _DetailGroupsView extends StatelessWidget {
               child: const Text('انصراف')),
           FilledButton(
             onPressed: () async {
-              final saved = await cubit.addGroup(code.text, title.text);
+              final saved = await cubit.saveGroup(
+                code.text,
+                title.text,
+                id: group?.id,
+              );
               if (saved && dialogContext.mounted) {
                 Navigator.pop(dialogContext);
               }
@@ -141,8 +154,11 @@ class _HelpCard extends StatelessWidget {
 }
 
 class _GroupsGrid extends StatelessWidget {
-  const _GroupsGrid({required this.groups});
+  const _GroupsGrid(
+      {required this.groups, required this.onEdit, required this.onDisable});
   final List<DetailGroup> groups;
+  final ValueChanged<DetailGroup> onEdit;
+  final ValueChanged<DetailGroup> onDisable;
   @override
   Widget build(BuildContext context) => GridView.builder(
         shrinkWrap: true,
@@ -166,29 +182,44 @@ class _GroupsGrid extends StatelessWidget {
           ];
           final color = colors[index % colors.length];
           return Card(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 9),
-              child: Row(children: [
-                const Icon(Icons.more_vert_rounded,
-                    size: 17, color: AsoudColors.muted),
-                Expanded(
-                  child: Text(item.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          fontSize: 9, fontWeight: FontWeight.w800)),
-                ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: .12),
-                    borderRadius: BorderRadius.circular(20),
+            child: InkWell(
+              onTap: () => onEdit(item),
+              borderRadius: BorderRadius.circular(14),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 9),
+                child: Row(children: [
+                  PopupMenuButton<String>(
+                    tooltip: 'عملیات ${item.title}',
+                    padding: EdgeInsets.zero,
+                    onSelected: (value) =>
+                        value == 'edit' ? onEdit(item) : onDisable(item),
+                    itemBuilder: (_) => const [
+                      PopupMenuItem(value: 'edit', child: Text('ویرایش گروه')),
+                      PopupMenuItem(
+                          value: 'disable', child: Text('غیرفعال‌کردن گروه')),
+                    ],
+                    icon: const Icon(Icons.more_vert_rounded,
+                        size: 17, color: AsoudColors.muted),
                   ),
-                  child: Text(item.code,
-                      style: TextStyle(fontSize: 8, color: color)),
-                ),
-              ]),
+                  Expanded(
+                    child: Text(item.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 9, fontWeight: FontWeight.w800)),
+                  ),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: .12),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(item.code,
+                        style: TextStyle(fontSize: 8, color: color)),
+                  ),
+                ]),
+              ),
             ),
           );
         },

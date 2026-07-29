@@ -7,6 +7,7 @@ import '../../domain/entities/accounting_setup.dart';
 import '../../domain/repositories/base_setup_repository.dart';
 import '../bloc/base_setup_cubit.dart';
 import 'roles_setup_page.dart';
+import 'fiscal_years_page.dart';
 import '../../../accounting/presentation/pages/chart_setup_page.dart';
 import '../../../accounting/presentation/pages/detail_groups_page.dart';
 
@@ -66,14 +67,6 @@ class BaseAccountingSetupPage extends StatelessWidget {
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 9),
-              const _SetupTile(
-                icon: Icons.calendar_month_rounded,
-                color: AsoudColors.success,
-                title: 'سال‌های مالی',
-                subtitle: 'مدیریت دوره‌های مالی دفتر',
-                status: 'نیازمند API سرور',
               ),
               const SizedBox(height: 9),
               _SetupTile(
@@ -244,18 +237,7 @@ class _BaseAccountingSetupView extends StatelessWidget {
                   icon: Icons.account_balance_wallet_rounded,
                   color: AsoudColors.accounting,
                   title: 'مبنای حسابداری'),
-              const Card(
-                elevation: 0,
-                color: Colors.white,
-                child: ListTile(
-                  leading: Icon(Icons.check_circle_rounded,
-                      color: AsoudColors.success),
-                  title: Text('حسابداری تعهدی',
-                      style: TextStyle(fontWeight: FontWeight.w700)),
-                  subtitle: Text(
-                      'فاکتورها، بدهی‌ها و مطالبات هنگام ایجاد معامله ثبت می‌شوند.'),
-                ),
-              ),
+              const _AccountingBasisCard(),
               const SizedBox(height: 24),
               const _SectionTitle(
                   icon: Icons.payments_rounded,
@@ -263,83 +245,55 @@ class _BaseAccountingSetupView extends StatelessWidget {
                   title: 'واحد نمایش مبالغ'),
               _MoneyUnitSelector(value: state.moneyUnit),
               const SizedBox(height: 24),
-              Row(children: [
-                const Expanded(
-                  child: _SectionTitle(
-                    icon: Icons.calendar_month_rounded,
-                    color: AsoudColors.success,
-                    title: 'شروع سال مالی',
-                  ),
-                ),
-                OutlinedButton.icon(
-                  onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'روز، ماه و سال را انتخاب کنید؛ ایجاد نهایی فقط پس از پاسخ موفق ERPNext انجام می‌شود.',
-                      ),
-                    ),
-                  ),
-                  icon: const Icon(Icons.add_rounded, size: 17),
-                  label: const Text('ایجاد سال جدید'),
-                ),
-              ]),
-              const SizedBox(height: 10),
+              _FinancialNavigationCard(
+                title: 'سال مالی و تاریخ شروع',
+                subtitle:
+                    'ابتدا سال را ایجاد و سپس روز و ماه شروع را انتخاب کنید',
+                icon: Icons.calendar_month_rounded,
+                onTap: officeName == null
+                    ? null
+                    : () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => FiscalYearsPage(
+                              company: officeName!,
+                              repository: context.read<BaseSetupRepository>(),
+                              offlinePreview: offlinePreview,
+                            ),
+                          ),
+                        ),
+              ),
+              const SizedBox(height: 22),
+              const _SectionTitle(
+                icon: Icons.account_tree_outlined,
+                color: AsoudColors.primary,
+                title: 'الگوی کد سرفصل‌ها',
+              ),
+              _AccountCodeModeCard(
+                value: state.autoGenerateAccountCode,
+                onChanged: context.read<BaseSetupCubit>().setAutoAccountCode,
+              ),
+              const SizedBox(height: 8),
               Row(children: [
                 Expanded(
-                  child: DropdownButtonFormField<int>(
-                    initialValue: state.fiscalYearStartDay,
-                    decoration: const InputDecoration(labelText: 'روز'),
-                    items: List.generate(
-                        31,
-                        (index) => DropdownMenuItem(
-                              value: index + 1,
-                              child: Text('${index + 1}'),
-                            )),
-                    onChanged: (value) {
-                      if (value != null) {
-                        context.read<BaseSetupCubit>().setFiscalDay(value);
-                      }
-                    },
-                  ),
-                ),
+                    child: _DigitSelector(
+                  label: 'گروه',
+                  value: state.groupCodeDigits,
+                  onChanged: context.read<BaseSetupCubit>().setGroupDigits,
+                )),
                 const SizedBox(width: 8),
                 Expanded(
-                  flex: 2,
-                  child: DropdownButtonFormField<int>(
-                    isExpanded: true,
-                    initialValue: state.fiscalYearStartMonth,
-                    decoration: const InputDecoration(labelText: 'ماه'),
-                    items: List.generate(
-                        12,
-                        (index) => DropdownMenuItem(
-                              value: index + 1,
-                              child: Text(_persianMonths[index]),
-                            )),
-                    onChanged: (value) {
-                      if (value != null) {
-                        context.read<BaseSetupCubit>().setFiscalMonth(value);
-                      }
-                    },
-                  ),
-                ),
+                    child: _DigitSelector(
+                  label: 'کل',
+                  value: state.generalCodeDigits,
+                  onChanged: context.read<BaseSetupCubit>().setGeneralDigits,
+                )),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: DropdownButtonFormField<int>(
-                    initialValue: state.fiscalYear,
-                    decoration: const InputDecoration(labelText: 'سال'),
-                    items: List.generate(
-                        6,
-                        (index) => DropdownMenuItem(
-                              value: 1403 + index,
-                              child: Text('${1403 + index}'),
-                            )),
-                    onChanged: (value) {
-                      if (value != null) {
-                        context.read<BaseSetupCubit>().setFiscalYear(value);
-                      }
-                    },
-                  ),
-                ),
+                    child: _DigitSelector(
+                  label: 'معین',
+                  value: state.ledgerCodeDigits,
+                  onChanged: context.read<BaseSetupCubit>().setLedgerDigits,
+                )),
               ]),
               const SizedBox(height: 16),
               DropdownButtonFormField<ChartTemplate>(
@@ -431,55 +385,141 @@ class _MoneyUnitSelector extends StatelessWidget {
   final MoneyUnit value;
 
   @override
+  Widget build(BuildContext context) => AsoudSegmentedControl<MoneyUnit>(
+        value: value,
+        options: const [
+          AsoudSegmentedOption(
+              value: MoneyUnit.rial,
+              label: 'ریال',
+              icon: Icons.account_balance_wallet_outlined),
+          AsoudSegmentedOption(
+              value: MoneyUnit.toman,
+              label: 'تومان',
+              icon: Icons.payments_outlined),
+        ],
+        onChanged: context.read<BaseSetupCubit>().setMoneyUnit,
+      );
+}
+
+class _FinancialNavigationCard extends StatelessWidget {
+  const _FinancialNavigationCard({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.onTap,
+  });
+  final String title, subtitle;
+  final IconData icon;
+  final VoidCallback? onTap;
+  @override
+  Widget build(BuildContext context) => Card(
+        child: ListTile(
+          onTap: onTap,
+          leading: AsoudIconBox(icon: icon, color: AsoudColors.success),
+          title:
+              Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
+          subtitle: Text(subtitle, style: const TextStyle(fontSize: 9)),
+          trailing: const Icon(Icons.chevron_left_rounded),
+        ),
+      );
+}
+
+class _DigitSelector extends StatelessWidget {
+  const _DigitSelector({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+  final String label;
+  final int value;
+  final ValueChanged<int> onChanged;
+  @override
+  Widget build(BuildContext context) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(right: 4, bottom: 6),
+            child: Text(label,
+                style: const TextStyle(
+                    fontSize: 10,
+                    color: AsoudColors.muted,
+                    fontWeight: FontWeight.w700)),
+          ),
+          DropdownButtonFormField<int>(
+            isExpanded: true,
+            initialValue: value,
+            decoration: const InputDecoration(isDense: true),
+            items: List.generate(
+              4,
+              (index) => DropdownMenuItem(
+                value: index + 1,
+                child: Text('${index + 1} رقم'),
+              ),
+            ),
+            onChanged: (next) => next == null ? null : onChanged(next),
+          ),
+        ],
+      );
+}
+
+class _AccountingBasisCard extends StatelessWidget {
+  const _AccountingBasisCard();
+
+  @override
   Widget build(BuildContext context) => Container(
-        height: 48,
-        padding: const EdgeInsets.all(3),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: Colors.white,
           border: Border.all(color: AsoudColors.border),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
         ),
-        child: Row(children: [
-          for (final unit in MoneyUnit.values)
-            Expanded(
-              child: InkWell(
-                onTap: () => context.read<BaseSetupCubit>().setMoneyUnit(unit),
-                borderRadius: BorderRadius.circular(9),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 160),
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: value == unit ? AsoudColors.primary : Colors.white,
-                    borderRadius: BorderRadius.circular(9),
-                  ),
-                  child: Text(
-                    unit == MoneyUnit.rial ? 'ریال' : 'تومان',
-                    style: TextStyle(
-                      color: value == unit ? Colors.white : AsoudColors.text,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-              ),
-            ),
+        child: const Row(children: [
+          AsoudIconBox(
+              icon: Icons.check_circle_rounded,
+              color: AsoudColors.success,
+              size: 38),
+          SizedBox(width: 10),
+          Expanded(
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('حسابداری تعهدی',
+                  style: TextStyle(fontWeight: FontWeight.w800)),
+              SizedBox(height: 3),
+              Text('ثبت هم‌زمان فاکتورها، بدهی‌ها و مطالبات',
+                  style: TextStyle(fontSize: 9, color: AsoudColors.muted)),
+            ]),
+          ),
         ]),
       );
 }
 
-const _persianMonths = [
-  'فروردین',
-  'اردیبهشت',
-  'خرداد',
-  'تیر',
-  'مرداد',
-  'شهریور',
-  'مهر',
-  'آبان',
-  'آذر',
-  'دی',
-  'بهمن',
-  'اسفند'
-];
+class _AccountCodeModeCard extends StatelessWidget {
+  const _AccountCodeModeCard({required this.value, required this.onChanged});
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF3F7FF),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(children: [
+          Expanded(
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('تولید خودکار کد حساب',
+                  style: TextStyle(fontWeight: FontWeight.w800)),
+              const SizedBox(height: 3),
+              const Text('کد نهایی و یکتا توسط Backend تولید می‌شود.',
+                  style: TextStyle(fontSize: 9, color: AsoudColors.muted)),
+            ]),
+          ),
+          Switch(value: value, onChanged: onChanged),
+        ]),
+      );
+}
 
 class _SectionTitle extends StatelessWidget {
   const _SectionTitle(

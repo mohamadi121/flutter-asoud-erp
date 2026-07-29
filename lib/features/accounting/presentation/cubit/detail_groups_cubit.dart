@@ -55,7 +55,7 @@ class DetailGroupsCubit extends Cubit<DetailGroupsState> {
     }
   }
 
-  Future<bool> addGroup(String code, String title) async {
+  Future<bool> saveGroup(String code, String title, {String? id}) async {
     if (!RegExp(r'^\d{3,12}$').hasMatch(code.trim()) ||
         title.trim().length < 2) {
       emit(DetailGroupsState(
@@ -69,7 +69,11 @@ class DetailGroupsCubit extends Cubit<DetailGroupsState> {
     emit(
         DetailGroupsState(status: DetailGroupsStatus.loading, groups: current));
     try {
-      await _repository.saveGroup(code: code.trim(), title: title.trim());
+      await _repository.saveGroup(
+        code: code.trim(),
+        title: title.trim(),
+        id: id,
+      );
       await load();
       return true;
     } catch (_) {
@@ -79,6 +83,22 @@ class DetailGroupsCubit extends Cubit<DetailGroupsState> {
         message: 'ذخیره گروه تفصیلی در ERPNext انجام نشد.',
       ));
       return false;
+    }
+  }
+
+  Future<void> disableGroup(String id) async {
+    final current = state.groups;
+    emit(
+        DetailGroupsState(status: DetailGroupsStatus.loading, groups: current));
+    try {
+      await _repository.disableGroup(id);
+      await load();
+    } catch (_) {
+      emit(DetailGroupsState(
+        status: DetailGroupsStatus.failure,
+        groups: current,
+        message: 'غیرفعال‌کردن گروه تفصیلی انجام نشد.',
+      ));
     }
   }
 }

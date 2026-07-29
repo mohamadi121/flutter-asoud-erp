@@ -74,6 +74,8 @@ class DashboardPage extends StatelessWidget {
             NavigationDestination(
                 icon: Icon(Icons.grid_view_outlined), label: 'عملیات'),
             NavigationDestination(
+                icon: Icon(Icons.account_balance_outlined), label: 'حسابداری'),
+            NavigationDestination(
                 icon: Icon(Icons.bar_chart_rounded), label: 'گزارش‌ها'),
             NavigationDestination(
                 icon: Icon(Icons.settings_outlined), label: 'تنظیمات'),
@@ -89,6 +91,20 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
         child: Row(children: [
+          Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                const Text('دفتر کار',
+                    style:
+                        TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
+                Text(officeName ?? 'دفتر فعال',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 11, color: AsoudColors.muted)),
+              ])),
+          const SizedBox(width: 10),
           OutlinedButton.icon(
             onPressed: () => Navigator.of(context).pop(),
             icon: const Icon(Icons.business_outlined, size: 17),
@@ -98,17 +114,6 @@ class _Header extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 10),
             ),
           ),
-          const SizedBox(width: 10),
-          Expanded(
-              child:
-                  Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-            const Text('دفتر کار',
-                style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
-            Text(officeName ?? 'دفتر فعال',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 11, color: AsoudColors.muted)),
-          ])),
         ]),
       );
 }

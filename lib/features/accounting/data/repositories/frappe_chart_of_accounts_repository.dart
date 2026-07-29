@@ -32,6 +32,8 @@ class FrappeChartOfAccountsRepository implements ChartOfAccountsRepository {
         'account_number': account.code.isEmpty ? null : account.code,
         'auto_code': autoCode ? 1 : 0,
         'root_type': _rootType(account.nature),
+        'account_type':
+            account.accountType.isEmpty ? null : account.accountType,
       },
     );
     if (response is! Map) return account;
@@ -49,10 +51,65 @@ class FrappeChartOfAccountsRepository implements ChartOfAccountsRepository {
         'parent_account': account.parentId,
         'disabled': account.isActive ? 0 : 1,
         'root_type': _rootType(account.nature),
+        'account_type':
+            account.accountType.isEmpty ? null : account.accountType,
       },
     );
     if (response is! Map) return account;
     return _fromJson(Map<String, dynamic>.from(response));
+  }
+
+  @override
+  Future<List<AccountNode>> importAccounts(
+      String company, List<Map<String, dynamic>> rows) async {
+    final response = await _client.callAsoudMethod(
+      'asoud_erp.api.v1.account.import_accounts',
+      data: {'company': company, 'rows': rows},
+    );
+    if (response is! List) {
+      throw const FormatException('Invalid account import response');
+    }
+    return response
+        .whereType<Map>()
+        .map((item) => _fromJson(Map<String, dynamic>.from(item)))
+        .toList(growable: false);
+  }
+
+  @override
+  Future<List<ChartTemplateRow>> previewTemplate(
+      String company, String template) async {
+    final response = await _client.callAsoudMethod(
+      'asoud_erp.api.v1.account.preview_chart_template',
+      data: {'company': company, 'template': template},
+    );
+    if (response is! Map || response['rows'] is! List) {
+      throw const FormatException('Invalid chart template preview response');
+    }
+    return (response['rows'] as List).whereType<Map>().map((raw) {
+      final row = Map<String, dynamic>.from(raw);
+      return ChartTemplateRow(
+        key: row['key']?.toString() ?? '',
+        level: row['level']?.toString() ?? '',
+        title: row['title']?.toString() ?? '',
+        parentKey: row['parent_key']?.toString(),
+      );
+    }).toList(growable: false);
+  }
+
+  @override
+  Future<List<AccountNode>> applyTemplate(
+      String company, String template) async {
+    final response = await _client.callAsoudMethod(
+      'asoud_erp.api.v1.account.apply_chart_template',
+      data: {'company': company, 'template': template},
+    );
+    if (response is! List) {
+      throw const FormatException('Invalid chart template apply response');
+    }
+    return response
+        .whereType<Map>()
+        .map((raw) => _fromJson(Map<String, dynamic>.from(raw)))
+        .toList(growable: false);
   }
 
   AccountNode _fromJson(Map<String, dynamic> json) => AccountNode(
@@ -62,6 +119,7 @@ class FrappeChartOfAccountsRepository implements ChartOfAccountsRepository {
         level: _levelFromApi(json['asoud_level'] as String?),
         parentId: json['parent_account'] as String?,
         nature: _natureFromRootType(json['root_type'] as String?),
+        accountType: json['account_type'] as String? ?? '',
       );
 
   AccountLevel _levelFromApi(String? value) => switch (value) {
