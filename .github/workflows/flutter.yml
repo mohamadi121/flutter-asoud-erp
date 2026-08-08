@@ -16,4 +16,6 @@ jobs:
           cache: true
       - run: flutter pub get
       - run: flutter analyze
-      - run: flutter test
+      # Raster golden baselines are generated on Windows and differ slightly
+      # under Linux font rendering. Functional/widget tests still run in CI.
+      - run: flutter test --exclude-tags golden
