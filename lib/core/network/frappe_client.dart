@@ -81,7 +81,22 @@ class FrappeClient {
       final message = body is Map<String, dynamic>
           ? _errorMessage(body)
           : 'امکان ارتباط با ERPNext وجود ندارد.';
-      throw ApiException(message, statusCode: error.response?.statusCode);
+      final statusCode = error.response?.statusCode;
+      final kind = switch (error.type) {
+        DioExceptionType.connectionTimeout ||
+        DioExceptionType.sendTimeout ||
+        DioExceptionType.receiveTimeout =>
+          ApiFailureKind.timeout,
+        DioExceptionType.connectionError => ApiFailureKind.network,
+        _ when statusCode == null => ApiFailureKind.network,
+        _ when statusCode == 401 => ApiFailureKind.unauthorized,
+        _ when statusCode == 403 => ApiFailureKind.forbidden,
+        _ when statusCode == 409 => ApiFailureKind.conflict,
+        _ when statusCode == 400 || statusCode == 422 =>
+          ApiFailureKind.validation,
+        _ => ApiFailureKind.server,
+      };
+      throw ApiException(message, statusCode: statusCode, kind: kind);
     }
   }
 
@@ -92,12 +107,15 @@ class FrappeClient {
         final values = jsonDecode(encoded) as List;
         if (values.isNotEmpty) {
           final decoded = jsonDecode(values.first.toString());
-          if (decoded is Map && decoded['message'] != null) return decoded['message'].toString();
+          if (decoded is Map && decoded['message'] != null) {
+            return decoded['message'].toString();
+          }
         }
       } catch (_) {
         // Fall back to the standard Frappe error fields below.
       }
     }
-    return (body['message'] ?? body['exception'] ?? 'خطای ارتباط با سرور').toString();
+    return (body['message'] ?? body['exception'] ?? 'خطای ارتباط با سرور')
+        .toString();
   }
 }

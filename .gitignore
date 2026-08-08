@@ -6,7 +6,12 @@
 .packages
 build/
 coverage/
+_publish_work/
+.codex/
+.agents/
+test/ui/failures/
 android/.gradle/
+android/
 ios/Pods/
 *.iml
 

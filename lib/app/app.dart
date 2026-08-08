@@ -8,6 +8,9 @@ import '../features/base_setup/data/repositories/frappe_setup_repository.dart';
 import '../features/base_setup/domain/repositories/setup_repository.dart';
 import '../features/office_setup/data/repositories/frappe_office_repository.dart';
 import '../features/office_setup/domain/repositories/office_repository.dart';
+import '../features/workflows/data/repositories/frappe_workflow_repository.dart';
+import '../features/workflows/data/repositories/preview_fallback_workflow_repository.dart';
+import '../features/workflows/domain/repositories/workflow_repository.dart';
 import 'startup_gate.dart';
 
 class AsoudErpApp extends StatelessWidget {
@@ -18,23 +21,30 @@ class AsoudErpApp extends StatelessWidget {
     final client = FrappeClient();
     return MultiRepositoryProvider(
       providers: [
-        RepositoryProvider<OfficeRepository>(create: (_) => FrappeOfficeRepository(client)),
-        RepositoryProvider<SetupRepository>(create: (_) => FrappeSetupRepository(client)),
+        RepositoryProvider<OfficeRepository>(
+            create: (_) => FrappeOfficeRepository(client)),
+        RepositoryProvider<SetupRepository>(
+            create: (_) => FrappeSetupRepository(client)),
+        RepositoryProvider<WorkflowRepository>(
+          create: (_) => PreviewFallbackWorkflowRepository(
+            FrappeWorkflowRepository(client),
+          ),
+        ),
       ],
       child: MaterialApp(
-      debugShowCheckedModeBanner: false,
-      locale: const Locale('fa'),
-      supportedLocales: const [Locale('fa')],
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      theme: AsoudTheme.light,
-        builder: (context, child) => Directionality(textDirection: TextDirection.rtl, child: child!),
+        debugShowCheckedModeBanner: false,
+        locale: const Locale('fa'),
+        supportedLocales: const [Locale('fa')],
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        theme: AsoudTheme.light,
+        builder: (context, child) =>
+            Directionality(textDirection: TextDirection.rtl, child: child!),
         home: const StartupGate(),
       ),
     );
   }
 }
-
