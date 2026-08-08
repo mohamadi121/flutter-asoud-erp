@@ -143,11 +143,18 @@ class WorkflowStage extends Equatable {
 }
 
 class WorkflowTransition extends Equatable {
-  const WorkflowTransition(
-      {required this.id, required this.fromStage, required this.toStage});
+  const WorkflowTransition({
+    required this.id,
+    required this.fromStage,
+    required this.toStage,
+    this.label,
+    this.condition = const {},
+  });
   final String id, fromStage, toStage;
+  final String? label;
+  final Map<String, dynamic> condition;
   @override
-  List<Object> get props => [id, fromStage, toStage];
+  List<Object?> get props => [id, fromStage, toStage, label, condition];
 }
 
 class WorkflowDesign extends Equatable {
@@ -165,10 +172,14 @@ class WorkflowDesign extends Equatable {
 
 class WorkflowFieldOption extends Equatable {
   const WorkflowFieldOption(
-      {required this.name, required this.label, required this.type});
+      {required this.name,
+      required this.label,
+      required this.type,
+      this.source = 'Document'});
   final String name, label, type;
+  final String source;
   @override
-  List<Object> get props => [name, label, type];
+  List<Object> get props => [name, label, type, source];
 }
 
 class WorkflowFormFieldDefinition extends Equatable {

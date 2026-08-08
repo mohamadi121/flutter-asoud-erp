@@ -42,6 +42,25 @@ class FrappeWorkflowRepository implements WorkflowRepository {
   }
 
   @override
+  Future<WorkflowDesign> addConditionBranch({
+    required String definition,
+    required String conditionStage,
+    required WorkflowStageType type,
+    required bool result,
+  }) async {
+    final data = await _call(
+      'asoud_erp.api.v1.workflow.add_condition_branch',
+      data: {
+        'definition': definition,
+        'condition_stage': conditionStage,
+        'stage_type': _stageTypeValue(type),
+        'result': result,
+      },
+    );
+    return _parseDesign(data);
+  }
+
+  @override
   Future<WorkflowStage> saveStartSettings({
     required String definition,
     required String triggerType,
@@ -65,10 +84,15 @@ class FrappeWorkflowRepository implements WorkflowRepository {
 
   @override
   Future<List<WorkflowFieldOption>> getConditionFields(
-      String definition) async {
+    String definition, {
+    String? beforeStage,
+  }) async {
     final data = await _call(
       'asoud_erp.api.v1.workflow.workflow_condition_fields',
-      data: {'definition': definition},
+      data: {
+        'definition': definition,
+        if (beforeStage != null) 'stage': beforeStage,
+      },
     );
     if (data is! Map || data['fields'] is! List) {
       throw StateError('Invalid workflow fields response');
@@ -79,6 +103,7 @@ class FrappeWorkflowRepository implements WorkflowRepository {
         name: item['fieldname']?.toString() ?? '',
         label: item['label']?.toString() ?? '',
         type: item['fieldtype']?.toString() ?? '',
+        source: item['source']?.toString() ?? 'Document',
       );
     }).toList(growable: false);
   }
@@ -251,6 +276,10 @@ class FrappeWorkflowRepository implements WorkflowRepository {
           id: value['name']?.toString() ?? '',
           fromStage: value['from_stage']?.toString() ?? '',
           toStage: value['to_stage']?.toString() ?? '',
+          label: value['transition_label']?.toString(),
+          condition: value['condition'] is Map
+              ? Map<String, dynamic>.from(value['condition'] as Map)
+              : const {},
         );
       }).toList(growable: false),
     );

@@ -2,13 +2,17 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/config/app_config.dart';
+import '../../../../core/widgets/asoud_ui.dart';
 import '../../../accounting/presentation/pages/accounting_home_page.dart';
 import '../../../workflows/presentation/pages/workflow_list_page.dart';
 import '../../../workflows/presentation/pages/workflow_tasks_page.dart';
 import '../../domain/entities/erp_module.dart';
 
 class DashboardPage extends StatelessWidget {
-  const DashboardPage({super.key});
+  const DashboardPage({this.offlinePreview = false, this.onRetry, super.key});
+
+  final bool offlinePreview;
+  final VoidCallback? onRetry;
 
   static const modules = [
     ErpModule(
@@ -57,6 +61,13 @@ class DashboardPage extends StatelessWidget {
       appBar: AppBar(
         title: const Text('آسود ERP'),
         actions: [
+          if (offlinePreview)
+            IconButton(
+              tooltip: 'تلاش برای اتصال دوباره',
+              onPressed: onRetry,
+              icon: const Icon(Icons.cloud_off_rounded,
+                  color: AsoudColors.warning),
+            ),
           IconButton(
               onPressed: () {},
               icon: const Icon(Icons.notifications_none_rounded))
@@ -66,6 +77,10 @@ class DashboardPage extends StatelessWidget {
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
+            if (offlinePreview) ...[
+              const AsoudOfflinePreviewBanner(),
+              const SizedBox(height: 12),
+            ],
             const Text('سلام، خوش آمدید',
                 style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800)),
             const SizedBox(height: 5),

@@ -53,6 +53,30 @@ class WorkflowDesignerCubit extends Cubit<WorkflowDesignerState> {
     }
   }
 
+  Future<void> addConditionBranch(
+      WorkflowStage stage, bool result, WorkflowStageType type) async {
+    final design = state.design;
+    if (design == null || state.status == WorkflowDesignerStatus.saving) return;
+    emit(state.copyWith(status: WorkflowDesignerStatus.saving));
+    try {
+      final updated = await repository.addConditionBranch(
+        definition: definition,
+        conditionStage: stage.id,
+        type: type,
+        result: result,
+      );
+      emit(state.copyWith(
+        status: WorkflowDesignerStatus.ready,
+        design: updated,
+        offlinePreview: repository is OfflinePreviewAware &&
+            (repository as OfflinePreviewAware).isOfflinePreview,
+      ));
+    } catch (error) {
+      emit(state.copyWith(
+          status: WorkflowDesignerStatus.failure, message: error.toString()));
+    }
+  }
+
   Future<void> saveStart({
     required String triggerType,
     required List<String> initiatorRoles,
@@ -90,8 +114,8 @@ class WorkflowDesignerCubit extends Cubit<WorkflowDesignerState> {
     }
   }
 
-  Future<List<WorkflowFieldOption>> conditionFields() =>
-      repository.getConditionFields(definition);
+  Future<List<WorkflowFieldOption>> conditionFields(String stage) =>
+      repository.getConditionFields(definition, beforeStage: stage);
 
   Future<bool> saveStage(
       WorkflowStage stage, Map<String, dynamic> config) async {

@@ -43,10 +43,18 @@ class _DesignerView extends StatelessWidget {
                   : const Center(child: CircularProgressIndicator()),
             );
           }
-          final stages = [...design.stages]
+          final allStages = [...design.stages]
             ..sort((a, b) => a.sequence.compareTo(b.sequence));
-          final canAdd =
-              stages.isNotEmpty && stages.last.type != WorkflowStageType.end;
+          final branchTargets = design.transitions
+              .where((item) => item.condition['result'] is bool)
+              .map((item) => item.toStage)
+              .toSet();
+          final stages = allStages
+              .where((stage) => !branchTargets.contains(stage.id))
+              .toList(growable: false);
+          final canAdd = stages.isNotEmpty &&
+              stages.last.type != WorkflowStageType.end &&
+              stages.last.type != WorkflowStageType.condition;
           return Scaffold(
             appBar: AsoudHeader(
               title: 'طراحی فرایند',
@@ -74,6 +82,14 @@ class _DesignerView extends StatelessWidget {
                           onTap: () =>
                               _openStage(context, stages[index], state.options),
                         ),
+                        if (stages[index].type == WorkflowStageType.condition)
+                          _ConditionBranches(
+                            stage: stages[index],
+                            stages: allStages,
+                            transitions: design.transitions,
+                            onAdd: (result) => _showConditionBranchPicker(
+                                context, stages[index], result),
+                          ),
                         if (index < stages.length - 1) const _Connector(),
                       ],
                       if (canAdd) ...[
@@ -132,6 +148,89 @@ class _DesignerView extends StatelessWidget {
       builder: (_) => const _StagePickerSheet(),
     );
     if (type != null) await cubit.addStage(type);
+  }
+
+  Future<void> _showConditionBranchPicker(
+      BuildContext context, WorkflowStage stage, bool result) async {
+    final type = await showModalBottomSheet<WorkflowStageType>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => const _StagePickerSheet(),
+    );
+    if (type != null && context.mounted) {
+      await context
+          .read<WorkflowDesignerCubit>()
+          .addConditionBranch(stage, result, type);
+    }
+  }
+}
+
+class _ConditionBranches extends StatelessWidget {
+  const _ConditionBranches({
+    required this.stage,
+    required this.stages,
+    required this.transitions,
+    required this.onAdd,
+  });
+  final WorkflowStage stage;
+  final List<WorkflowStage> stages;
+  final List<WorkflowTransition> transitions;
+  final ValueChanged<bool> onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    final branches = transitions
+        .where((item) => item.fromStage == stage.id)
+        .toList(growable: false);
+    return Container(
+      margin: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: AsoudColors.primary.withValues(alpha: .04),
+        border: Border.all(color: AsoudColors.border),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(children: [
+        for (final result in [true, false]) ...[
+          Expanded(child: _branch(context, branches, result)),
+          if (result) const SizedBox(width: 8),
+        ],
+      ]),
+    );
+  }
+
+  Widget _branch(
+      BuildContext context, List<WorkflowTransition> branches, bool result) {
+    final matches = branches
+        .where((item) => item.condition['result'] == result)
+        .toList(growable: false);
+    final transition = matches.firstOrNull;
+    final target = transition == null
+        ? null
+        : stages.where((item) => item.id == transition.toStage).firstOrNull;
+    final color = result ? AsoudColors.success : AsoudColors.warning;
+    return InkWell(
+      borderRadius: BorderRadius.circular(11),
+      onTap: transition == null ? () => onAdd(result) : null,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: .09),
+          borderRadius: BorderRadius.circular(11),
+        ),
+        child: Column(children: [
+          Text(result ? 'اگر درست بود' : 'اگر نادرست بود',
+              style: TextStyle(
+                  color: color, fontWeight: FontWeight.w800, fontSize: 11)),
+          const SizedBox(height: 4),
+          Text(target?.title ?? '+ افزودن مرحله',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 10)),
+        ]),
+      ),
+    );
   }
 }
 

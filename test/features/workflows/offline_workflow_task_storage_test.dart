@@ -48,14 +48,41 @@ void main() {
     expect(detail.task.localOnly, isTrue);
   });
 
-  test('اقدام آفلاین با وضعیت محلی ذخیره می‌شود', () async {
+  test('شرط فوری آفلاین به کارتابل تأیید مدیر هدایت می‌شود', () async {
     final repository = PreviewWorkflowTaskRepository(_OfflineRemote());
     await repository.getMyTasks();
     await repository.completeTask(
       task: 'WFT-OFFLINE-001',
       action: 'Complete',
-      response: const {'request_title': 'خرید کاغذ', 'confirmed': true},
+      response: const {
+        'request_title': 'خرید کاغذ',
+        'priority': 'فوری',
+        'confirmed': true,
+      },
+    );
+    final tasks = await repository.getMyTasks();
+    expect(tasks.single.id, 'WFT-OFFLINE-URGENT');
+    final detail = await repository.getTask(tasks.single.id);
+    expect(detail.stageType, 'Approval');
+    expect(detail.activities.last.action, 'Condition True');
+    await repository.completeTask(
+      task: tasks.single.id,
+      action: 'Complete',
     );
     expect(await repository.getMyTasks(), isEmpty);
+  });
+
+  test('شرط عادی آفلاین به کارتابل بررسی عادی هدایت می‌شود', () async {
+    final repository = PreviewWorkflowTaskRepository(_OfflineRemote());
+    await repository.getMyTasks();
+    await repository.completeTask(
+      task: 'WFT-OFFLINE-001',
+      action: 'Complete',
+      response: const {'priority': 'عادی', 'confirmed': true},
+    );
+    final tasks = await repository.getMyTasks();
+    expect(tasks.single.id, 'WFT-OFFLINE-NORMAL');
+    final detail = await repository.getTask(tasks.single.id);
+    expect(detail.activities.last.action, 'Condition False');
   });
 }

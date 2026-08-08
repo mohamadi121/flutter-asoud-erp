@@ -26,6 +26,13 @@ abstract interface class WorkflowRepository {
     required WorkflowStageType type,
   });
 
+  Future<WorkflowDesign> addConditionBranch({
+    required String definition,
+    required String conditionStage,
+    required WorkflowStageType type,
+    required bool result,
+  });
+
   Future<WorkflowStage> saveStartSettings({
     required String definition,
     required String triggerType,
@@ -34,7 +41,10 @@ abstract interface class WorkflowRepository {
     required String passMode,
   });
 
-  Future<List<WorkflowFieldOption>> getConditionFields(String definition);
+  Future<List<WorkflowFieldOption>> getConditionFields(
+    String definition, {
+    String? beforeStage,
+  });
 
   Future<WorkflowDesign> saveStageSettings({
     required String definition,

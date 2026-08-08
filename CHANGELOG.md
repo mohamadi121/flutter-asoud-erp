@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.12.0+18
+
+- Added safe workflow conditions based on ERPNext document fields or prior form responses.
+- Added explicit true/false branches to the mobile workflow designer.
+- Added persistent offline routing for urgent and normal test scenarios, including condition history.
+- Allowed startup to enter a clearly labelled local preview dashboard when ERPNext is unavailable.
+
 ## 0.11.0+17
 
 - Added dynamic task forms, persistent on-device drafts, attachments, and local action history.
