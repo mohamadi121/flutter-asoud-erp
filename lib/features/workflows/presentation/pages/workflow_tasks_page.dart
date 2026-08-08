@@ -6,6 +6,7 @@ import '../../../../core/widgets/asoud_ui.dart';
 import '../../domain/entities/workflow_task.dart';
 import '../../domain/repositories/workflow_task_repository.dart';
 import '../cubit/workflow_tasks_cubit.dart';
+import 'workflow_task_detail_page.dart';
 
 class WorkflowTasksPage extends StatelessWidget {
   const WorkflowTasksPage({super.key});
@@ -57,6 +58,18 @@ class _WorkflowTasksView extends StatelessWidget {
                           itemBuilder: (_, index) => _TaskCard(
                             task: state.tasks[index],
                             saving: state.status == WorkflowTasksStatus.saving,
+                            onTap: () async {
+                              final changed =
+                                  await Navigator.of(context).push<bool>(
+                                MaterialPageRoute<bool>(
+                                  builder: (_) => WorkflowTaskDetailPage(
+                                      task: state.tasks[index].id),
+                                ),
+                              );
+                              if (changed == true && context.mounted) {
+                                await context.read<WorkflowTasksCubit>().load();
+                              }
+                            },
                           ),
                         ),
                       ),
@@ -68,12 +81,17 @@ class _WorkflowTasksView extends StatelessWidget {
 }
 
 class _TaskCard extends StatelessWidget {
-  const _TaskCard({required this.task, required this.saving});
+  const _TaskCard(
+      {required this.task, required this.saving, required this.onTap});
   final WorkflowTask task;
   final bool saving;
+  final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) => InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: saving ? null : onTap,
+      child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: Colors.white,
@@ -106,29 +124,15 @@ class _TaskCard extends StatelessWidget {
             ),
           ]),
           const SizedBox(height: 12),
-          Row(children: [
-            Expanded(
-              child: FilledButton(
-                onPressed: saving
-                    ? null
-                    : () => context
-                        .read<WorkflowTasksCubit>()
-                        .complete(task, 'Complete'),
-                child: const Text('انجام شد'),
-              ),
-            ),
-            const SizedBox(width: 8),
-            OutlinedButton(
-              onPressed: saving
-                  ? null
-                  : () => context
-                      .read<WorkflowTasksCubit>()
-                      .complete(task, 'Reject'),
-              child: const Text('رد'),
-            ),
+          const Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+            Text('بازکردن فرم',
+                style: TextStyle(
+                    color: AsoudColors.primary, fontWeight: FontWeight.w700)),
+            SizedBox(width: 4),
+            Icon(Icons.chevron_left_rounded, color: AsoudColors.primary),
           ]),
         ]),
-      );
+      ));
 }
 
 class _EmptyTasks extends StatelessWidget {

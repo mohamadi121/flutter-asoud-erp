@@ -1,6 +1,8 @@
 import 'package:asoud_erp/features/workflows/domain/entities/workflow_task.dart';
+import 'package:asoud_erp/features/workflows/domain/entities/workflow_definition.dart';
 import 'package:asoud_erp/features/workflows/domain/repositories/workflow_task_repository.dart';
 import 'package:asoud_erp/features/workflows/presentation/cubit/workflow_tasks_cubit.dart';
+import 'package:asoud_erp/features/workflows/presentation/cubit/workflow_task_detail_cubit.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class _Repository implements WorkflowTaskRepository {
@@ -27,9 +29,31 @@ class _Repository implements WorkflowTaskRepository {
     required String task,
     required String action,
     String? comment,
+    Map<String, dynamic> response = const {},
   }) async {
     completed = '$task:$action';
   }
+
+  @override
+  Future<WorkflowTaskDetail> getTask(String task) async => WorkflowTaskDetail(
+        task: (await getMyTasks()).single,
+        stageType: 'User Task',
+        fields: const [
+          WorkflowFormFieldDefinition(
+              key: 'title', label: 'عنوان', type: 'Short Text', required: true),
+        ],
+      );
+
+  @override
+  Future<void> saveDraft(String task, Map<String, dynamic> values) async {}
+
+  @override
+  Future<String> uploadAttachment({
+    required String task,
+    required String filename,
+    required List<int> bytes,
+  }) async =>
+      'local://$filename';
 }
 
 void main() {
@@ -49,6 +73,18 @@ void main() {
     await cubit.complete(cubit.state.tasks.single, 'Complete');
     expect(repository.completed, 'TASK-1:Complete');
     expect(cubit.state.tasks, isEmpty);
+    await cubit.close();
+  });
+
+  test('فرم مرحله بدون فیلد اجباری ارسال نمی‌شود', () async {
+    final repository = _Repository();
+    final cubit = WorkflowTaskDetailCubit(repository, 'TASK-1');
+    await cubit.load();
+    expect(await cubit.submit('Complete'), isFalse);
+    expect(repository.completed, isEmpty);
+    cubit.setValue('title', 'درخواست خرید');
+    expect(await cubit.submit('Complete'), isTrue);
+    expect(repository.completed, 'TASK-1:Complete');
     await cubit.close();
   });
 }
