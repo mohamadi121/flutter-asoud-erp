@@ -9,9 +9,9 @@ import '../widgets/workflow_form_builder.dart';
 
 class WorkflowStageSettingsPage extends StatefulWidget {
   const WorkflowStageSettingsPage(
-      {required this.stage, required this.roles, super.key});
+      {required this.stage, required this.options, super.key});
   final WorkflowStage stage;
-  final List<String> roles;
+  final WorkflowFormOptions options;
 
   @override
   State<WorkflowStageSettingsPage> createState() =>
@@ -23,6 +23,9 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
   late final TextEditingController details;
   late final TextEditingController value;
   late Set<String> selectedRoles;
+  String assignmentType = 'Role';
+  String? selectedDepartment;
+  String? selectedEmployee;
   String primary = '';
   String secondary = '';
   bool optionA = true;
@@ -50,6 +53,15 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
     selectedRoles = ((config[_roleKey] as List?) ?? const [])
         .map((item) => item.toString())
         .toSet();
+    assignmentType = config['assignment_type']?.toString() ?? 'Role';
+    final prefix = _assignmentPrefix;
+    selectedDepartment =
+        ((config['${prefix}_departments'] as List?) ?? const [])
+            .map((item) => item.toString())
+            .firstOrNull;
+    selectedEmployee = ((config['${prefix}_employees'] as List?) ?? const [])
+        .map((item) => item.toString())
+        .firstOrNull;
     formFields = ((config['form_fields'] as List?) ?? const [])
         .whereType<Map>()
         .map(WorkflowFormFieldDefinition.fromMap)
@@ -64,6 +76,9 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
         WorkflowStageType.systemAction => 'target_roles',
         _ => '',
       };
+
+  String get _assignmentPrefix =>
+      widget.stage.type == WorkflowStageType.approval ? 'approver' : 'assignee';
 
   void _initializeSelections(Map<String, dynamic> config) {
     switch (widget.stage.type) {
@@ -158,7 +173,7 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
                 },
                 (next) => primary = next),
             const SizedBox(height: 14),
-            _roles('مسئولان مرحله *'),
+            _assignmentTargets('مسئول مرحله *'),
             const SizedBox(height: 14),
             WorkflowFormBuilder(
               fields: formFields,
@@ -168,7 +183,7 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
             _detailsField('راهنمای انجام کار'),
           ],
         WorkflowStageType.approval => [
-            _roles('تأییدکنندگان *'),
+            _assignmentTargets('تأییدکننده *'),
             const SizedBox(height: 14),
             AsoudSegmentedControl<String>(
               value: primary,
@@ -322,14 +337,14 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
         Text(label,
             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
         const SizedBox(height: 7),
-        if (widget.roles.isEmpty)
+        if (widget.options.roles.isEmpty)
           const Text('نقشی از سرور دریافت نشد.',
               style: TextStyle(color: AsoudColors.warning))
         else
           Wrap(
             spacing: 7,
             runSpacing: 7,
-            children: widget.roles
+            children: widget.options.roles
                 .map((role) => FilterChip(
                       selected: selectedRoles.contains(role),
                       label: Text(role),
@@ -342,6 +357,66 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
                 .toList(growable: false),
           ),
       ]);
+
+  Widget _assignmentTargets(String label) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label,
+              style:
+                  const TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 8),
+          AsoudSegmentedControl<String>(
+            value: assignmentType,
+            options: const [
+              AsoudSegmentedOption(value: 'Role', label: 'نقش'),
+              AsoudSegmentedOption(value: 'Department', label: 'واحد کاری'),
+              AsoudSegmentedOption(value: 'Employee', label: 'پرسنل مشخص'),
+            ],
+            onChanged: (next) => setState(() => assignmentType = next),
+          ),
+          const SizedBox(height: 10),
+          if (assignmentType == 'Role')
+            _roles('نقش‌های مجاز')
+          else
+            _targetDropdown(),
+        ],
+      );
+
+  Widget _targetDropdown() {
+    final employeeMode = assignmentType == 'Employee';
+    final values =
+        employeeMode ? widget.options.employees : widget.options.departments;
+    final current = employeeMode ? selectedEmployee : selectedDepartment;
+    return DropdownButtonFormField<String>(
+      isExpanded: true,
+      initialValue: values.any((item) => item.id == current) ? current : null,
+      decoration: InputDecoration(
+        labelText: employeeMode ? 'نام پرسنل *' : 'واحد کاری *',
+        prefixIcon: Icon(
+            employeeMode ? Icons.badge_outlined : Icons.account_tree_outlined),
+      ),
+      items: values
+          .map((item) => DropdownMenuItem(
+                value: item.id,
+                child: Text(
+                  employeeMode && item.department?.isNotEmpty == true
+                      ? '${item.label} — ${item.department}'
+                      : item.label,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ))
+          .toList(growable: false),
+      onChanged: values.isEmpty
+          ? null
+          : (next) => setState(() {
+                if (employeeMode) {
+                  selectedEmployee = next;
+                } else {
+                  selectedDepartment = next;
+                }
+              }),
+    );
+  }
 
   Widget _detailsField(String label) => TextField(
         controller: details,
@@ -357,6 +432,11 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
         config.addAll({
           'activity_type': primary,
           'assignee_roles': selectedRoles.toList(),
+          'assignment_type': assignmentType,
+          'assignee_departments':
+              selectedDepartment == null ? [] : [selectedDepartment],
+          'assignee_employees':
+              selectedEmployee == null ? [] : [selectedEmployee],
           'instructions': details.text.trim(),
           'form_fields': formFields.map((field) => field.toMap()).toList(),
         });
@@ -364,6 +444,11 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
       case WorkflowStageType.approval:
         config.addAll({
           'approver_roles': selectedRoles.toList(),
+          'assignment_type': assignmentType,
+          'approver_departments':
+              selectedDepartment == null ? [] : [selectedDepartment],
+          'approver_employees':
+              selectedEmployee == null ? [] : [selectedEmployee],
           'approval_mode': primary,
           'allow_reject': optionA,
           'allow_return': optionB,

@@ -116,7 +116,8 @@ class _DesignerView extends StatelessWidget {
         value: context.read<WorkflowDesignerCubit>(),
         child: WorkflowStageSettingsPage(
           stage: stage,
-          roles: options?.roles ?? const [],
+          options:
+              options ?? const WorkflowFormOptions(companies: [], modules: []),
         ),
       ),
     ));

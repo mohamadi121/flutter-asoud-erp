@@ -10,7 +10,10 @@ import '../features/office_setup/data/repositories/frappe_office_repository.dart
 import '../features/office_setup/domain/repositories/office_repository.dart';
 import '../features/workflows/data/repositories/frappe_workflow_repository.dart';
 import '../features/workflows/data/repositories/preview_fallback_workflow_repository.dart';
+import '../features/workflows/data/repositories/frappe_workflow_task_repository.dart';
+import '../features/workflows/data/repositories/preview_workflow_task_repository.dart';
 import '../features/workflows/domain/repositories/workflow_repository.dart';
+import '../features/workflows/domain/repositories/workflow_task_repository.dart';
 import 'startup_gate.dart';
 
 class AsoudErpApp extends StatelessWidget {
@@ -28,6 +31,11 @@ class AsoudErpApp extends StatelessWidget {
         RepositoryProvider<WorkflowRepository>(
           create: (_) => PreviewFallbackWorkflowRepository(
             FrappeWorkflowRepository(client),
+          ),
+        ),
+        RepositoryProvider<WorkflowTaskRepository>(
+          create: (_) => PreviewWorkflowTaskRepository(
+            FrappeWorkflowTaskRepository(client),
           ),
         ),
       ],

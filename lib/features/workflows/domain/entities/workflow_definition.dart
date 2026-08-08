@@ -57,14 +57,38 @@ class WorkflowDefinition extends Equatable {
 }
 
 class WorkflowFormOptions extends Equatable {
-  const WorkflowFormOptions(
-      {required this.companies, required this.modules, this.roles = const []});
+  const WorkflowFormOptions({
+    required this.companies,
+    required this.modules,
+    this.roles = const [],
+    this.departments = const [],
+    this.employees = const [],
+  });
   final List<String> companies;
   final List<WorkflowModuleOption> modules;
   final List<String> roles;
+  final List<WorkflowTargetOption> departments;
+  final List<WorkflowTargetOption> employees;
 
   @override
-  List<Object> get props => [companies, modules, roles];
+  List<Object> get props => [companies, modules, roles, departments, employees];
+}
+
+class WorkflowTargetOption extends Equatable {
+  const WorkflowTargetOption({
+    required this.id,
+    required this.label,
+    this.department,
+    this.company,
+  });
+
+  final String id;
+  final String label;
+  final String? department;
+  final String? company;
+
+  @override
+  List<Object?> get props => [id, label, department, company];
 }
 
 class WorkflowModuleOption extends Equatable {

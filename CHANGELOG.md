@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.10.0+16
+
+- Added role, department, and specific-employee assignment for workflow stages.
+- Added the personal workflow inbox with guarded offline preview support.
+- Connected task completion and rejection to the ASOUD workflow runtime API.
+
 ## 0.9.1 — Persistent initial setup
 
 - Connected office creation, company accounting settings, and enabled office roles to ASOUD API v1.
