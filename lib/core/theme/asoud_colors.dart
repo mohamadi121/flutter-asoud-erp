@@ -12,5 +12,8 @@ abstract final class AsoudColors {
   static const legalOffice = Color(0xFF5C6BC0);
   static const personalOffice = Color(0xFF26A69A);
   static const accounting = Color(0xFFFFB547);
+  static const warning = Color(0xFFF59E0B);
+  static const danger = Color(0xFFEF476F);
+  static const purple = Color(0xFF7E57C2);
+  static const cyan = Color(0xFF0E9FB5);
 }
-

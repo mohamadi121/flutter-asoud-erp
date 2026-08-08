@@ -12,7 +12,8 @@ class AsoudApiResponse<T> {
       final message = error is Map
           ? error['message']?.toString()
           : 'پاسخ نامعتبر از سرور دریافت شد.';
-      throw ApiException(message ?? 'خطای نامشخص سرور');
+      throw ApiException(message ?? 'خطای نامشخص سرور',
+          kind: ApiFailureKind.validation);
     }
 
     final meta = body['meta'];
