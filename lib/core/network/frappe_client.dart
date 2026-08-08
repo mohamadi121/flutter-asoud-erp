@@ -14,6 +14,43 @@ class FrappeSession {
   final String fullName;
 }
 
+class FrappeUserContext {
+  const FrappeUserContext({
+    required this.userId,
+    required this.fullName,
+    required this.roles,
+    this.employeeId,
+    this.employeeName,
+    this.company,
+  });
+
+  factory FrappeUserContext.fromJson(Map<String, dynamic> json) {
+    final employee = json['employee'];
+    final employeeMap = employee is Map
+        ? Map<String, dynamic>.from(employee)
+        : const <String, dynamic>{};
+    return FrappeUserContext(
+      userId: json['user_id'] as String,
+      fullName: json['full_name'] as String,
+      roles: List<String>.unmodifiable(
+        (json['roles'] as List).map((role) => role.toString()),
+      ),
+      employeeId: employeeMap['name'] as String?,
+      employeeName: employeeMap['employee_name'] as String?,
+      company: employeeMap['company'] as String?,
+    );
+  }
+
+  final String userId;
+  final String fullName;
+  final List<String> roles;
+  final String? employeeId;
+  final String? employeeName;
+  final String? company;
+
+  bool hasRole(String role) => roles.contains(role);
+}
+
 abstract interface class FrappeApiClient {
   bool get isAuthenticated;
   Stream<bool> get authenticationChanges;
@@ -24,6 +61,8 @@ abstract interface class FrappeApiClient {
   });
 
   Future<void> logout();
+
+  Future<FrappeUserContext> getCurrentUser();
 
   Future<List<Map<String, dynamic>>> getResourceList(
     String doctype, {
@@ -155,6 +194,17 @@ class FrappeClient implements FrappeApiClient {
       if (!error.isUnauthorized) rethrow;
     } finally {
       await _clearSession();
+    }
+  }
+
+  @override
+  Future<FrappeUserContext> getCurrentUser() async {
+    final data = await callAsoudMethod('asoud_erp.api.v1.auth.current_user');
+    if (data is! Map) throw const ApiException.protocol();
+    try {
+      return FrappeUserContext.fromJson(Map<String, dynamic>.from(data));
+    } on Object {
+      throw const ApiException.protocol();
     }
   }
 

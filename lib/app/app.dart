@@ -13,8 +13,13 @@ import '../features/accounting/domain/repositories/detail_group_repository.dart'
 import '../features/base_setup/data/repositories/frappe_base_setup_repository.dart';
 import '../features/base_setup/domain/repositories/base_setup_repository.dart';
 import '../features/auth/presentation/pages/splash_page.dart';
+import '../features/auth/data/repositories/frappe_auth_repository.dart';
+import '../features/auth/domain/repositories/auth_repository.dart';
 import '../features/parties/data/repositories/frappe_party_repository.dart';
 import '../features/parties/domain/repositories/party_repository.dart';
+import '../features/workflows/data/repositories/frappe_workflow_repository.dart';
+import '../features/workflows/data/repositories/preview_fallback_workflow_repository.dart';
+import '../features/workflows/domain/repositories/workflow_repository.dart';
 
 class AsoudErpApp extends StatelessWidget {
   const AsoudErpApp({super.key});
@@ -25,6 +30,9 @@ class AsoudErpApp extends StatelessWidget {
     return MultiRepositoryProvider(
       providers: [
         RepositoryProvider<FrappeApiClient>.value(value: client),
+        RepositoryProvider<AuthRepository>.value(
+          value: FrappeAuthRepository(client),
+        ),
         RepositoryProvider<OfficeRepository>.value(
           value: FrappeOfficeRepository(client),
         ),
@@ -39,6 +47,11 @@ class AsoudErpApp extends StatelessWidget {
         ),
         RepositoryProvider<PartyRepository>.value(
           value: FrappePartyRepository(client),
+        ),
+        RepositoryProvider<WorkflowRepository>.value(
+          value: PreviewFallbackWorkflowRepository(
+            FrappeWorkflowRepository(client),
+          ),
         ),
       ],
       child: MaterialApp(

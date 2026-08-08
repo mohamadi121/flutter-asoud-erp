@@ -9,6 +9,7 @@ import '../../../office_setup/domain/entities/office.dart';
 import '../../../office_setup/domain/repositories/office_repository.dart';
 import '../../../office_setup/presentation/pages/office_type_page.dart';
 import '../../../office_setup/presentation/pages/offices_page.dart';
+import '../../../workflows/presentation/pages/workflow_list_page.dart';
 
 class DashboardLandingPage extends StatefulWidget {
   const DashboardLandingPage({this.offlinePreview = false, super.key});
@@ -124,7 +125,11 @@ class DashboardPage extends StatelessWidget {
       bottomNavigationBar: NavigationBar(
         selectedIndex: 0,
         onDestinationSelected: (index) {
-          if (index != 0) {
+          if (index == 1) {
+            Navigator.of(context).push(MaterialPageRoute<void>(
+              builder: (_) => WorkflowListPage(company: officeName),
+            ));
+          } else if (index != 0) {
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
               content: Text('این بخش هنوز به Backend متصل نشده است.'),
             ));
@@ -136,7 +141,7 @@ class DashboardPage extends StatelessWidget {
               selectedIcon: Icon(Icons.home_rounded),
               label: 'خانه'),
           NavigationDestination(
-              icon: Icon(Icons.grid_view_outlined), label: 'عملیات'),
+              icon: Icon(Icons.hub_outlined), label: 'گردش‌کار'),
           NavigationDestination(
               icon: Icon(Icons.account_balance_outlined), label: 'حسابداری'),
           NavigationDestination(

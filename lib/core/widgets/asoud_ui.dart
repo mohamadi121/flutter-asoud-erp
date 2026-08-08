@@ -159,6 +159,32 @@ class AsoudSegmentedOption<T> {
   final IconData? icon;
 }
 
+class AsoudOfflinePreviewBanner extends StatelessWidget {
+  const AsoudOfflinePreviewBanner({super.key});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: double.infinity,
+        margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: AsoudColors.warning.withValues(alpha: .09),
+          border: Border.all(color: AsoudColors.warning.withValues(alpha: .35)),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Row(children: [
+          Icon(Icons.cloud_off_rounded, color: AsoudColors.warning, size: 20),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'حالت پیش‌نمایش آفلاین؛ اطلاعات فقط موقت است و در ERPNext ذخیره نمی‌شود.',
+              style: TextStyle(fontSize: 10, height: 1.6),
+            ),
+          ),
+        ]),
+      );
+}
+
 class AsoudSegmentedControl<T> extends StatelessWidget {
   const AsoudSegmentedControl({
     required this.value,

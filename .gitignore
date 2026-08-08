@@ -6,6 +6,7 @@
 .packages
 build/
 coverage/
+test/ui/failures/
 _publish_work/
 .codex/
 .agents/
