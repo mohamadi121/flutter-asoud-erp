@@ -1,0 +1,3 @@
+tags:
+  golden:
+    description: Pixel baselines generated with the Windows Flutter renderer.

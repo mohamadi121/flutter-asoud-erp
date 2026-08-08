@@ -231,7 +231,7 @@ void main() {
     await tester.pumpAndSettle();
     await expectLater(find.byType(MaterialApp),
         matchesGoldenFile('goldens/workflow_list_390.png'));
-  });
+  }, tags: 'golden');
 
   testWidgets('workflow form preview', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
@@ -242,7 +242,7 @@ void main() {
     await tester.pumpAndSettle();
     await expectLater(find.byType(MaterialApp),
         matchesGoldenFile('goldens/workflow_form_390.png'));
-  });
+  }, tags: 'golden');
 
   testWidgets('workflow designer preview', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
@@ -254,7 +254,7 @@ void main() {
     await tester.pumpAndSettle();
     await expectLater(find.byType(MaterialApp),
         matchesGoldenFile('goldens/workflow_designer_390.png'));
-  });
+  }, tags: 'golden');
 
   testWidgets('six stage buttons preview', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
@@ -271,7 +271,7 @@ void main() {
     expect(find.text('پایان فرایند'), findsOneWidget);
     await expectLater(find.byType(MaterialApp),
         matchesGoldenFile('goldens/workflow_stage_picker_390.png'));
-  });
+  }, tags: 'golden');
 
   for (final type in WorkflowStageType.values
       .where((type) => type != WorkflowStageType.start)) {
