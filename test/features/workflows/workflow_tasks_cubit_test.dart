@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 class _Repository implements WorkflowTaskRepository {
   var completed = '';
+  String? comment;
   @override
   bool get isOfflinePreview => true;
 
@@ -32,6 +33,7 @@ class _Repository implements WorkflowTaskRepository {
     Map<String, dynamic> response = const {},
   }) async {
     completed = '$task:$action';
+    this.comment = comment;
   }
 
   @override
@@ -85,6 +87,16 @@ void main() {
     cubit.setValue('title', 'درخواست خرید');
     expect(await cubit.submit('Complete'), isTrue);
     expect(repository.completed, 'TASK-1:Complete');
+    await cubit.close();
+  });
+
+  test('بازگشت برای اصلاح به تکمیل فیلدهای مرحله وابسته نیست', () async {
+    final repository = _Repository();
+    final cubit = WorkflowTaskDetailCubit(repository, 'TASK-1');
+    await cubit.load();
+    expect(await cubit.submit('Return', comment: 'عنوان اصلاح شود'), isTrue);
+    expect(repository.completed, 'TASK-1:Return');
+    expect(repository.comment, 'عنوان اصلاح شود');
     await cubit.close();
   });
 }

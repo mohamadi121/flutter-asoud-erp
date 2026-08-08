@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.13.0+19
+
+- Added ASOUD-styled review and approval task details with read-only data from prior stages.
+- Added mandatory return reasons, preserved correction data, and persistent offline return testing.
+- Added safer multi-assignee rejection and return behavior with complete activity history.
+
 ## 0.12.0+18
 
 - Added safe workflow conditions based on ERPNext document fields or prior form responses.

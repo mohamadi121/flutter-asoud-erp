@@ -38,6 +38,29 @@ class WorkflowTaskActivity extends Equatable {
   List<Object?> get props => [actor, action, comment, createdOn];
 }
 
+class WorkflowTaskDataValue extends Equatable {
+  const WorkflowTaskDataValue({
+    required this.key,
+    required this.label,
+    required this.value,
+  });
+  final String key, label;
+  final dynamic value;
+  @override
+  List<Object?> get props => [key, label, value];
+}
+
+class WorkflowTaskDataSection extends Equatable {
+  const WorkflowTaskDataSection({
+    required this.title,
+    required this.values,
+  });
+  final String title;
+  final List<WorkflowTaskDataValue> values;
+  @override
+  List<Object> get props => [title, values];
+}
+
 class WorkflowTaskDetail extends Equatable {
   const WorkflowTaskDetail({
     required this.task,
@@ -47,6 +70,9 @@ class WorkflowTaskDetail extends Equatable {
     this.activities = const [],
     this.allowReject = false,
     this.allowReturn = false,
+    this.commentRequired = false,
+    this.activityType = '',
+    this.previousData = const [],
   });
   final WorkflowTask task;
   final String stageType;
@@ -54,7 +80,20 @@ class WorkflowTaskDetail extends Equatable {
   final Map<String, dynamic> values;
   final List<WorkflowTaskActivity> activities;
   final bool allowReject, allowReturn;
+  final bool commentRequired;
+  final String activityType;
+  final List<WorkflowTaskDataSection> previousData;
   @override
-  List<Object> get props =>
-      [task, stageType, fields, values, activities, allowReject, allowReturn];
+  List<Object> get props => [
+        task,
+        stageType,
+        fields,
+        values,
+        activities,
+        allowReject,
+        allowReturn,
+        commentRequired,
+        activityType,
+        previousData,
+      ];
 }

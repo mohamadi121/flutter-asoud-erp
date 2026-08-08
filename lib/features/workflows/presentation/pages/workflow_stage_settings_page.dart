@@ -85,6 +85,9 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
     switch (widget.stage.type) {
       case WorkflowStageType.userTask:
         primary = config['activity_type']?.toString() ?? 'Task';
+        optionA = config['allow_reject'] == true;
+        optionB = config['allow_return'] == true;
+        optionC = config['comment_required'] == true;
         break;
       case WorkflowStageType.approval:
         primary = config['approval_mode']?.toString() ?? 'Any';
@@ -188,6 +191,21 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
               fields: formFields,
               onChanged: (next) => setState(() => formFields = next),
             ),
+            if (primary == 'Review') ...[
+              const SizedBox(height: 10),
+              SwitchListTile(
+                  title: const Text('امکان بازگشت برای اصلاح'),
+                  value: optionB,
+                  onChanged: (next) => setState(() => optionB = next)),
+              SwitchListTile(
+                  title: const Text('امکان رد درخواست'),
+                  value: optionA,
+                  onChanged: (next) => setState(() => optionA = next)),
+              SwitchListTile(
+                  title: const Text('توضیح تصمیم اجباری باشد'),
+                  value: optionC,
+                  onChanged: (next) => setState(() => optionC = next)),
+            ],
             const SizedBox(height: 14),
             _detailsField('راهنمای انجام کار'),
           ],
@@ -462,6 +480,9 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
               selectedEmployee == null ? [] : [selectedEmployee],
           'instructions': details.text.trim(),
           'form_fields': formFields.map((field) => field.toMap()).toList(),
+          'allow_reject': primary == 'Review' && optionA,
+          'allow_return': primary == 'Review' && optionB,
+          'comment_required': primary == 'Review' && optionC,
         });
         break;
       case WorkflowStageType.approval:

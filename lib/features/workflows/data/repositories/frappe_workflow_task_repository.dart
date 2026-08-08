@@ -66,6 +66,7 @@ class FrappeWorkflowTaskRepository implements WorkflowTaskRepository {
         : <String, dynamic>{};
     final rawFields = config['form_fields'];
     final rawHistory = item['history'];
+    final rawPreviousData = item['previous_data'];
     final taskEntity = WorkflowTask(
       id: item['name']?.toString() ?? '',
       instance: item['workflow_instance']?.toString() ?? '',
@@ -99,6 +100,27 @@ class FrappeWorkflowTaskRepository implements WorkflowTaskRepository {
           : const [],
       allowReject: config['allow_reject'] == true,
       allowReturn: config['allow_return'] == true,
+      commentRequired: config['comment_required'] == true,
+      activityType: config['activity_type']?.toString() ?? '',
+      previousData: rawPreviousData is List
+          ? rawPreviousData.whereType<Map>().map((raw) {
+              final section = Map<String, dynamic>.from(raw);
+              final values = section['values'];
+              return WorkflowTaskDataSection(
+                title: section['title']?.toString() ?? 'اطلاعات مرحله قبل',
+                values: values is List
+                    ? values.whereType<Map>().map((rawValue) {
+                        final value = Map<String, dynamic>.from(rawValue);
+                        return WorkflowTaskDataValue(
+                          key: value['key']?.toString() ?? '',
+                          label: value['label']?.toString() ?? '',
+                          value: value['value'],
+                        );
+                      }).toList(growable: false)
+                    : const [],
+              );
+            }).toList(growable: false)
+          : const [],
     );
   }
 

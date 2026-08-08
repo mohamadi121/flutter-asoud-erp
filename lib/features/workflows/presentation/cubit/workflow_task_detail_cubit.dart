@@ -105,7 +105,7 @@ class WorkflowTaskDetailCubit extends Cubit<WorkflowTaskDetailState> {
 
   Future<bool> submit(String action, {String? comment}) async {
     final error = validate();
-    if (action != 'Reject' && error != null) {
+    if ({'Complete', 'Approve'}.contains(action) && error != null) {
       emit(WorkflowTaskDetailState(
           status: WorkflowTaskDetailStatus.failure,
           detail: state.detail,

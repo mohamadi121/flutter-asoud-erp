@@ -64,12 +64,42 @@ void main() {
     expect(tasks.single.id, 'WFT-OFFLINE-URGENT');
     final detail = await repository.getTask(tasks.single.id);
     expect(detail.stageType, 'Approval');
+    expect(detail.previousData.single.values.first.value, 'خرید کاغذ');
     expect(detail.activities.last.action, 'Condition True');
     await repository.completeTask(
       task: tasks.single.id,
-      action: 'Complete',
+      action: 'Approve',
     );
     expect(await repository.getMyTasks(), isEmpty);
+  });
+
+  test(
+      'بازگشت آفلاین علت را نگه می‌دارد و فرم اصلاح را با داده قبلی باز می‌کند',
+      () async {
+    final repository = PreviewWorkflowTaskRepository(_OfflineRemote());
+    await repository.getMyTasks();
+    await repository.completeTask(
+      task: 'WFT-OFFLINE-001',
+      action: 'Complete',
+      response: const {
+        'request_title': 'خرید کاغذ',
+        'priority': 'فوری',
+        'confirmed': true,
+      },
+    );
+    final approval = (await repository.getMyTasks()).single;
+    await repository.completeTask(
+      task: approval.id,
+      action: 'Return',
+      comment: 'مبلغ اصلاح شود',
+    );
+
+    final correction = (await repository.getMyTasks()).single;
+    expect(correction.id, 'WFT-OFFLINE-CORRECTION');
+    final detail = await repository.getTask(correction.id);
+    expect(detail.values['request_title'], 'خرید کاغذ');
+    expect(detail.activities.last.comment, 'مبلغ اصلاح شود');
+    expect(detail.allowReturn, isFalse);
   });
 
   test('شرط عادی آفلاین به کارتابل بررسی عادی هدایت می‌شود', () async {

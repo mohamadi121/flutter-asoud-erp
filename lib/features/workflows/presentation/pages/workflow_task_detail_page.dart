@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../domain/entities/workflow_definition.dart';
+import '../../domain/entities/workflow_task.dart';
 import '../../domain/repositories/workflow_task_repository.dart';
 import '../cubit/workflow_task_detail_cubit.dart';
 
@@ -56,6 +57,20 @@ class _TaskDetailView extends StatelessWidget {
                       child: ListView(
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
                         children: [
+                          _TaskTypeCard(detail: detail),
+                          if (detail.previousData.isNotEmpty) ...[
+                            const SizedBox(height: 14),
+                            const AsoudSectionTitle(
+                                title: 'اطلاعات ثبت‌شده مراحل قبل'),
+                            for (final section in detail.previousData) ...[
+                              _PreviousDataCard(section: section),
+                              const SizedBox(height: 10),
+                            ],
+                          ],
+                          if (detail.fields.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            const AsoudSectionTitle(title: 'اطلاعات این مرحله'),
+                          ],
                           for (final field in detail.fields) ...[
                             _DynamicField(field: field),
                             const SizedBox(height: 12),
@@ -70,7 +85,11 @@ class _TaskDetailView extends StatelessWidget {
                                 leading:
                                     const Icon(Icons.history_rounded, size: 20),
                                 title: Text(activity.action),
-                                subtitle: Text(activity.actor),
+                                subtitle: Text([
+                                  activity.actor,
+                                  if (activity.comment.isNotEmpty)
+                                    activity.comment,
+                                ].join('\n')),
                               ),
                           ],
                         ],
@@ -84,22 +103,24 @@ class _TaskDetailView extends StatelessWidget {
                     child: Row(children: [
                       Expanded(
                         child: FilledButton(
-                          onPressed:
-                              state.status == WorkflowTaskDetailStatus.saving
-                                  ? null
-                                  : () async {
-                                      final done = await context
-                                          .read<WorkflowTaskDetailCubit>()
-                                          .submit(detail.stageType == 'Approval'
-                                              ? 'Approve'
-                                              : 'Complete');
-                                      if (done && context.mounted) {
-                                        Navigator.pop(context, true);
-                                      }
-                                    },
+                          onPressed: state.status ==
+                                  WorkflowTaskDetailStatus.saving
+                              ? null
+                              : () async {
+                                  final action = detail.stageType == 'Approval'
+                                      ? 'Approve'
+                                      : 'Complete';
+                                  final done = await _submitAction(
+                                      context, detail, action);
+                                  if (done && context.mounted) {
+                                    Navigator.pop(context, true);
+                                  }
+                                },
                           child: Text(detail.stageType == 'Approval'
                               ? 'تأیید و ارسال'
-                              : 'ثبت و ارسال'),
+                              : detail.activityType == 'Review'
+                                  ? 'تأیید بررسی و ارسال'
+                                  : 'ثبت و ارسال'),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -117,9 +138,8 @@ class _TaskDetailView extends StatelessWidget {
                               state.status != WorkflowTaskDetailStatus.saving,
                           tooltip: 'اقدامات بیشتر',
                           icon: const Icon(Icons.more_vert_rounded),
-                          onSelected: (action) => context
-                              .read<WorkflowTaskDetailCubit>()
-                              .submit(action),
+                          onSelected: (action) =>
+                              _submitAction(context, detail, action),
                           itemBuilder: (_) => [
                             if (detail.allowReturn)
                               const PopupMenuItem(
@@ -136,6 +156,174 @@ class _TaskDetailView extends StatelessWidget {
           );
         },
       );
+
+  Future<bool> _submitAction(
+      BuildContext context, WorkflowTaskDetail detail, String action) async {
+    final needsComment = action == 'Return' ||
+        action == 'Reject' ||
+        (action == 'Approve' && detail.commentRequired);
+    String? comment;
+    if (needsComment) {
+      comment = await showDialog<String>(
+        context: context,
+        builder: (_) => _DecisionDialog(
+          action: action,
+          isRequired: action == 'Return' || detail.commentRequired,
+        ),
+      );
+      if (comment == null || !context.mounted) return false;
+    }
+    return context
+        .read<WorkflowTaskDetailCubit>()
+        .submit(action, comment: comment);
+  }
+}
+
+class _TaskTypeCard extends StatelessWidget {
+  const _TaskTypeCard({required this.detail});
+  final WorkflowTaskDetail detail;
+
+  @override
+  Widget build(BuildContext context) {
+    final approval = detail.stageType == 'Approval';
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: (approval ? AsoudColors.purple : AsoudColors.primary)
+            .withValues(alpha: .07),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AsoudColors.border),
+      ),
+      child: Row(children: [
+        AsoudIconBox(
+          icon: approval ? Icons.approval_outlined : Icons.fact_check_outlined,
+          color: approval ? AsoudColors.purple : AsoudColors.primary,
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(approval ? 'مرحله تأیید' : 'مرحله بررسی و انجام کار',
+                  style: const TextStyle(fontWeight: FontWeight.w900)),
+              const SizedBox(height: 3),
+              Text(
+                approval
+                    ? 'اطلاعات مراحل قبل را بررسی و تصمیم خود را ثبت کنید.'
+                    : 'اطلاعات ثبت‌شده را بررسی و موارد این مرحله را تکمیل کنید.',
+                style: const TextStyle(fontSize: 10, color: AsoudColors.muted),
+              ),
+            ],
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
+class _PreviousDataCard extends StatelessWidget {
+  const _PreviousDataCard({required this.section});
+  final WorkflowTaskDataSection section;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: AsoudColors.border),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(section.title,
+              style:
+                  const TextStyle(fontSize: 12, fontWeight: FontWeight.w900)),
+          const Divider(height: 18),
+          for (final item in section.values)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child:
+                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Expanded(
+                    child: Text(item.label,
+                        style: const TextStyle(
+                            fontSize: 10, color: AsoudColors.muted))),
+                const SizedBox(width: 10),
+                Expanded(
+                    child: Text(_displayValue(item.value),
+                        textAlign: TextAlign.end,
+                        style: const TextStyle(
+                            fontSize: 10, fontWeight: FontWeight.w800))),
+              ]),
+            ),
+        ]),
+      );
+}
+
+class _DecisionDialog extends StatefulWidget {
+  const _DecisionDialog({required this.action, required this.isRequired});
+  final String action;
+  final bool isRequired;
+
+  @override
+  State<_DecisionDialog> createState() => _DecisionDialogState();
+}
+
+class _DecisionDialogState extends State<_DecisionDialog> {
+  final controller = TextEditingController();
+  String? error;
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final returning = widget.action == 'Return';
+    final rejecting = widget.action == 'Reject';
+    return AlertDialog(
+      title: Text(returning
+          ? 'بازگشت برای اصلاح'
+          : rejecting
+              ? 'رد درخواست'
+              : 'ثبت تأیید'),
+      content: TextField(
+        controller: controller,
+        minLines: 3,
+        maxLines: 5,
+        autofocus: true,
+        decoration: InputDecoration(
+          labelText: widget.isRequired ? 'توضیحات *' : 'توضیحات',
+          hintText: returning ? 'مواردی که باید اصلاح شوند را بنویسید.' : null,
+          errorText: error,
+        ),
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('انصراف')),
+        FilledButton(
+          onPressed: () {
+            final value = controller.text.trim();
+            if (widget.isRequired && value.isEmpty) {
+              setState(() => error = 'ثبت توضیحات الزامی است.');
+              return;
+            }
+            Navigator.pop(context, value);
+          },
+          child: const Text('ثبت تصمیم'),
+        ),
+      ],
+    );
+  }
+}
+
+String _displayValue(dynamic value) {
+  if (value == null || value == '') return '—';
+  if (value == true) return 'بله';
+  if (value == false) return 'خیر';
+  return value.toString();
 }
 
 class _DynamicField extends StatelessWidget {
