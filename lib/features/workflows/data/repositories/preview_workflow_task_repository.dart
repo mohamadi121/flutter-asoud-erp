@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../../../../core/network/api_exception.dart';
 import '../../domain/entities/workflow_definition.dart';
@@ -160,10 +162,18 @@ class PreviewWorkflowTaskRepository implements WorkflowTaskRepository {
     final attachments = saved['attachments'] is Map
         ? Map<String, dynamic>.from(saved['attachments'] as Map)
         : <String, dynamic>{};
-    attachments[filename] = base64Encode(bytes);
+    final root = await getApplicationSupportDirectory();
+    final directory =
+        Directory('${root.path}${Platform.pathSeparator}workflow_attachments');
+    await directory.create(recursive: true);
+    final safeName = filename.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
+    final file = File(
+        '${directory.path}${Platform.pathSeparator}${DateTime.now().microsecondsSinceEpoch}_$safeName');
+    await file.writeAsBytes(bytes, flush: true);
+    attachments[filename] = file.path;
     saved['attachments'] = attachments;
     await _write(saved);
-    return 'local://$filename';
+    return 'local://${file.path}';
   }
 
   @override
