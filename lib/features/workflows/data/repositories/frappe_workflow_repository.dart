@@ -106,6 +106,8 @@ class FrappeWorkflowRepository implements WorkflowRepository {
     final companies = item['companies'];
     final modules = item['modules'];
     final roles = item['roles'];
+    final departments = item['departments'];
+    final employees = item['employees'];
     return WorkflowFormOptions(
       companies: companies is List
           ? companies.map((value) => value.toString()).toList(growable: false)
@@ -132,7 +134,27 @@ class FrappeWorkflowRepository implements WorkflowRepository {
       roles: roles is List
           ? roles.map((value) => value.toString()).toList(growable: false)
           : const [],
+      departments: _parseTargets(departments, labelKey: 'department_name'),
+      employees: _parseTargets(employees, labelKey: 'employee_name'),
     );
+  }
+
+  List<WorkflowTargetOption> _parseTargets(dynamic raw,
+      {required String labelKey}) {
+    if (raw is! List) return const [];
+    return raw
+        .whereType<Map>()
+        .map((value) {
+          final item = Map<String, dynamic>.from(value);
+          return WorkflowTargetOption(
+            id: item['name']?.toString() ?? '',
+            label: item[labelKey]?.toString() ?? item['name']?.toString() ?? '',
+            department: item['department']?.toString(),
+            company: item['company']?.toString(),
+          );
+        })
+        .where((item) => item.id.isNotEmpty)
+        .toList(growable: false);
   }
 
   @override

@@ -4,6 +4,7 @@ import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/config/app_config.dart';
 import '../../../accounting/presentation/pages/accounting_home_page.dart';
 import '../../../workflows/presentation/pages/workflow_list_page.dart';
+import '../../../workflows/presentation/pages/workflow_tasks_page.dart';
 import '../../domain/entities/erp_module.dart';
 
 class DashboardPage extends StatelessWidget {
@@ -44,6 +45,10 @@ class DashboardPage extends StatelessWidget {
         color: Color(0xFF78909C)),
     ErpModule(
         title: 'گردش‌کار', icon: Icons.hub_outlined, color: Color(0xFF315CF5)),
+    ErpModule(
+        title: 'کارتابل من',
+        icon: Icons.assignment_ind_outlined,
+        color: Color(0xFF00A884)),
   ];
 
   @override
@@ -99,11 +104,18 @@ class DashboardPage extends StatelessWidget {
                                   ),
                                 ),
                               )
-                          : () => ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                    content: Text(
-                                        'ماژول ${module.title} در مرحله بعد تکمیل می‌شود.')),
-                              ),
+                          : module.title == 'کارتابل من'
+                              ? () => Navigator.of(context).push(
+                                    MaterialPageRoute<void>(
+                                      builder: (_) => const WorkflowTasksPage(),
+                                    ),
+                                  )
+                              : () =>
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                        content: Text(
+                                            'ماژول ${module.title} در مرحله بعد تکمیل می‌شود.')),
+                                  ),
                 );
               },
             ),

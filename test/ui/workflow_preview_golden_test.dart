@@ -302,7 +302,21 @@ void main() {
                     sequence: 1,
                     configurationComplete: false,
                   ),
-                  roles: const ['Accounts Manager', 'Accounts User'],
+                  options: const WorkflowFormOptions(
+                    companies: [],
+                    modules: [],
+                    roles: ['Accounts Manager', 'Accounts User'],
+                    departments: [
+                      WorkflowTargetOption(
+                          id: 'Accounts - ASOUD', label: 'واحد مالی'),
+                    ],
+                    employees: [
+                      WorkflowTargetOption(
+                          id: 'HR-EMP-0001',
+                          label: 'احمد رضایی',
+                          department: 'واحد مالی'),
+                    ],
+                  ),
                 ),
               ),
             ),

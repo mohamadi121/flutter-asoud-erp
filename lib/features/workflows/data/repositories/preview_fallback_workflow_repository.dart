@@ -17,6 +17,20 @@ class PreviewFallbackWorkflowRepository
   static const _options = WorkflowFormOptions(
     companies: ['دفتر نمونه آفلاین'],
     roles: ['مدیر سیستم', 'مدیر حساب‌ها', 'مدیر خرید', 'کارشناس'],
+    departments: [
+      WorkflowTargetOption(id: 'حسابداری - آفلاین', label: 'واحد حسابداری'),
+      WorkflowTargetOption(id: 'خرید - آفلاین', label: 'واحد خرید'),
+    ],
+    employees: [
+      WorkflowTargetOption(
+          id: 'HR-EMP-OFFLINE-001',
+          label: 'احمد رضایی',
+          department: 'واحد حسابداری'),
+      WorkflowTargetOption(
+          id: 'HR-EMP-OFFLINE-002',
+          label: 'سارا محمدی',
+          department: 'واحد خرید'),
+    ],
     modules: [
       WorkflowModuleOption(key: 'Purchase', doctypes: [
         WorkflowDoctypeOption(name: 'Material Request', available: true),
