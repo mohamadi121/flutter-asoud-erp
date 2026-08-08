@@ -6,6 +6,15 @@ import 'package:flutter_test/flutter_test.dart';
 
 class _UnavailableRepository implements WorkflowRepository {
   _UnavailableRepository([this.kind = ApiFailureKind.network]);
+
+  @override
+  Future<WorkflowDesign> addConditionBranch({
+    required String definition,
+    required String conditionStage,
+    required WorkflowStageType type,
+    required bool result,
+  }) async =>
+      unavailable;
   final ApiFailureKind kind;
 
   Never get unavailable => throw ApiException('offline', kind: kind);
@@ -29,7 +38,9 @@ class _UnavailableRepository implements WorkflowRepository {
       unavailable;
   @override
   Future<List<WorkflowFieldOption>> getConditionFields(
-          String definition) async =>
+    String definition, {
+    String? beforeStage,
+  }) async =>
       unavailable;
   @override
   Future<WorkflowDesign> getDesign(String definition) async => unavailable;

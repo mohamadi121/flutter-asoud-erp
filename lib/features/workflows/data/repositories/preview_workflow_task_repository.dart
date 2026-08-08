@@ -29,6 +29,7 @@ class PreviewWorkflowTaskRepository implements WorkflowTaskRepository {
     if (raw != null) return Map<String, dynamic>.from(jsonDecode(raw) as Map);
     final seed = <String, dynamic>{
       'status': 'Open',
+      'current_task': 'initial',
       'draft': <String, dynamic>{},
       'history': <dynamic>[],
       'attachments': <String, dynamic>{},
@@ -42,11 +43,24 @@ class PreviewWorkflowTaskRepository implements WorkflowTaskRepository {
     await preferences.setString(_storageKey, jsonEncode(value));
   }
 
-  WorkflowTask _offlineTask(String status) => WorkflowTask(
-        id: 'WFT-OFFLINE-001',
+  WorkflowTask _offlineTask(String status, {String current = 'initial'}) =>
+      WorkflowTask(
+        id: switch (current) {
+          'urgent' => 'WFT-OFFLINE-URGENT',
+          'normal' => 'WFT-OFFLINE-NORMAL',
+          _ => 'WFT-OFFLINE-001',
+        },
         instance: 'WFI-OFFLINE-001',
-        stage: 'STAGE-OFFLINE-REVIEW',
-        title: 'بررسی درخواست خرید',
+        stage: switch (current) {
+          'urgent' => 'STAGE-OFFLINE-URGENT-APPROVAL',
+          'normal' => 'STAGE-OFFLINE-NORMAL-REVIEW',
+          _ => 'STAGE-OFFLINE-DATA-ENTRY',
+        },
+        title: switch (current) {
+          'urgent' => 'تأیید فوری مدیر',
+          'normal' => 'بررسی عادی درخواست',
+          _ => 'ثبت درخواست خرید',
+        },
         status: status,
         assignedOn: DateTime(2026, 8, 9, 9, 30),
         localOnly: true,
@@ -63,7 +77,10 @@ class PreviewWorkflowTaskRepository implements WorkflowTaskRepository {
       _offline = true;
       final saved = await _read();
       final current = saved['status']?.toString() ?? 'Open';
-      return current == status ? [_offlineTask(current)] : const [];
+      final currentTask = saved['current_task']?.toString() ?? 'initial';
+      return current == status
+          ? [_offlineTask(current, current: currentTask)]
+          : const [];
     }
   }
 
@@ -80,32 +97,37 @@ class PreviewWorkflowTaskRepository implements WorkflowTaskRepository {
     final saved = await _read();
     final draft = saved['draft'];
     final history = saved['history'];
+    final current = saved['current_task']?.toString() ?? 'initial';
+    final initial = current == 'initial';
     return WorkflowTaskDetail(
-      task: _offlineTask(saved['status']?.toString() ?? 'Open'),
-      stageType: 'User Task',
-      fields: const [
-        WorkflowFormFieldDefinition(
-            key: 'request_title',
-            label: 'عنوان درخواست',
-            type: 'Short Text',
-            required: true),
-        WorkflowFormFieldDefinition(
-            key: 'description', label: 'توضیحات', type: 'Long Text'),
-        WorkflowFormFieldDefinition(
-            key: 'amount', label: 'مبلغ برآوردی', type: 'Currency'),
-        WorkflowFormFieldDefinition(
-            key: 'priority',
-            label: 'اولویت',
-            type: 'Choice',
-            options: ['عادی', 'فوری']),
-        WorkflowFormFieldDefinition(
-            key: 'attachment', label: 'پیوست', type: 'Attachment'),
-        WorkflowFormFieldDefinition(
-            key: 'confirmed',
-            label: 'اطلاعات را تأیید می‌کنم',
-            type: 'Checkbox',
-            required: true),
-      ],
+      task:
+          _offlineTask(saved['status']?.toString() ?? 'Open', current: current),
+      stageType: current == 'urgent' ? 'Approval' : 'User Task',
+      fields: initial
+          ? const [
+              WorkflowFormFieldDefinition(
+                  key: 'request_title',
+                  label: 'عنوان درخواست',
+                  type: 'Short Text',
+                  required: true),
+              WorkflowFormFieldDefinition(
+                  key: 'description', label: 'توضیحات', type: 'Long Text'),
+              WorkflowFormFieldDefinition(
+                  key: 'amount', label: 'مبلغ برآوردی', type: 'Currency'),
+              WorkflowFormFieldDefinition(
+                  key: 'priority',
+                  label: 'اولویت',
+                  type: 'Choice',
+                  options: ['عادی', 'فوری']),
+              WorkflowFormFieldDefinition(
+                  key: 'attachment', label: 'پیوست', type: 'Attachment'),
+              WorkflowFormFieldDefinition(
+                  key: 'confirmed',
+                  label: 'اطلاعات را تأیید می‌کنم',
+                  type: 'Checkbox',
+                  required: true),
+            ]
+          : const [],
       values: draft is Map ? Map<String, dynamic>.from(draft) : const {},
       activities: history is List
           ? history.whereType<Map>().map((raw) {
@@ -119,8 +141,8 @@ class PreviewWorkflowTaskRepository implements WorkflowTaskRepository {
               );
             }).toList(growable: false)
           : const [],
-      allowReject: true,
-      allowReturn: true,
+      allowReject: current == 'urgent',
+      allowReturn: current != 'initial',
     );
   }
 
@@ -198,7 +220,6 @@ class PreviewWorkflowTaskRepository implements WorkflowTaskRepository {
       }
     }
     final saved = await _read();
-    saved['status'] = action == 'Reject' ? 'Rejected' : 'Completed';
     saved['draft'] = response;
     final history = saved['history'] is List
         ? List<dynamic>.from(saved['history'] as List)
@@ -209,6 +230,22 @@ class PreviewWorkflowTaskRepository implements WorkflowTaskRepository {
       'comment': comment ?? '',
       'created_on': DateTime.now().toIso8601String(),
     });
+    final current = saved['current_task']?.toString() ?? 'initial';
+    if (current == 'initial' && action == 'Complete') {
+      final urgent = response['priority'] == 'فوری';
+      saved['current_task'] = urgent ? 'urgent' : 'normal';
+      saved['status'] = 'Open';
+      history.add({
+        'actor': 'موتور گردش‌کار محلی',
+        'action': urgent ? 'Condition True' : 'Condition False',
+        'comment': urgent
+            ? 'اولویت فوری است؛ ارجاع به تأیید فوری مدیر.'
+            : 'اولویت فوری نیست؛ ارجاع به بررسی عادی.',
+        'created_on': DateTime.now().toIso8601String(),
+      });
+    } else {
+      saved['status'] = action == 'Reject' ? 'Rejected' : 'Completed';
+    }
     saved['history'] = history;
     await _write(saved);
   }

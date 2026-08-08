@@ -251,6 +251,53 @@ class PreviewFallbackWorkflowRepository
       );
 
   @override
+  Future<WorkflowDesign> addConditionBranch({
+    required String definition,
+    required String conditionStage,
+    required WorkflowStageType type,
+    required bool result,
+  }) =>
+      _remoteOrPreview(
+        () => _remote.addConditionBranch(
+          definition: definition,
+          conditionStage: conditionStage,
+          type: type,
+          result: result,
+        ),
+        () {
+          final design = _designs[definition] ?? _sampleDesign(definition);
+          if (design.transitions.any((item) =>
+              item.fromStage == conditionStage &&
+              item.condition['result'] == result)) {
+            throw StateError('Offline condition branch already exists');
+          }
+          final sequence = design.stages.length + 1;
+          final stage = WorkflowStage(
+            id: '$definition-BRANCH-$sequence',
+            key: 'BRANCH_$sequence',
+            type: type,
+            title: _stageTitle(type),
+            sequence: sequence,
+            configurationComplete: type == WorkflowStageType.end,
+          );
+          final transition = WorkflowTransition(
+            id: '$definition-BRANCH-TRANSITION-$sequence',
+            fromStage: conditionStage,
+            toStage: stage.id,
+            label: result ? 'بله' : 'خیر',
+            condition: {'result': result},
+          );
+          final updated = WorkflowDesign(
+            workflow: design.workflow,
+            stages: [...design.stages, stage],
+            transitions: [...design.transitions, transition],
+          );
+          _designs[definition] = updated;
+          return updated;
+        },
+      );
+
+  @override
   Future<WorkflowStage> saveStartSettings(
           {required String definition,
           required String triggerType,
@@ -289,9 +336,13 @@ class PreviewFallbackWorkflowRepository
       );
 
   @override
-  Future<List<WorkflowFieldOption>> getConditionFields(String definition) =>
+  Future<List<WorkflowFieldOption>> getConditionFields(
+    String definition, {
+    String? beforeStage,
+  }) =>
       _remoteOrPreview(
-          () => _remote.getConditionFields(definition),
+          () =>
+              _remote.getConditionFields(definition, beforeStage: beforeStage),
           () => const [
                 WorkflowFieldOption(
                     name: 'status', label: 'وضعیت', type: 'Select'),

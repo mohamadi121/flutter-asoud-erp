@@ -4,11 +4,20 @@ import 'package:asoud_erp/features/workflows/presentation/cubit/workflow_list_cu
 import 'package:flutter_test/flutter_test.dart';
 
 class _FakeRepository implements WorkflowRepository {
+  @override
+  Future<WorkflowDesign> addConditionBranch({
+    required String definition,
+    required String conditionStage,
+    required WorkflowStageType type,
+    required bool result,
+  }) async =>
+      throw UnimplementedError();
   String? receivedSearch;
   WorkflowDefinitionStatus? receivedStatus;
 
   @override
-  Future<List<WorkflowFieldOption>> getConditionFields(String definition) =>
+  Future<List<WorkflowFieldOption>> getConditionFields(String definition,
+          {String? beforeStage}) =>
       throw UnimplementedError();
 
   @override

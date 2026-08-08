@@ -28,6 +28,7 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
   String? selectedEmployee;
   String primary = '';
   String secondary = '';
+  String conditionSource = 'Document';
   bool optionA = true;
   bool optionB = true;
   bool optionC = false;
@@ -93,6 +94,7 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
         break;
       case WorkflowStageType.condition:
         primary = config['source_field']?.toString() ?? '';
+        conditionSource = config['source_kind']?.toString() ?? 'Document';
         secondary = config['operator']?.toString() ?? 'Equals';
         break;
       case WorkflowStageType.systemAction:
@@ -113,12 +115,19 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
   Future<void> _loadFields() async {
     setState(() => loadingFields = true);
     try {
-      final result =
-          await context.read<WorkflowDesignerCubit>().conditionFields();
+      final result = await context
+          .read<WorkflowDesignerCubit>()
+          .conditionFields(widget.stage.id);
       if (!mounted) return;
       setState(() {
         fields = result;
-        if (primary.isEmpty && fields.isNotEmpty) primary = fields.first.name;
+        if (primary.isEmpty && fields.isNotEmpty) {
+          primary = fields.first.name;
+          conditionSource = fields.first.source;
+        } else {
+          final selected = fields.where((field) => field.name == primary);
+          if (selected.isNotEmpty) conditionSource = selected.first.source;
+        }
         loadingFields = false;
       });
     } catch (_) {
@@ -319,18 +328,32 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
         },
       );
 
-  Widget _fieldDropdown() => DropdownButtonFormField<String>(
-        isExpanded: true,
-        initialValue:
-            fields.any((field) => field.name == primary) ? primary : null,
-        decoration: const InputDecoration(labelText: 'فیلد سند مرجع *'),
-        items: fields
-            .map((field) => DropdownMenuItem(
-                value: field.name,
-                child: Text(field.label, overflow: TextOverflow.ellipsis)))
-            .toList(growable: false),
-        onChanged: (next) => setState(() => primary = next ?? primary),
-      );
+  Widget _fieldDropdown() {
+    final selectedKey = '$conditionSource:$primary';
+    return DropdownButtonFormField<String>(
+      isExpanded: true,
+      initialValue:
+          fields.any((field) => '${field.source}:${field.name}' == selectedKey)
+              ? selectedKey
+              : null,
+      decoration: const InputDecoration(labelText: 'فیلد مبنای شرط *'),
+      items: fields
+          .map((field) => DropdownMenuItem(
+              value: '${field.source}:${field.name}',
+              child: Text(
+                  '${field.source == 'Form' ? 'فرم' : 'سند'} — ${field.label}',
+                  overflow: TextOverflow.ellipsis)))
+          .toList(growable: false),
+      onChanged: (next) => setState(() {
+        final selected =
+            fields.where((field) => '${field.source}:${field.name}' == next);
+        if (selected.isNotEmpty) {
+          primary = selected.first.name;
+          conditionSource = selected.first.source;
+        }
+      }),
+    );
+  }
 
   Widget _roles(String label) =>
       Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -457,6 +480,7 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
         break;
       case WorkflowStageType.condition:
         config.addAll({
+          'source_kind': conditionSource,
           'source_field': primary,
           'operator': secondary,
           'compare_value': value.text.trim()
