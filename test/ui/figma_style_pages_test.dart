@@ -42,13 +42,26 @@ void main() {
   testWidgets('داشبورد اجزای اصلی متناظر با طرح را نمایش می‌دهد',
       (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
-    await tester.pumpWidget(_app(const DashboardPage()));
+    await tester
+        .pumpWidget(_app(const DashboardPage(officeName: 'شرکت نمونه')));
     await tester.pumpAndSettle();
 
     expect(find.textContaining('ERPNext'), findsWidgets);
     expect(find.text('عملیات سریع'), findsOneWidget);
     expect(find.text('خانه'), findsOneWidget);
     expect(find.text('گزارش‌ها'), findsWidgets);
+    expect(tester.takeException(), isNull);
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('داشبورد پیش از ایجاد دفتر در وضعیت خام نمایش داده می‌شود',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    await tester.pumpWidget(_app(const DashboardLandingPage()));
+    await tester.pumpAndSettle();
+    expect(find.text('هنوز دفتری ایجاد نشده است'), findsOneWidget);
+    expect(find.text('ایجاد دفتر کار'), findsOneWidget);
+    expect(find.text('عملیات سریع'), findsNothing);
     expect(tester.takeException(), isNull);
     await tester.binding.setSurfaceSize(null);
   });

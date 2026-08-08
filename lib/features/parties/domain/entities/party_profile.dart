@@ -24,10 +24,36 @@ class PartyProfile extends Equatable {
     this.iban,
     this.accountNumber,
     this.birthDate,
+    this.employeeGender,
+    this.dateOfJoining,
+    this.fatherName,
+    this.birthCertificateNumber,
+    this.birthCertificateIssuePlace,
     this.employmentType,
     this.jobTitle,
     this.department,
     this.description,
+    this.aliasName,
+    this.managerName,
+    this.registrationNumber,
+    this.economicCode,
+    this.foundingDate,
+    this.secondaryPhone,
+    this.creditLimit,
+    this.openingBalance,
+    this.balanceType,
+    this.cardNumber,
+    this.accountHolder,
+    this.region,
+    this.neighborhood,
+    this.plaque,
+    this.unit,
+    this.latitude,
+    this.longitude,
+    this.employeeRoles = const {},
+    this.detailGroups = const {},
+    this.floatingDetails = const [],
+    this.disabled = false,
   });
 
   final String? id, company;
@@ -37,7 +63,19 @@ class PartyProfile extends Equatable {
   final String? nationalId, mobile, phone, email, website;
   final String? province, city, address, postalCode;
   final String? bankName, iban, accountNumber;
-  final String? birthDate, employmentType, jobTitle, department, description;
+  final String? birthDate, employeeGender, dateOfJoining;
+  final String? fatherName, birthCertificateNumber;
+  final String? birthCertificateIssuePlace;
+  final String? employmentType, jobTitle, department, description;
+  final String? aliasName, managerName, registrationNumber, economicCode;
+  final String? foundingDate, secondaryPhone;
+  final double? creditLimit, openingBalance, latitude, longitude;
+  final String? balanceType, cardNumber, accountHolder;
+  final String? region, neighborhood, plaque, unit;
+  final Set<String> employeeRoles;
+  final Set<String> detailGroups;
+  final List<FloatingDetail> floatingDetails;
+  final bool disabled;
 
   @override
   List<Object?> get props => [
@@ -59,10 +97,36 @@ class PartyProfile extends Equatable {
         iban,
         accountNumber,
         birthDate,
+        employeeGender,
+        dateOfJoining,
+        fatherName,
+        birthCertificateNumber,
+        birthCertificateIssuePlace,
         employmentType,
         jobTitle,
         department,
         description,
+        aliasName,
+        managerName,
+        registrationNumber,
+        economicCode,
+        foundingDate,
+        secondaryPhone,
+        creditLimit,
+        openingBalance,
+        balanceType,
+        cardNumber,
+        accountHolder,
+        region,
+        neighborhood,
+        plaque,
+        unit,
+        latitude,
+        longitude,
+        employeeRoles,
+        detailGroups,
+        floatingDetails,
+        disabled,
       ];
 }
 
@@ -73,8 +137,13 @@ class FloatingDetail extends Equatable {
     required this.title,
     required this.type,
     required this.groupId,
+    this.groupTitle,
+    this.linkedDocument,
   });
   final String id, code, title, type, groupId;
+  final String? groupTitle;
+  final String? linkedDocument;
   @override
-  List<Object?> get props => [id, code, title, type, groupId];
+  List<Object?> get props =>
+      [id, code, title, type, groupId, groupTitle, linkedDocument];
 }

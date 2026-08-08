@@ -25,7 +25,7 @@ class FrappePartyRepository implements PartyRepository {
 
   @override
   Future<PartyProfile> save(PartyProfile value,
-      {PartyRole? primaryRole, String? detailGroup}) async {
+      {PartyRole? primaryRole, Set<String> detailGroups = const {}}) async {
     final data = await _client.callAsoudMethod(
       'asoud_erp.api.v1.party.save_party',
       data: {
@@ -36,7 +36,7 @@ class FrappePartyRepository implements PartyRepository {
         'display_name': value.displayName,
         'roles': jsonEncode(value.roles.map(_role).toList()),
         'primary_role': primaryRole == null ? null : _role(primaryRole),
-        'detail_group': detailGroup,
+        'detail_groups': jsonEncode(detailGroups.toList()),
         'national_id': value.nationalId,
         'mobile': value.mobile,
         'phone': value.phone,
@@ -50,10 +50,33 @@ class FrappePartyRepository implements PartyRepository {
         'iban': value.iban,
         'account_number': value.accountNumber,
         'birth_date': value.birthDate,
+        'employee_gender': value.employeeGender,
+        'date_of_joining': value.dateOfJoining,
+        'father_name': value.fatherName,
+        'birth_certificate_number': value.birthCertificateNumber,
+        'birth_certificate_issue_place': value.birthCertificateIssuePlace,
         'employment_type': value.employmentType,
         'job_title': value.jobTitle,
         'department': value.department,
         'description': value.description,
+        'alias_name': value.aliasName,
+        'manager_name': value.managerName,
+        'registration_number': value.registrationNumber,
+        'economic_code': value.economicCode,
+        'founding_date': value.foundingDate,
+        'secondary_phone': value.secondaryPhone,
+        'credit_limit': value.creditLimit,
+        'opening_balance': value.openingBalance,
+        'balance_type': value.balanceType,
+        'card_number': value.cardNumber,
+        'account_holder': value.accountHolder,
+        'region': value.region,
+        'neighborhood': value.neighborhood,
+        'plaque': value.plaque,
+        'unit': value.unit,
+        'latitude': value.latitude,
+        'longitude': value.longitude,
+        'employee_roles': jsonEncode(value.employeeRoles.toList()),
       },
     );
     if (data is! Map) throw StateError('Invalid party response');
@@ -91,6 +114,8 @@ class FrappePartyRepository implements PartyRepository {
         title: item['title']?.toString() ?? '',
         type: item['detail_type']?.toString() ?? '',
         groupId: item['detail_group']?.toString() ?? '',
+        groupTitle: item['group_title']?.toString(),
+        linkedDocument: item['linked_document']?.toString(),
       );
     }).toList(growable: false);
   }
@@ -101,6 +126,20 @@ class FrappePartyRepository implements PartyRepository {
         .map((value) => _parseRole(value.toString()))
         .whereType<PartyRole>()
         .toSet();
+    final details = (item['floating_details'] as List? ?? const [])
+        .whereType<Map>()
+        .map((raw) {
+      final detail = Map<String, dynamic>.from(raw);
+      return FloatingDetail(
+        id: detail['name']?.toString() ?? '',
+        code: detail['detail_code']?.toString() ?? '',
+        title: item['display_name']?.toString() ?? '',
+        type: detail['detail_type']?.toString() ?? '',
+        groupId: detail['detail_group']?.toString() ?? '',
+        groupTitle: detail['group_title']?.toString(),
+        linkedDocument: detail['linked_document']?.toString(),
+      );
+    }).toList(growable: false);
     return PartyProfile(
       id: item['name']?.toString(),
       company: item['company']?.toString(),
@@ -122,11 +161,99 @@ class FrappePartyRepository implements PartyRepository {
       iban: item['iban']?.toString(),
       accountNumber: item['account_number']?.toString(),
       birthDate: item['birth_date']?.toString(),
+      employeeGender: item['employee_gender']?.toString(),
+      dateOfJoining: item['date_of_joining']?.toString(),
+      fatherName: item['father_name']?.toString(),
+      birthCertificateNumber: item['birth_certificate_number']?.toString(),
+      birthCertificateIssuePlace:
+          item['birth_certificate_issue_place']?.toString(),
       employmentType: item['employment_type']?.toString(),
       jobTitle: item['job_title']?.toString(),
       department: item['department']?.toString(),
       description: item['description']?.toString(),
+      aliasName: item['alias_name']?.toString(),
+      managerName: item['manager_name']?.toString(),
+      registrationNumber: item['registration_number']?.toString(),
+      economicCode: item['economic_code']?.toString(),
+      foundingDate: item['founding_date']?.toString(),
+      secondaryPhone: item['secondary_phone']?.toString(),
+      creditLimit: _double(item['credit_limit']),
+      openingBalance: _double(item['opening_balance']),
+      balanceType: item['balance_type']?.toString(),
+      cardNumber: item['card_number']?.toString(),
+      accountHolder: item['account_holder']?.toString(),
+      region: item['region']?.toString(),
+      neighborhood: item['neighborhood']?.toString(),
+      plaque: item['plaque']?.toString(),
+      unit: item['unit']?.toString(),
+      latitude: _double(item['latitude']),
+      longitude: _double(item['longitude']),
+      employeeRoles: _strings(item['employee_roles']),
+      detailGroups: details.map((value) => value.groupId).toSet(),
+      floatingDetails: details,
+      disabled: item['disabled'] == 1 || item['disabled'] == true,
     );
+  }
+
+  @override
+  Future<void> disableParty(String id) async {
+    await _client.callAsoudMethod(
+      'asoud_erp.api.v1.party.disable_party',
+      data: {'name': id},
+    );
+  }
+
+  @override
+  Future<FloatingDetail> createDetail({
+    required String title,
+    required String type,
+    required String detailGroup,
+    required String profileId,
+  }) async {
+    final data = await _client.callAsoudMethod(
+      'asoud_erp.api.v1.floating_detail.create_floating_detail',
+      data: {
+        'title': title,
+        'detail_type': type,
+        'detail_group': detailGroup,
+        'linked_doctype': 'ASOUD Party Profile',
+        'linked_document': profileId,
+      },
+    );
+    if (data is! Map) throw StateError('Invalid floating detail response');
+    final item = Map<String, dynamic>.from(data);
+    return FloatingDetail(
+      id: item['name']?.toString() ?? '',
+      code: item['detail_code']?.toString() ?? '',
+      title: item['title']?.toString() ?? title,
+      type: item['detail_type']?.toString() ?? type,
+      groupId: item['detail_group']?.toString() ?? detailGroup,
+      groupTitle: item['group_title']?.toString(),
+    );
+  }
+
+  @override
+  Future<void> linkDetail(
+      {required String detailId, required String profileId}) async {
+    await _client.callAsoudMethod(
+      'asoud_erp.api.v1.floating_detail.link_floating_detail',
+      data: {'name': detailId, 'party_profile': profileId},
+    );
+  }
+
+  static double? _double(dynamic value) => value == null
+      ? null
+      : value is num
+          ? value.toDouble()
+          : double.tryParse(value.toString());
+
+  static Set<String> _strings(dynamic value) {
+    if (value is List) return value.map((item) => item.toString()).toSet();
+    if (value is String && value.isNotEmpty) {
+      final parsed = jsonDecode(value);
+      if (parsed is List) return parsed.map((item) => item.toString()).toSet();
+    }
+    return const {};
   }
 
   static String _role(PartyRole role) => switch (role) {

@@ -52,6 +52,10 @@ class FrappeDetailGroupRepository implements DetailGroupRepository {
         code: item['group_code']?.toString() ?? '',
         title: item['group_name']?.toString() ?? '',
         disabled: item['disabled'] == 1 || item['disabled'] == true,
+        partyRole: item['party_role']?.toString(),
+        parentGroup: item['parent_group']?.toString(),
+        iconKey: item['icon_key']?.toString(),
+        colorHex: item['color_hex']?.toString(),
       );
     }).toList(growable: false);
   }

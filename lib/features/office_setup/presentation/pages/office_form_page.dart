@@ -6,11 +6,10 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/widgets/asoud_ui.dart';
+import '../../../dashboard/presentation/pages/dashboard_page.dart';
 import '../../domain/entities/office.dart';
 import '../../domain/repositories/office_repository.dart';
 import '../bloc/office_form_bloc.dart';
-import '../cubit/offices_cubit.dart';
-import 'offices_page.dart';
 
 class OfficeFormPage extends StatelessWidget {
   const OfficeFormPage({required this.officeType, super.key});
@@ -68,20 +67,16 @@ class _OfficeFormViewState extends State<_OfficeFormView> {
                   state.status == OfficeFormStatus.offlinePreview) &&
               state.createdOffice != null) {
             final offline = state.status == OfficeFormStatus.offlinePreview;
-            Navigator.of(context).pushReplacement(MaterialPageRoute<void>(
-              builder: (_) => OfficesPage(
-                initialState: offline
-                    ? OfficesState(
-                        status: OfficesStatus.success,
-                        offices: [state.createdOffice!],
-                        defaultOffice: state.createdOffice,
-                        offlinePreview: true,
-                      )
-                    : null,
-                showCreatedBanner: !offline,
-                fallbackOffice: state.createdOffice,
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute<void>(
+                builder: (_) => DashboardPage(
+                  office: state.createdOffice,
+                  officeName: state.createdOffice!.name,
+                  offlinePreview: offline,
+                ),
               ),
-            ));
+              (route) => false,
+            );
           }
         },
         builder: (context, state) => PopScope(

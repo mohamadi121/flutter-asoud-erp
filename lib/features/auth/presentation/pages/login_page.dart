@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/widgets/asoud_ui.dart';
-import '../../../office_setup/presentation/pages/office_type_page.dart';
+import '../../../dashboard/presentation/pages/dashboard_page.dart';
 
 /// This screen remains visible before deployment, but intentionally prevents
 /// both demo and real authentication until ERPNext is available.
@@ -100,7 +100,9 @@ class _LoginPageState extends State<LoginPage> {
                       child: OutlinedButton.icon(
                         onPressed: () => Navigator.of(context).pushReplacement(
                           MaterialPageRoute<void>(
-                              builder: (_) => const OfficeTypePage()),
+                              builder: (_) => const DashboardLandingPage(
+                                    offlinePreview: true,
+                                  )),
                         ),
                         icon: const Icon(Icons.arrow_back_rounded),
                         label: const Text('ادامه موقت بدون ورود'),

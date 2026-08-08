@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.9 — ERPNext v15 employee integration
+
+- Connected ASOUD personnel profiles to real ERPNext Employee records.
+- Added required employee gender, birth date, and joining date fields.
+- Kept employee edits synchronized without creating duplicate employees.
+- Preserved automatic floating-detail allocation for personnel.
+- Added live Frappe integration coverage for employee creation and updates.
+
 ## 0.4.1 — Automatic account codes
 
 - Clarified backend-generated codes for every account level.
