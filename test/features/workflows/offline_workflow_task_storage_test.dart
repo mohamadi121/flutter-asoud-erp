@@ -1,0 +1,61 @@
+import 'package:asoud_erp/core/network/api_exception.dart';
+import 'package:asoud_erp/features/workflows/data/repositories/preview_workflow_task_repository.dart';
+import 'package:asoud_erp/features/workflows/domain/entities/workflow_task.dart';
+import 'package:asoud_erp/features/workflows/domain/repositories/workflow_task_repository.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+class _OfflineRemote implements WorkflowTaskRepository {
+  Never _fail() =>
+      throw const ApiException('offline', kind: ApiFailureKind.network);
+  @override
+  bool get isOfflinePreview => false;
+  @override
+  Future<List<WorkflowTask>> getMyTasks({String status = 'Open'}) async =>
+      _fail();
+  @override
+  Future<WorkflowTaskDetail> getTask(String task) async => _fail();
+  @override
+  Future<void> saveDraft(String task, Map<String, dynamic> values) async =>
+      _fail();
+  @override
+  Future<String> uploadAttachment(
+          {required String task,
+          required String filename,
+          required List<int> bytes}) async =>
+      _fail();
+  @override
+  Future<void> completeTask(
+          {required String task,
+          required String action,
+          String? comment,
+          Map<String, dynamic> response = const {}}) async =>
+      _fail();
+}
+
+void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  test('پیش‌نویس آفلاین بعد از ساخت دوباره repository باقی می‌ماند', () async {
+    final first = PreviewWorkflowTaskRepository(_OfflineRemote());
+    await first.getMyTasks();
+    await first.saveDraft('WFT-OFFLINE-001', {'request_title': 'خرید کاغذ'});
+
+    final second = PreviewWorkflowTaskRepository(_OfflineRemote());
+    await second.getMyTasks();
+    final detail = await second.getTask('WFT-OFFLINE-001');
+    expect(detail.values['request_title'], 'خرید کاغذ');
+    expect(detail.task.localOnly, isTrue);
+  });
+
+  test('اقدام آفلاین با وضعیت محلی ذخیره می‌شود', () async {
+    final repository = PreviewWorkflowTaskRepository(_OfflineRemote());
+    await repository.getMyTasks();
+    await repository.completeTask(
+      task: 'WFT-OFFLINE-001',
+      action: 'Complete',
+      response: const {'request_title': 'خرید کاغذ', 'confirmed': true},
+    );
+    expect(await repository.getMyTasks(), isEmpty);
+  });
+}

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.11.0+17
+
+- Added dynamic task forms, persistent on-device drafts, attachments, and local action history.
+- Added explicit local-only state so offline actions are not mistaken for ERPNext success.
+- Added server contracts for task details, drafts, final responses, attachments, and return-for-correction.
+
 ## 0.10.0+16
 
 - Added role, department, and specific-employee assignment for workflow stages.
