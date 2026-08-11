@@ -53,7 +53,7 @@ void main() {
       find.byType(AccountingPreferencesPage),
       matchesGoldenFile('goldens/financial_settings_390.png'),
     );
-  });
+  }, tags: 'golden');
 }
 
 class _FakeBaseSetupRepository implements BaseSetupRepository {

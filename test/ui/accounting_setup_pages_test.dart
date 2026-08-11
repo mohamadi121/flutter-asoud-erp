@@ -105,7 +105,7 @@ void main() {
       find.byType(AccountLevelPage),
       matchesGoldenFile('goldens/account_level_390.png'),
     );
-  });
+  }, tags: 'golden');
 }
 
 class _FakeChartRepository implements ChartOfAccountsRepository {
