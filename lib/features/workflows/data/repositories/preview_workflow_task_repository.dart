@@ -66,6 +66,7 @@ class PreviewWorkflowTaskRepository implements WorkflowTaskRepository {
         },
         status: status,
         assignedOn: DateTime(2026, 8, 9, 9, 30),
+        dueOn: DateTime(2026, 8, 10, 17),
         localOnly: true,
       );
 

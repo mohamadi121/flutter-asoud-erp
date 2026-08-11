@@ -28,6 +28,8 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
   late final TextEditingController title;
   late final TextEditingController details;
   late final TextEditingController value;
+  late final TextEditingController deadlineValue;
+  late final TextEditingController reminderMinutes;
   String function = 'Review';
   String assignmentType = 'Role';
   String accessMode = 'Read Only';
@@ -35,6 +37,10 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
   bool allowReject = true;
   bool allowReturn = true;
   bool commentRequired = false;
+  bool deadlineEnabled = false;
+  bool reassignOnOverdue = false;
+  String deadlineUnit = 'Hour';
+  Set<String> escalationRoles = {};
   Set<String> selected = {};
   List<WorkflowFieldOption> fields = const [];
   bool loadingFields = false;
@@ -55,6 +61,16 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
     value = TextEditingController(
       text: (config['compare_value'] ?? config['wait_value'] ?? '').toString(),
     );
+    deadlineValue = TextEditingController(
+        text: (config['deadline_value'] ?? '').toString());
+    reminderMinutes = TextEditingController(
+        text: (config['reminder_before_minutes'] ?? '').toString());
+    deadlineEnabled = (config['deadline_value'] as num?)?.toInt() != 0;
+    deadlineUnit = config['deadline_unit']?.toString() ?? 'Hour';
+    reassignOnOverdue = config['reassign_on_overdue'] == true;
+    escalationRoles = ((config['escalation_roles'] as List?) ?? const [])
+        .map((item) => item.toString())
+        .toSet();
     assignmentType = config['assignment_type']?.toString() ?? 'Role';
     accessMode = config['document_access']?.toString() ?? 'Read Only';
     allowReject = config['allow_reject'] != false;
@@ -118,6 +134,8 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
     title.dispose();
     details.dispose();
     value.dispose();
+    deadlineValue.dispose();
+    reminderMinutes.dispose();
     super.dispose();
   }
 
@@ -172,6 +190,8 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
             const SizedBox(height: 10),
             _actionSwitches(),
             const SizedBox(height: 10),
+            _deadlineFields(),
+            const SizedBox(height: 10),
             _detailsField('راهنمای کوتاه برای مسئول'),
           ],
         WorkflowStageType.approval => [
@@ -190,6 +210,8 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
             ),
             const SizedBox(height: 10),
             _actionSwitches(),
+            const SizedBox(height: 10),
+            _deadlineFields(),
           ],
         WorkflowStageType.condition => [
             if (loadingFields) const LinearProgressIndicator(),
@@ -408,6 +430,89 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
         ),
       ]);
 
+  Widget _deadlineFields() => Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AsoudColors.warning.withValues(alpha: .06),
+          border: Border.all(color: AsoudColors.warning.withValues(alpha: .3)),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Material(
+            color: Colors.transparent,
+            child: SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('مهلت انجام مرحله',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900)),
+              subtitle: const Text('برای کارهای این مرحله سررسید تعیین شود.',
+                  style: TextStyle(fontSize: 9)),
+              value: deadlineEnabled,
+              onChanged: (next) => setState(() => deadlineEnabled = next),
+            ),
+          ),
+          if (deadlineEnabled) ...[
+            Row(children: [
+              Expanded(
+                child: TextField(
+                  controller: deadlineValue,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'مدت *'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _dropdown(
+                  'واحد',
+                  deadlineUnit,
+                  const {'Minute': 'دقیقه', 'Hour': 'ساعت', 'Day': 'روز'},
+                  (next) => deadlineUnit = next,
+                ),
+              ),
+            ]),
+            const SizedBox(height: 9),
+            TextField(
+              controller: reminderMinutes,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                  labelText: 'یادآوری چند دقیقه قبل از سررسید؟'),
+            ),
+            const SizedBox(height: 10),
+            const Text('نقش‌های ناظر در زمان تأخیر',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 7),
+            Wrap(
+              spacing: 7,
+              runSpacing: 7,
+              children: widget.roles
+                  .map((role) => FilterChip(
+                        selected: escalationRoles.contains(role),
+                        label: Text(role),
+                        onSelected: (checked) => setState(() => checked
+                            ? escalationRoles.add(role)
+                            : escalationRoles.remove(role)),
+                      ))
+                  .toList(growable: false),
+            ),
+            Material(
+              color: Colors.transparent,
+              child: SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('ارجاع خودکار پس از سررسید',
+                    style:
+                        TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
+                subtitle: const Text(
+                    'در حالت خاموش فقط اعلان تشدید ارسال می‌شود.',
+                    style: TextStyle(fontSize: 9)),
+                value: reassignOnOverdue,
+                onChanged: escalationRoles.isEmpty
+                    ? null
+                    : (next) => setState(() => reassignOnOverdue = next),
+              ),
+            ),
+          ],
+        ]),
+      );
+
   Widget _dropdown(String label, String current, Map<String, String> options,
           ValueChanged<String> onChanged) =>
       DropdownButtonFormField<String>(
@@ -469,6 +574,7 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
           'allow_reject': allowReject,
           'allow_return': allowReturn,
           'comment_required': commentRequired,
+          ..._deadlineOutput(),
         });
       case WorkflowStageType.approval:
         output.addAll({
@@ -478,6 +584,7 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
           'allow_reject': allowReject,
           'allow_return': allowReturn,
           'comment_required': commentRequired,
+          ..._deadlineOutput(),
         });
       case WorkflowStageType.condition:
         output.addAll({
@@ -511,6 +618,17 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
         .saveStage(widget.stage, output);
     if (saved && mounted) Navigator.pop(context);
   }
+
+  Map<String, dynamic> _deadlineOutput() => {
+        'deadline_value':
+            deadlineEnabled ? int.tryParse(deadlineValue.text.trim()) ?? 0 : 0,
+        'deadline_unit': deadlineUnit,
+        'reminder_before_minutes': deadlineEnabled
+            ? int.tryParse(reminderMinutes.text.trim()) ?? 0
+            : 0,
+        'escalation_roles': deadlineEnabled ? escalationRoles.toList() : [],
+        'reassign_on_overdue': deadlineEnabled && reassignOnOverdue,
+      };
 }
 
 class _Notice extends StatelessWidget {

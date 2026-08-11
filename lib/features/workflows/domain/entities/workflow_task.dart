@@ -9,6 +9,9 @@ class WorkflowTask extends Equatable {
     required this.title,
     required this.status,
     this.assignedOn,
+    this.dueOn,
+    this.reminderSentOn,
+    this.escalatedOn,
     this.localOnly = false,
   });
 
@@ -18,11 +21,22 @@ class WorkflowTask extends Equatable {
   final String title;
   final String status;
   final DateTime? assignedOn;
+  final DateTime? dueOn, reminderSentOn, escalatedOn;
   final bool localOnly;
 
   @override
-  List<Object?> get props =>
-      [id, instance, stage, title, status, assignedOn, localOnly];
+  List<Object?> get props => [
+        id,
+        instance,
+        stage,
+        title,
+        status,
+        assignedOn,
+        dueOn,
+        reminderSentOn,
+        escalatedOn,
+        localOnly
+      ];
 }
 
 class WorkflowTaskActivity extends Equatable {
