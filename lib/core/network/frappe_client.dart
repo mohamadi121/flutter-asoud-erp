@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
@@ -84,6 +85,13 @@ abstract interface class FrappeApiClient {
     String doctype,
     Map<String, dynamic> data,
   );
+
+  Future<dynamic> replayOfflineMutation({
+    required String mutationId,
+    required String operation,
+    required String target,
+    required Map<String, dynamic> data,
+  });
 
   Future<Map<String, dynamic>> updateResource(
     String doctype,
@@ -244,10 +252,11 @@ class FrappeClient implements FrappeApiClient {
         operation: 'create_resource',
         target: doctype,
         data: data,
-        request: () => _requestJson(
+        request: (mutationId) => _requestJson(
           'POST',
           '/api/resource/${Uri.encodeComponent(doctype)}',
           data: data,
+          headers: {'X-ASOUD-Idempotency-Key': mutationId},
         ),
       );
 
@@ -261,10 +270,11 @@ class FrappeClient implements FrappeApiClient {
         operation: 'update_resource',
         target: '$doctype/$name',
         data: data,
-        request: () => _requestJson(
+        request: (mutationId) => _requestJson(
           'PUT',
           '/api/resource/${Uri.encodeComponent(doctype)}/${Uri.encodeComponent(name)}',
           data: data,
+          headers: {'X-ASOUD-Idempotency-Key': mutationId},
         ),
       );
 
@@ -273,19 +283,73 @@ class FrappeClient implements FrappeApiClient {
     String method, {
     Map<String, dynamic>? data,
   }) async {
-    Future<Map<String, dynamic>> request() => _requestJson(
-          'POST',
-          '/api/method/$method',
-          data: data,
-        );
+    Future<Map<String, dynamic>> request([String? mutationId]) =>
+        mutationId == null
+            ? _requestJson(
+                'POST',
+                '/api/method/$method',
+                data: data,
+              )
+            : _requestAsoudMutation(
+                mutationId: mutationId,
+                target: method,
+                data: data ?? const {},
+              );
     final body = _isReadOnlyAsoudMethod(method)
         ? await request()
         : await _queuedMutation(
             operation: 'asoud_method',
             target: method,
             data: data ?? const {},
-            request: request,
+            request: (mutationId) => request(mutationId),
           );
+    return _unwrapAsoudResponse(body);
+  }
+
+  @override
+  Future<dynamic> replayOfflineMutation({
+    required String mutationId,
+    required String operation,
+    required String target,
+    required Map<String, dynamic> data,
+  }) async {
+    if (operation == 'asoud_method') {
+      final body = await _requestAsoudMutation(
+        mutationId: mutationId,
+        target: target,
+        data: data,
+      );
+      return _unwrapAsoudResponse(body);
+    }
+    if (operation == 'create_resource') {
+      return _requestJson(
+        'POST',
+        '/api/resource/${Uri.encodeComponent(target)}',
+        data: data,
+        headers: {'X-ASOUD-Idempotency-Key': mutationId},
+      );
+    }
+    if (operation == 'update_resource') {
+      final separator = target.indexOf('/');
+      if (separator <= 0 || separator == target.length - 1) {
+        throw const ApiException.protocol();
+      }
+      final doctype = target.substring(0, separator);
+      final name = target.substring(separator + 1);
+      return _requestJson(
+        'PUT',
+        '/api/resource/${Uri.encodeComponent(doctype)}/${Uri.encodeComponent(name)}',
+        data: data,
+        headers: {'X-ASOUD-Idempotency-Key': mutationId},
+      );
+    }
+    throw const ApiException(
+      kind: ApiFailureKind.validation,
+      message: 'نوع عملیات آفلاین پشتیبانی نمی‌شود.',
+    );
+  }
+
+  dynamic _unwrapAsoudResponse(Map<String, dynamic> body) {
     final message = body['message'];
     if (message is! Map) throw const ApiException.protocol();
 
@@ -304,8 +368,25 @@ class FrappeClient implements FrappeApiClient {
     return envelope['data'];
   }
 
+  Future<Map<String, dynamic>> _requestAsoudMutation({
+    required String mutationId,
+    required String target,
+    required Map<String, dynamic> data,
+  }) =>
+      _requestJson(
+        'POST',
+        '/api/method/asoud_erp.api.v1.sync.execute_mutation',
+        data: {
+          'request_key': mutationId,
+          'target_method': target,
+          'payload': jsonEncode(data),
+        },
+        headers: {'X-ASOUD-Idempotency-Key': mutationId},
+      );
+
   bool _isReadOnlyAsoudMethod(String method) {
     final action = method.split('.').last;
+    if (action.endsWith('_options') || action.endsWith('_fields')) return true;
     return const <String>[
       'current_',
       'get_',
@@ -321,7 +402,7 @@ class FrappeClient implements FrappeApiClient {
     required String operation,
     required String target,
     required Map<String, dynamic> data,
-    required Future<T> Function() request,
+    required Future<T> Function(String mutationId) request,
   }) async {
     final id = await OfflineMutationStore.instance.stage(
       operation: operation,
@@ -329,7 +410,7 @@ class FrappeClient implements FrappeApiClient {
       payload: data,
     );
     try {
-      final response = await request();
+      final response = await request(id);
       await OfflineMutationStore.instance.markSynced(id);
       return response;
     } on ApiException catch (error) {
@@ -352,6 +433,7 @@ class FrappeClient implements FrappeApiClient {
     String path, {
     Map<String, dynamic>? data,
     Map<String, dynamic>? queryParameters,
+    Map<String, dynamic>? headers,
     bool isLoginRequest = false,
   }) async {
     try {
@@ -359,7 +441,7 @@ class FrappeClient implements FrappeApiClient {
         path,
         data: data,
         queryParameters: queryParameters,
-        options: Options(method: method),
+        options: Options(method: method, headers: headers),
       );
       final body = response.data;
       if (body is! Map) throw const ApiException.protocol();
