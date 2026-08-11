@@ -5,8 +5,10 @@ import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../domain/entities/workflow_definition.dart';
 import '../../domain/repositories/workflow_repository.dart';
+import '../../domain/repositories/workflow_notification_repository.dart';
 import '../cubit/workflow_list_cubit.dart';
 import 'workflow_form_page.dart';
+import 'workflow_notifications_page.dart';
 
 class WorkflowListPage extends StatelessWidget {
   const WorkflowListPage({this.company, this.onCreate, super.key});
@@ -99,16 +101,55 @@ class _WorkflowListView extends StatelessWidget {
       );
 }
 
-class _Header extends StatelessWidget {
+class _Header extends StatefulWidget {
   const _Header();
+  @override
+  State<_Header> createState() => _HeaderState();
+}
+
+class _HeaderState extends State<_Header> {
+  late Future<int> _unread;
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+  }
+
+  void _refresh() {
+    try {
+      _unread = context
+          .read<WorkflowNotificationRepository>()
+          .getNotifications(unreadOnly: true)
+          .then((items) => items.length)
+          .catchError((_) => 0);
+    } on ProviderNotFoundException {
+      _unread = Future.value(0);
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.fromLTRB(17, 10, 17, 8),
         child: Row(children: [
           IconButton(
             tooltip: 'اعلان‌ها',
-            onPressed: () {},
-            icon: const Badge(child: Icon(Icons.notifications_none_rounded)),
+            onPressed: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                    builder: (_) => const WorkflowNotificationsPage()),
+              );
+              if (mounted) setState(_refresh);
+            },
+            icon: FutureBuilder<int>(
+              future: _unread,
+              builder: (_, snapshot) => Badge(
+                isLabelVisible: (snapshot.data ?? 0) > 0,
+                label: Text('${snapshot.data ?? 0}'),
+                child: const Icon(Icons.notifications_none_rounded),
+              ),
+            ),
           ),
           const Expanded(
             child: Text('گردش‌کارها',
@@ -419,6 +460,14 @@ class _WorkflowBottomNavigation extends StatelessWidget {
         selectedIndex: 2,
         onDestinationSelected: (index) {
           if (index == 2) return;
+          if (index == 1) {
+            Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                  builder: (_) => const WorkflowNotificationsPage()),
+            );
+            return;
+          }
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
                 content: Text(
