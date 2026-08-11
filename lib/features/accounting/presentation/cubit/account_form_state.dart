@@ -2,7 +2,14 @@ part of 'account_form_cubit.dart';
 
 enum AccountFormMode { create, edit }
 
-enum AccountFormStatus { editing, invalid, saving, success, failure }
+enum AccountFormStatus {
+  editing,
+  invalid,
+  saving,
+  success,
+  offlineSaved,
+  failure
+}
 
 class AccountFormState extends Equatable {
   const AccountFormState({

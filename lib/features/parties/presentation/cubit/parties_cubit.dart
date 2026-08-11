@@ -1,10 +1,19 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
+import '../../../../core/offline/offline_failure.dart';
 import '../../domain/entities/party_profile.dart';
 import '../../domain/repositories/party_repository.dart';
 
-enum PartiesStatus { initial, loading, success, empty, failure, saving }
+enum PartiesStatus {
+  initial,
+  loading,
+  success,
+  empty,
+  failure,
+  saving,
+  offlineSaved
+}
 
 class PartiesState extends Equatable {
   const PartiesState({
@@ -48,7 +57,16 @@ class PartiesCubit extends Cubit<PartiesState> {
       final saved = await repository.save(profile);
       await load();
       return saved;
-    } catch (_) {
+    } catch (error) {
+      if (isRetryableOfflineFailure(error)) {
+        final items = await repository.list(company: company);
+        emit(PartiesState(
+          status: PartiesStatus.offlineSaved,
+          items: items,
+          message: 'اطلاعات شخص روی گوشی ذخیره شد و در انتظار همگام‌سازی است.',
+        ));
+        return profile;
+      }
       emit(PartiesState(
         status: PartiesStatus.failure,
         items: state.items,

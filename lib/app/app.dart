@@ -8,8 +8,10 @@ import '../features/office_setup/data/repositories/frappe_office_repository.dart
 import '../features/office_setup/data/repositories/server_first_office_repository.dart';
 import '../features/office_setup/domain/repositories/office_repository.dart';
 import '../features/accounting/data/repositories/frappe_chart_of_accounts_repository.dart';
+import '../features/accounting/data/repositories/server_first_chart_of_accounts_repository.dart';
 import '../features/accounting/domain/repositories/chart_of_accounts_repository.dart';
 import '../features/accounting/data/repositories/frappe_detail_group_repository.dart';
+import '../features/accounting/data/repositories/server_first_detail_group_repository.dart';
 import '../features/accounting/domain/repositories/detail_group_repository.dart';
 import '../features/base_setup/data/repositories/frappe_base_setup_repository.dart';
 import '../features/base_setup/data/repositories/server_first_base_setup_repository.dart';
@@ -18,6 +20,7 @@ import '../features/auth/presentation/pages/splash_page.dart';
 import '../features/auth/data/repositories/frappe_auth_repository.dart';
 import '../features/auth/domain/repositories/auth_repository.dart';
 import '../features/parties/data/repositories/frappe_party_repository.dart';
+import '../features/parties/data/repositories/server_first_party_repository.dart';
 import '../features/parties/domain/repositories/party_repository.dart';
 import '../features/workflows/data/repositories/frappe_workflow_repository.dart';
 import '../features/workflows/data/repositories/preview_fallback_workflow_repository.dart';
@@ -47,10 +50,14 @@ class AsoudErpApp extends StatelessWidget {
           value: ServerFirstOfficeRepository(FrappeOfficeRepository(client)),
         ),
         RepositoryProvider<ChartOfAccountsRepository>.value(
-          value: FrappeChartOfAccountsRepository(client),
+          value: ServerFirstChartOfAccountsRepository(
+            FrappeChartOfAccountsRepository(client),
+          ),
         ),
         RepositoryProvider<DetailGroupRepository>.value(
-          value: FrappeDetailGroupRepository(client),
+          value: ServerFirstDetailGroupRepository(
+            FrappeDetailGroupRepository(client),
+          ),
         ),
         RepositoryProvider<BaseSetupRepository>.value(
           value: ServerFirstBaseSetupRepository(
@@ -58,7 +65,7 @@ class AsoudErpApp extends StatelessWidget {
           ),
         ),
         RepositoryProvider<PartyRepository>.value(
-          value: FrappePartyRepository(client),
+          value: ServerFirstPartyRepository(FrappePartyRepository(client)),
         ),
         RepositoryProvider<WorkflowRepository>.value(
           value: PreviewFallbackWorkflowRepository(

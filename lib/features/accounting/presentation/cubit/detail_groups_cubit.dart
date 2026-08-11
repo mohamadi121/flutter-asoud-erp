@@ -1,10 +1,18 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
+import '../../../../core/offline/offline_failure.dart';
 import '../../domain/entities/detail_group.dart';
 import '../../domain/repositories/detail_group_repository.dart';
 
-enum DetailGroupsStatus { initial, loading, success, empty, failure }
+enum DetailGroupsStatus {
+  initial,
+  loading,
+  success,
+  empty,
+  offlineSaved,
+  failure
+}
 
 class DetailGroupsState extends Equatable {
   const DetailGroupsState({
@@ -47,7 +55,16 @@ class DetailGroupsCubit extends Cubit<DetailGroupsState> {
       final groups = await _repository.seedDefaults();
       emit(DetailGroupsState(
           status: DetailGroupsStatus.success, groups: groups));
-    } catch (_) {
+    } catch (error) {
+      if (isRetryableOfflineFailure(error)) {
+        final groups = await _repository.getGroups();
+        emit(DetailGroupsState(
+          status: DetailGroupsStatus.offlineSaved,
+          groups: groups,
+          message: 'درخواست ایجاد گروه‌های پیشنهادی روی گوشی ذخیره شد.',
+        ));
+        return;
+      }
       emit(const DetailGroupsState(
         status: DetailGroupsStatus.failure,
         message: 'ایجاد گروه‌های پیشنهادی در ASOUD ERP انجام نشد.',
@@ -76,7 +93,16 @@ class DetailGroupsCubit extends Cubit<DetailGroupsState> {
       );
       await load();
       return true;
-    } catch (_) {
+    } catch (error) {
+      if (isRetryableOfflineFailure(error)) {
+        final groups = await _repository.getGroups();
+        emit(DetailGroupsState(
+          status: DetailGroupsStatus.offlineSaved,
+          groups: groups,
+          message: 'گروه تفصیلی روی گوشی ذخیره شد و در انتظار همگام‌سازی است.',
+        ));
+        return true;
+      }
       emit(DetailGroupsState(
         status: DetailGroupsStatus.failure,
         groups: current,
@@ -93,7 +119,16 @@ class DetailGroupsCubit extends Cubit<DetailGroupsState> {
     try {
       await _repository.disableGroup(id);
       await load();
-    } catch (_) {
+    } catch (error) {
+      if (isRetryableOfflineFailure(error)) {
+        final groups = await _repository.getGroups();
+        emit(DetailGroupsState(
+          status: DetailGroupsStatus.offlineSaved,
+          groups: groups,
+          message: 'تغییر وضعیت روی گوشی ذخیره و در انتظار همگام‌سازی است.',
+        ));
+        return;
+      }
       emit(DetailGroupsState(
         status: DetailGroupsStatus.failure,
         groups: current,
