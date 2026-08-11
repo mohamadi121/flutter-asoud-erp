@@ -88,6 +88,72 @@ class PreviewWorkflowTaskRepository implements WorkflowTaskRepository {
   }
 
   @override
+  Future<List<WorkflowInstanceSummary>> getMyInstances({String? status}) async {
+    try {
+      final result = await _remote.getMyInstances(status: status);
+      _offline = false;
+      return result;
+    } catch (error) {
+      if (!_networkFailure(error)) rethrow;
+      _offline = true;
+      final saved = await _read();
+      final localStatus = saved['status']?.toString() ?? 'Open';
+      final instanceStatus = switch (localStatus) {
+        'Rejected' => 'Rejected',
+        'Completed' => 'Completed',
+        _ => 'Running',
+      };
+      if (status != null && status != instanceStatus) return const [];
+      return [
+        WorkflowInstanceSummary(
+          id: 'WFI-OFFLINE-001',
+          subject: 'درخواست خرید آزمایشی',
+          status: instanceStatus,
+          currentStage: saved['current_task']?.toString() ?? 'initial',
+          currentStageTitle: _offlineTask(localStatus,
+                  current: saved['current_task']?.toString() ?? 'initial')
+              .title,
+          currentAssignees: const ['کاربر محلی'],
+          referenceDoctype: 'Material Request',
+          referenceName: 'LOCAL-MR-001',
+          startedOn: DateTime(2026, 8, 11, 9, 30),
+          localOnly: true,
+        ),
+      ];
+    }
+  }
+
+  @override
+  Future<WorkflowInstanceDetail> getInstance(String instance) async {
+    if (!_offline) {
+      try {
+        return await _remote.getInstance(instance);
+      } catch (error) {
+        if (!_networkFailure(error)) rethrow;
+        _offline = true;
+      }
+    }
+    final summaries = await getMyInstances();
+    final saved = await _read();
+    final history = saved['history'];
+    return WorkflowInstanceDetail(
+      summary: summaries.first,
+      activities: history is List
+          ? history.whereType<Map>().map((raw) {
+              final item = Map<String, dynamic>.from(raw);
+              return WorkflowTaskActivity(
+                actor: item['actor']?.toString() ?? 'کاربر محلی',
+                action: item['action']?.toString() ?? '',
+                comment: item['comment']?.toString() ?? '',
+                createdOn:
+                    DateTime.tryParse(item['created_on']?.toString() ?? ''),
+              );
+            }).toList(growable: false)
+          : const [],
+    );
+  }
+
+  @override
   Future<WorkflowTaskDetail> getTask(String task) async {
     if (!_offline) {
       try {

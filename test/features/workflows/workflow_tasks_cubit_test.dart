@@ -3,9 +3,20 @@ import 'package:asoud_erp/features/workflows/domain/entities/workflow_definition
 import 'package:asoud_erp/features/workflows/domain/repositories/workflow_task_repository.dart';
 import 'package:asoud_erp/features/workflows/presentation/cubit/workflow_tasks_cubit.dart';
 import 'package:asoud_erp/features/workflows/presentation/cubit/workflow_task_detail_cubit.dart';
+import 'package:asoud_erp/features/workflows/presentation/cubit/workflow_instances_cubit.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class _Repository implements WorkflowTaskRepository {
+  var instances = const <WorkflowInstanceSummary>[];
+
+  @override
+  Future<List<WorkflowInstanceSummary>> getMyInstances(
+          {String? status}) async =>
+      instances;
+
+  @override
+  Future<WorkflowInstanceDetail> getInstance(String instance) async =>
+      throw UnimplementedError();
   var completed = '';
   var lastStatus = '';
   String? comment;
@@ -111,6 +122,27 @@ void main() {
     expect(await cubit.submit('Return', comment: 'عنوان اصلاح شود'), isTrue);
     expect(repository.completed, 'TASK-1:Return');
     expect(repository.comment, 'عنوان اصلاح شود');
+    await cubit.close();
+  });
+
+  test('ارسال‌شده‌های من مرحله جاری و مسئول را بارگذاری می‌کند', () async {
+    final repository = _Repository()
+      ..instances = const [
+        WorkflowInstanceSummary(
+          id: 'INSTANCE-1',
+          subject: 'درخواست خرید لپ‌تاپ',
+          status: 'Running',
+          currentStageTitle: 'تأیید مدیر',
+          currentAssignees: ['manager@example.com'],
+        ),
+      ];
+    final cubit = WorkflowInstancesCubit(repository);
+    await cubit.load();
+    expect(cubit.state.status, WorkflowInstancesStatus.ready);
+    expect(cubit.state.instances.single.currentStageTitle, 'تأیید مدیر');
+    expect(cubit.state.instances.single.currentAssignees.single,
+        'manager@example.com');
+    expect(cubit.state.offline, isTrue);
     await cubit.close();
   });
 }
