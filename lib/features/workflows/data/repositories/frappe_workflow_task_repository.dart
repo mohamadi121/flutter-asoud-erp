@@ -32,6 +32,45 @@ class FrappeWorkflowTaskRepository implements WorkflowTaskRepository {
   }
 
   @override
+  Future<List<WorkflowInstanceSummary>> getMyInstances({String? status}) async {
+    final data = await _client.callAsoudMethod(
+      'asoud_erp.api.v1.workflow_runtime.list_my_workflow_instances',
+      data: {if (status != null) 'status': status},
+    );
+    if (data is! List) throw StateError('Invalid workflow instance response');
+    return data
+        .whereType<Map>()
+        .map((raw) => _instance(Map<String, dynamic>.from(raw)))
+        .toList(growable: false);
+  }
+
+  @override
+  Future<WorkflowInstanceDetail> getInstance(String instance) async {
+    final data = await _client.callAsoudMethod(
+      'asoud_erp.api.v1.workflow_runtime.get_workflow_instance',
+      data: {'instance': instance},
+    );
+    if (data is! Map) throw StateError('Invalid workflow instance detail');
+    final item = Map<String, dynamic>.from(data);
+    final rawActivities = item['activities'];
+    return WorkflowInstanceDetail(
+      summary: _instance(item),
+      activities: rawActivities is List
+          ? rawActivities.whereType<Map>().map((raw) {
+              final activity = Map<String, dynamic>.from(raw);
+              return WorkflowTaskActivity(
+                actor: activity['actor']?.toString() ?? '',
+                action: activity['action']?.toString() ?? '',
+                comment: activity['comment']?.toString() ?? '',
+                createdOn:
+                    DateTime.tryParse(activity['created_on']?.toString() ?? ''),
+              );
+            }).toList(growable: false)
+          : const [],
+    );
+  }
+
+  @override
   Future<void> completeTask({
     required String task,
     required String action,
@@ -162,3 +201,22 @@ class FrappeWorkflowTaskRepository implements WorkflowTaskRepository {
     return data['file_url']?.toString() ?? '';
   }
 }
+
+WorkflowInstanceSummary _instance(Map<String, dynamic> item) =>
+    WorkflowInstanceSummary(
+      id: item['name']?.toString() ?? '',
+      subject: item['subject']?.toString() ?? '',
+      status: item['status']?.toString() ?? '',
+      workflowDefinition: item['workflow_definition']?.toString() ?? '',
+      currentStage: item['current_stage']?.toString() ?? '',
+      currentStageTitle: item['current_stage_title']?.toString() ?? '',
+      currentAssignees: item['current_assignees'] is List
+          ? (item['current_assignees'] as List)
+              .map((value) => value.toString())
+              .toList(growable: false)
+          : const [],
+      referenceDoctype: item['reference_doctype']?.toString() ?? '',
+      referenceName: item['reference_name']?.toString() ?? '',
+      startedOn: DateTime.tryParse(item['started_on']?.toString() ?? ''),
+      completedOn: DateTime.tryParse(item['completed_on']?.toString() ?? ''),
+    );

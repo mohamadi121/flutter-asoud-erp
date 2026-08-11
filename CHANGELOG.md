@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.17.0+30
+
+- Added separate received and sent workflow views with current-stage tracking.
+- Added workflow instance details, assignees, document reference, and activity timeline.
+- Added initiator assignment for reliable return-to-requester correction routes.
+- Kept sent-request tracking available in the explicit offline preview mode.
+
 ## 0.13.0+19
 
 - Added ASOUD-styled review and approval task details with read-only data from prior stages.

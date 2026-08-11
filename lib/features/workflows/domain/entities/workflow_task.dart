@@ -105,3 +105,50 @@ class WorkflowTaskDetail extends Equatable {
         documentValues,
       ];
 }
+
+class WorkflowInstanceSummary extends Equatable {
+  const WorkflowInstanceSummary({
+    required this.id,
+    required this.subject,
+    required this.status,
+    this.workflowDefinition = '',
+    this.currentStage = '',
+    this.currentStageTitle = '',
+    this.currentAssignees = const [],
+    this.referenceDoctype = '',
+    this.referenceName = '',
+    this.startedOn,
+    this.completedOn,
+    this.localOnly = false,
+  });
+  final String id, subject, status, workflowDefinition;
+  final String currentStage, currentStageTitle;
+  final List<String> currentAssignees;
+  final String referenceDoctype, referenceName;
+  final DateTime? startedOn, completedOn;
+  final bool localOnly;
+  @override
+  List<Object?> get props => [
+        id,
+        subject,
+        status,
+        workflowDefinition,
+        currentStage,
+        currentStageTitle,
+        currentAssignees,
+        referenceDoctype,
+        referenceName,
+        startedOn,
+        completedOn,
+        localOnly,
+      ];
+}
+
+class WorkflowInstanceDetail extends Equatable {
+  const WorkflowInstanceDetail(
+      {required this.summary, this.activities = const []});
+  final WorkflowInstanceSummary summary;
+  final List<WorkflowTaskActivity> activities;
+  @override
+  List<Object> get props => [summary, activities];
+}

@@ -3,6 +3,8 @@ import '../entities/workflow_task.dart';
 abstract interface class WorkflowTaskRepository {
   bool get isOfflinePreview;
   Future<List<WorkflowTask>> getMyTasks({String status = 'Open'});
+  Future<List<WorkflowInstanceSummary>> getMyInstances({String? status});
+  Future<WorkflowInstanceDetail> getInstance(String instance);
   Future<WorkflowTaskDetail> getTask(String task);
   Future<void> saveDraft(String task, Map<String, dynamic> values);
   Future<String> uploadAttachment({

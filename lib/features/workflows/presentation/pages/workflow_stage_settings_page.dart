@@ -297,6 +297,7 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
             AsoudSegmentedOption(value: 'Role', label: 'نقش'),
             AsoudSegmentedOption(value: 'Department', label: 'واحد کاری'),
             AsoudSegmentedOption(value: 'Employee', label: 'پرسنل'),
+            AsoudSegmentedOption(value: 'Initiator', label: 'درخواست‌کننده'),
           ],
           onChanged: (next) => setState(() {
             assignmentType = next;
@@ -304,7 +305,12 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
           }),
         ),
         const SizedBox(height: 9),
-        if (_targets.isEmpty)
+        if (assignmentType == 'Initiator')
+          const _Notice(
+            text:
+                'این مرحله به شخصی ارجاع می‌شود که گردش‌کار را شروع کرده است.',
+          )
+        else if (_targets.isEmpty)
           const Text('گزینه‌ای از سرور دریافت نشده است.',
               style: TextStyle(fontSize: 10, color: AsoudColors.warning))
         else
@@ -352,6 +358,7 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
   List<WorkflowTargetOption> get _targets => switch (assignmentType) {
         'Department' => widget.departments,
         'Employee' => widget.employees,
+        'Initiator' => const [],
         _ => widget.roles
             .map((role) => WorkflowTargetOption(id: role, label: role))
             .toList(growable: false),

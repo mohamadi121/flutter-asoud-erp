@@ -6,6 +6,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _OfflineRemote implements WorkflowTaskRepository {
+  @override
+  Future<List<WorkflowInstanceSummary>> getMyInstances(
+          {String? status}) async =>
+      throw const ApiException(
+          kind: ApiFailureKind.network, message: 'offline');
+
+  @override
+  Future<WorkflowInstanceDetail> getInstance(String instance) async =>
+      throw const ApiException(
+          kind: ApiFailureKind.network, message: 'offline');
   Never _fail() => throw const ApiException(
         message: 'offline',
         kind: ApiFailureKind.network,
