@@ -80,7 +80,7 @@ class _ChartExcelImportPageState extends State<ChartExcelImportPage> {
       Navigator.of(context).pop(true);
     } catch (_) {
       setState(() => message =
-          'ورود حساب‌ها در ERPNext انجام نشد؛ هیچ موفقیت ظاهری ثبت نشد.');
+          'ورود حساب‌ها در ASOUD ERP انجام نشد؛ هیچ موفقیت ظاهری ثبت نشد.');
     } finally {
       if (mounted) setState(() => saving = false);
     }
@@ -90,7 +90,7 @@ class _ChartExcelImportPageState extends State<ChartExcelImportPage> {
   Widget build(BuildContext context) => Scaffold(
         appBar: const AsoudHeader(
           title: 'ورود سرفصل‌ها از اکسل',
-          subtitle: 'فایل را بررسی و سپس برای ERPNext ارسال کنید',
+          subtitle: 'فایل را بررسی و سپس برای ASOUD ERP ارسال کنید',
         ),
         body: SafeArea(
           child: ListView(

@@ -163,10 +163,15 @@ class _FiscalYearsViewState extends State<_FiscalYearsView> {
                         .read<FiscalYearsCubit>()
                         .create(year, month, day);
                     if (created && context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                        content:
-                            Text('سال مالی با موفقیت در ERPNext ایجاد شد.'),
-                        backgroundColor: AsoudColors.success,
+                      final offline =
+                          context.read<FiscalYearsCubit>().state.status ==
+                              FiscalYearsStatus.offlineSaved;
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text(offline
+                            ? 'سال مالی روی گوشی ذخیره شد و در انتظار همگام‌سازی است.'
+                            : 'سال مالی با موفقیت در ASOUD ERP ایجاد شد.'),
+                        backgroundColor:
+                            offline ? AsoudColors.warning : AsoudColors.success,
                       ));
                     }
                   },

@@ -1,6 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
+import '../../../../core/offline/offline_failure.dart';
 import '../../domain/entities/account_node.dart';
 import '../../domain/repositories/chart_of_accounts_repository.dart';
 
@@ -48,7 +49,8 @@ class AccountFormCubit extends Cubit<AccountFormState> {
     if (repository == null || company == null || company!.trim().isEmpty) {
       emit(state.copyWith(
         status: AccountFormStatus.failure,
-        message: 'برای ذخیره حساب، دفتر فعال و اتصال ERPNext لازم است.',
+        message:
+            'برای ذخیره حساب، دفتر فعال یا حالت آفلاین ASOUD ERP لازم است.',
       ));
       return;
     }
@@ -65,10 +67,19 @@ class AccountFormCubit extends Cubit<AccountFormState> {
         status: AccountFormStatus.success,
         savedAccount: saved,
       ));
-    } catch (_) {
+    } catch (error) {
+      if (isRetryableOfflineFailure(error)) {
+        emit(state.copyWith(
+          status: AccountFormStatus.offlineSaved,
+          savedAccount: state.toEntity(),
+          message:
+              'اتصال برقرار نیست؛ حساب روی گوشی ذخیره شد و در انتظار همگام‌سازی است.',
+        ));
+        return;
+      }
       emit(state.copyWith(
         status: AccountFormStatus.failure,
-        message: 'ذخیره حساب در ERPNext انجام نشد.',
+        message: 'ذخیره حساب در ASOUD ERP انجام نشد.',
       ));
     }
   }

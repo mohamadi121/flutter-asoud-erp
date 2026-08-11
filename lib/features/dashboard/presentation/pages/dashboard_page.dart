@@ -352,7 +352,8 @@ class _ConnectionBanner extends StatelessWidget {
         Expanded(
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(offline ? 'حالت موقت آفلاین' : 'همگام‌سازی با ERPNext موفق بود',
+          Text(
+              offline ? 'حالت موقت آفلاین' : 'همگام‌سازی با ASOUD ERP موفق بود',
               style: TextStyle(
                   color: color, fontSize: 11, fontWeight: FontWeight.w800)),
           Text(

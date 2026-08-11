@@ -105,7 +105,7 @@ void main() {
         afterStage: design.stages.first.id,
         type: WorkflowStageType.approval);
 
-    expect(draft.pendingReason, contains('ERPNext'));
+    expect(draft.pendingReason, contains('ASOUD ERP'));
     expect(updated.stages, hasLength(2));
     expect(updated.transitions, hasLength(1));
   });

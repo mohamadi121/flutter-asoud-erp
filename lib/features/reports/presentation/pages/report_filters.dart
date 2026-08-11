@@ -29,7 +29,7 @@ class _ReportFiltersState extends State<ReportFilters> {
   Widget build(BuildContext context) => Card(child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(children: [
-          TextField(controller: _company, decoration: const InputDecoration(labelText: 'شرکت در ERPNext *'), onChanged: (_) => setState(() {})),
+          TextField(controller: _company, decoration: const InputDecoration(labelText: 'دفتر در ASOUD ERP *'), onChanged: (_) => setState(() {})),
           TextField(controller: _account, decoration: InputDecoration(labelText: widget.requireAccount ? 'حساب *' : 'حساب (اختیاری)'), onChanged: (_) => setState(() {})),
           const SizedBox(height: 10),
           Row(children: [

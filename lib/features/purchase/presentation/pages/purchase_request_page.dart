@@ -175,8 +175,8 @@ class _AddLineSheetState extends State<_AddLineSheet> {
               else ...[
                 TextField(
                   controller: code,
-                  decoration:
-                      const InputDecoration(labelText: 'کد کالا در ERPNext *'),
+                  decoration: const InputDecoration(
+                      labelText: 'کد کالا در ASOUD ERP *'),
                 ),
                 const SizedBox(height: 10),
                 TextField(

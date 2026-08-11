@@ -56,7 +56,8 @@ class _AccountFormViewState extends State<_AccountFormView> {
       BlocConsumer<AccountFormCubit, AccountFormState>(
         listenWhen: (before, after) => before.status != after.status,
         listener: (context, state) {
-          if (state.status == AccountFormStatus.success) {
+          if (state.status == AccountFormStatus.success ||
+              state.status == AccountFormStatus.offlineSaved) {
             Navigator.of(context).pop(state.savedAccount ?? state.toEntity());
           }
         },

@@ -29,7 +29,7 @@ class ChartOfAccountsCubit extends Cubit<ChartOfAccountsState> {
     } catch (error) {
       emit(ChartOfAccountsState(
           status: ChartStatus.failure,
-          message: 'دریافت سرفصل‌ها از ERPNext ممکن نشد.'));
+          message: 'دریافت سرفصل‌ها از ASOUD ERP ممکن نشد.'));
     }
   }
 

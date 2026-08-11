@@ -65,7 +65,7 @@ class _RolesSetupPageState extends State<RolesSetupPage> {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text(
-                    'ذخیره نقش‌ها نیازمند اتصال و پاسخ موفق ERPNext است.',
+                    'ذخیره نقش‌ها نیازمند اتصال و پاسخ موفق ASOUD ERP است.',
                   ),
                 ),
               );
