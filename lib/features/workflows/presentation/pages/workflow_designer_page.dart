@@ -6,6 +6,7 @@ import '../../../../core/widgets/asoud_ui.dart';
 import '../../domain/entities/workflow_definition.dart';
 import '../../domain/repositories/workflow_repository.dart';
 import '../cubit/workflow_designer_cubit.dart';
+import '../widgets/workflow_graph_canvas.dart';
 import 'workflow_stage_settings_page.dart';
 
 class WorkflowDesignerPage extends StatelessWidget {
@@ -43,18 +44,9 @@ class _DesignerView extends StatelessWidget {
                   : const Center(child: CircularProgressIndicator()),
             );
           }
-          final allStages = [...design.stages]
+          final stages = [...design.stages]
             ..sort((a, b) => a.sequence.compareTo(b.sequence));
-          final branchTargets = design.transitions
-              .where((item) => item.condition['result'] is bool)
-              .map((item) => item.toStage)
-              .toSet();
-          final stages = allStages
-              .where((stage) => !branchTargets.contains(stage.id))
-              .toList(growable: false);
-          final canAdd = stages.isNotEmpty &&
-              stages.last.type != WorkflowStageType.end &&
-              stages.last.type != WorkflowStageType.condition;
+          final canAdd = stages.isNotEmpty;
           return Scaffold(
             appBar: AsoudHeader(
               title: 'طراحی فرایند',
@@ -71,33 +63,16 @@ class _DesignerView extends StatelessWidget {
                   workflow: design.workflow,
                   saving: state.status == WorkflowDesignerStatus.saving),
               Expanded(
-                child: CustomPaint(
-                  painter: _DotGridPainter(),
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 145),
-                    children: [
-                      for (var index = 0; index < stages.length; index++) ...[
-                        _StageCard(
-                          stage: stages[index],
-                          onTap: () =>
-                              _openStage(context, stages[index], state.options),
-                        ),
-                        if (stages[index].type == WorkflowStageType.condition)
-                          _ConditionBranches(
-                            stage: stages[index],
-                            stages: allStages,
-                            transitions: design.transitions,
-                            onAdd: (result) => _showConditionBranchPicker(
-                                context, stages[index], result),
-                          ),
-                        if (index < stages.length - 1) const _Connector(),
-                      ],
-                      if (canAdd) ...[
-                        const _Connector(),
-                        _AddStageTarget(onTap: () => _showStagePicker(context)),
-                      ],
-                    ],
-                  ),
+                child: WorkflowGraphCanvas(
+                  design: design,
+                  onOpenStage: (stage) =>
+                      _openStage(context, stage, state.options),
+                  onMoveStage: context.read<WorkflowDesignerCubit>().moveStage,
+                  onMoveEnd:
+                      context.read<WorkflowDesignerCubit>().savePositions,
+                  onInsertOnTransition: (edge) => _insertStage(context, edge),
+                  onCreateTransition: (stage) =>
+                      _connectStage(context, stage, design),
                 ),
               ),
             ]),
@@ -132,8 +107,9 @@ class _DesignerView extends StatelessWidget {
         value: context.read<WorkflowDesignerCubit>(),
         child: WorkflowStageSettingsPage(
           stage: stage,
-          options:
-              options ?? const WorkflowFormOptions(companies: [], modules: []),
+          roles: options?.roles ?? const [],
+          departments: options?.departments ?? const [],
+          employees: options?.employees ?? const [],
         ),
       ),
     ));
@@ -150,8 +126,8 @@ class _DesignerView extends StatelessWidget {
     if (type != null) await cubit.addStage(type);
   }
 
-  Future<void> _showConditionBranchPicker(
-      BuildContext context, WorkflowStage stage, bool result) async {
+  Future<void> _insertStage(
+      BuildContext context, WorkflowTransition transition) async {
     final type = await showModalBottomSheet<WorkflowStageType>(
       context: context,
       isScrollControlled: true,
@@ -161,77 +137,90 @@ class _DesignerView extends StatelessWidget {
     if (type != null && context.mounted) {
       await context
           .read<WorkflowDesignerCubit>()
-          .addConditionBranch(stage, result, type);
+          .insertStage(transition.id, type);
+    }
+  }
+
+  Future<void> _connectStage(
+      BuildContext context, WorkflowStage from, WorkflowDesign design) async {
+    final candidates = design.stages
+        .where((stage) => stage.id != from.id)
+        .toList(growable: false);
+    if (candidates.isEmpty) return;
+    final result = await showModalBottomSheet<({String target, String action})>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => _ConnectSheet(stages: candidates),
+    );
+    if (result != null && context.mounted) {
+      await context.read<WorkflowDesignerCubit>().connectStages(
+            fromStage: from.id,
+            toStage: result.target,
+            action: result.action,
+          );
     }
   }
 }
 
-class _ConditionBranches extends StatelessWidget {
-  const _ConditionBranches({
-    required this.stage,
-    required this.stages,
-    required this.transitions,
-    required this.onAdd,
-  });
-  final WorkflowStage stage;
+class _ConnectSheet extends StatefulWidget {
+  const _ConnectSheet({required this.stages});
   final List<WorkflowStage> stages;
-  final List<WorkflowTransition> transitions;
-  final ValueChanged<bool> onAdd;
 
   @override
-  Widget build(BuildContext context) {
-    final branches = transitions
-        .where((item) => item.fromStage == stage.id)
-        .toList(growable: false);
-    return Container(
-      margin: const EdgeInsets.only(top: 10),
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: AsoudColors.primary.withValues(alpha: .04),
-        border: Border.all(color: AsoudColors.border),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(children: [
-        for (final result in [true, false]) ...[
-          Expanded(child: _branch(context, branches, result)),
-          if (result) const SizedBox(width: 8),
-        ],
-      ]),
-    );
-  }
+  State<_ConnectSheet> createState() => _ConnectSheetState();
+}
 
-  Widget _branch(
-      BuildContext context, List<WorkflowTransition> branches, bool result) {
-    final matches = branches
-        .where((item) => item.condition['result'] == result)
-        .toList(growable: false);
-    final transition = matches.firstOrNull;
-    final target = transition == null
-        ? null
-        : stages.where((item) => item.id == transition.toStage).firstOrNull;
-    final color = result ? AsoudColors.success : AsoudColors.warning;
-    return InkWell(
-      borderRadius: BorderRadius.circular(11),
-      onTap: transition == null ? () => onAdd(result) : null,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: .09),
-          borderRadius: BorderRadius.circular(11),
+class _ConnectSheetState extends State<_ConnectSheet> {
+  late String target = widget.stages.first.id;
+  String action = 'تأیید';
+
+  @override
+  Widget build(BuildContext context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const Text('ایجاد مسیر جدید',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              initialValue: target,
+              decoration: const InputDecoration(labelText: 'مرحله مقصد'),
+              items: widget.stages
+                  .map((stage) => DropdownMenuItem(
+                        value: stage.id,
+                        child: Text(stage.title),
+                      ))
+                  .toList(growable: false),
+              onChanged: (value) => setState(() => target = value ?? target),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: action,
+              decoration: const InputDecoration(labelText: 'عملیات مسیر'),
+              items: const [
+                'تأیید',
+                'رد',
+                'بازگشت برای اصلاح',
+                'ارجاع',
+                'ادامه'
+              ]
+                  .map((value) =>
+                      DropdownMenuItem(value: value, child: Text(value)))
+                  .toList(growable: false),
+              onChanged: (value) => setState(() => action = value ?? action),
+            ),
+            const SizedBox(height: 18),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () =>
+                    Navigator.pop(context, (target: target, action: action)),
+                child: const Text('ثبت مسیر'),
+              ),
+            ),
+          ]),
         ),
-        child: Column(children: [
-          Text(result ? 'اگر درست بود' : 'اگر نادرست بود',
-              style: TextStyle(
-                  color: color, fontWeight: FontWeight.w800, fontSize: 11)),
-          const SizedBox(height: 4),
-          Text(target?.title ?? '+ افزودن مرحله',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 10)),
-        ]),
-      ),
-    );
-  }
+      );
 }
 
 class _DraftBanner extends StatelessWidget {
@@ -266,6 +255,8 @@ class _DraftBanner extends StatelessWidget {
       );
 }
 
+// Kept temporarily to preserve the locked linear preview implementation.
+// ignore: unused_element
 class _StageCard extends StatelessWidget {
   const _StageCard({required this.stage, required this.onTap});
   final WorkflowStage stage;
@@ -341,6 +332,7 @@ class _StageCard extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _Connector extends StatelessWidget {
   const _Connector();
   @override
@@ -353,6 +345,7 @@ class _Connector extends StatelessWidget {
       );
 }
 
+// ignore: unused_element
 class _AddStageTarget extends StatelessWidget {
   const _AddStageTarget({required this.onTap});
   final VoidCallback onTap;
@@ -479,17 +472,12 @@ class StartSettingsPage extends StatefulWidget {
 
 class _StartSettingsPageState extends State<StartSettingsPage> {
   late String triggerType;
-  late String subjectSource;
-  late String passMode;
   late Set<String> selectedRoles;
 
   @override
   void initState() {
     super.initState();
     triggerType = widget.stage.config['trigger_type']?.toString() ?? 'Manual';
-    subjectSource = widget.stage.config['subject_source']?.toString() ??
-        'Referenced Document';
-    passMode = widget.stage.config['pass_mode']?.toString() ?? 'Direct';
     selectedRoles =
         ((widget.stage.config['initiator_roles'] as List?) ?? const [])
             .map((value) => value.toString())
@@ -504,6 +492,8 @@ class _StartSettingsPageState extends State<StartSettingsPage> {
         body: ListView(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 110),
           children: [
+            const _StartNotice(),
+            const SizedBox(height: 14),
             const AsoudSectionTitle(title: 'روش آغاز فرایند'),
             DropdownButtonFormField<String>(
               initialValue: triggerType,
@@ -519,33 +509,6 @@ class _StartSettingsPageState extends State<StartSettingsPage> {
               ],
               onChanged: (value) =>
                   setState(() => triggerType = value ?? triggerType),
-            ),
-            const SizedBox(height: 14),
-            const AsoudSectionTitle(title: 'موضوع مرجع'),
-            DropdownButtonFormField<String>(
-              initialValue: subjectSource,
-              decoration: const InputDecoration(labelText: 'منبع موضوع فرایند'),
-              items: const [
-                DropdownMenuItem(
-                    value: 'Referenced Document',
-                    child: Text('سند موجود در ERPNext')),
-                DropdownMenuItem(
-                    value: 'ASOUD Record', child: Text('رکورد موجود در ASOUD')),
-                DropdownMenuItem(
-                    value: 'General Subject', child: Text('موضوع عمومی')),
-              ],
-              onChanged: (value) =>
-                  setState(() => subjectSource = value ?? subjectSource),
-            ),
-            const SizedBox(height: 14),
-            const AsoudSectionTitle(title: 'عبور از شروع'),
-            AsoudSegmentedControl<String>(
-              value: passMode,
-              options: const [
-                AsoudSegmentedOption(value: 'Direct', label: 'مستقیم'),
-                AsoudSegmentedOption(value: 'Conditional', label: 'مشروط'),
-              ],
-              onChanged: (value) => setState(() => passMode = value),
             ),
             const SizedBox(height: 14),
             const AsoudSectionTitle(title: 'نقش‌های مجاز برای شروع'),
@@ -577,14 +540,38 @@ class _StartSettingsPageState extends State<StartSettingsPage> {
             await context.read<WorkflowDesignerCubit>().saveStart(
                   triggerType: triggerType,
                   initiatorRoles: selectedRoles.toList(growable: false),
-                  subjectSource: subjectSource,
-                  passMode: passMode,
+                  subjectSource: 'Referenced Document',
+                  passMode: 'Direct',
                 );
             if (context.mounted) Navigator.pop(context);
           },
           secondaryLabel: 'انصراف',
           onSecondary: () => Navigator.pop(context),
         ),
+      );
+}
+
+class _StartNotice extends StatelessWidget {
+  const _StartNotice();
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(11),
+        decoration: BoxDecoration(
+          color: AsoudColors.primary.withValues(alpha: .06),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Row(children: [
+          Icon(Icons.info_outline_rounded,
+              color: AsoudColors.primary, size: 19),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'گردش‌کار روی همان سند انتخاب‌شده اجرا می‌شود. اگر شروع مشروط لازم است، بعد از شروع یک گره شرط اضافه کنید.',
+              style: TextStyle(fontSize: 9),
+            ),
+          ),
+        ]),
       );
 }
 
@@ -601,6 +588,7 @@ class _Failure extends StatelessWidget {
       );
 }
 
+// ignore: unused_element
 class _DotGridPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {

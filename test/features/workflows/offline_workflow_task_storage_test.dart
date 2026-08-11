@@ -6,8 +6,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _OfflineRemote implements WorkflowTaskRepository {
-  Never _fail() =>
-      throw const ApiException('offline', kind: ApiFailureKind.network);
+  Never _fail() => throw const ApiException(
+        message: 'offline',
+        kind: ApiFailureKind.network,
+      );
   @override
   bool get isOfflinePreview => false;
   @override

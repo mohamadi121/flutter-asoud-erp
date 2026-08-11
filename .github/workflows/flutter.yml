@@ -2,7 +2,6 @@ name: Flutter CI
 
 on:
   push:
-    branches: [main]
   pull_request:
 
 jobs:
@@ -19,3 +18,19 @@ jobs:
       # Raster golden baselines are generated on Windows and differ slightly
       # under Linux font rendering. Functional/widget tests still run in CI.
       - run: flutter test --exclude-tags golden
+      - name: Build debug APK
+        if: github.event_name == 'push'
+        run: flutter build apk --debug
+      - name: Read application version
+        if: github.event_name == 'push'
+        id: version
+        shell: bash
+        run: echo "value=$(grep '^version:' pubspec.yaml | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+      - name: Upload APK artifact
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: asoud-erp-${{ steps.version.outputs.value }}-debug
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30

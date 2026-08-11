@@ -1,3 +1,8 @@
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:shared_preferences/shared_preferences.dart';
+
 import '../../../../core/network/api_exception.dart';
 import '../../domain/entities/workflow_definition.dart';
 import '../../domain/repositories/workflow_repository.dart';
@@ -10,6 +15,127 @@ class PreviewFallbackWorkflowRepository
   final Map<String, WorkflowDesign> _designs = {};
   bool _offline = false;
   int _draftSequence = 1;
+  bool _loaded = false;
+  static const _storageKey = 'asoud_workflow_designs_v2';
+
+  Future<void> _loadLocal() async {
+    if (_loaded) return;
+    _loaded = true;
+    final raw = (await SharedPreferences.getInstance()).getString(_storageKey);
+    if (raw == null || raw.isEmpty) return;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return;
+      for (final item in decoded.whereType<Map>()) {
+        final design = _designFromMap(Map<String, dynamic>.from(item));
+        _designs[design.workflow.id] = design;
+      }
+      _draftSequence = _designs.length + 1;
+    } catch (_) {
+      // A corrupt preview must never block the real server flow.
+    }
+  }
+
+  Future<void> _persist() async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString(
+      _storageKey,
+      jsonEncode(_designs.values.map(_designToMap).toList(growable: false)),
+    );
+  }
+
+  Map<String, dynamic> _designToMap(WorkflowDesign design) => {
+        'workflow': {
+          'id': design.workflow.id,
+          'code': design.workflow.code,
+          'title': design.workflow.title,
+          'target_doctype': design.workflow.targetDoctype,
+          'company': design.workflow.company,
+          'description': design.workflow.description,
+        },
+        'stages': design.stages
+            .map((stage) => {
+                  'id': stage.id,
+                  'key': stage.key,
+                  'type': stage.type.name,
+                  'title': stage.title,
+                  'sequence': stage.sequence,
+                  'complete': stage.configurationComplete,
+                  'config': stage.config,
+                  'x': stage.positionX,
+                  'y': stage.positionY,
+                })
+            .toList(growable: false),
+        'transitions': design.transitions
+            .map((edge) => {
+                  'id': edge.id,
+                  'from': edge.fromStage,
+                  'to': edge.toStage,
+                  'label': edge.label,
+                  'condition': edge.condition,
+                })
+            .toList(growable: false),
+      };
+
+  WorkflowDesign _designFromMap(Map<String, dynamic> raw) {
+    final workflow = Map<String, dynamic>.from(raw['workflow'] as Map);
+    final stages =
+        (raw['stages'] as List? ?? const []).whereType<Map>().map((value) {
+      final item = Map<String, dynamic>.from(value);
+      return WorkflowStage(
+        id: item['id']?.toString() ?? '',
+        key: item['key']?.toString() ?? '',
+        type: WorkflowStageType.values.firstWhere(
+          (type) => type.name == item['type'],
+          orElse: () => WorkflowStageType.userTask,
+        ),
+        title: item['title']?.toString() ?? '',
+        sequence: int.tryParse(item['sequence']?.toString() ?? '') ?? 0,
+        configurationComplete: item['complete'] == true,
+        config: item['config'] is Map
+            ? Map<String, dynamic>.from(item['config'] as Map)
+            : const {},
+        positionX: (item['x'] as num?)?.toDouble() ?? 0,
+        positionY: (item['y'] as num?)?.toDouble() ?? 0,
+      );
+    }).toList(growable: false);
+    final transitions =
+        (raw['transitions'] as List? ?? const []).whereType<Map>().map((value) {
+      final item = Map<String, dynamic>.from(value);
+      return WorkflowTransition(
+        id: item['id']?.toString() ?? '',
+        fromStage: item['from']?.toString() ?? '',
+        toStage: item['to']?.toString() ?? '',
+        label: item['label']?.toString(),
+        condition: item['condition'] is Map
+            ? Map<String, dynamic>.from(item['condition'] as Map)
+            : const {},
+      );
+    }).toList(growable: false);
+    return WorkflowDesign(
+      workflow: WorkflowDefinition(
+        id: workflow['id']?.toString() ?? '',
+        code: workflow['code']?.toString() ?? '',
+        title: workflow['title']?.toString() ?? '',
+        targetDoctype: workflow['target_doctype']?.toString() ?? '',
+        status: WorkflowDefinitionStatus.inactive,
+        isLocked: true,
+        version: 1,
+        stepsCount: stages.length,
+        modified: null,
+        company: workflow['company']?.toString(),
+        description: workflow['description']?.toString(),
+        pendingReason: 'ذخیره محلی؛ در انتظار همگام‌سازی با ERPNext',
+      ),
+      stages: stages,
+      transitions: transitions,
+    );
+  }
+
+  void _remember(String definition, WorkflowDesign design) {
+    _designs[definition] = design;
+    unawaited(_persist());
+  }
 
   @override
   bool get isOfflinePreview => _offline;
@@ -98,6 +224,7 @@ class PreviewFallbackWorkflowRepository
     T Function() preview, {
     bool probe = false,
   }) async {
+    await _loadLocal();
     if (_offline && !probe) return preview();
     try {
       final result = await remote();
@@ -190,9 +317,17 @@ class PreviewFallbackWorkflowRepository
             title: 'شروع',
             sequence: 1,
             configurationComplete: false,
+            positionX: 180,
+            positionY: 60,
           );
-          _designs[id] = WorkflowDesign(
-              workflow: workflow, stages: [start], transitions: const []);
+          _remember(
+            id,
+            WorkflowDesign(
+              workflow: workflow,
+              stages: [start],
+              transitions: const [],
+            ),
+          );
           return workflow;
         },
       );
@@ -212,6 +347,8 @@ class PreviewFallbackWorkflowRepository
         title: 'شروع',
         sequence: 1,
         configurationComplete: true,
+        positionX: 180,
+        positionY: 60,
         config: const {'trigger_type': 'Manual'});
     return WorkflowDesign(
         workflow: workflow, stages: [start], transitions: const []);
@@ -235,6 +372,8 @@ class PreviewFallbackWorkflowRepository
             title: _stageTitle(type),
             sequence: sequence,
             configurationComplete: false,
+            positionX: design.stages.last.positionX,
+            positionY: design.stages.last.positionY + 190,
           );
           final transition = WorkflowTransition(
             id: '$definition-TRANSITION-$sequence',
@@ -245,7 +384,131 @@ class PreviewFallbackWorkflowRepository
               workflow: design.workflow,
               stages: [...design.stages, stage],
               transitions: [...design.transitions, transition]);
-          _designs[definition] = updated;
+          _remember(definition, updated);
+          return updated;
+        },
+      );
+
+  @override
+  Future<WorkflowDesign> insertStage({
+    required String definition,
+    required String transition,
+    required WorkflowStageType type,
+  }) =>
+      _remoteOrPreview(
+        () => _remote.insertStage(
+          definition: definition,
+          transition: transition,
+          type: type,
+        ),
+        () {
+          final design = _designs[definition] ?? _sampleDesign(definition);
+          final edge =
+              design.transitions.firstWhere((item) => item.id == transition);
+          final from =
+              design.stages.firstWhere((item) => item.id == edge.fromStage);
+          final to =
+              design.stages.firstWhere((item) => item.id == edge.toStage);
+          final sequence = design.stages.length + 1;
+          final stage = WorkflowStage(
+            id: '$definition-INSERT-$sequence',
+            key: 'INSERT_$sequence',
+            type: type,
+            title: _stageTitle(type),
+            sequence: sequence,
+            configurationComplete: type == WorkflowStageType.end,
+            positionX: (from.positionX + to.positionX) / 2,
+            positionY: (from.positionY + to.positionY) / 2,
+          );
+          final updated = WorkflowDesign(
+            workflow: design.workflow,
+            stages: [...design.stages, stage],
+            transitions: [
+              ...design.transitions.where((item) => item.id != transition),
+              WorkflowTransition(
+                id: '$transition-A',
+                fromStage: edge.fromStage,
+                toStage: stage.id,
+                label: edge.label,
+                condition: edge.condition,
+              ),
+              WorkflowTransition(
+                id: '$transition-B',
+                fromStage: stage.id,
+                toStage: edge.toStage,
+                label: 'ادامه',
+              ),
+            ],
+          );
+          _remember(definition, updated);
+          return updated;
+        },
+      );
+
+  @override
+  Future<WorkflowDesign> connectStages({
+    required String definition,
+    required String fromStage,
+    required String toStage,
+    required String action,
+    Map<String, dynamic> condition = const {},
+  }) =>
+      _remoteOrPreview(
+        () => _remote.connectStages(
+          definition: definition,
+          fromStage: fromStage,
+          toStage: toStage,
+          action: action,
+          condition: condition,
+        ),
+        () {
+          final design = _designs[definition] ?? _sampleDesign(definition);
+          if (fromStage == toStage) {
+            throw StateError('Self transition is invalid');
+          }
+          final id = '$definition-EDGE-${design.transitions.length + 1}';
+          final updated = WorkflowDesign(
+            workflow: design.workflow,
+            stages: design.stages,
+            transitions: [
+              ...design.transitions,
+              WorkflowTransition(
+                id: id,
+                fromStage: fromStage,
+                toStage: toStage,
+                label: action,
+                condition: condition,
+              ),
+            ],
+          );
+          _remember(definition, updated);
+          return updated;
+        },
+      );
+
+  @override
+  Future<WorkflowDesign> updateStagePositions({
+    required String definition,
+    required Map<String, ({double x, double y})> positions,
+  }) =>
+      _remoteOrPreview(
+        () => _remote.updateStagePositions(
+          definition: definition,
+          positions: positions,
+        ),
+        () {
+          final design = _designs[definition] ?? _sampleDesign(definition);
+          final updated = WorkflowDesign(
+            workflow: design.workflow,
+            stages: design.stages.map((stage) {
+              final point = positions[stage.id];
+              return point == null
+                  ? stage
+                  : stage.copyWith(positionX: point.x, positionY: point.y);
+            }).toList(growable: false),
+            transitions: design.transitions,
+          );
+          _remember(definition, updated);
           return updated;
         },
       );
@@ -292,7 +555,7 @@ class PreviewFallbackWorkflowRepository
             stages: [...design.stages, stage],
             transitions: [...design.transitions, transition],
           );
-          _designs[definition] = updated;
+          _remember(definition, updated);
           return updated;
         },
       );
@@ -327,10 +590,12 @@ class PreviewFallbackWorkflowRepository
                 'subject_source': subjectSource,
                 'pass_mode': passMode
               });
-          _designs[definition] = WorkflowDesign(
-              workflow: design.workflow,
-              stages: [updated, ...design.stages.skip(1)],
-              transitions: design.transitions);
+          _remember(
+              definition,
+              WorkflowDesign(
+                  workflow: design.workflow,
+                  stages: [updated, ...design.stages.skip(1)],
+                  transitions: design.transitions));
           return updated;
         },
       );
@@ -379,7 +644,7 @@ class PreviewFallbackWorkflowRepository
               workflow: design.workflow,
               stages: stages,
               transitions: design.transitions);
-          _designs[definition] = updated;
+          _remember(definition, updated);
           return updated;
         },
       );

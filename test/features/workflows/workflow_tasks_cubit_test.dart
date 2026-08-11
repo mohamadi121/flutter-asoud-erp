@@ -7,23 +7,26 @@ import 'package:flutter_test/flutter_test.dart';
 
 class _Repository implements WorkflowTaskRepository {
   var completed = '';
+  var lastStatus = '';
   String? comment;
   @override
   bool get isOfflinePreview => true;
 
   @override
-  Future<List<WorkflowTask>> getMyTasks({String status = 'Open'}) async =>
-      completed.isEmpty
-          ? const [
-              WorkflowTask(
-                id: 'TASK-1',
-                instance: 'INSTANCE-1',
-                stage: 'STAGE-1',
-                title: 'بررسی درخواست',
-                status: 'Open',
-              ),
-            ]
-          : const [];
+  Future<List<WorkflowTask>> getMyTasks({String status = 'Open'}) async {
+    lastStatus = status;
+    return completed.isEmpty && status == 'Open'
+        ? const [
+            WorkflowTask(
+              id: 'TASK-1',
+              instance: 'INSTANCE-1',
+              stage: 'STAGE-1',
+              title: 'بررسی درخواست',
+              status: 'Open',
+            ),
+          ]
+        : const [];
+  }
 
   @override
   Future<void> completeTask({
@@ -65,6 +68,17 @@ void main() {
     await cubit.load();
     expect(cubit.state.tasks.single.id, 'TASK-1');
     expect(cubit.state.offline, isTrue);
+    await cubit.close();
+  });
+
+  test('فیلتر انتخاب‌شده برای دریافت وضعیت درست به مخزن ارسال می‌شود',
+      () async {
+    final repository = _Repository();
+    final cubit = WorkflowTasksCubit(repository);
+    await cubit.load('Completed');
+    expect(repository.lastStatus, 'Completed');
+    expect(cubit.state.filter, 'Completed');
+    expect(cubit.state.tasks, isEmpty);
     await cubit.close();
   });
 

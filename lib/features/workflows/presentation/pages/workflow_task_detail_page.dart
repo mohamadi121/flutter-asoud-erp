@@ -58,6 +58,10 @@ class _TaskDetailView extends StatelessWidget {
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
                         children: [
                           _TaskTypeCard(detail: detail),
+                          if (detail.documentValues.isNotEmpty) ...[
+                            const SizedBox(height: 14),
+                            _ReferencedDocumentCard(detail: detail),
+                          ],
                           if (detail.previousData.isNotEmpty) ...[
                             const SizedBox(height: 14),
                             const AsoudSectionTitle(
@@ -72,7 +76,10 @@ class _TaskDetailView extends StatelessWidget {
                             const AsoudSectionTitle(title: 'اطلاعات این مرحله'),
                           ],
                           for (final field in detail.fields) ...[
-                            _DynamicField(field: field),
+                            _DynamicField(
+                              field: field,
+                              enabled: detail.task.status == 'Open',
+                            ),
                             const SizedBox(height: 12),
                           ],
                           if (detail.activities.isNotEmpty) ...[
@@ -96,7 +103,7 @@ class _TaskDetailView extends StatelessWidget {
                       ),
                     ),
                   ]),
-            bottomNavigationBar: detail == null
+            bottomNavigationBar: detail == null || detail.task.status != 'Open'
                 ? null
                 : SafeArea(
                     minimum: const EdgeInsets.all(12),
@@ -177,6 +184,66 @@ class _TaskDetailView extends StatelessWidget {
         .read<WorkflowTaskDetailCubit>()
         .submit(action, comment: comment);
   }
+}
+
+class _ReferencedDocumentCard extends StatelessWidget {
+  const _ReferencedDocumentCard({required this.detail});
+  final WorkflowTaskDetail detail;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(13),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: AsoudColors.primary.withValues(alpha: .3)),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            const AsoudIconBox(
+              icon: Icons.description_outlined,
+              color: AsoudColors.primary,
+            ),
+            const SizedBox(width: 9),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('اطلاعات درخواست اصلی',
+                      style: TextStyle(fontWeight: FontWeight.w900)),
+                  Text('${detail.referenceDoctype} • ${detail.referenceName}',
+                      textDirection: TextDirection.ltr,
+                      style: const TextStyle(
+                          fontSize: 9, color: AsoudColors.muted)),
+                ],
+              ),
+            ),
+          ]),
+          const Divider(height: 22),
+          for (final value in detail.documentValues)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    flex: 2,
+                    child: Text(value.label,
+                        style: const TextStyle(
+                            fontSize: 10, color: AsoudColors.muted)),
+                  ),
+                  Expanded(
+                    flex: 3,
+                    child: Text(value.value?.toString() ?? '—',
+                        textAlign: TextAlign.end,
+                        style: const TextStyle(
+                            fontSize: 11, fontWeight: FontWeight.w700)),
+                  ),
+                ],
+              ),
+            ),
+        ]),
+      );
 }
 
 class _TaskTypeCard extends StatelessWidget {
@@ -327,8 +394,9 @@ String _displayValue(dynamic value) {
 }
 
 class _DynamicField extends StatelessWidget {
-  const _DynamicField({required this.field});
+  const _DynamicField({required this.field, required this.enabled});
   final WorkflowFormFieldDefinition field;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
@@ -340,37 +408,41 @@ class _DynamicField extends StatelessWidget {
       return CheckboxListTile(
         value: value == true,
         title: Text(label),
-        onChanged: (next) => cubit.setValue(field.key, next == true),
+        onChanged:
+            enabled ? (next) => cubit.setValue(field.key, next == true) : null,
       );
     }
     if (field.type == 'Choice') {
       return DropdownButtonFormField<String>(
         initialValue: field.options.contains(value) ? value?.toString() : null,
         decoration: InputDecoration(labelText: label),
+        disabledHint: Text(value?.toString() ?? ''),
         items: field.options
             .map((option) => DropdownMenuItem(
                 value: option,
                 child: Text(option, overflow: TextOverflow.ellipsis)))
             .toList(growable: false),
-        onChanged: (next) => cubit.setValue(field.key, next),
+        onChanged: enabled ? (next) => cubit.setValue(field.key, next) : null,
       );
     }
     if (field.type == 'Attachment') {
       return OutlinedButton.icon(
-        onPressed: () async {
-          final file = await openFile(
-            acceptedTypeGroups: const [
-              XTypeGroup(
-                label: 'اسناد مجاز',
-                extensions: ['pdf', 'png', 'jpg', 'jpeg', 'xlsx', 'docx'],
-              ),
-            ],
-          );
-          if (file != null && context.mounted) {
-            await cubit.setAttachment(
-                field.key, file.name, await file.readAsBytes());
-          }
-        },
+        onPressed: enabled
+            ? () async {
+                final file = await openFile(
+                  acceptedTypeGroups: const [
+                    XTypeGroup(
+                      label: 'اسناد مجاز',
+                      extensions: ['pdf', 'png', 'jpg', 'jpeg', 'xlsx', 'docx'],
+                    ),
+                  ],
+                );
+                if (file != null && context.mounted) {
+                  await cubit.setAttachment(
+                      field.key, file.name, await file.readAsBytes());
+                }
+              }
+            : null,
         icon: const Icon(Icons.attach_file_rounded),
         label: Text(value == null
             ? label
@@ -378,6 +450,7 @@ class _DynamicField extends StatelessWidget {
       );
     }
     return TextFormField(
+      enabled: enabled,
       initialValue: value?.toString() ?? '',
       minLines: field.type == 'Long Text' ? 3 : 1,
       maxLines: field.type == 'Long Text' ? 5 : 1,

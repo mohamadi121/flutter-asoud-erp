@@ -13,12 +13,10 @@ class FrappeWorkflowTaskRepository implements WorkflowTaskRepository {
 
   @override
   Future<List<WorkflowTask>> getMyTasks({String status = 'Open'}) async {
-    final response = await _client.callAsoudMethod<Object?>(
+    final data = await _client.callAsoudMethod(
       'asoud_erp.api.v1.workflow_runtime.list_my_workflow_tasks',
-      (value) => value,
       data: {'status': status},
     );
-    final data = response.data;
     if (data is! List) throw StateError('Invalid workflow task response');
     return data.whereType<Map>().map((raw) {
       final item = Map<String, dynamic>.from(raw);
@@ -40,9 +38,8 @@ class FrappeWorkflowTaskRepository implements WorkflowTaskRepository {
     String? comment,
     Map<String, dynamic> response = const {},
   }) async {
-    await _client.callAsoudMethod<Object?>(
+    await _client.callAsoudMethod(
       'asoud_erp.api.v1.workflow_runtime.complete_workflow_task',
-      (value) => value,
       data: {
         'task': task,
         'action': action,
@@ -54,19 +51,22 @@ class FrappeWorkflowTaskRepository implements WorkflowTaskRepository {
 
   @override
   Future<WorkflowTaskDetail> getTask(String task) async {
-    final response = await _client.callAsoudMethod<Object?>(
+    final data = await _client.callAsoudMethod(
       'asoud_erp.api.v1.workflow_runtime.get_workflow_task',
-      (value) => value,
       data: {'task': task},
     );
-    if (response.data is! Map) throw StateError('Invalid task detail response');
-    final item = Map<String, dynamic>.from(response.data as Map);
+    if (data is! Map) throw StateError('Invalid task detail response');
+    final item = Map<String, dynamic>.from(data);
     final config = item['config'] is Map
         ? Map<String, dynamic>.from(item['config'] as Map)
         : <String, dynamic>{};
     final rawFields = config['form_fields'];
     final rawHistory = item['history'];
     final rawPreviousData = item['previous_data'];
+    final document = item['document'] is Map
+        ? Map<String, dynamic>.from(item['document'] as Map)
+        : const <String, dynamic>{};
+    final documentValues = document['values'];
     final taskEntity = WorkflowTask(
       id: item['name']?.toString() ?? '',
       instance: item['workflow_instance']?.toString() ?? '',
@@ -121,14 +121,25 @@ class FrappeWorkflowTaskRepository implements WorkflowTaskRepository {
               );
             }).toList(growable: false)
           : const [],
+      referenceDoctype: document['doctype']?.toString() ?? '',
+      referenceName: document['name']?.toString() ?? '',
+      documentValues: documentValues is List
+          ? documentValues.whereType<Map>().map((raw) {
+              final value = Map<String, dynamic>.from(raw);
+              return WorkflowTaskDataValue(
+                key: value['key']?.toString() ?? '',
+                label: value['label']?.toString() ?? '',
+                value: value['value'],
+              );
+            }).toList(growable: false)
+          : const [],
     );
   }
 
   @override
   Future<void> saveDraft(String task, Map<String, dynamic> values) async {
-    await _client.callAsoudMethod<Object?>(
+    await _client.callAsoudMethod(
       'asoud_erp.api.v1.workflow_runtime.save_workflow_task_draft',
-      (value) => value,
       data: {'task': task, 'response': values},
     );
   }
@@ -139,16 +150,15 @@ class FrappeWorkflowTaskRepository implements WorkflowTaskRepository {
     required String filename,
     required List<int> bytes,
   }) async {
-    final response = await _client.callAsoudMethod<Object?>(
+    final data = await _client.callAsoudMethod(
       'asoud_erp.api.v1.workflow_runtime.upload_workflow_attachment',
-      (value) => value,
       data: {
         'task': task,
         'filename': filename,
         'content_base64': base64Encode(bytes),
       },
     );
-    if (response.data is! Map) throw StateError('Invalid attachment response');
-    return (response.data as Map)['file_url']?.toString() ?? '';
+    if (data is! Map) throw StateError('Invalid attachment response');
+    return data['file_url']?.toString() ?? '';
   }
 }

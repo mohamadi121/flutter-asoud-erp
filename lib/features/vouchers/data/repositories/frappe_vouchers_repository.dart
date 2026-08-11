@@ -9,13 +9,17 @@ class FrappeVouchersRepository implements VouchersRepository {
   final FrappeClient _client;
 
   @override
-  Future<List<AccountingVoucher>> getVouchers(String company, {VoucherStatus? status, String? search}) async {
-    final response = await _client.callAsoudMethod<List<Map<String, dynamic>>>(
+  Future<List<AccountingVoucher>> getVouchers(String company,
+      {VoucherStatus? status, String? search}) async {
+    final response = await _client.callAsoudMethod(
       'asoud_erp.api.v1.voucher.list_vouchers',
-      _list,
-      data: {'company': company, if (status != null) 'status': _statusToApi(status), if (search?.isNotEmpty ?? false) 'search': search},
+      data: {
+        'company': company,
+        if (status != null) 'status': _statusToApi(status),
+        if (search?.isNotEmpty ?? false) 'search': search
+      },
     );
-    return response.data.map(_fromJson).toList();
+    return _list(response).map(_fromJson).toList();
   }
 
   @override
@@ -24,39 +28,52 @@ class FrappeVouchersRepository implements VouchersRepository {
         {
           if (voucher.id.isNotEmpty) 'name': voucher.id,
           'company': voucher.company,
-          'posting_date': voucher.postingDate.toIso8601String().split('T').first,
+          'posting_date':
+              voucher.postingDate.toIso8601String().split('T').first,
           'description': voucher.description,
-          'lines': jsonEncode(voucher.lines.map((row) => {
-                'account': row.account,
-                'floating_detail': row.floatingDetail,
-                'description': row.description,
-                'debit': row.debit,
-                'credit': row.credit,
-              }).toList()),
+          'lines': jsonEncode(voucher.lines
+              .map((row) => {
+                    'account': row.account,
+                    'floating_detail': row.floatingDetail,
+                    'description': row.description,
+                    'debit': row.debit,
+                    'credit': row.credit,
+                  })
+              .toList()),
         },
       );
 
   @override
-  Future<AccountingVoucher> submitForApproval(String id) => _call('asoud_erp.api.v1.voucher.submit_for_approval', {'name': id});
+  Future<AccountingVoucher> submitForApproval(String id) =>
+      _call('asoud_erp.api.v1.voucher.submit_for_approval', {'name': id});
 
   @override
-  Future<AccountingVoucher> approve(String id) => _call('asoud_erp.api.v1.voucher.approve_voucher', {'name': id});
+  Future<AccountingVoucher> approve(String id) =>
+      _call('asoud_erp.api.v1.voucher.approve_voucher', {'name': id});
 
   @override
-  Future<AccountingVoucher> reject(String id, String reason) => _call('asoud_erp.api.v1.voucher.reject_voucher', {'name': id, 'reason': reason});
+  Future<AccountingVoucher> reject(String id, String reason) => _call(
+      'asoud_erp.api.v1.voucher.reject_voucher',
+      {'name': id, 'reason': reason});
 
-  Future<AccountingVoucher> _call(String method, Map<String, dynamic> data) async {
-    final response = await _client.callAsoudMethod<Map<String, dynamic>>(method, _map, data: data);
-    return _fromJson(response.data);
+  Future<AccountingVoucher> _call(
+      String method, Map<String, dynamic> data) async {
+    final response = await _client.callAsoudMethod(method, data: data);
+    return _fromJson(_map(response));
   }
 
-  static List<Map<String, dynamic>> _list(Object? value) => (value as List).map((item) => Map<String, dynamic>.from(item as Map)).toList();
-  static Map<String, dynamic> _map(Object? value) => Map<String, dynamic>.from(value! as Map);
+  static List<Map<String, dynamic>> _list(Object? value) => (value as List)
+      .map((item) => Map<String, dynamic>.from(item as Map))
+      .toList();
+  static Map<String, dynamic> _map(Object? value) =>
+      Map<String, dynamic>.from(value! as Map);
 
-  static AccountingVoucher _fromJson(Map<String, dynamic> row) => AccountingVoucher(
+  static AccountingVoucher _fromJson(Map<String, dynamic> row) =>
+      AccountingVoucher(
         id: row['name']?.toString() ?? '',
         company: row['company']?.toString() ?? '',
-        postingDate: DateTime.tryParse(row['posting_date']?.toString() ?? '') ?? DateTime.now(),
+        postingDate: DateTime.tryParse(row['posting_date']?.toString() ?? '') ??
+            DateTime.now(),
         description: row['description']?.toString() ?? '',
         status: _statusFromApi(row['status']?.toString()),
         rejectionReason: row['rejection_reason']?.toString() ?? '',

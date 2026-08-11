@@ -73,6 +73,9 @@ class WorkflowTaskDetail extends Equatable {
     this.commentRequired = false,
     this.activityType = '',
     this.previousData = const [],
+    this.referenceDoctype = '',
+    this.referenceName = '',
+    this.documentValues = const [],
   });
   final WorkflowTask task;
   final String stageType;
@@ -83,6 +86,8 @@ class WorkflowTaskDetail extends Equatable {
   final bool commentRequired;
   final String activityType;
   final List<WorkflowTaskDataSection> previousData;
+  final String referenceDoctype, referenceName;
+  final List<WorkflowTaskDataValue> documentValues;
   @override
   List<Object> get props => [
         task,
@@ -95,5 +100,8 @@ class WorkflowTaskDetail extends Equatable {
         commentRequired,
         activityType,
         previousData,
+        referenceDoctype,
+        referenceName,
+        documentValues,
       ];
 }

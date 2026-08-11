@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/widgets/asoud_ui.dart';
 import 'chart_of_accounts_page.dart';
-import '../../../parties/presentation/pages/floating_details_page.dart';
-import '../../../parties/presentation/pages/parties_page.dart';
-import '../../../parties/presentation/pages/account_mapping_page.dart';
-import '../../../vouchers/presentation/pages/vouchers_page.dart';
-import '../../../reports/presentation/pages/ledger_page.dart';
-import '../../../reports/presentation/pages/trial_balance_page.dart';
+import 'detail_groups_page.dart';
+import '../../domain/repositories/chart_of_accounts_repository.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../parties/presentation/pages/party_management_page.dart';
 
 class AccountingHomePage extends StatelessWidget {
-  const AccountingHomePage({super.key});
+  const AccountingHomePage({this.company, super.key});
+  final String? company;
 
   @override
   Widget build(BuildContext context) {
@@ -19,39 +19,57 @@ class AccountingHomePage extends StatelessWidget {
       ('سرفصل حساب‌ها', Icons.account_tree_rounded, Color(0xFF5C6BC0)),
       ('تراز آزمایشی', Icons.balance_rounded, Color(0xFF26A69A)),
       ('دفتر کل', Icons.menu_book_rounded, Color(0xFF42A5F5)),
-      ('دفتر معین', Icons.manage_search_rounded, Color(0xFFEF6C5B)),
+      ('مرور حساب‌ها', Icons.manage_search_rounded, Color(0xFFEF6C5B)),
       ('گزارش‌های مالی', Icons.analytics_rounded, Color(0xFF7E57C2)),
-      ('تفصیلی‌های شناور', Icons.hub_rounded, Color(0xFF008291)),
-      ('اشخاص و طرف‌حساب‌ها', Icons.groups_rounded, Color(0xFF690C36)),
-      ('اتصال معین به تفصیلی', Icons.link_rounded, Color(0xFF1D5B79)),
+      ('گروه تفصیلی شناور', Icons.hub_outlined, Color(0xFF00ACC1)),
+      ('مدیریت اشخاص', Icons.people_alt_outlined, Color(0xFF1769F6)),
     ];
     return Scaffold(
-      appBar: AppBar(title: const Text('حسابداری')),
-      body: SafeArea(child: ListView(padding: const EdgeInsets.all(20), children: [
-        const Text('حسابداری تعهدی', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800)),
-        const Text('مبتنی بر استانداردهای حسابداری ایران', style: TextStyle(color: AsoudColors.muted)),
-        const SizedBox(height: 22),
-        ...actions.map((action) => Card(
-          elevation: 0,
-          color: Colors.white,
-          child: ListTile(
-            leading: Container(padding: const EdgeInsets.all(9), decoration: BoxDecoration(color: action.$3.withValues(alpha: .13), borderRadius: BorderRadius.circular(12)), child: Icon(action.$2, color: action.$3)),
-            title: Text(action.$1, style: const TextStyle(fontWeight: FontWeight.w700)),
-            trailing: const Icon(Icons.chevron_left_rounded),
-            onTap: switch (action.$1) {
-              'سند حسابداری' => () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const VouchersPage())),
-              'تراز آزمایشی' => () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const TrialBalancePage())),
-              'دفتر کل' => () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const LedgerPage(title: 'دفتر کل'))),
-              'دفتر معین' => () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const LedgerPage(title: 'دفتر معین', allowParty: true))),
-              'سرفصل حساب‌ها' => () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const ChartOfAccountsPage())),
-              'تفصیلی‌های شناور' => () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const FloatingDetailsPage())),
-              'اشخاص و طرف‌حساب‌ها' => () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const PartiesPage())),
-              'اتصال معین به تفصیلی' => () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const AccountMappingPage())),
-              _ => null,
-            },
-          ),
-        )),
-      ])),
+      appBar: const AsoudHeader(
+          title: 'حسابداری', subtitle: 'عملیات و گزارش‌های مالی دفتر'),
+      body: SafeArea(
+          child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+              children: [
+            const Text('حسابداری تعهدی',
+                style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800)),
+            const Text('مبتنی بر استانداردهای حسابداری ایران',
+                style: TextStyle(color: AsoudColors.muted)),
+            const SizedBox(height: 22),
+            ...actions.map((action) => Card(
+                  elevation: 0,
+                  color: Colors.white,
+                  child: ListTile(
+                    leading: AsoudIconBox(icon: action.$2, color: action.$3),
+                    title: Text(action.$1,
+                        style: const TextStyle(fontWeight: FontWeight.w700)),
+                    trailing: const Icon(Icons.chevron_left_rounded),
+                    onTap: action.$1 == 'سرفصل حساب‌ها'
+                        ? () =>
+                            Navigator.of(context).push(MaterialPageRoute<void>(
+                                builder: (_) => ChartOfAccountsPage(
+                                      company: company,
+                                      repository: context
+                                          .read<ChartOfAccountsRepository>(),
+                                    )))
+                        : action.$1 == 'گروه تفصیلی شناور'
+                            ? () => Navigator.of(context).push(
+                                  MaterialPageRoute<void>(
+                                    builder: (_) => const DetailGroupsPage(),
+                                  ),
+                                )
+                            : action.$1 == 'مدیریت اشخاص'
+                                ? () => Navigator.of(context).push(
+                                      MaterialPageRoute<void>(
+                                        builder: (_) => PartyManagementPage(
+                                          company: company,
+                                        ),
+                                      ),
+                                    )
+                                : null,
+                  ),
+                )),
+          ])),
     );
   }
 }

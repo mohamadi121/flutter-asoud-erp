@@ -129,6 +129,8 @@ class WorkflowStage extends Equatable {
     required this.configurationComplete,
     this.subtype,
     this.config = const {},
+    this.positionX = 0,
+    this.positionY = 0,
   });
   final String id, key, title;
   final WorkflowStageType type;
@@ -136,10 +138,42 @@ class WorkflowStage extends Equatable {
   final bool configurationComplete;
   final String? subtype;
   final Map<String, dynamic> config;
+  final double positionX, positionY;
+
+  WorkflowStage copyWith({
+    String? title,
+    bool? configurationComplete,
+    Map<String, dynamic>? config,
+    double? positionX,
+    double? positionY,
+  }) =>
+      WorkflowStage(
+        id: id,
+        key: key,
+        type: type,
+        title: title ?? this.title,
+        sequence: sequence,
+        configurationComplete:
+            configurationComplete ?? this.configurationComplete,
+        subtype: subtype,
+        config: config ?? this.config,
+        positionX: positionX ?? this.positionX,
+        positionY: positionY ?? this.positionY,
+      );
 
   @override
-  List<Object?> get props =>
-      [id, key, type, title, sequence, configurationComplete, subtype, config];
+  List<Object?> get props => [
+        id,
+        key,
+        type,
+        title,
+        sequence,
+        configurationComplete,
+        subtype,
+        config,
+        positionX,
+        positionY
+      ];
 }
 
 class WorkflowTransition extends Equatable {

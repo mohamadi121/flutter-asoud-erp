@@ -5,6 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 class _FakeRepository implements WorkflowRepository {
   @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+  @override
   Future<WorkflowDesign> addConditionBranch({
     required String definition,
     required String conditionStage,
