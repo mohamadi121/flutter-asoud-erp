@@ -334,15 +334,8 @@ class _BaseAccountingSetupView extends StatelessWidget {
       bottomNavigationBar: AsoudBottomActions(
         primaryLabel: 'ذخیره و ادامه',
         onPrimary: () async {
-          if (!offlinePreview) {
-            final saved = await context.read<BaseSetupCubit>().submit();
-            if (!saved || !context.mounted) return;
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content:
-                  Text('پیش‌نمایش آفلاین؛ تنظیمات روی سرور ذخیره نشده است.'),
-            ));
-          }
+          final saved = await context.read<BaseSetupCubit>().submit();
+          if (!saved || !context.mounted) return;
           if (!context.mounted) return;
           Navigator.of(context).push(MaterialPageRoute<void>(
             builder: (_) => RolesSetupPage(
@@ -372,7 +365,7 @@ class _OfflineSetupBanner extends StatelessWidget {
           SizedBox(width: 9),
           Expanded(
             child: Text(
-              'پیش‌نمایش آفلاین؛ تنظیمات فقط در حافظه نگهداری می‌شوند.',
+              'حالت آفلاین؛ تنظیمات در دیتابیس گوشی ذخیره و بعداً همگام می‌شوند.',
               style: TextStyle(fontSize: 10),
             ),
           ),

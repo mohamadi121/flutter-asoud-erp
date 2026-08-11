@@ -5,12 +5,14 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../core/network/frappe_client.dart';
 import '../core/theme/asoud_theme.dart';
 import '../features/office_setup/data/repositories/frappe_office_repository.dart';
+import '../features/office_setup/data/repositories/server_first_office_repository.dart';
 import '../features/office_setup/domain/repositories/office_repository.dart';
 import '../features/accounting/data/repositories/frappe_chart_of_accounts_repository.dart';
 import '../features/accounting/domain/repositories/chart_of_accounts_repository.dart';
 import '../features/accounting/data/repositories/frappe_detail_group_repository.dart';
 import '../features/accounting/domain/repositories/detail_group_repository.dart';
 import '../features/base_setup/data/repositories/frappe_base_setup_repository.dart';
+import '../features/base_setup/data/repositories/server_first_base_setup_repository.dart';
 import '../features/base_setup/domain/repositories/base_setup_repository.dart';
 import '../features/auth/presentation/pages/splash_page.dart';
 import '../features/auth/data/repositories/frappe_auth_repository.dart';
@@ -42,7 +44,7 @@ class AsoudErpApp extends StatelessWidget {
           value: FrappeAuthRepository(client),
         ),
         RepositoryProvider<OfficeRepository>.value(
-          value: FrappeOfficeRepository(client),
+          value: ServerFirstOfficeRepository(FrappeOfficeRepository(client)),
         ),
         RepositoryProvider<ChartOfAccountsRepository>.value(
           value: FrappeChartOfAccountsRepository(client),
@@ -51,7 +53,9 @@ class AsoudErpApp extends StatelessWidget {
           value: FrappeDetailGroupRepository(client),
         ),
         RepositoryProvider<BaseSetupRepository>.value(
-          value: FrappeBaseSetupRepository(client),
+          value: ServerFirstBaseSetupRepository(
+            FrappeBaseSetupRepository(client),
+          ),
         ),
         RepositoryProvider<PartyRepository>.value(
           value: FrappePartyRepository(client),

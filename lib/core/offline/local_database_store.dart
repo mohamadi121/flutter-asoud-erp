@@ -6,7 +6,32 @@ import 'package:sqflite/sqflite.dart';
 
 import 'local_record.dart';
 
-class LocalDatabaseStore {
+abstract interface class LocalRecordStore {
+  Future<LocalRecord> save({
+    String? id,
+    required String entityType,
+    required Map<String, dynamic> payload,
+    LocalSyncStatus status = LocalSyncStatus.localOnly,
+  });
+
+  Future<LocalRecord?> get(String id);
+
+  Future<List<LocalRecord>> list({
+    String? entityType,
+    Set<LocalSyncStatus>? statuses,
+  });
+
+  Future<void> setStatus(
+    String id,
+    LocalSyncStatus status, {
+    String? remoteId,
+    String? error,
+  });
+
+  Future<void> delete(String id);
+}
+
+class LocalDatabaseStore implements LocalRecordStore {
   LocalDatabaseStore._();
   static final instance = LocalDatabaseStore._();
   static const _legacyKey = 'asoud_offline_mutations_v1';
@@ -45,6 +70,7 @@ class LocalDatabaseStore {
     return database;
   }
 
+  @override
   Future<LocalRecord> save({
     String? id,
     required String entityType,
@@ -69,12 +95,14 @@ class LocalDatabaseStore {
     return record;
   }
 
+  @override
   Future<LocalRecord?> get(String id) async {
     final rows = await (await database)
         .query('local_records', where: 'id = ?', whereArgs: [id], limit: 1);
     return rows.isEmpty ? null : LocalRecord.fromRow(rows.single);
   }
 
+  @override
   Future<List<LocalRecord>> list({
     String? entityType,
     Set<LocalSyncStatus>? statuses,
@@ -99,6 +127,7 @@ class LocalDatabaseStore {
     return rows.map(LocalRecord.fromRow).toList(growable: false);
   }
 
+  @override
   Future<void> setStatus(
     String id,
     LocalSyncStatus status, {
@@ -118,6 +147,7 @@ class LocalDatabaseStore {
     );
   }
 
+  @override
   Future<void> delete(String id) async => (await database)
       .delete('local_records', where: 'id = ?', whereArgs: [id]);
 

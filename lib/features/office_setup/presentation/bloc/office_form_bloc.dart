@@ -5,6 +5,7 @@ import 'package:equatable/equatable.dart';
 
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/config/app_config.dart';
+import '../../../../core/offline/offline_failure.dart';
 import '../../domain/entities/office.dart';
 import '../../domain/repositories/office_repository.dart';
 
@@ -119,11 +120,12 @@ class OfficeFormBloc extends Bloc<OfficeFormEvent, OfficeFormState> {
           createdOffice: office,
           message: 'دفتر کار با موفقیت ایجاد شد.'));
     } on ApiException catch (error) {
-      if (allowOfflinePreview) {
+      if (allowOfflinePreview && isRetryableOfflineFailure(error)) {
         emit(state.copyWith(
           status: OfficeFormStatus.offlinePreview,
           createdOffice: _draftOffice(),
-          message: 'سرور در دسترس نیست؛ ادامه در حالت موقت آفلاین.',
+          message:
+              'اتصال برقرار نیست؛ دفتر روی گوشی ذخیره شد و در انتظار همگام‌سازی است.',
         ));
         return;
       }

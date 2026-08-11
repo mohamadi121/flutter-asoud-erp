@@ -1,9 +1,18 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
+import '../../../../core/offline/offline_failure.dart';
 import '../../domain/repositories/base_setup_repository.dart';
 
-enum FiscalYearsStatus { initial, loading, success, empty, saving, failure }
+enum FiscalYearsStatus {
+  initial,
+  loading,
+  success,
+  empty,
+  saving,
+  offlineSaved,
+  failure,
+}
 
 class FiscalYearsState extends Equatable {
   const FiscalYearsState({
@@ -30,13 +39,6 @@ class FiscalYearsCubit extends Cubit<FiscalYearsState> {
   final bool offlinePreview;
 
   Future<void> load() async {
-    if (offlinePreview) {
-      emit(const FiscalYearsState(
-        status: FiscalYearsStatus.failure,
-        message: 'برای دریافت سال‌های مالی سرور، اتصال ASOUD ERP لازم است.',
-      ));
-      return;
-    }
     emit(const FiscalYearsState(status: FiscalYearsStatus.loading));
     try {
       final items = await repository.getFiscalYears(company);
@@ -54,21 +56,23 @@ class FiscalYearsCubit extends Cubit<FiscalYearsState> {
   }
 
   Future<bool> create(int year, int month, int day) async {
-    if (offlinePreview) {
-      emit(FiscalYearsState(
-        status: FiscalYearsStatus.failure,
-        items: state.items,
-        message: 'پیش‌نمایش آفلاین؛ سال مالی روی سرور ایجاد نشد.',
-      ));
-      return false;
-    }
     final items = state.items;
     emit(FiscalYearsState(status: FiscalYearsStatus.saving, items: items));
     try {
       await repository.createFiscalYear(company, year, month, day);
       await load();
       return true;
-    } catch (_) {
+    } catch (error) {
+      if (isRetryableOfflineFailure(error)) {
+        await load();
+        emit(FiscalYearsState(
+          status: FiscalYearsStatus.offlineSaved,
+          items: state.items,
+          message:
+              'اتصال برقرار نیست؛ سال مالی روی گوشی ذخیره شد و در انتظار همگام‌سازی است.',
+        ));
+        return true;
+      }
       emit(FiscalYearsState(
         status: FiscalYearsStatus.failure,
         items: items,

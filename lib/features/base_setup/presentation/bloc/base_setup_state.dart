@@ -1,6 +1,6 @@
 part of 'base_setup_cubit.dart';
 
-enum BaseSetupStatus { editing, saving, success, failure }
+enum BaseSetupStatus { editing, saving, success, offlineSaved, failure }
 
 class BaseSetupState extends Equatable {
   const BaseSetupState({
