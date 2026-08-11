@@ -125,7 +125,7 @@ class PreviewFallbackWorkflowRepository
         modified: null,
         company: workflow['company']?.toString(),
         description: workflow['description']?.toString(),
-        pendingReason: 'ذخیره محلی؛ در انتظار همگام‌سازی با ERPNext',
+        pendingReason: 'ذخیره محلی؛ در انتظار همگام‌سازی با ASOUD ERP',
       ),
       stages: stages,
       transitions: transitions,
@@ -306,7 +306,7 @@ class PreviewFallbackWorkflowRepository
             description: description,
             moduleKey: moduleKey,
             creationMode: creationMode,
-            pendingReason: 'پیش‌نمایش آفلاین؛ در ERPNext ذخیره نشده است',
+            pendingReason: 'پیش‌نمایش آفلاین؛ در ASOUD ERP همگام نشده است',
             iconKey: iconKey,
             colorHex: colorHex,
           );

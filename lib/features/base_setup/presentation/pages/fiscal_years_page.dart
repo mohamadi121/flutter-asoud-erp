@@ -165,7 +165,7 @@ class _FiscalYearsViewState extends State<_FiscalYearsView> {
                     if (created && context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                         content:
-                            Text('سال مالی با موفقیت در ERPNext ایجاد شد.'),
+                            Text('سال مالی با موفقیت در ASOUD ERP ایجاد شد.'),
                         backgroundColor: AsoudColors.success,
                       ));
                     }

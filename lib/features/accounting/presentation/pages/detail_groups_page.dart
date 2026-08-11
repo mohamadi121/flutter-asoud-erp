@@ -249,7 +249,7 @@ class _EmptyCard extends StatelessWidget {
         child: Padding(
           padding: EdgeInsets.all(20),
           child: Text(
-            'هنوز گروهی در ERPNext تعریف نشده است. برای ایجاد مجموعه استاندارد از دکمه بالا استفاده کنید.',
+            'هنوز گروهی در ASOUD ERP تعریف نشده است. برای ایجاد مجموعه استاندارد از دکمه بالا استفاده کنید.',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 10, color: AsoudColors.muted),
           ),

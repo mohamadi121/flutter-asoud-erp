@@ -37,7 +37,7 @@ class PartiesCubit extends Cubit<PartiesState> {
       emit(PartiesState(
         status: PartiesStatus.failure,
         items: state.items,
-        message: 'دریافت اطلاعات اشخاص از ERPNext انجام نشد.',
+        message: 'دریافت اطلاعات اشخاص از ASOUD ERP انجام نشد.',
       ));
     }
   }
@@ -52,7 +52,7 @@ class PartiesCubit extends Cubit<PartiesState> {
       emit(PartiesState(
         status: PartiesStatus.failure,
         items: state.items,
-        message: 'ذخیره اطلاعات در ERPNext انجام نشد.',
+        message: 'ذخیره اطلاعات در ASOUD ERP انجام نشد.',
       ));
       return null;
     }

@@ -31,7 +31,7 @@ class WorkflowFormCubit extends Cubit<WorkflowFormState> {
     } catch (_) {
       emit(state.copyWith(
         status: WorkflowFormStatus.failure,
-        message: 'دریافت گزینه‌های فرم از ERPNext ممکن نشد.',
+        message: 'دریافت گزینه‌های فرم از ASOUD ERP ممکن نشد.',
       ));
     }
   }
@@ -89,13 +89,13 @@ class WorkflowFormCubit extends Cubit<WorkflowFormState> {
             (repository as OfflinePreviewAware).isOfflinePreview,
         message: repository is OfflinePreviewAware &&
                 (repository as OfflinePreviewAware).isOfflinePreview
-            ? 'پیش‌نمایش محلی ایجاد شد؛ در ERPNext ذخیره نشده است.'
+            ? 'پیش‌نمایش محلی ایجاد شد؛ هنوز با ASOUD ERP همگام نشده است.'
             : 'پیش‌نویس فرایند ایجاد شد.',
       ));
     } catch (_) {
       emit(state.copyWith(
         status: WorkflowFormStatus.failure,
-        message: 'ذخیره پیش‌نویس در ERPNext ممکن نشد.',
+        message: 'ذخیره پیش‌نویس در ASOUD ERP ممکن نشد.',
       ));
     }
   }

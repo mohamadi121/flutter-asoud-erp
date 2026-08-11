@@ -48,7 +48,8 @@ class AccountFormCubit extends Cubit<AccountFormState> {
     if (repository == null || company == null || company!.trim().isEmpty) {
       emit(state.copyWith(
         status: AccountFormStatus.failure,
-        message: 'برای ذخیره حساب، دفتر فعال و اتصال ERPNext لازم است.',
+        message:
+            'برای ذخیره حساب، دفتر فعال یا حالت آفلاین ASOUD ERP لازم است.',
       ));
       return;
     }
@@ -68,7 +69,7 @@ class AccountFormCubit extends Cubit<AccountFormState> {
     } catch (_) {
       emit(state.copyWith(
         status: AccountFormStatus.failure,
-        message: 'ذخیره حساب در ERPNext انجام نشد.',
+        message: 'ذخیره حساب در ASOUD ERP انجام نشد.',
       ));
     }
   }

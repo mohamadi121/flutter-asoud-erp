@@ -267,7 +267,7 @@ class _OfflineBanner extends StatelessWidget {
           SizedBox(width: 8),
           Expanded(
             child: Text(
-              'حالت موقت آفلاین؛ این دفتر هنوز در ERPNext ذخیره نشده است.',
+              'حالت آفلاین؛ این دفتر روی گوشی ذخیره شده و هنوز با ASOUD ERP همگام نشده است.',
               style: TextStyle(fontSize: 10),
             ),
           ),

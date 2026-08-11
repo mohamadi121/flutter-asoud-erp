@@ -46,7 +46,7 @@ void main() {
         .pumpWidget(_app(const DashboardPage(officeName: 'شرکت نمونه')));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('ERPNext'), findsWidgets);
+    expect(find.textContaining('ASOUD ERP'), findsWidgets);
     expect(find.text('عملیات سریع'), findsOneWidget);
     expect(find.text('خانه'), findsOneWidget);
     expect(find.text('گزارش‌ها'), findsWidgets);

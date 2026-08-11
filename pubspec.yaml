@@ -1,5 +1,5 @@
 name: asoud_erp
-description: Iranian ERP mobile client for ERPNext/Frappe.
+description: Iranian ERP mobile client for ASOUD ERP.
 publish_to: none
 version: 0.19.0+32
 
@@ -20,6 +20,8 @@ dependencies:
   go_router: ^14.6.2
   intl: ^0.20.2
   shared_preferences: ^2.5.5
+  sqflite: ^2.3.3+1
+  path: ^1.9.1
   file_selector: ^1.1.0
   path_provider: ^2.1.6
   image_picker: ^1.2.1

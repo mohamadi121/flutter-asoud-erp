@@ -5,7 +5,7 @@ import '../../../../core/widgets/asoud_ui.dart';
 import '../../../dashboard/presentation/pages/dashboard_page.dart';
 
 /// This screen remains visible before deployment, but intentionally prevents
-/// both demo and real authentication until ERPNext is available.
+/// both demo and real authentication until ASOUD ERP is available.
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -49,7 +49,7 @@ class _LoginPageState extends State<LoginPage> {
                             color: AsoudColors.text)),
                     const SizedBox(height: 7),
                     const Text(
-                        'ورود به حساب کاربری پس از آماده‌شدن سرور ERPNext فعال می‌شود.',
+                        'ورود به حساب کاربری پس از آماده‌شدن سرور ASOUD ERP فعال می‌شود.',
                         style:
                             TextStyle(fontSize: 11, color: AsoudColors.muted)),
                     const SizedBox(height: 30),
@@ -131,7 +131,7 @@ class _LoginUnavailable extends StatelessWidget {
           SizedBox(width: 8),
           Expanded(
             child: Text(
-                'سرور ERPNext هنوز برای اتصال آماده نیست؛ ورود عمداً غیرفعال است.',
+                'سرور ASOUD ERP هنوز برای اتصال آماده نیست؛ ورود عمداً غیرفعال است.',
                 style: TextStyle(fontSize: 9)),
           ),
         ]),

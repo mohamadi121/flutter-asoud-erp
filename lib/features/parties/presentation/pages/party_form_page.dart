@@ -222,7 +222,7 @@ class _PartyFormPageState extends State<PartyFormPage> {
     } catch (_) {
       if (mounted) {
         setState(() => error =
-            'ذخیره در ERPNext انجام نشد؛ اطلاعات یا اتصال سرور را بررسی کنید.');
+            'ذخیره در ASOUD ERP انجام نشد؛ اطلاعات یا اتصال سرور را بررسی کنید.');
       }
     } finally {
       if (mounted) setState(() => saving = false);

@@ -33,7 +33,7 @@ class FiscalYearsCubit extends Cubit<FiscalYearsState> {
     if (offlinePreview) {
       emit(const FiscalYearsState(
         status: FiscalYearsStatus.failure,
-        message: 'برای دریافت سال‌های مالی، اتصال واقعی ERPNext لازم است.',
+        message: 'برای دریافت سال‌های مالی سرور، اتصال ASOUD ERP لازم است.',
       ));
       return;
     }
@@ -48,7 +48,7 @@ class FiscalYearsCubit extends Cubit<FiscalYearsState> {
     } catch (_) {
       emit(const FiscalYearsState(
         status: FiscalYearsStatus.failure,
-        message: 'دریافت سال‌های مالی از ERPNext انجام نشد.',
+        message: 'دریافت سال‌های مالی از ASOUD ERP انجام نشد.',
       ));
     }
   }
@@ -72,7 +72,7 @@ class FiscalYearsCubit extends Cubit<FiscalYearsState> {
       emit(FiscalYearsState(
         status: FiscalYearsStatus.failure,
         items: items,
-        message: 'ایجاد سال مالی در ERPNext انجام نشد.',
+        message: 'ایجاد سال مالی در ASOUD ERP انجام نشد.',
       ));
       return false;
     }

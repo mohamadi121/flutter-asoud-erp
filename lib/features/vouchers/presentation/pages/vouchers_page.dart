@@ -48,7 +48,7 @@ class _VouchersPageState extends State<VouchersPage> {
               TextField(
                 controller: _company,
                 decoration: InputDecoration(
-                  labelText: 'نام شرکت در ERPNext',
+                  labelText: 'نام دفتر در ASOUD ERP',
                   suffixIcon: IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: () => _cubit.load(_company.text.trim())),
                 ),
                 onChanged: (_) => setState(() {}),
@@ -103,7 +103,7 @@ class _VouchersPageState extends State<VouchersPage> {
         const SizedBox(height: 8),
         Text('بدهکار و بستانکار: ${voucher.totalDebit.toStringAsFixed(0)}'),
         const SizedBox(height: 16),
-        FilledButton.icon(onPressed: () { Navigator.pop(sheetContext); _cubit.approve(voucher.id); }, icon: const Icon(Icons.check_rounded), label: const Text('تأیید و ثبت قطعی در ERPNext')),
+        FilledButton.icon(onPressed: () { Navigator.pop(sheetContext); _cubit.approve(voucher.id); }, icon: const Icon(Icons.check_rounded), label: const Text('تأیید و ثبت قطعی در ASOUD ERP')),
         const SizedBox(height: 8),
         OutlinedButton.icon(onPressed: () { Navigator.pop(sheetContext); _reject(voucher.id); }, icon: const Icon(Icons.close_rounded), label: const Text('رد سند')),
       ]),

@@ -112,7 +112,7 @@ class _PartyLinksPageState extends State<PartyLinksPage> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      'کد بعدی فقط هنگام ثبت در ERPNext و داخل گروه ${group?.groupTitle ?? primaryGroup ?? ''} تولید می‌شود.',
+                      'کد بعدی هنگام ثبت یا همگام‌سازی در ASOUD ERP و داخل گروه ${group?.groupTitle ?? primaryGroup ?? ''} تولید می‌شود.',
                       style: const TextStyle(
                           fontSize: 10, color: AsoudColors.primary),
                     ),
@@ -164,7 +164,7 @@ class _PartyLinksPageState extends State<PartyLinksPage> {
       builder: (dialogContext) => AlertDialog(
         title: const Text('افزودن کد تفصیلی جدید'),
         content: Text(
-          'کد جدید برای ${widget.profile.displayName} در گروه $group توسط ERPNext تولید شود؟',
+          'کد جدید برای ${widget.profile.displayName} در گروه $group توسط ASOUD ERP تولید شود؟',
         ),
         actions: [
           TextButton(

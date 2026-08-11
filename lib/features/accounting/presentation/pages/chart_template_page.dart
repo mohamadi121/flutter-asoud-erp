@@ -45,7 +45,7 @@ class _ChartTemplatePageState extends State<ChartTemplatePage> {
     } catch (_) {
       if (mounted) {
         setState(() => error =
-            'ایجاد سرفصل‌ها در ERPNext انجام نشد و موفقیت ظاهری ثبت نشد.');
+            'ایجاد سرفصل‌ها در ASOUD ERP انجام نشد و موفقیت ظاهری ثبت نشد.');
       }
     } finally {
       if (mounted) setState(() => saving = false);
@@ -56,7 +56,7 @@ class _ChartTemplatePageState extends State<ChartTemplatePage> {
   Widget build(BuildContext context) => Scaffold(
         appBar: const AsoudHeader(
             title: 'قالب پیشنهادی سرفصل‌ها',
-            subtitle: 'پیش‌نمایش فقط‌خواندنی پیش از ثبت در ERPNext'),
+            subtitle: 'پیش‌نمایش فقط‌خواندنی پیش از ثبت در ASOUD ERP'),
         body: SafeArea(
             child: FutureBuilder<List<ChartTemplateRow>>(
           future: preview,

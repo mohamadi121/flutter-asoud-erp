@@ -406,7 +406,7 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
             const SizedBox(height: 8),
             const _Notice(
               text:
-                  'انتخاب فیلدهای مجاز پس از اتصال متادیتای ERPNext v15 فعال می‌شود.',
+                  'انتخاب فیلدهای مجاز پس از اتصال متادیتای ASOUD ERP فعال می‌شود.',
             ),
           ],
         ],

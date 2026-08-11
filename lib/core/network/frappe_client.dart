@@ -273,16 +273,19 @@ class FrappeClient implements FrappeApiClient {
     String method, {
     Map<String, dynamic>? data,
   }) async {
-    final body = await _queuedMutation(
-      operation: 'asoud_method',
-      target: method,
-      data: data ?? const {},
-      request: () => _requestJson(
-        'POST',
-        '/api/method/$method',
-        data: data,
-      ),
-    );
+    Future<Map<String, dynamic>> request() => _requestJson(
+          'POST',
+          '/api/method/$method',
+          data: data,
+        );
+    final body = _isReadOnlyAsoudMethod(method)
+        ? await request()
+        : await _queuedMutation(
+            operation: 'asoud_method',
+            target: method,
+            data: data ?? const {},
+            request: request,
+          );
     final message = body['message'];
     if (message is! Map) throw const ApiException.protocol();
 
@@ -301,6 +304,19 @@ class FrappeClient implements FrappeApiClient {
     return envelope['data'];
   }
 
+  bool _isReadOnlyAsoudMethod(String method) {
+    final action = method.split('.').last;
+    return const <String>[
+      'current_',
+      'get_',
+      'list_',
+      'preview_',
+      'trial_balance',
+      'general_ledger',
+      'purchase_request_options',
+    ].any(action.startsWith);
+  }
+
   Future<T> _queuedMutation<T>({
     required String operation,
     required String target,
@@ -314,7 +330,7 @@ class FrappeClient implements FrappeApiClient {
     );
     try {
       final response = await request();
-      await OfflineMutationStore.instance.remove(id);
+      await OfflineMutationStore.instance.markSynced(id);
       return response;
     } on ApiException catch (error) {
       if (error.kind == ApiFailureKind.network ||
@@ -322,11 +338,11 @@ class FrappeClient implements FrappeApiClient {
           error.kind == ApiFailureKind.server) {
         await OfflineMutationStore.instance.markPending(id);
       } else {
-        await OfflineMutationStore.instance.remove(id);
+        await OfflineMutationStore.instance.markFailed(id, error);
       }
       rethrow;
-    } catch (_) {
-      await OfflineMutationStore.instance.remove(id);
+    } catch (error) {
+      await OfflineMutationStore.instance.markFailed(id, error);
       rethrow;
     }
   }

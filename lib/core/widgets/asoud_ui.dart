@@ -177,7 +177,7 @@ class AsoudOfflinePreviewBanner extends StatelessWidget {
           SizedBox(width: 8),
           Expanded(
             child: Text(
-              'حالت پیش‌نمایش آفلاین؛ اطلاعات فقط موقت است و در ERPNext ذخیره نمی‌شود.',
+              'حالت آفلاین؛ اطلاعات روی گوشی ذخیره شده و در انتظار همگام‌سازی با ASOUD ERP است.',
               style: TextStyle(fontSize: 10, height: 1.6),
             ),
           ),

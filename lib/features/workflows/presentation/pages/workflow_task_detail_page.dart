@@ -474,7 +474,7 @@ class _LocalNotice extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
         ),
         child: const Text(
-          'این اطلاعات فقط داخل گوشی ذخیره می‌شود و هنوز در ERPNext ثبت نشده است.',
+          'این اطلاعات فقط داخل گوشی ذخیره شده و هنوز در ASOUD ERP همگام نشده است.',
           style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
         ),
       );

@@ -35,7 +35,7 @@ class WorkflowListCubit extends Cubit<WorkflowListState> {
     } catch (_) {
       emit(state.copyWith(
         status: WorkflowListLoadStatus.failure,
-        message: 'دریافت فرایندها از ERPNext ممکن نشد.',
+        message: 'دریافت فرایندها از ASOUD ERP ممکن نشد.',
       ));
     }
   }

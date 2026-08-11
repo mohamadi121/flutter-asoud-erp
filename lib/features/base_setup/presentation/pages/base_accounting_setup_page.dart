@@ -93,7 +93,7 @@ class BaseAccountingSetupPage extends StatelessWidget {
                 color: AsoudColors.cyan,
                 title: 'گروه تفصیلی شناور',
                 subtitle: 'مشتریان، تأمین‌کنندگان، پروژه‌ها و مراکز هزینه',
-                status: 'مدیریت گروه‌های تفصیلی ERPNext',
+                status: 'مدیریت گروه‌های تفصیلی ASOUD ERP',
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
                     builder: (_) => const DetailGroupsPage(),
@@ -152,7 +152,7 @@ class _SetupOverview extends StatelessWidget {
           Text(
             offlinePreview
                 ? 'پیش‌نمایش آفلاین • ۱ مورد از ۳ مورد'
-                : 'وضعیت تکمیل از ERPNext دریافت می‌شود',
+                : 'وضعیت تکمیل از ASOUD ERP دریافت می‌شود',
             style: const TextStyle(color: AsoudColors.muted, fontSize: 10),
           ),
           const SizedBox(height: 10),

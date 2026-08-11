@@ -36,7 +36,7 @@ class DetailGroupsCubit extends Cubit<DetailGroupsState> {
     } catch (_) {
       emit(const DetailGroupsState(
         status: DetailGroupsStatus.failure,
-        message: 'دریافت گروه‌های تفصیلی از ERPNext ممکن نشد.',
+        message: 'دریافت گروه‌های تفصیلی از ASOUD ERP ممکن نشد.',
       ));
     }
   }
@@ -50,7 +50,7 @@ class DetailGroupsCubit extends Cubit<DetailGroupsState> {
     } catch (_) {
       emit(const DetailGroupsState(
         status: DetailGroupsStatus.failure,
-        message: 'ایجاد گروه‌های پیشنهادی در ERPNext انجام نشد.',
+        message: 'ایجاد گروه‌های پیشنهادی در ASOUD ERP انجام نشد.',
       ));
     }
   }
@@ -80,7 +80,7 @@ class DetailGroupsCubit extends Cubit<DetailGroupsState> {
       emit(DetailGroupsState(
         status: DetailGroupsStatus.failure,
         groups: current,
-        message: 'ذخیره گروه تفصیلی در ERPNext انجام نشد.',
+        message: 'ذخیره گروه تفصیلی در ASOUD ERP انجام نشد.',
       ));
       return false;
     }

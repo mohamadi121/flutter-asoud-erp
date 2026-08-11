@@ -39,7 +39,7 @@ class BaseSetupCubit extends Cubit<BaseSetupState> {
     } catch (_) {
       emit(state.copyWith(
         status: BaseSetupStatus.failure,
-        message: 'دریافت تنظیمات مالی از ERPNext انجام نشد.',
+        message: 'دریافت تنظیمات مالی از ASOUD ERP انجام نشد.',
       ));
     }
   }
@@ -109,7 +109,7 @@ class BaseSetupCubit extends Cubit<BaseSetupState> {
     } catch (_) {
       emit(state.copyWith(
         status: BaseSetupStatus.failure,
-        message: 'ذخیره تنظیمات مالی در ERPNext انجام نشد.',
+        message: 'ذخیره تنظیمات مالی در ASOUD ERP انجام نشد.',
       ));
       return false;
     }
