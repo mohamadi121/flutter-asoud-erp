@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.18.0+31
+
+- Added in-app workflow notifications and an unread badge.
+- Added all/unread filters, read state, and navigation to workflow tracking.
+- Added persistent offline notification previews for serverless mobile testing.
+- Connected assignment, approval, rejection, completion, and correction events to Frappe notifications.
+
 ## 0.17.0+30
 
 - Added separate received and sent workflow views with current-stage tracking.

@@ -23,6 +23,9 @@ import '../features/workflows/domain/repositories/workflow_repository.dart';
 import '../features/workflows/data/repositories/frappe_workflow_task_repository.dart';
 import '../features/workflows/data/repositories/preview_workflow_task_repository.dart';
 import '../features/workflows/domain/repositories/workflow_task_repository.dart';
+import '../features/workflows/data/repositories/frappe_workflow_notification_repository.dart';
+import '../features/workflows/data/repositories/preview_workflow_notification_repository.dart';
+import '../features/workflows/domain/repositories/workflow_notification_repository.dart';
 import '../features/purchase/data/frappe_purchase_request_repository.dart';
 import '../features/purchase/domain/purchase_request_repository.dart';
 
@@ -61,6 +64,11 @@ class AsoudErpApp extends StatelessWidget {
         RepositoryProvider<WorkflowTaskRepository>.value(
           value: PreviewWorkflowTaskRepository(
             FrappeWorkflowTaskRepository(client),
+          ),
+        ),
+        RepositoryProvider<WorkflowNotificationRepository>.value(
+          value: PreviewWorkflowNotificationRepository(
+            FrappeWorkflowNotificationRepository(client),
           ),
         ),
         RepositoryProvider<PurchaseRequestRepository>.value(
