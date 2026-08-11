@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.19.0+32
+
+- Added per-stage deadlines, reminder timing, escalation roles, and optional reassignment.
+- Added due and overdue states to workflow inbox cards.
+- Added an hourly Frappe scheduler for one-time reminders and escalations.
+- Added an overdue offline sample for serverless mobile validation.
+
 ## 0.18.0+31
 
 - Added in-app workflow notifications and an unread badge.

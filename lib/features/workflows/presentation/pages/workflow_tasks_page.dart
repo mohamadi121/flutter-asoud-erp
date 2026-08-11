@@ -265,6 +265,11 @@ class _TaskCard extends StatelessWidget {
   final bool saving;
   final VoidCallback onTap;
 
+  bool get overdue =>
+      task.status == 'Open' &&
+      task.dueOn != null &&
+      task.dueOn!.isBefore(DateTime.now());
+
   @override
   Widget build(BuildContext context) => InkWell(
       borderRadius: BorderRadius.circular(16),
@@ -302,6 +307,32 @@ class _TaskCard extends StatelessWidget {
             ),
           ]),
           const SizedBox(height: 12),
+          if (task.dueOn != null) ...[
+            Row(children: [
+              Icon(
+                  overdue
+                      ? Icons.warning_amber_rounded
+                      : Icons.schedule_rounded,
+                  size: 17,
+                  color: overdue ? AsoudColors.danger : AsoudColors.warning),
+              const SizedBox(width: 5),
+              Text(
+                overdue ? 'مهلت انجام گذشته است' : 'دارای مهلت انجام',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  color: overdue ? AsoudColors.danger : AsoudColors.warning,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '${task.dueOn!.toLocal().year}/${task.dueOn!.toLocal().month.toString().padLeft(2, '0')}/${task.dueOn!.toLocal().day.toString().padLeft(2, '0')} '
+                '${task.dueOn!.toLocal().hour.toString().padLeft(2, '0')}:${task.dueOn!.toLocal().minute.toString().padLeft(2, '0')}',
+                style: const TextStyle(fontSize: 9, color: AsoudColors.muted),
+              ),
+            ]),
+            const SizedBox(height: 10),
+          ],
           Row(mainAxisAlignment: MainAxisAlignment.end, children: [
             Text(task.status == 'Open' ? 'بررسی درخواست' : 'مشاهده جزئیات',
                 style: TextStyle(

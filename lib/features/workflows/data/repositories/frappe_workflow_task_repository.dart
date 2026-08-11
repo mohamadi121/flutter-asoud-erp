@@ -27,6 +27,10 @@ class FrappeWorkflowTaskRepository implements WorkflowTaskRepository {
         title: item['task_title']?.toString() ?? '',
         status: item['status']?.toString() ?? '',
         assignedOn: DateTime.tryParse(item['assigned_on']?.toString() ?? ''),
+        dueOn: DateTime.tryParse(item['due_on']?.toString() ?? ''),
+        reminderSentOn:
+            DateTime.tryParse(item['reminder_sent_on']?.toString() ?? ''),
+        escalatedOn: DateTime.tryParse(item['escalated_on']?.toString() ?? ''),
       );
     }).toList(growable: false);
   }
