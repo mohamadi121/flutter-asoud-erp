@@ -3,14 +3,12 @@ import 'package:bloc_test/bloc_test.dart';
 
 void main() {
   blocTest<ChartOfAccountsCubit, ChartOfAccountsState>(
-    'سرفصل‌های نمونه را به‌صورت درختی بارگذاری می‌کند',
+    'بدون اتصال repository داده ساختگی تولید نمی‌کند',
     build: ChartOfAccountsCubit.new,
     act: (cubit) => cubit.load(),
     verify: (cubit) {
-      assert(cubit.state.status == ChartStatus.success);
-      assert(cubit.state.accounts.length == 5);
-      assert(cubit.state.accounts.first.children.isNotEmpty);
+      assert(cubit.state.status == ChartStatus.failure);
+      assert(cubit.state.accounts.isEmpty);
     },
   );
 }
-

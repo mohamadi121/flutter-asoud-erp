@@ -7,71 +7,69 @@ import '../../domain/repositories/chart_of_accounts_repository.dart';
 part 'account_form_state.dart';
 
 class AccountFormCubit extends Cubit<AccountFormState> {
-  AccountFormCubit({AccountNode? account, ChartOfAccountsRepository? repository})
-      : _repository = repository,
-        super(AccountFormState(
+  AccountFormCubit({
+    AccountNode? account,
+    AccountLevel? initialLevel,
+    String? initialParentId,
+    this.company,
+    this.repository,
+  }) : super(AccountFormState(
           mode: account == null ? AccountFormMode.create : AccountFormMode.edit,
           originalId: account?.id,
           code: account?.code ?? '',
           title: account?.title ?? '',
-          level: account?.level ?? AccountLevel.ledger,
-          parentId: account?.parentId,
+          level: account?.level ?? initialLevel ?? AccountLevel.group,
+          parentId: account?.parentId ?? initialParentId,
           nature: account?.nature ?? AccountNature.debit,
+          accountType: account?.accountType ?? '',
           isActive: account?.isActive ?? true,
           autoCode: account == null,
         ));
 
-  final ChartOfAccountsRepository? _repository;
+  final String? company;
+  final ChartOfAccountsRepository? repository;
 
   void setTitle(String value) => emit(state.copyWith(title: value));
   void setCode(String value) => emit(state.copyWith(code: value));
-  void setLevel(AccountLevel value) {
-    emit(state.copyWith(level: value, clearParent: true, code: ''));
-    _refreshSuggestedCode();
-  }
-  void setParent(String? value) {
-    emit(state.copyWith(parentId: value, clearParent: value == null, code: ''));
-    _refreshSuggestedCode();
-  }
+  void setLevel(AccountLevel value) =>
+      emit(state.copyWith(level: value, parentId: null));
+  void setParent(String? value) =>
+      emit(state.copyWith(parentId: value, clearParent: value == null));
   void setNature(AccountNature value) => emit(state.copyWith(nature: value));
+  void setAccountType(String value) => emit(state.copyWith(accountType: value));
   void setActive(bool value) => emit(state.copyWith(isActive: value));
-  void setAutoCode(bool value) {
-    emit(state.copyWith(autoCode: value, code: value ? '' : state.code));
-    if (value) _refreshSuggestedCode();
-  }
-
-  Future<void> _refreshSuggestedCode() async {
-    if (!state.autoCode || _repository == null) return;
-    if (state.requiresParent && (state.parentId?.isEmpty ?? true)) return;
-    try {
-      final code = await _repository.previewNextCode(
-        state.level,
-        parentId: state.parentId,
-      );
-      if (!isClosed && state.autoCode) emit(state.copyWith(code: code));
-    } catch (_) {
-      // Preview is informative; the backend performs the final validation on save.
-    }
-  }
+  void setAutoCode(bool value) => emit(state.copyWith(autoCode: value));
 
   Future<void> submit() async {
     if (!state.isValid) {
       emit(state.copyWith(status: AccountFormStatus.invalid));
       return;
     }
-    if (_repository == null) {
-      emit(state.copyWith(status: AccountFormStatus.success, savedAccount: state.toEntity()));
+    if (repository == null || company == null || company!.trim().isEmpty) {
+      emit(state.copyWith(
+        status: AccountFormStatus.failure,
+        message: 'برای ذخیره حساب، دفتر فعال و اتصال ERPNext لازم است.',
+      ));
       return;
     }
-    emit(state.copyWith(status: AccountFormStatus.saving));
+    emit(state.copyWith(status: AccountFormStatus.saving, clearMessage: true));
     try {
-      final entity = state.toEntity();
       final saved = state.mode == AccountFormMode.create
-          ? await _repository.createAccount(entity)
-          : await _repository.updateAccount(entity);
-      emit(state.copyWith(status: AccountFormStatus.success, savedAccount: saved));
-    } catch (error) {
-      emit(state.copyWith(status: AccountFormStatus.failure, message: error.toString()));
+          ? await repository!.createAccount(
+              company!,
+              state.toEntity(),
+              autoCode: state.autoCode,
+            )
+          : await repository!.updateAccount(company!, state.toEntity());
+      emit(state.copyWith(
+        status: AccountFormStatus.success,
+        savedAccount: saved,
+      ));
+    } catch (_) {
+      emit(state.copyWith(
+        status: AccountFormStatus.failure,
+        message: 'ذخیره حساب در ERPNext انجام نشد.',
+      ));
     }
   }
 }

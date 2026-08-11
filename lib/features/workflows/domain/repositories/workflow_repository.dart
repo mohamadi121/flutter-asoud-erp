@@ -26,6 +26,25 @@ abstract interface class WorkflowRepository {
     required WorkflowStageType type,
   });
 
+  Future<WorkflowDesign> insertStage({
+    required String definition,
+    required String transition,
+    required WorkflowStageType type,
+  });
+
+  Future<WorkflowDesign> connectStages({
+    required String definition,
+    required String fromStage,
+    required String toStage,
+    required String action,
+    Map<String, dynamic> condition = const {},
+  });
+
+  Future<WorkflowDesign> updateStagePositions({
+    required String definition,
+    required Map<String, ({double x, double y})> positions,
+  });
+
   Future<WorkflowDesign> addConditionBranch({
     required String definition,
     required String conditionStage,

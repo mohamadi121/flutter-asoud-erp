@@ -11,7 +11,9 @@ _publish_work/
 .agents/
 test/ui/failures/
 android/.gradle/
-android/
+android/.gradle/
+android/local.properties
+android/**/build/
 ios/Pods/
 *.iml
 

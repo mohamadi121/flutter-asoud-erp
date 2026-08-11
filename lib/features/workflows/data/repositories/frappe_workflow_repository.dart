@@ -7,12 +7,7 @@ class FrappeWorkflowRepository implements WorkflowRepository {
   final FrappeClient _client;
 
   Future<dynamic> _call(String method, {Map<String, dynamic>? data}) async {
-    final response = await _client.callAsoudMethod<Object?>(
-      method,
-      (value) => value,
-      data: data,
-    );
-    return response.data;
+    return _client.callAsoudMethod(method, data: data);
   }
 
   @override
@@ -40,6 +35,56 @@ class FrappeWorkflowRepository implements WorkflowRepository {
     );
     return _parseDesign(data);
   }
+
+  @override
+  Future<WorkflowDesign> insertStage({
+    required String definition,
+    required String transition,
+    required WorkflowStageType type,
+  }) async =>
+      _parseDesign(await _call(
+        'asoud_erp.api.v1.workflow.insert_workflow_stage',
+        data: {
+          'definition': definition,
+          'transition': transition,
+          'stage_type': _stageTypeValue(type),
+        },
+      ));
+
+  @override
+  Future<WorkflowDesign> connectStages({
+    required String definition,
+    required String fromStage,
+    required String toStage,
+    required String action,
+    Map<String, dynamic> condition = const {},
+  }) async =>
+      _parseDesign(await _call(
+        'asoud_erp.api.v1.workflow.connect_workflow_stages',
+        data: {
+          'definition': definition,
+          'from_stage': fromStage,
+          'to_stage': toStage,
+          'action': action,
+          'condition': condition,
+        },
+      ));
+
+  @override
+  Future<WorkflowDesign> updateStagePositions({
+    required String definition,
+    required Map<String, ({double x, double y})> positions,
+  }) async =>
+      _parseDesign(await _call(
+        'asoud_erp.api.v1.workflow.update_stage_positions',
+        data: {
+          'definition': definition,
+          'positions': positions.map((key, value) => MapEntry(
+                key,
+                {'x': value.x, 'y': value.y},
+              )),
+        },
+      ));
 
   @override
   Future<WorkflowDesign> addConditionBranch({
@@ -297,6 +342,8 @@ class FrappeWorkflowRepository implements WorkflowRepository {
       sequence: int.tryParse(item['sequence_no']?.toString() ?? '') ?? 0,
       configurationComplete: item['configuration_status'] == 'Complete',
       config: config is Map ? Map<String, dynamic>.from(config) : const {},
+      positionX: double.tryParse(item['position_x']?.toString() ?? '') ?? 0,
+      positionY: double.tryParse(item['position_y']?.toString() ?? '') ?? 0,
     );
   }
 

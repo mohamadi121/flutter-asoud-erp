@@ -13,6 +13,7 @@ class AccountNode extends Equatable {
     this.parentId,
     this.isActive = true,
     this.nature = AccountNature.debit,
+    this.accountType = '',
     this.children = const [],
   });
 
@@ -23,8 +24,19 @@ class AccountNode extends Equatable {
   final String? parentId;
   final bool isActive;
   final AccountNature nature;
+  final String accountType;
   final List<AccountNode> children;
 
   @override
-  List<Object?> get props => [id, code, title, level, parentId, isActive, nature, children];
+  List<Object?> get props => [
+        id,
+        code,
+        title,
+        level,
+        parentId,
+        isActive,
+        nature,
+        accountType,
+        children
+      ];
 }

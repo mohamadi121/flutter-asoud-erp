@@ -48,17 +48,20 @@ class PreviewWorkflowTaskRepository implements WorkflowTaskRepository {
         id: switch (current) {
           'urgent' => 'WFT-OFFLINE-URGENT',
           'normal' => 'WFT-OFFLINE-NORMAL',
+          'correction' => 'WFT-OFFLINE-CORRECTION',
           _ => 'WFT-OFFLINE-001',
         },
         instance: 'WFI-OFFLINE-001',
         stage: switch (current) {
           'urgent' => 'STAGE-OFFLINE-URGENT-APPROVAL',
           'normal' => 'STAGE-OFFLINE-NORMAL-REVIEW',
+          'correction' => 'STAGE-OFFLINE-CORRECTION',
           _ => 'STAGE-OFFLINE-DATA-ENTRY',
         },
         title: switch (current) {
           'urgent' => 'تأیید فوری مدیر',
           'normal' => 'بررسی عادی درخواست',
+          'correction' => 'اصلاح درخواست خرید',
           _ => 'ثبت درخواست خرید',
         },
         status: status,
@@ -98,7 +101,29 @@ class PreviewWorkflowTaskRepository implements WorkflowTaskRepository {
     final draft = saved['draft'];
     final history = saved['history'];
     final current = saved['current_task']?.toString() ?? 'initial';
-    final initial = current == 'initial';
+    final initial = current == 'initial' || current == 'correction';
+    final previousData = !initial && draft is Map && draft.isNotEmpty
+        ? [
+            WorkflowTaskDataSection(
+              title: 'اطلاعات درخواست ثبت‌شده',
+              values: Map<String, dynamic>.from(draft)
+                  .entries
+                  .where((entry) => entry.key != 'confirmed')
+                  .map((entry) => WorkflowTaskDataValue(
+                        key: entry.key,
+                        label: switch (entry.key) {
+                          'request_title' => 'عنوان درخواست',
+                          'description' => 'توضیحات',
+                          'amount' => 'مبلغ برآوردی',
+                          'priority' => 'اولویت',
+                          _ => entry.key,
+                        },
+                        value: entry.value,
+                      ))
+                  .toList(growable: false),
+            ),
+          ]
+        : const <WorkflowTaskDataSection>[];
     return WorkflowTaskDetail(
       task:
           _offlineTask(saved['status']?.toString() ?? 'Open', current: current),
@@ -142,7 +167,10 @@ class PreviewWorkflowTaskRepository implements WorkflowTaskRepository {
             }).toList(growable: false)
           : const [],
       allowReject: current == 'urgent',
-      allowReturn: current != 'initial',
+      allowReturn: current == 'urgent' || current == 'normal',
+      commentRequired: current == 'urgent',
+      activityType: current == 'normal' ? 'Review' : '',
+      previousData: previousData,
     );
   }
 
@@ -220,7 +248,7 @@ class PreviewWorkflowTaskRepository implements WorkflowTaskRepository {
       }
     }
     final saved = await _read();
-    saved['draft'] = response;
+    if (response.isNotEmpty) saved['draft'] = response;
     final history = saved['history'] is List
         ? List<dynamic>.from(saved['history'] as List)
         : <dynamic>[];
@@ -231,7 +259,8 @@ class PreviewWorkflowTaskRepository implements WorkflowTaskRepository {
       'created_on': DateTime.now().toIso8601String(),
     });
     final current = saved['current_task']?.toString() ?? 'initial';
-    if (current == 'initial' && action == 'Complete') {
+    if ((current == 'initial' || current == 'correction') &&
+        action == 'Complete') {
       final urgent = response['priority'] == 'فوری';
       saved['current_task'] = urgent ? 'urgent' : 'normal';
       saved['status'] = 'Open';
@@ -243,6 +272,12 @@ class PreviewWorkflowTaskRepository implements WorkflowTaskRepository {
             : 'اولویت فوری نیست؛ ارجاع به بررسی عادی.',
         'created_on': DateTime.now().toIso8601String(),
       });
+    } else if (action == 'Return') {
+      if (comment?.trim().isEmpty ?? true) {
+        throw StateError('علت بازگشت برای اصلاح الزامی است.');
+      }
+      saved['current_task'] = 'correction';
+      saved['status'] = 'Open';
     } else {
       saved['status'] = action == 'Reject' ? 'Rejected' : 'Completed';
     }

@@ -3,9 +3,13 @@ import 'package:asoud_erp/features/workflows/data/repositories/preview_fallback_
 import 'package:asoud_erp/features/workflows/domain/entities/workflow_definition.dart';
 import 'package:asoud_erp/features/workflows/domain/repositories/workflow_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class _UnavailableRepository implements WorkflowRepository {
   _UnavailableRepository([this.kind = ApiFailureKind.network]);
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 
   @override
   Future<WorkflowDesign> addConditionBranch({
@@ -17,7 +21,7 @@ class _UnavailableRepository implements WorkflowRepository {
       unavailable;
   final ApiFailureKind kind;
 
-  Never get unavailable => throw ApiException('offline', kind: kind);
+  Never get unavailable => throw ApiException(message: 'offline', kind: kind);
 
   @override
   Future<WorkflowDesign> addStage(
@@ -70,6 +74,10 @@ class _UnavailableRepository implements WorkflowRepository {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+
   test('در خطای شبکه فهرست پیش‌نمایش را با برچسب آفلاین برمی‌گرداند', () async {
     final repository =
         PreviewFallbackWorkflowRepository(_UnavailableRepository());

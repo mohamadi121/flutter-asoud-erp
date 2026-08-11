@@ -1,6 +1,7 @@
 part of 'account_form_cubit.dart';
 
 enum AccountFormMode { create, edit }
+
 enum AccountFormStatus { editing, invalid, saving, success, failure }
 
 class AccountFormState extends Equatable {
@@ -9,14 +10,15 @@ class AccountFormState extends Equatable {
     this.originalId,
     this.code = '',
     this.title = '',
-    this.level = AccountLevel.ledger,
+    this.level = AccountLevel.group,
     this.parentId,
     this.nature = AccountNature.debit,
+    this.accountType = '',
     this.isActive = true,
     this.autoCode = true,
     this.status = AccountFormStatus.editing,
-    this.savedAccount,
     this.message,
+    this.savedAccount,
   });
 
   final AccountFormMode mode;
@@ -26,11 +28,12 @@ class AccountFormState extends Equatable {
   final AccountLevel level;
   final String? parentId;
   final AccountNature nature;
+  final String accountType;
   final bool isActive;
   final bool autoCode;
   final AccountFormStatus status;
-  final AccountNode? savedAccount;
   final String? message;
+  final AccountNode? savedAccount;
 
   bool get requiresParent => level != AccountLevel.group;
   bool get isValid =>
@@ -45,6 +48,7 @@ class AccountFormState extends Equatable {
         level: level,
         parentId: parentId,
         nature: nature,
+        accountType: accountType,
         isActive: isActive,
       );
 
@@ -55,11 +59,13 @@ class AccountFormState extends Equatable {
     String? parentId,
     bool clearParent = false,
     AccountNature? nature,
+    String? accountType,
     bool? isActive,
     bool? autoCode,
     AccountFormStatus? status,
-    AccountNode? savedAccount,
     String? message,
+    bool clearMessage = false,
+    AccountNode? savedAccount,
   }) =>
       AccountFormState(
         mode: mode,
@@ -69,13 +75,28 @@ class AccountFormState extends Equatable {
         level: level ?? this.level,
         parentId: clearParent ? null : parentId ?? this.parentId,
         nature: nature ?? this.nature,
+        accountType: accountType ?? this.accountType,
         isActive: isActive ?? this.isActive,
         autoCode: autoCode ?? this.autoCode,
         status: status ?? AccountFormStatus.editing,
+        message: clearMessage ? null : message ?? this.message,
         savedAccount: savedAccount ?? this.savedAccount,
-        message: message,
       );
 
   @override
-  List<Object?> get props => [mode, originalId, code, title, level, parentId, nature, isActive, autoCode, status, savedAccount, message];
+  List<Object?> get props => [
+        mode,
+        originalId,
+        code,
+        title,
+        level,
+        parentId,
+        nature,
+        accountType,
+        isActive,
+        autoCode,
+        status,
+        message,
+        savedAccount,
+      ];
 }

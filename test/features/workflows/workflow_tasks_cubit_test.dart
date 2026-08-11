@@ -7,22 +7,26 @@ import 'package:flutter_test/flutter_test.dart';
 
 class _Repository implements WorkflowTaskRepository {
   var completed = '';
+  var lastStatus = '';
+  String? comment;
   @override
   bool get isOfflinePreview => true;
 
   @override
-  Future<List<WorkflowTask>> getMyTasks({String status = 'Open'}) async =>
-      completed.isEmpty
-          ? const [
-              WorkflowTask(
-                id: 'TASK-1',
-                instance: 'INSTANCE-1',
-                stage: 'STAGE-1',
-                title: 'بررسی درخواست',
-                status: 'Open',
-              ),
-            ]
-          : const [];
+  Future<List<WorkflowTask>> getMyTasks({String status = 'Open'}) async {
+    lastStatus = status;
+    return completed.isEmpty && status == 'Open'
+        ? const [
+            WorkflowTask(
+              id: 'TASK-1',
+              instance: 'INSTANCE-1',
+              stage: 'STAGE-1',
+              title: 'بررسی درخواست',
+              status: 'Open',
+            ),
+          ]
+        : const [];
+  }
 
   @override
   Future<void> completeTask({
@@ -32,6 +36,7 @@ class _Repository implements WorkflowTaskRepository {
     Map<String, dynamic> response = const {},
   }) async {
     completed = '$task:$action';
+    this.comment = comment;
   }
 
   @override
@@ -66,6 +71,17 @@ void main() {
     await cubit.close();
   });
 
+  test('فیلتر انتخاب‌شده برای دریافت وضعیت درست به مخزن ارسال می‌شود',
+      () async {
+    final repository = _Repository();
+    final cubit = WorkflowTasksCubit(repository);
+    await cubit.load('Completed');
+    expect(repository.lastStatus, 'Completed');
+    expect(cubit.state.filter, 'Completed');
+    expect(cubit.state.tasks, isEmpty);
+    await cubit.close();
+  });
+
   test('تکمیل کار به repository ارسال و کارتابل تازه‌سازی می‌شود', () async {
     final repository = _Repository();
     final cubit = WorkflowTasksCubit(repository);
@@ -85,6 +101,16 @@ void main() {
     cubit.setValue('title', 'درخواست خرید');
     expect(await cubit.submit('Complete'), isTrue);
     expect(repository.completed, 'TASK-1:Complete');
+    await cubit.close();
+  });
+
+  test('بازگشت برای اصلاح به تکمیل فیلدهای مرحله وابسته نیست', () async {
+    final repository = _Repository();
+    final cubit = WorkflowTaskDetailCubit(repository, 'TASK-1');
+    await cubit.load();
+    expect(await cubit.submit('Return', comment: 'عنوان اصلاح شود'), isTrue);
+    expect(repository.completed, 'TASK-1:Return');
+    expect(repository.comment, 'عنوان اصلاح شود');
     await cubit.close();
   });
 }

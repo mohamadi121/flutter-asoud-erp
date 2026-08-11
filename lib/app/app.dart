@@ -2,19 +2,29 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../core/theme/asoud_theme.dart';
 import '../core/network/frappe_client.dart';
-import '../features/base_setup/data/repositories/frappe_setup_repository.dart';
-import '../features/base_setup/domain/repositories/setup_repository.dart';
+import '../core/theme/asoud_theme.dart';
 import '../features/office_setup/data/repositories/frappe_office_repository.dart';
 import '../features/office_setup/domain/repositories/office_repository.dart';
+import '../features/accounting/data/repositories/frappe_chart_of_accounts_repository.dart';
+import '../features/accounting/domain/repositories/chart_of_accounts_repository.dart';
+import '../features/accounting/data/repositories/frappe_detail_group_repository.dart';
+import '../features/accounting/domain/repositories/detail_group_repository.dart';
+import '../features/base_setup/data/repositories/frappe_base_setup_repository.dart';
+import '../features/base_setup/domain/repositories/base_setup_repository.dart';
+import '../features/auth/presentation/pages/splash_page.dart';
+import '../features/auth/data/repositories/frappe_auth_repository.dart';
+import '../features/auth/domain/repositories/auth_repository.dart';
+import '../features/parties/data/repositories/frappe_party_repository.dart';
+import '../features/parties/domain/repositories/party_repository.dart';
 import '../features/workflows/data/repositories/frappe_workflow_repository.dart';
 import '../features/workflows/data/repositories/preview_fallback_workflow_repository.dart';
+import '../features/workflows/domain/repositories/workflow_repository.dart';
 import '../features/workflows/data/repositories/frappe_workflow_task_repository.dart';
 import '../features/workflows/data/repositories/preview_workflow_task_repository.dart';
-import '../features/workflows/domain/repositories/workflow_repository.dart';
 import '../features/workflows/domain/repositories/workflow_task_repository.dart';
-import 'startup_gate.dart';
+import '../features/purchase/data/frappe_purchase_request_repository.dart';
+import '../features/purchase/domain/purchase_request_repository.dart';
 
 class AsoudErpApp extends StatelessWidget {
   const AsoudErpApp({super.key});
@@ -24,19 +34,37 @@ class AsoudErpApp extends StatelessWidget {
     final client = FrappeClient();
     return MultiRepositoryProvider(
       providers: [
-        RepositoryProvider<OfficeRepository>(
-            create: (_) => FrappeOfficeRepository(client)),
-        RepositoryProvider<SetupRepository>(
-            create: (_) => FrappeSetupRepository(client)),
-        RepositoryProvider<WorkflowRepository>(
-          create: (_) => PreviewFallbackWorkflowRepository(
+        RepositoryProvider<FrappeApiClient>.value(value: client),
+        RepositoryProvider<AuthRepository>.value(
+          value: FrappeAuthRepository(client),
+        ),
+        RepositoryProvider<OfficeRepository>.value(
+          value: FrappeOfficeRepository(client),
+        ),
+        RepositoryProvider<ChartOfAccountsRepository>.value(
+          value: FrappeChartOfAccountsRepository(client),
+        ),
+        RepositoryProvider<DetailGroupRepository>.value(
+          value: FrappeDetailGroupRepository(client),
+        ),
+        RepositoryProvider<BaseSetupRepository>.value(
+          value: FrappeBaseSetupRepository(client),
+        ),
+        RepositoryProvider<PartyRepository>.value(
+          value: FrappePartyRepository(client),
+        ),
+        RepositoryProvider<WorkflowRepository>.value(
+          value: PreviewFallbackWorkflowRepository(
             FrappeWorkflowRepository(client),
           ),
         ),
-        RepositoryProvider<WorkflowTaskRepository>(
-          create: (_) => PreviewWorkflowTaskRepository(
+        RepositoryProvider<WorkflowTaskRepository>.value(
+          value: PreviewWorkflowTaskRepository(
             FrappeWorkflowTaskRepository(client),
           ),
+        ),
+        RepositoryProvider<PurchaseRequestRepository>.value(
+          value: FrappePurchaseRequestRepository(client),
         ),
       ],
       child: MaterialApp(
@@ -49,9 +77,10 @@ class AsoudErpApp extends StatelessWidget {
           GlobalCupertinoLocalizations.delegate,
         ],
         theme: AsoudTheme.light,
-        builder: (context, child) =>
-            Directionality(textDirection: TextDirection.rtl, child: child!),
-        home: const StartupGate(),
+        home: const Directionality(
+          textDirection: TextDirection.rtl,
+          child: SplashPage(),
+        ),
       ),
     );
   }

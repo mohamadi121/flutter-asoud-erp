@@ -45,6 +45,10 @@ class _WorkflowTasksView extends StatelessWidget {
             }
             return Column(children: [
               if (state.offline) const AsoudOfflinePreviewBanner(),
+              _TaskFilters(
+                selected: state.filter,
+                onChanged: context.read<WorkflowTasksCubit>().load,
+              ),
               Expanded(
                 child: state.tasks.isEmpty
                     ? const _EmptyTasks()
@@ -78,6 +82,42 @@ class _WorkflowTasksView extends StatelessWidget {
           },
         ),
       );
+}
+
+class _TaskFilters extends StatelessWidget {
+  const _TaskFilters({required this.selected, required this.onChanged});
+
+  final String selected;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    const filters = <(String, String)>[
+      ('Open', 'در انتظار من'),
+      ('Completed', 'انجام‌شده'),
+      ('Rejected', 'ردشده'),
+      ('Cancelled', 'لغوشده'),
+    ];
+    return SizedBox(
+      height: 52,
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+        scrollDirection: Axis.horizontal,
+        itemCount: filters.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 7),
+        itemBuilder: (_, index) {
+          final item = filters[index];
+          final active = selected == item.$1;
+          return ChoiceChip(
+            selected: active,
+            label: Text(item.$2),
+            avatar: active ? const Icon(Icons.check_rounded, size: 16) : null,
+            onSelected: (_) => onChanged(item.$1),
+          );
+        },
+      ),
+    );
+  }
 }
 
 class _TaskCard extends StatelessWidget {
@@ -124,12 +164,12 @@ class _TaskCard extends StatelessWidget {
             ),
           ]),
           const SizedBox(height: 12),
-          const Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-            Text('بازکردن فرم',
+          Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+            Text(task.status == 'Open' ? 'بررسی درخواست' : 'مشاهده جزئیات',
                 style: TextStyle(
                     color: AsoudColors.primary, fontWeight: FontWeight.w700)),
-            SizedBox(width: 4),
-            Icon(Icons.chevron_left_rounded, color: AsoudColors.primary),
+            const SizedBox(width: 4),
+            const Icon(Icons.chevron_left_rounded, color: AsoudColors.primary),
           ]),
         ]),
       ));
@@ -142,7 +182,7 @@ class _EmptyTasks extends StatelessWidget {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Icon(Icons.task_alt_rounded, size: 54, color: AsoudColors.success),
           SizedBox(height: 12),
-          Text('کار بازی در کارتابل شما نیست.',
+          Text('کاری با این وضعیت در کارتابل شما نیست.',
               style: TextStyle(fontWeight: FontWeight.w700)),
         ]),
       );

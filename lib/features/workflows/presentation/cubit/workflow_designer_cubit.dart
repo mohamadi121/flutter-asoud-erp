@@ -53,27 +53,86 @@ class WorkflowDesignerCubit extends Cubit<WorkflowDesignerState> {
     }
   }
 
-  Future<void> addConditionBranch(
-      WorkflowStage stage, bool result, WorkflowStageType type) async {
-    final design = state.design;
-    if (design == null || state.status == WorkflowDesignerStatus.saving) return;
+  Future<void> insertStage(String transition, WorkflowStageType type) async {
+    if (state.design == null) return;
     emit(state.copyWith(status: WorkflowDesignerStatus.saving));
     try {
-      final updated = await repository.addConditionBranch(
+      final design = await repository.insertStage(
         definition: definition,
-        conditionStage: stage.id,
+        transition: transition,
         type: type,
-        result: result,
+      );
+      emit(
+          state.copyWith(status: WorkflowDesignerStatus.ready, design: design));
+    } catch (_) {
+      emit(state.copyWith(
+        status: WorkflowDesignerStatus.failure,
+        message: 'افزودن مرحله بین مسیرها ممکن نشد.',
+      ));
+    }
+  }
+
+  Future<void> connectStages({
+    required String fromStage,
+    required String toStage,
+    required String action,
+  }) async {
+    if (state.design == null) return;
+    emit(state.copyWith(status: WorkflowDesignerStatus.saving));
+    try {
+      final design = await repository.connectStages(
+        definition: definition,
+        fromStage: fromStage,
+        toStage: toStage,
+        action: action,
+      );
+      emit(
+          state.copyWith(status: WorkflowDesignerStatus.ready, design: design));
+    } catch (_) {
+      emit(state.copyWith(
+        status: WorkflowDesignerStatus.failure,
+        message: 'ایجاد مسیر ممکن نشد.',
+      ));
+    }
+  }
+
+  void moveStage(String id, double x, double y) {
+    final design = state.design;
+    if (design == null) return;
+    emit(state.copyWith(
+      design: WorkflowDesign(
+        workflow: design.workflow,
+        stages: design.stages
+            .map((item) => item.id == id
+                ? item.copyWith(positionX: x, positionY: y)
+                : item)
+            .toList(growable: false),
+        transitions: design.transitions,
+      ),
+    ));
+  }
+
+  Future<void> savePositions() async {
+    final design = state.design;
+    if (design == null) return;
+    try {
+      final updated = await repository.updateStagePositions(
+        definition: definition,
+        positions: {
+          for (final stage in design.stages)
+            stage.id: (x: stage.positionX, y: stage.positionY),
+        },
       );
       emit(state.copyWith(
         status: WorkflowDesignerStatus.ready,
         design: updated,
-        offlinePreview: repository is OfflinePreviewAware &&
-            (repository as OfflinePreviewAware).isOfflinePreview,
+        message: 'چیدمان مراحل ذخیره شد.',
       ));
-    } catch (error) {
+    } catch (_) {
       emit(state.copyWith(
-          status: WorkflowDesignerStatus.failure, message: error.toString()));
+        status: WorkflowDesignerStatus.failure,
+        message: 'ذخیره چیدمان ممکن نشد.',
+      ));
     }
   }
 
@@ -114,8 +173,8 @@ class WorkflowDesignerCubit extends Cubit<WorkflowDesignerState> {
     }
   }
 
-  Future<List<WorkflowFieldOption>> conditionFields(String stage) =>
-      repository.getConditionFields(definition, beforeStage: stage);
+  Future<List<WorkflowFieldOption>> conditionFields() =>
+      repository.getConditionFields(definition);
 
   Future<bool> saveStage(
       WorkflowStage stage, Map<String, dynamic> config) async {

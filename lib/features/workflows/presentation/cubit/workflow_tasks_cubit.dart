@@ -11,32 +11,38 @@ class WorkflowTasksState extends Equatable {
     this.status = WorkflowTasksStatus.loading,
     this.tasks = const [],
     this.offline = false,
+    this.filter = 'Open',
     this.message,
   });
   final WorkflowTasksStatus status;
   final List<WorkflowTask> tasks;
   final bool offline;
+  final String filter;
   final String? message;
   @override
-  List<Object?> get props => [status, tasks, offline, message];
+  List<Object?> get props => [status, tasks, offline, filter, message];
 }
 
 class WorkflowTasksCubit extends Cubit<WorkflowTasksState> {
   WorkflowTasksCubit(this._repository) : super(const WorkflowTasksState());
   final WorkflowTaskRepository _repository;
 
-  Future<void> load() async {
-    emit(const WorkflowTasksState());
+  Future<void> load([String? filter]) async {
+    final selected = filter ?? state.filter;
+    emit(WorkflowTasksState(filter: selected));
     try {
-      final tasks = await _repository.getMyTasks();
+      final tasks = await _repository.getMyTasks(status: selected);
       emit(WorkflowTasksState(
         status: WorkflowTasksStatus.ready,
         tasks: tasks,
         offline: _repository.isOfflinePreview,
+        filter: selected,
       ));
     } catch (error) {
       emit(WorkflowTasksState(
-          status: WorkflowTasksStatus.failure, message: error.toString()));
+          status: WorkflowTasksStatus.failure,
+          filter: selected,
+          message: error.toString()));
     }
   }
 
@@ -44,7 +50,8 @@ class WorkflowTasksCubit extends Cubit<WorkflowTasksState> {
     emit(WorkflowTasksState(
         status: WorkflowTasksStatus.saving,
         tasks: state.tasks,
-        offline: state.offline));
+        offline: state.offline,
+        filter: state.filter));
     try {
       await _repository.completeTask(task: task.id, action: action);
       await load();
@@ -53,6 +60,7 @@ class WorkflowTasksCubit extends Cubit<WorkflowTasksState> {
           status: WorkflowTasksStatus.failure,
           tasks: state.tasks,
           offline: state.offline,
+          filter: state.filter,
           message: error.toString()));
     }
   }

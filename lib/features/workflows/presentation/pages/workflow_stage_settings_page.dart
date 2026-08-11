@@ -5,13 +5,19 @@ import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../domain/entities/workflow_definition.dart';
 import '../cubit/workflow_designer_cubit.dart';
-import '../widgets/workflow_form_builder.dart';
 
 class WorkflowStageSettingsPage extends StatefulWidget {
-  const WorkflowStageSettingsPage(
-      {required this.stage, required this.options, super.key});
+  const WorkflowStageSettingsPage({
+    required this.stage,
+    required this.roles,
+    this.departments = const [],
+    this.employees = const [],
+    super.key,
+  });
+
   final WorkflowStage stage;
-  final WorkflowFormOptions options;
+  final List<String> roles;
+  final List<WorkflowTargetOption> departments, employees;
 
   @override
   State<WorkflowStageSettingsPage> createState() =>
@@ -22,24 +28,22 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
   late final TextEditingController title;
   late final TextEditingController details;
   late final TextEditingController value;
-  late Set<String> selectedRoles;
+  String function = 'Review';
   String assignmentType = 'Role';
-  String? selectedDepartment;
-  String? selectedEmployee;
-  String primary = '';
+  String accessMode = 'Read Only';
   String secondary = '';
-  String conditionSource = 'Document';
-  bool optionA = true;
-  bool optionB = true;
-  bool optionC = false;
+  bool allowReject = true;
+  bool allowReturn = true;
+  bool commentRequired = false;
+  Set<String> selected = {};
   List<WorkflowFieldOption> fields = const [];
   bool loadingFields = false;
-  late List<WorkflowFormFieldDefinition> formFields;
+
+  Map<String, dynamic> get config => widget.stage.config;
 
   @override
   void initState() {
     super.initState();
-    final config = widget.stage.config;
     title = TextEditingController(text: widget.stage.title);
     details = TextEditingController(
       text: (config['instructions'] ??
@@ -49,88 +53,62 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
           .toString(),
     );
     value = TextEditingController(
-        text:
-            (config['compare_value'] ?? config['wait_value'] ?? '').toString());
-    selectedRoles = ((config[_roleKey] as List?) ?? const [])
-        .map((item) => item.toString())
-        .toSet();
+      text: (config['compare_value'] ?? config['wait_value'] ?? '').toString(),
+    );
     assignmentType = config['assignment_type']?.toString() ?? 'Role';
-    final prefix = _assignmentPrefix;
-    selectedDepartment =
-        ((config['${prefix}_departments'] as List?) ?? const [])
-            .map((item) => item.toString())
-            .firstOrNull;
-    selectedEmployee = ((config['${prefix}_employees'] as List?) ?? const [])
-        .map((item) => item.toString())
-        .firstOrNull;
-    formFields = ((config['form_fields'] as List?) ?? const [])
-        .whereType<Map>()
-        .map(WorkflowFormFieldDefinition.fromMap)
-        .toList();
-    _initializeSelections(config);
+    accessMode = config['document_access']?.toString() ?? 'Read Only';
+    allowReject = config['allow_reject'] != false;
+    allowReturn = config['allow_return'] != false;
+    commentRequired = config['comment_required'] == true;
+    _initializeType();
+    _loadSelected();
     if (widget.stage.type == WorkflowStageType.condition) _loadFields();
   }
 
-  String get _roleKey => switch (widget.stage.type) {
-        WorkflowStageType.userTask => 'assignee_roles',
-        WorkflowStageType.approval => 'approver_roles',
-        WorkflowStageType.systemAction => 'target_roles',
-        _ => '',
-      };
-
-  String get _assignmentPrefix =>
-      widget.stage.type == WorkflowStageType.approval ? 'approver' : 'assignee';
-
-  void _initializeSelections(Map<String, dynamic> config) {
+  void _initializeType() {
     switch (widget.stage.type) {
       case WorkflowStageType.userTask:
-        primary = config['activity_type']?.toString() ?? 'Task';
-        break;
+        function = config['activity_type']?.toString() ?? 'Review';
       case WorkflowStageType.approval:
-        primary = config['approval_mode']?.toString() ?? 'Any';
-        optionA = config['allow_reject'] != false;
-        optionB = config['allow_return'] != false;
-        optionC = config['comment_required'] == true;
-        break;
+        function = config['approval_mode']?.toString() ?? 'Any';
       case WorkflowStageType.condition:
-        primary = config['source_field']?.toString() ?? '';
-        conditionSource = config['source_kind']?.toString() ?? 'Document';
+        function = config['source_field']?.toString() ?? '';
         secondary = config['operator']?.toString() ?? 'Equals';
-        break;
       case WorkflowStageType.systemAction:
-        primary = config['action_type']?.toString() ?? 'Send Notification';
-        break;
+        assignmentType = 'Role';
+        function = config['action_type']?.toString() ?? 'Send Notification';
       case WorkflowStageType.wait:
-        primary = config['wait_type']?.toString() ?? 'Duration';
+        function = config['wait_type']?.toString() ?? 'Duration';
         secondary = config['wait_unit']?.toString() ?? 'Day';
-        break;
       case WorkflowStageType.end:
-        primary = config['outcome']?.toString() ?? 'Completed';
-        break;
+        function = config['outcome']?.toString() ?? 'Completed';
       case WorkflowStageType.start:
         break;
     }
   }
 
+  void _loadSelected() {
+    final prefix = widget.stage.type == WorkflowStageType.approval
+        ? 'approver'
+        : widget.stage.type == WorkflowStageType.systemAction
+            ? 'target'
+            : 'assignee';
+    final key = assignmentType == 'Department'
+        ? '${prefix}_departments'
+        : assignmentType == 'Employee'
+            ? '${prefix}_employees'
+            : '${prefix}_roles';
+    selected = ((config[key] as List?) ?? const [])
+        .map((item) => item.toString())
+        .toSet();
+  }
+
   Future<void> _loadFields() async {
     setState(() => loadingFields = true);
     try {
-      final result = await context
-          .read<WorkflowDesignerCubit>()
-          .conditionFields(widget.stage.id);
-      if (!mounted) return;
-      setState(() {
-        fields = result;
-        if (primary.isEmpty && fields.isNotEmpty) {
-          primary = fields.first.name;
-          conditionSource = fields.first.source;
-        } else {
-          final selected = fields.where((field) => field.name == primary);
-          if (selected.isNotEmpty) conditionSource = selected.first.source;
-        }
-        loadingFields = false;
-      });
-    } catch (_) {
+      fields = await context.read<WorkflowDesignerCubit>().conditionFields();
+      if (function.isEmpty && fields.isNotEmpty) function = fields.first.name;
+    } finally {
       if (mounted) setState(() => loadingFields = false);
     }
   }
@@ -146,82 +124,79 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AsoudHeader(
-            title: 'تنظیمات ${widget.stage.title}',
-            subtitle: _stageHelp(widget.stage.type)),
+          title: 'تنظیمات مرحله',
+          subtitle: 'عملکرد، مسئول و تصمیم‌های این مرحله را مشخص کنید',
+        ),
         body: ListView(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 116),
           children: [
+            const _Notice(
+              text:
+                  'اطلاعات در سند اصلی ثبت می‌شوند؛ اینجا فقط نحوه گردش آن تعیین می‌شود.',
+            ),
+            const SizedBox(height: 12),
             TextField(
               controller: title,
               decoration: const InputDecoration(
-                  labelText: 'عنوان مرحله *',
-                  prefixIcon: Icon(Icons.title_rounded)),
+                labelText: 'عنوان مرحله *',
+                prefixIcon: Icon(Icons.title_rounded),
+              ),
             ),
             const SizedBox(height: 14),
-            ..._typeFields(),
+            ..._fieldsForType(),
           ],
         ),
         bottomNavigationBar: AsoudBottomActions(
-          primaryLabel: 'ذخیره تنظیمات مرحله',
+          primaryLabel: 'ذخیره مرحله',
           onPrimary: _save,
           secondaryLabel: 'انصراف',
           onSecondary: () => Navigator.pop(context),
         ),
       );
 
-  List<Widget> _typeFields() => switch (widget.stage.type) {
+  List<Widget> _fieldsForType() => switch (widget.stage.type) {
         WorkflowStageType.userTask => [
             _dropdown(
-                'نوع فعالیت',
-                primary,
+                'عملکرد این مرحله',
+                function,
                 const {
-                  'Data Entry': 'دریافت اطلاعات',
-                  'Review': 'بررسی اطلاعات',
-                  'Correction': 'اصلاح اطلاعات',
-                  'Task': 'انجام کار مشخص',
+                  'Review': 'بررسی و تصمیم‌گیری',
+                  'Correction': 'اصلاح درخواست',
+                  'Task': 'انجام یا پیگیری کار',
                 },
-                (next) => primary = next),
+                (next) => function = next),
             const SizedBox(height: 14),
-            _assignmentTargets('مسئول مرحله *'),
+            _ownerFields('مسئول مرحله'),
             const SizedBox(height: 14),
-            WorkflowFormBuilder(
-              fields: formFields,
-              onChanged: (next) => setState(() => formFields = next),
-            ),
-            const SizedBox(height: 14),
-            _detailsField('راهنمای انجام کار'),
+            _accessFields(),
+            const SizedBox(height: 10),
+            _actionSwitches(),
+            const SizedBox(height: 10),
+            _detailsField('راهنمای کوتاه برای مسئول'),
           ],
         WorkflowStageType.approval => [
-            _assignmentTargets('تأییدکننده *'),
+            _ownerFields('مسئول تأیید'),
+            const SizedBox(height: 14),
+            _accessFields(),
             const SizedBox(height: 14),
             AsoudSegmentedControl<String>(
-              value: primary,
+              value: function,
               options: const [
-                AsoudSegmentedOption(value: 'Any', label: 'تأیید یک نفر'),
-                AsoudSegmentedOption(value: 'All', label: 'تأیید همه'),
+                AsoudSegmentedOption(
+                    value: 'Any', label: 'اقدام یک نفر کافی است'),
+                AsoudSegmentedOption(value: 'All', label: 'اقدام همه لازم است'),
               ],
-              onChanged: (next) => setState(() => primary = next),
+              onChanged: (next) => setState(() => function = next),
             ),
             const SizedBox(height: 10),
-            SwitchListTile(
-                title: const Text('امکان رد'),
-                value: optionA,
-                onChanged: (next) => setState(() => optionA = next)),
-            SwitchListTile(
-                title: const Text('امکان بازگشت برای اصلاح'),
-                value: optionB,
-                onChanged: (next) => setState(() => optionB = next)),
-            SwitchListTile(
-                title: const Text('توضیح تصمیم اجباری باشد'),
-                value: optionC,
-                onChanged: (next) => setState(() => optionC = next)),
+            _actionSwitches(),
           ],
         WorkflowStageType.condition => [
             if (loadingFields) const LinearProgressIndicator(),
-            _fieldDropdown(),
+            _conditionField(),
             const SizedBox(height: 10),
             _dropdown(
-                'عملگر شرط',
+                'نوع مقایسه',
                 secondary,
                 const {
                   'Equals': 'برابر باشد',
@@ -235,54 +210,53 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
             if (secondary != 'Is Set') ...[
               const SizedBox(height: 10),
               TextField(
-                  controller: value,
-                  decoration:
-                      const InputDecoration(labelText: 'مقدار مقایسه *')),
+                controller: value,
+                decoration: const InputDecoration(labelText: 'مقدار مقایسه *'),
+              ),
             ],
             const SizedBox(height: 10),
-            const _SafeNotice(
-                text: 'شرط فقط روی فیلدهای مجاز سند مرجع اجرا می‌شود.'),
+            const _Notice(
+              text:
+                  'مسیر «بله» و «خیر» را روی صفحه طراحی به مقصدهای موردنظر وصل کنید.',
+            ),
           ],
         WorkflowStageType.systemAction => [
             _dropdown(
-                'نوع اقدام',
-                primary,
+                'عملکرد خودکار',
+                function,
                 const {
                   'Send Notification': 'ارسال اعلان',
-                  'Assign Role': 'تخصیص به نقش',
+                  'Assign Role': 'ارجاع به یک نقش',
                 },
-                (next) => primary = next),
+                (next) => function = next),
             const SizedBox(height: 14),
-            _roles('نقش‌های مقصد *'),
+            _roleTargetFields('گیرنده عملیات'),
             const SizedBox(height: 14),
-            _detailsField('متن پیام یا توضیح اقدام'),
-            const SizedBox(height: 10),
-            const _SafeNotice(
-                text:
-                    'اجرای API دلخواه و کد سفارشی برای امنیت سیستم غیرفعال است.'),
+            _detailsField('متن اعلان یا توضیح کوتاه'),
           ],
         WorkflowStageType.wait => [
             _dropdown(
                 'نوع انتظار',
-                primary,
+                function,
                 const {
                   'Duration': 'مدت مشخص',
                   'Date': 'تا تاریخ مشخص',
                   'Event': 'تا وقوع رویداد',
                 },
-                (next) => primary = next),
+                (next) => function = next),
             const SizedBox(height: 10),
             TextField(
               controller: value,
-              keyboardType: primary == 'Duration'
+              keyboardType: function == 'Duration'
                   ? TextInputType.number
                   : TextInputType.text,
               decoration: InputDecoration(
-                  labelText: primary == 'Duration'
-                      ? 'مدت انتظار *'
-                      : 'تاریخ یا نام رویداد *'),
+                labelText: function == 'Duration'
+                    ? 'مدت انتظار *'
+                    : 'تاریخ یا نام رویداد *',
+              ),
             ),
-            if (primary == 'Duration') ...[
+            if (function == 'Duration') ...[
               const SizedBox(height: 10),
               _dropdown(
                   'واحد زمان',
@@ -298,225 +272,244 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
         WorkflowStageType.end => [
             _dropdown(
                 'نتیجه نهایی',
-                primary,
+                function,
                 const {
                   'Completed': 'تکمیل موفق',
                   'Rejected': 'ردشده',
                   'Cancelled': 'لغوشده',
                   'Stopped': 'متوقف‌شده',
                 },
-                (next) => primary = next),
+                (next) => function = next),
             const SizedBox(height: 14),
             _detailsField('پیام نتیجه نهایی'),
           ],
         WorkflowStageType.start => const [],
       };
 
-  Widget _dropdown(String label, String current, Map<String, String> options,
-          ValueChanged<String> onChanged) =>
-      DropdownButtonFormField<String>(
-        isExpanded: true,
-        initialValue: current,
-        decoration: InputDecoration(labelText: label),
-        items: options.entries
-            .map((item) => DropdownMenuItem(
-                value: item.key,
-                child: Text(item.value, overflow: TextOverflow.ellipsis)))
-            .toList(growable: false),
-        onChanged: (next) {
-          if (next != null) setState(() => onChanged(next));
-        },
-      );
-
-  Widget _fieldDropdown() {
-    final selectedKey = '$conditionSource:$primary';
-    return DropdownButtonFormField<String>(
-      isExpanded: true,
-      initialValue:
-          fields.any((field) => '${field.source}:${field.name}' == selectedKey)
-              ? selectedKey
-              : null,
-      decoration: const InputDecoration(labelText: 'فیلد مبنای شرط *'),
-      items: fields
-          .map((field) => DropdownMenuItem(
-              value: '${field.source}:${field.name}',
-              child: Text(
-                  '${field.source == 'Form' ? 'فرم' : 'سند'} — ${field.label}',
-                  overflow: TextOverflow.ellipsis)))
-          .toList(growable: false),
-      onChanged: (next) => setState(() {
-        final selected =
-            fields.where((field) => '${field.source}:${field.name}' == next);
-        if (selected.isNotEmpty) {
-          primary = selected.first.name;
-          conditionSource = selected.first.source;
-        }
-      }),
-    );
-  }
-
-  Widget _roles(String label) =>
+  Widget _ownerFields(String title) =>
       Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(label,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
-        const SizedBox(height: 7),
-        if (widget.options.roles.isEmpty)
-          const Text('نقشی از سرور دریافت نشد.',
-              style: TextStyle(color: AsoudColors.warning))
+        Text(title,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900)),
+        const SizedBox(height: 8),
+        AsoudSegmentedControl<String>(
+          value: assignmentType,
+          options: const [
+            AsoudSegmentedOption(value: 'Role', label: 'نقش'),
+            AsoudSegmentedOption(value: 'Department', label: 'واحد کاری'),
+            AsoudSegmentedOption(value: 'Employee', label: 'پرسنل'),
+          ],
+          onChanged: (next) => setState(() {
+            assignmentType = next;
+            selected.clear();
+          }),
+        ),
+        const SizedBox(height: 9),
+        if (_targets.isEmpty)
+          const Text('گزینه‌ای از سرور دریافت نشده است.',
+              style: TextStyle(fontSize: 10, color: AsoudColors.warning))
         else
           Wrap(
             spacing: 7,
             runSpacing: 7,
-            children: widget.options.roles
-                .map((role) => FilterChip(
-                      selected: selectedRoles.contains(role),
-                      label: Text(role),
-                      onSelected: (selected) => setState(() {
-                        selected
-                            ? selectedRoles.add(role)
-                            : selectedRoles.remove(role);
+            children: _targets
+                .map((item) => FilterChip(
+                      selected: selected.contains(item.id),
+                      label: Text(item.label),
+                      onSelected: (checked) => setState(() {
+                        checked
+                            ? selected.add(item.id)
+                            : selected.remove(item.id);
                       }),
                     ))
                 .toList(growable: false),
           ),
       ]);
 
-  Widget _assignmentTargets(String label) => Column(
+  Widget _roleTargetFields(String title) =>
+      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(title,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900)),
+        const SizedBox(height: 8),
+        if (widget.roles.isEmpty)
+          const Text('نقشی از سرور دریافت نشده است.',
+              style: TextStyle(fontSize: 10, color: AsoudColors.warning))
+        else
+          Wrap(
+            spacing: 7,
+            runSpacing: 7,
+            children: widget.roles
+                .map((role) => FilterChip(
+                      selected: selected.contains(role),
+                      label: Text(role),
+                      onSelected: (checked) => setState(() {
+                        checked ? selected.add(role) : selected.remove(role);
+                      }),
+                    ))
+                .toList(growable: false),
+          ),
+      ]);
+
+  List<WorkflowTargetOption> get _targets => switch (assignmentType) {
+        'Department' => widget.departments,
+        'Employee' => widget.employees,
+        _ => widget.roles
+            .map((role) => WorkflowTargetOption(id: role, label: role))
+            .toList(growable: false),
+      };
+
+  Widget _accessFields() => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label,
-              style:
-                  const TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
+          const Text('دسترسی به سند اصلی',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900)),
           const SizedBox(height: 8),
           AsoudSegmentedControl<String>(
-            value: assignmentType,
+            value: accessMode,
             options: const [
-              AsoudSegmentedOption(value: 'Role', label: 'نقش'),
-              AsoudSegmentedOption(value: 'Department', label: 'واحد کاری'),
-              AsoudSegmentedOption(value: 'Employee', label: 'پرسنل مشخص'),
+              AsoudSegmentedOption(value: 'Read Only', label: 'فقط مشاهده'),
+              AsoudSegmentedOption(value: 'Edit', label: 'مشاهده و ویرایش'),
+              AsoudSegmentedOption(
+                  value: 'Limited Edit', label: 'ویرایش محدود'),
             ],
-            onChanged: (next) => setState(() => assignmentType = next),
+            onChanged: (next) => setState(() => accessMode = next),
           ),
-          const SizedBox(height: 10),
-          if (assignmentType == 'Role')
-            _roles('نقش‌های مجاز')
-          else
-            _targetDropdown(),
+          if (accessMode == 'Limited Edit') ...[
+            const SizedBox(height: 8),
+            const _Notice(
+              text:
+                  'انتخاب فیلدهای مجاز پس از اتصال متادیتای ERPNext v15 فعال می‌شود.',
+            ),
+          ],
         ],
       );
 
-  Widget _targetDropdown() {
-    final employeeMode = assignmentType == 'Employee';
-    final values =
-        employeeMode ? widget.options.employees : widget.options.departments;
-    final current = employeeMode ? selectedEmployee : selectedDepartment;
-    return DropdownButtonFormField<String>(
-      isExpanded: true,
-      initialValue: values.any((item) => item.id == current) ? current : null,
-      decoration: InputDecoration(
-        labelText: employeeMode ? 'نام پرسنل *' : 'واحد کاری *',
-        prefixIcon: Icon(
-            employeeMode ? Icons.badge_outlined : Icons.account_tree_outlined),
-      ),
-      items: values
-          .map((item) => DropdownMenuItem(
-                value: item.id,
-                child: Text(
-                  employeeMode && item.department?.isNotEmpty == true
-                      ? '${item.label} — ${item.department}'
-                      : item.label,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ))
-          .toList(growable: false),
-      onChanged: values.isEmpty
-          ? null
-          : (next) => setState(() {
-                if (employeeMode) {
-                  selectedEmployee = next;
-                } else {
-                  selectedDepartment = next;
-                }
-              }),
-    );
-  }
+  Widget _actionSwitches() => Column(children: [
+        SwitchListTile(
+          title: const Text('امکان رد'),
+          value: allowReject,
+          onChanged: (next) => setState(() => allowReject = next),
+        ),
+        SwitchListTile(
+          title: const Text('امکان بازگشت برای اصلاح'),
+          value: allowReturn,
+          onChanged: (next) => setState(() => allowReturn = next),
+        ),
+        SwitchListTile(
+          title: const Text('توضیح تصمیم اجباری باشد'),
+          value: commentRequired,
+          onChanged: (next) => setState(() => commentRequired = next),
+        ),
+      ]);
+
+  Widget _dropdown(String label, String current, Map<String, String> options,
+          ValueChanged<String> onChanged) =>
+      DropdownButtonFormField<String>(
+        isExpanded: true,
+        initialValue:
+            options.containsKey(current) ? current : options.keys.first,
+        decoration: InputDecoration(labelText: label),
+        items: options.entries
+            .map((item) => DropdownMenuItem(
+                  value: item.key,
+                  child: Text(item.value, overflow: TextOverflow.ellipsis),
+                ))
+            .toList(growable: false),
+        onChanged: (next) {
+          if (next != null) setState(() => onChanged(next));
+        },
+      );
+
+  Widget _conditionField() => DropdownButtonFormField<String>(
+        isExpanded: true,
+        initialValue:
+            fields.any((field) => field.name == function) ? function : null,
+        decoration: const InputDecoration(labelText: 'فیلد سند اصلی *'),
+        items: fields
+            .map((field) => DropdownMenuItem(
+                  value: field.name,
+                  child: Text(field.label, overflow: TextOverflow.ellipsis),
+                ))
+            .toList(growable: false),
+        onChanged: (next) => setState(() => function = next ?? function),
+      );
 
   Widget _detailsField(String label) => TextField(
         controller: details,
-        minLines: 3,
-        maxLines: 4,
+        minLines: 2,
+        maxLines: 3,
         decoration: InputDecoration(labelText: label, alignLabelWithHint: true),
       );
 
+  Map<String, dynamic> _assignment(String prefix) => {
+        'assignment_type': assignmentType,
+        '${prefix}_roles': assignmentType == 'Role' ? selected.toList() : [],
+        '${prefix}_departments':
+            assignmentType == 'Department' ? selected.toList() : [],
+        '${prefix}_employees':
+            assignmentType == 'Employee' ? selected.toList() : [],
+      };
+
   Future<void> _save() async {
-    final config = <String, dynamic>{'title': title.text.trim()};
+    final output = <String, dynamic>{'title': title.text.trim()};
     switch (widget.stage.type) {
       case WorkflowStageType.userTask:
-        config.addAll({
-          'activity_type': primary,
-          'assignee_roles': selectedRoles.toList(),
-          'assignment_type': assignmentType,
-          'assignee_departments':
-              selectedDepartment == null ? [] : [selectedDepartment],
-          'assignee_employees':
-              selectedEmployee == null ? [] : [selectedEmployee],
+        output.addAll({
+          'activity_type': function,
+          ..._assignment('assignee'),
+          'document_access': accessMode,
           'instructions': details.text.trim(),
-          'form_fields': formFields.map((field) => field.toMap()).toList(),
+          'form_fields': const [],
+          'allow_reject': allowReject,
+          'allow_return': allowReturn,
+          'comment_required': commentRequired,
         });
-        break;
       case WorkflowStageType.approval:
-        config.addAll({
-          'approver_roles': selectedRoles.toList(),
-          'assignment_type': assignmentType,
-          'approver_departments':
-              selectedDepartment == null ? [] : [selectedDepartment],
-          'approver_employees':
-              selectedEmployee == null ? [] : [selectedEmployee],
-          'approval_mode': primary,
-          'allow_reject': optionA,
-          'allow_return': optionB,
-          'comment_required': optionC
+        output.addAll({
+          ..._assignment('approver'),
+          'approval_mode': function,
+          'document_access': accessMode,
+          'allow_reject': allowReject,
+          'allow_return': allowReturn,
+          'comment_required': commentRequired,
         });
-        break;
       case WorkflowStageType.condition:
-        config.addAll({
-          'source_kind': conditionSource,
-          'source_field': primary,
+        output.addAll({
+          'source_kind': 'Document',
+          'source_field': function,
           'operator': secondary,
-          'compare_value': value.text.trim()
+          'compare_value': value.text.trim(),
         });
-        break;
       case WorkflowStageType.systemAction:
-        config.addAll({
-          'action_type': primary,
-          'target_roles': selectedRoles.toList(),
-          'message': details.text.trim()
+        output.addAll({
+          'action_type': function,
+          'target_roles': selected.toList(),
+          'message': details.text.trim(),
         });
-        break;
       case WorkflowStageType.wait:
-        config.addAll({
-          'wait_type': primary,
+        output.addAll({
+          'wait_type': function,
           'wait_value': value.text.trim(),
-          'wait_unit': secondary
+          'wait_unit': secondary,
         });
-        break;
       case WorkflowStageType.end:
-        config
-            .addAll({'outcome': primary, 'result_label': details.text.trim()});
-        break;
+        output.addAll({
+          'outcome': function,
+          'result_label': details.text.trim(),
+        });
       case WorkflowStageType.start:
         return;
     }
     final saved = await context
         .read<WorkflowDesignerCubit>()
-        .saveStage(widget.stage, config);
+        .saveStage(widget.stage, output);
     if (saved && mounted) Navigator.pop(context);
   }
 }
 
-class _SafeNotice extends StatelessWidget {
-  const _SafeNotice({required this.text});
+class _Notice extends StatelessWidget {
+  const _Notice({required this.text});
   final String text;
+
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.all(10),
@@ -525,20 +518,10 @@ class _SafeNotice extends StatelessWidget {
           borderRadius: BorderRadius.circular(11),
         ),
         child: Row(children: [
-          const Icon(Icons.verified_user_outlined,
+          const Icon(Icons.info_outline_rounded,
               color: AsoudColors.primary, size: 18),
           const SizedBox(width: 7),
           Expanded(child: Text(text, style: const TextStyle(fontSize: 9))),
         ]),
       );
 }
-
-String _stageHelp(WorkflowStageType type) => switch (type) {
-      WorkflowStageType.userTask => 'مسئول و نوع فعالیت کاربر را تعیین کنید',
-      WorkflowStageType.approval => 'تأییدکنندگان و قواعد تصمیم را مشخص کنید',
-      WorkflowStageType.condition => 'شرط امن روی سند مرجع تعریف کنید',
-      WorkflowStageType.systemAction => 'یک اقدام خودکار مجاز انتخاب کنید',
-      WorkflowStageType.wait => 'زمان یا رویداد ادامه فرایند را مشخص کنید',
-      WorkflowStageType.end => 'نتیجه نهایی این مسیر را تعیین کنید',
-      WorkflowStageType.start => '',
-    };

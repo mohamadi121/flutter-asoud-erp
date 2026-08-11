@@ -2,31 +2,59 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
 import '../../domain/entities/party_profile.dart';
-import '../../domain/repositories/parties_repository.dart';
+import '../../domain/repositories/party_repository.dart';
 
-enum PartiesStatus { initial, loading, success, failure }
+enum PartiesStatus { initial, loading, success, empty, failure, saving }
 
 class PartiesState extends Equatable {
-  const PartiesState({this.status = PartiesStatus.initial, this.items = const [], this.message});
+  const PartiesState({
+    this.status = PartiesStatus.initial,
+    this.items = const [],
+    this.message,
+  });
   final PartiesStatus status;
   final List<PartyProfile> items;
   final String? message;
-
   @override
   List<Object?> get props => [status, items, message];
 }
 
 class PartiesCubit extends Cubit<PartiesState> {
-  PartiesCubit(this._repository) : super(const PartiesState());
-  final PartiesRepository _repository;
+  PartiesCubit(this.repository, {this.company}) : super(const PartiesState());
+  final PartyRepository repository;
+  final String? company;
 
-  Future<void> load({String? search}) async {
-    emit(const PartiesState(status: PartiesStatus.loading));
+  Future<void> load({PartyRole? role, String? search}) async {
+    emit(PartiesState(status: PartiesStatus.loading, items: state.items));
     try {
-      final items = await _repository.getParties(search: search);
-      emit(PartiesState(status: PartiesStatus.success, items: items));
-    } catch (error) {
-      emit(PartiesState(status: PartiesStatus.failure, message: error.toString()));
+      final items =
+          await repository.list(company: company, role: role, search: search);
+      emit(PartiesState(
+        status: items.isEmpty ? PartiesStatus.empty : PartiesStatus.success,
+        items: items,
+      ));
+    } catch (_) {
+      emit(PartiesState(
+        status: PartiesStatus.failure,
+        items: state.items,
+        message: 'دریافت اطلاعات اشخاص از ERPNext انجام نشد.',
+      ));
+    }
+  }
+
+  Future<PartyProfile?> save(PartyProfile profile) async {
+    emit(PartiesState(status: PartiesStatus.saving, items: state.items));
+    try {
+      final saved = await repository.save(profile);
+      await load();
+      return saved;
+    } catch (_) {
+      emit(PartiesState(
+        status: PartiesStatus.failure,
+        items: state.items,
+        message: 'ذخیره اطلاعات در ERPNext انجام نشد.',
+      ));
+      return null;
     }
   }
 }

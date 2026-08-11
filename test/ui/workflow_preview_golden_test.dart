@@ -13,23 +13,24 @@ import 'package:flutter_test/flutter_test.dart';
 
 class _PreviewRepository implements WorkflowRepository {
   @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+  @override
+  Future<List<WorkflowFieldOption>> getConditionFields(String definition,
+          {String? beforeStage}) async =>
+      const [
+        WorkflowFieldOption(name: 'status', label: 'وضعیت', type: 'Select'),
+        WorkflowFieldOption(
+            name: 'grand_total', label: 'مبلغ کل', type: 'Currency'),
+      ];
+
+  @override
   Future<WorkflowDesign> addConditionBranch({
     required String definition,
     required String conditionStage,
     required WorkflowStageType type,
     required bool result,
   }) async =>
-      throw UnimplementedError();
-  @override
-  Future<List<WorkflowFieldOption>> getConditionFields(
-    String definition, {
-    String? beforeStage,
-  }) async =>
-      const [
-        WorkflowFieldOption(name: 'status', label: 'وضعیت', type: 'Select'),
-        WorkflowFieldOption(
-            name: 'grand_total', label: 'مبلغ کل', type: 'Currency'),
-      ];
+      _design(includeUserTask: true);
 
   @override
   Future<WorkflowDesign> saveStageSettings(
@@ -312,21 +313,7 @@ void main() {
                     sequence: 1,
                     configurationComplete: false,
                   ),
-                  options: const WorkflowFormOptions(
-                    companies: [],
-                    modules: [],
-                    roles: ['Accounts Manager', 'Accounts User'],
-                    departments: [
-                      WorkflowTargetOption(
-                          id: 'Accounts - ASOUD', label: 'واحد مالی'),
-                    ],
-                    employees: [
-                      WorkflowTargetOption(
-                          id: 'HR-EMP-0001',
-                          label: 'احمد رضایی',
-                          department: 'واحد مالی'),
-                    ],
-                  ),
+                  roles: const ['Accounts Manager', 'Accounts User'],
                 ),
               ),
             ),
@@ -335,7 +322,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
-      expect(find.text('ذخیره تنظیمات مرحله'), findsOneWidget);
+      expect(find.text('ذخیره مرحله'), findsOneWidget);
     });
   }
 }
