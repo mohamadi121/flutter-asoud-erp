@@ -11,6 +11,7 @@ import 'fiscal_years_page.dart';
 import '../../../accounting/presentation/pages/chart_setup_page.dart';
 import '../../../accounting/presentation/pages/detail_groups_page.dart';
 import '../../../parties/presentation/pages/party_management_page.dart';
+import '../../../hr/presentation/pages/hr_home_page.dart';
 
 class BaseAccountingSetupPage extends StatelessWidget {
   const BaseAccountingSetupPage(
@@ -80,11 +81,16 @@ class BaseAccountingSetupPage extends StatelessWidget {
                 icon: Icons.inventory_2_outlined,
                 color: AsoudColors.purple,
               ),
-              const _ModuleTile(
+              _ModuleTile(
                 title: 'منابع انسانی',
                 subtitle: 'تنظیمات پرسنل، نقش‌ها و ساختار سازمانی',
                 icon: Icons.badge_outlined,
                 color: Color(0xFFEF6C5B),
+                onTap: officeName == null
+                    ? null
+                    : () => Navigator.of(context).push(MaterialPageRoute<void>(
+                          builder: (_) => HrHomePage(company: officeName!),
+                        )),
               ),
               const SizedBox(height: 4),
               const Text(

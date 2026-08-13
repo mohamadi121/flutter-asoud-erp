@@ -35,6 +35,9 @@ import '../features/workflows/data/repositories/preview_workflow_notification_re
 import '../features/workflows/domain/repositories/workflow_notification_repository.dart';
 import '../features/purchase/data/frappe_purchase_request_repository.dart';
 import '../features/purchase/domain/purchase_request_repository.dart';
+import '../features/hr/data/frappe_hr_repository.dart';
+import '../features/hr/data/server_first_hr_repository.dart';
+import '../features/hr/domain/hr_repository.dart';
 
 class AsoudErpApp extends StatefulWidget {
   const AsoudErpApp({super.key});
@@ -95,6 +98,9 @@ class _AsoudErpAppState extends State<AsoudErpApp> {
           ),
           RepositoryProvider<PurchaseRequestRepository>.value(
             value: FrappePurchaseRequestRepository(client),
+          ),
+          RepositoryProvider<HrRepository>.value(
+            value: ServerFirstHrRepository(FrappeHrRepository(client)),
           ),
         ],
         child: MaterialApp(

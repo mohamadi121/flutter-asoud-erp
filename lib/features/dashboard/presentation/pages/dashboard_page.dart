@@ -12,6 +12,7 @@ import '../../../office_setup/presentation/pages/offices_page.dart';
 import '../../../workflows/presentation/pages/workflow_list_page.dart';
 import '../../../workflows/presentation/pages/workflow_tasks_page.dart';
 import '../../../purchase/presentation/pages/purchase_requests_page.dart';
+import '../../../hr/presentation/pages/hr_home_page.dart';
 
 class DashboardLandingPage extends StatefulWidget {
   const DashboardLandingPage({this.offlinePreview = false, super.key});
@@ -122,6 +123,11 @@ class DashboardPage extends StatelessWidget {
                         builder: (_) => PurchaseRequestsPage(
                           company: officeName ?? '',
                         ),
+                      ),
+                    ),
+                    onHr: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => HrHomePage(company: officeName ?? ''),
                       ),
                     ),
                   ),
@@ -505,8 +511,10 @@ class _InfoCard extends StatelessWidget {
 
 class _QuickActions extends StatelessWidget {
   const _QuickActions(
-      {required this.onAccounting, required this.onPurchaseRequest});
-  final VoidCallback onAccounting, onPurchaseRequest;
+      {required this.onAccounting,
+      required this.onPurchaseRequest,
+      required this.onHr});
+  final VoidCallback onAccounting, onPurchaseRequest, onHr;
   @override
   Widget build(BuildContext context) {
     final items = <(String, String, IconData, Color, VoidCallback?)>[
@@ -538,13 +546,7 @@ class _QuickActions extends StatelessWidget {
         AsoudColors.purple,
         onAccounting
       ),
-      (
-        'گزارش‌ها',
-        'Reports',
-        Icons.bar_chart_rounded,
-        AsoudColors.danger,
-        null
-      ),
+      ('منابع انسانی', 'HR', Icons.badge_outlined, AsoudColors.danger, onHr),
       (
         'طرف حساب‌ها',
         'Customer/Supplier',
