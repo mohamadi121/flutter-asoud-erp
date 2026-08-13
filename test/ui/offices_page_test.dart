@@ -95,8 +95,10 @@ void main() {
     await tester.tap(officeMenu);
     await tester.pumpAndSettle();
     expect(find.text('عملیات دفتر'), findsOneWidget);
-    expect(find.text('حذف دفتر'), findsOneWidget);
-    await tester.tap(find.text('بستن'));
+    expect(find.text('مشاهده اطلاعات دفتر'), findsOneWidget);
+    expect(find.text('ویرایش اطلاعات دفتر'), findsOneWidget);
+    expect(find.text('انتخاب به‌عنوان دفتر فعال'), findsOneWidget);
+    Navigator.of(tester.element(find.text('عملیات دفتر'))).pop();
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('ایجاد دفتر کار جدید'));

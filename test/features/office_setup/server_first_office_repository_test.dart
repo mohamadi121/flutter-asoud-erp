@@ -87,4 +87,10 @@ class _OfficeRepository implements OfficeRepository {
     if (error != null) _throw();
     return office;
   }
+
+  @override
+  Future<Office> setDefaultOffice(Office value) async {
+    if (error != null) _throw();
+    return value;
+  }
 }

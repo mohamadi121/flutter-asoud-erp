@@ -2,6 +2,7 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
 import '../../../../core/network/api_exception.dart';
+import '../../../../core/offline/offline_failure.dart';
 import '../../domain/entities/office.dart';
 import '../../domain/repositories/office_repository.dart';
 
@@ -46,4 +47,30 @@ class OfficesCubit extends Cubit<OfficesState> {
 
   void search(String value) => emit(state.copyWith(query: value));
   void dismissCreatedBanner() => emit(state.copyWith(showCreatedBanner: false));
+
+  Future<void> selectDefault(Office office) async {
+    emit(state.copyWith(changingDefault: true, clearMessage: true));
+    try {
+      final selected = await _repository.setDefaultOffice(office);
+      emit(state.copyWith(
+        defaultOffice: selected,
+        changingDefault: false,
+        message: 'دفتر فعال با موفقیت تغییر کرد.',
+      ));
+    } catch (error) {
+      if (isRetryableOfflineFailure(error)) {
+        emit(state.copyWith(
+          defaultOffice: office,
+          changingDefault: false,
+          offlinePreview: true,
+          message: 'دفتر فعال روی گوشی تغییر کرد و پس از اتصال همگام می‌شود.',
+        ));
+        return;
+      }
+      emit(state.copyWith(
+        changingDefault: false,
+        message: 'تغییر دفتر فعال انجام نشد.',
+      ));
+    }
+  }
 }

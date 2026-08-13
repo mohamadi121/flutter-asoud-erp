@@ -10,6 +10,7 @@ import 'roles_setup_page.dart';
 import 'fiscal_years_page.dart';
 import '../../../accounting/presentation/pages/chart_setup_page.dart';
 import '../../../accounting/presentation/pages/detail_groups_page.dart';
+import '../../../parties/presentation/pages/party_management_page.dart';
 
 class BaseAccountingSetupPage extends StatelessWidget {
   const BaseAccountingSetupPage(
@@ -22,7 +23,93 @@ class BaseAccountingSetupPage extends StatelessWidget {
   Widget build(BuildContext context) => Scaffold(
         appBar: const AsoudHeader(
           title: 'تنظیمات پایه',
-          subtitle: 'راه‌اندازی و پیکربندی دفتر',
+          subtitle: 'تنظیمات هر ماژول را جداگانه مدیریت کنید',
+          action: AsoudIconBox(
+              icon: Icons.tune_rounded, color: AsoudColors.primary),
+        ),
+        body: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
+            children: [
+              _SetupOverview(
+                  officeName: officeName, offlinePreview: offlinePreview),
+              const SizedBox(height: 18),
+              const Text('ماژول‌های تنظیمات پایه',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900)),
+              const SizedBox(height: 10),
+              _ModuleTile(
+                title: 'حسابداری و مالی',
+                subtitle: 'سال مالی، کدینگ، سرفصل‌ها و گروه‌های تفصیلی',
+                icon: Icons.account_balance_rounded,
+                color: AsoudColors.primary,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => AccountingBaseSetupPage(
+                      officeName: officeName,
+                      offlinePreview: offlinePreview,
+                    ),
+                  ),
+                ),
+              ),
+              _ModuleTile(
+                title: 'مدیریت اشخاص',
+                subtitle: 'مشتریان، تأمین‌کنندگان، پرسنل و سایر اشخاص',
+                icon: Icons.people_alt_rounded,
+                color: AsoudColors.cyan,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => PartyManagementPage(company: officeName),
+                  ),
+                ),
+              ),
+              const _ModuleTile(
+                title: 'خرید و تدارکات',
+                subtitle: 'تنظیمات تأمین‌کنندگان، درخواست و سفارش خرید',
+                icon: Icons.shopping_cart_checkout_rounded,
+                color: AsoudColors.warning,
+              ),
+              const _ModuleTile(
+                title: 'فروش و درآمد',
+                subtitle: 'تنظیمات مشتریان، قیمت‌گذاری و فروش',
+                icon: Icons.point_of_sale_rounded,
+                color: AsoudColors.success,
+              ),
+              const _ModuleTile(
+                title: 'انبار و کالا',
+                subtitle: 'تنظیمات کالا، واحد سنجش و انبارها',
+                icon: Icons.inventory_2_outlined,
+                color: AsoudColors.purple,
+              ),
+              const _ModuleTile(
+                title: 'منابع انسانی',
+                subtitle: 'تنظیمات پرسنل، نقش‌ها و ساختار سازمانی',
+                icon: Icons.badge_outlined,
+                color: Color(0xFFEF6C5B),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'ماژول‌های غیرفعال در مراحل بعد و پس از تکمیل جریان کاری مربوطه فعال می‌شوند.',
+                style: TextStyle(fontSize: 9, color: AsoudColors.muted),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+}
+
+class AccountingBaseSetupPage extends StatelessWidget {
+  const AccountingBaseSetupPage(
+      {this.officeName, this.offlinePreview = false, super.key});
+
+  final String? officeName;
+  final bool offlinePreview;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: const AsoudHeader(
+          title: 'تنظیمات پایه حسابداری',
+          subtitle: 'راه‌اندازی و پیکربندی مالی دفتر',
           action: AsoudIconBox(
               icon: Icons.tune_rounded, color: AsoudColors.primary),
         ),
@@ -101,6 +188,57 @@ class BaseAccountingSetupPage extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        ),
+      );
+}
+
+class _ModuleTile extends StatelessWidget {
+  const _ModuleTile({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.color,
+    this.onTap,
+  });
+  final String title, subtitle;
+  final IconData icon;
+  final Color color;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) => Card(
+        margin: const EdgeInsets.only(bottom: 10),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.all(13),
+            child: Row(children: [
+              AsoudIconBox(icon: icon, color: color, size: 44),
+              const SizedBox(width: 11),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title,
+                        style: const TextStyle(
+                            fontSize: 12, fontWeight: FontWeight.w800)),
+                    const SizedBox(height: 4),
+                    Text(subtitle,
+                        style: const TextStyle(
+                            fontSize: 9, color: AsoudColors.muted)),
+                  ],
+                ),
+              ),
+              Icon(
+                onTap == null
+                    ? Icons.lock_outline_rounded
+                    : Icons.chevron_left_rounded,
+                size: 20,
+                color: onTap == null ? AsoudColors.muted : AsoudColors.primary,
+              ),
+            ]),
           ),
         ),
       );

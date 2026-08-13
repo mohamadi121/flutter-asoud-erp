@@ -7,6 +7,8 @@ import '../../domain/entities/office.dart';
 import '../../domain/repositories/office_repository.dart';
 import '../cubit/offices_cubit.dart';
 import 'office_type_page.dart';
+import 'office_form_page.dart';
+import 'office_details_page.dart';
 import '../../../dashboard/presentation/pages/dashboard_page.dart';
 
 class OfficesPage extends StatelessWidget {
@@ -42,7 +44,15 @@ class _OfficesView extends StatelessWidget {
   const _OfficesView();
 
   @override
-  Widget build(BuildContext context) => BlocBuilder<OfficesCubit, OfficesState>(
+  Widget build(BuildContext context) =>
+      BlocConsumer<OfficesCubit, OfficesState>(
+        listenWhen: (before, after) => before.message != after.message,
+        listener: (context, state) {
+          if (state.message != null) {
+            ScaffoldMessenger.of(context)
+                .showSnackBar(SnackBar(content: Text(state.message!)));
+          }
+        },
         builder: (context, state) => Scaffold(
           appBar: AsoudHeader(
             title: 'دفترهای من',
@@ -114,6 +124,8 @@ class _OfficesView extends StatelessWidget {
           const AsoudSectionTitle(title: 'دفتر پیش‌فرض'),
           _OfficeCard(
             office: office,
+            isActive: true,
+            onSelect: null,
             onMenu: () => _showActions(context, office),
           ),
           const SizedBox(height: 14),
@@ -172,8 +184,14 @@ class _OfficesView extends StatelessWidget {
           ...state.filteredOffices.map((office) => Padding(
                 padding: const EdgeInsets.only(bottom: 10),
                 child: _OfficeCard(
-                    office: office,
-                    onMenu: () => _showActions(context, office)),
+                  office: office,
+                  isActive: false,
+                  onSelect: state.changingDefault
+                      ? null
+                      : () =>
+                          context.read<OfficesCubit>().selectDefault(office),
+                  onMenu: () => _showActions(context, office),
+                ),
               )),
       ],
     );
@@ -193,34 +211,46 @@ class _OfficesView extends StatelessWidget {
         isScrollControlled: true,
         builder: (sheetContext) => SafeArea(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               Text('عملیات دفتر',
                   style: Theme.of(context)
                       .textTheme
                       .titleMedium
                       ?.copyWith(fontWeight: FontWeight.w800)),
-              const SizedBox(height: 8),
-              for (final item in const [
-                ('مشاهده اطلاعات دفتر', Icons.visibility_outlined, false),
-                ('ویرایش اطلاعات دفتر', Icons.edit_outlined, false),
-                ('مدیریت سال مالی', Icons.calendar_month_outlined, false),
-                ('غیرفعال‌کردن دفتر', Icons.block_outlined, false),
-                ('حذف دفتر', Icons.delete_outline_rounded, true),
-              ])
-                ListTile(
-                  enabled: false,
-                  leading:
-                      Icon(item.$2, color: item.$3 ? AsoudColors.danger : null),
-                  title: Text(item.$1,
-                      style: TextStyle(
-                          color: item.$3 ? AsoudColors.danger : null)),
-                  subtitle: const Text('نیازمند API'),
-                ),
-              const SizedBox(height: 8),
-              OutlinedButton(
-                  onPressed: () => Navigator.pop(sheetContext),
-                  child: const Text('بستن')),
+              const SizedBox(height: 4),
+              _OfficeAction(
+                icon: Icons.visibility_outlined,
+                title: 'مشاهده اطلاعات دفتر',
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  Navigator.of(context).push(MaterialPageRoute<void>(
+                    builder: (_) => OfficeDetailsPage(office: office),
+                  ));
+                },
+              ),
+              _OfficeAction(
+                icon: Icons.edit_outlined,
+                title: 'ویرایش اطلاعات دفتر',
+                onTap: () async {
+                  Navigator.pop(sheetContext);
+                  await Navigator.of(context).push(MaterialPageRoute<void>(
+                    builder: (_) => OfficeFormPage(
+                      officeType: office.type,
+                      office: office,
+                    ),
+                  ));
+                  if (context.mounted) context.read<OfficesCubit>().retry();
+                },
+              ),
+              _OfficeAction(
+                icon: Icons.check_circle_outline_rounded,
+                title: 'انتخاب به‌عنوان دفتر فعال',
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  context.read<OfficesCubit>().selectDefault(office);
+                },
+              ),
             ]),
           ),
         ),
@@ -252,6 +282,31 @@ class _SuccessBanner extends StatelessWidget {
       );
 }
 
+class _OfficeAction extends StatelessWidget {
+  const _OfficeAction({
+    required this.icon,
+    required this.title,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => ListTile(
+        dense: true,
+        minTileHeight: 48,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+        leading: AsoudIconBox(icon: icon, color: AsoudColors.primary, size: 36),
+        title: Text(title,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+        trailing: const Icon(Icons.chevron_left_rounded, size: 20),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        onTap: onTap,
+      );
+}
+
 class _OfflineBanner extends StatelessWidget {
   const _OfflineBanner();
   @override
@@ -279,9 +334,13 @@ class _OfficeCard extends StatelessWidget {
   const _OfficeCard({
     required this.office,
     required this.onMenu,
+    required this.isActive,
+    required this.onSelect,
   });
   final Office office;
   final VoidCallback onMenu;
+  final bool isActive;
+  final VoidCallback? onSelect;
   @override
   Widget build(BuildContext context) => Material(
         key: ValueKey('office-card-${office.name}'),
@@ -291,96 +350,117 @@ class _OfficeCard extends StatelessWidget {
           side: const BorderSide(color: AsoudColors.border),
           borderRadius: BorderRadius.circular(15),
         ),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 148),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 18, 14, 12),
-              child:
-                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                AsoudIconBox(
-                  icon: office.type == OfficeType.legal
-                      ? Icons.apartment_rounded
-                      : Icons.person_rounded,
-                  color: office.type == OfficeType.legal
-                      ? AsoudColors.primary
-                      : AsoudColors.success,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                    child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                      Text(office.name,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              fontSize: 15, fontWeight: FontWeight.w900)),
-                      const SizedBox(height: 5),
-                      Text(
-                        office.type == OfficeType.legal
-                            ? 'حقوقی • ${office.city?.isNotEmpty == true ? office.city : 'تهران'}، ایران'
-                            : 'حقیقی • ${office.city?.isNotEmpty == true ? office.city : 'تهران'}، ایران',
-                        style: const TextStyle(
-                            color: AsoudColors.muted, fontSize: 10),
-                      ),
-                      const SizedBox(height: 12),
-                      Wrap(spacing: 6, runSpacing: 6, children: [
-                        _Badge(
-                            label: office.type == OfficeType.legal
-                                ? 'حقوقی'
-                                : 'حقیقی',
-                            color: AsoudColors.primary),
-                        const _Badge(label: 'فعال', color: AsoudColors.success),
-                        _Badge(
-                          label:
-                              'سال مالی ${office.fiscalYear?.isNotEmpty == true ? office.fiscalYear : _persianFiscalYear(office.fiscalYearStart)}',
-                          color: AsoudColors.warning,
+        child: InkWell(
+            onTap: onSelect,
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 148),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 18, 14, 12),
+                  child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        AsoudIconBox(
+                          icon: office.type == OfficeType.legal
+                              ? Icons.apartment_rounded
+                              : Icons.person_rounded,
+                          color: office.type == OfficeType.legal
+                              ? AsoudColors.primary
+                              : AsoudColors.success,
                         ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                            child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                              Text(office.name,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w900)),
+                              const SizedBox(height: 5),
+                              Text(
+                                office.type == OfficeType.legal
+                                    ? 'حقوقی • ${office.city?.isNotEmpty == true ? office.city : 'تهران'}، ایران'
+                                    : 'حقیقی • ${office.city?.isNotEmpty == true ? office.city : 'تهران'}، ایران',
+                                style: const TextStyle(
+                                    color: AsoudColors.muted, fontSize: 10),
+                              ),
+                              const SizedBox(height: 12),
+                              Wrap(spacing: 6, runSpacing: 6, children: [
+                                _Badge(
+                                    label: office.type == OfficeType.legal
+                                        ? 'حقوقی'
+                                        : 'حقیقی',
+                                    color: AsoudColors.primary),
+                                const _Badge(
+                                    label: 'فعال', color: AsoudColors.success),
+                                _Badge(
+                                  label:
+                                      'سال مالی ${office.fiscalYear?.isNotEmpty == true ? office.fiscalYear : _persianFiscalYear(office.fiscalYearStart)}',
+                                  color: AsoudColors.warning,
+                                ),
+                              ]),
+                              const SizedBox(height: 11),
+                              const Divider(
+                                  height: 1, color: AsoudColors.border),
+                              const SizedBox(height: 9),
+                              Text(
+                                'آخرین همگام‌سازی: ${_syncLabel(office.lastSyncedAt)}',
+                                style: const TextStyle(
+                                  color: AsoudColors.muted,
+                                  fontSize: 9,
+                                ),
+                              ),
+                            ])),
+                        IconButton(
+                            key: ValueKey('office-menu-${office.name}'),
+                            onPressed: onMenu,
+                            icon: const Icon(Icons.more_vert_rounded)),
                       ]),
-                      const SizedBox(height: 11),
-                      const Divider(height: 1, color: AsoudColors.border),
-                      const SizedBox(height: 9),
-                      Text(
-                        'آخرین همگام‌سازی: ${_syncLabel(office.lastSyncedAt)}',
-                        style: const TextStyle(
-                          color: AsoudColors.muted,
-                          fontSize: 9,
-                        ),
-                      ),
-                    ])),
-                IconButton(
-                    key: ValueKey('office-menu-${office.name}'),
-                    onPressed: onMenu,
-                    icon: const Icon(Icons.more_vert_rounded)),
-              ]),
-            ),
-          ),
-          Container(
-            height: 1,
-            color: AsoudColors.success.withValues(alpha: .22),
-          ),
-          Container(
-            key: ValueKey('office-active-footer-${office.name}'),
-            width: double.infinity,
-            height: 38,
-            alignment: Alignment.center,
-            color: const Color(0xFFEAF8F0),
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.check_circle_rounded,
-                    size: 15, color: AsoudColors.success),
-                SizedBox(width: 5),
-                Text('دفتر فعال',
-                    style: TextStyle(
-                        color: AsoudColors.success,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800)),
-              ],
-            ),
-          ),
-        ]),
+                ),
+              ),
+              if (isActive) ...[
+                Container(
+                  height: 1,
+                  color: AsoudColors.success.withValues(alpha: .22),
+                ),
+                Container(
+                  key: ValueKey('office-active-footer-${office.name}'),
+                  width: double.infinity,
+                  height: 38,
+                  alignment: Alignment.center,
+                  color: const Color(0xFFEAF8F0),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.check_circle_rounded,
+                          size: 15, color: AsoudColors.success),
+                      SizedBox(width: 5),
+                      Text('دفتر فعال',
+                          style: TextStyle(
+                              color: AsoudColors.success,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800)),
+                    ],
+                  ),
+                ),
+              ] else
+                Container(
+                  width: double.infinity,
+                  height: 38,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    border: Border(top: BorderSide(color: AsoudColors.border)),
+                  ),
+                  child: const Text('برای انتخاب به‌عنوان دفتر فعال لمس کنید',
+                      style: TextStyle(
+                          color: AsoudColors.primary,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700)),
+                ),
+            ])),
       );
 
   static String _persianFiscalYear(DateTime date) {

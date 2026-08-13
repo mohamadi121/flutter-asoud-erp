@@ -11,6 +11,7 @@ class OfficesState extends Equatable {
     this.message,
     this.showCreatedBanner = false,
     this.offlinePreview = false,
+    this.changingDefault = false,
   });
 
   final OfficesStatus status;
@@ -20,6 +21,7 @@ class OfficesState extends Equatable {
   final String? message;
   final bool showCreatedBanner;
   final bool offlinePreview;
+  final bool changingDefault;
 
   List<Office> get filteredOffices {
     final normalized = query.trim().toLowerCase();
@@ -39,15 +41,18 @@ class OfficesState extends Equatable {
     String? message,
     bool? showCreatedBanner,
     bool? offlinePreview,
+    bool? changingDefault,
+    bool clearMessage = false,
   }) =>
       OfficesState(
         status: status ?? this.status,
         offices: offices ?? this.offices,
         defaultOffice: defaultOffice ?? this.defaultOffice,
         query: query ?? this.query,
-        message: message ?? this.message,
+        message: clearMessage ? null : message ?? this.message,
         showCreatedBanner: showCreatedBanner ?? this.showCreatedBanner,
         offlinePreview: offlinePreview ?? this.offlinePreview,
+        changingDefault: changingDefault ?? this.changingDefault,
       );
 
   @override
@@ -58,6 +63,7 @@ class OfficesState extends Equatable {
         query,
         message,
         showCreatedBanner,
-        offlinePreview
+        offlinePreview,
+        changingDefault,
       ];
 }

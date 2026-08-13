@@ -84,4 +84,14 @@ class FrappeOfficeRepository implements OfficeRepository {
     if (values['company'] == null) return null;
     return OfficeModel.fromSetup(values);
   }
+
+  @override
+  Future<Office> setDefaultOffice(Office office) async {
+    final data = await _client.callAsoudMethod(
+      'asoud_erp.api.v1.setup.set_default_office',
+      data: {'company': office.name},
+    );
+    if (data is! Map) throw const ApiException.protocol();
+    return OfficeModel.fromSetup(Map<String, dynamic>.from(data));
+  }
 }
