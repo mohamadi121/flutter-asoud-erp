@@ -12,6 +12,8 @@ class ServerFirstOfficeRepository implements OfficeRepository {
   }) : _local = local ?? LocalDatabaseStore.instance;
 
   static const _entityType = 'office';
+  static const _preferenceEntityType = 'office_preference';
+  static const _defaultOfficeId = 'office_preference:default';
   final OfficeRepository _remote;
   final LocalRecordStore _local;
 
@@ -61,12 +63,44 @@ class ServerFirstOfficeRepository implements OfficeRepository {
     try {
       final office = await _remote.getDefaultOffice();
       if (office != null) await _cacheRemote(office);
-      final local = (await _localOffices()).firstOrNull;
-      return local ?? office;
+      if (office != null) await _saveDefaultName(office.name);
+      return await _localDefaultOffice() ?? office;
     } catch (error) {
       if (!isRetryableOfflineFailure(error)) rethrow;
-      return (await _localOffices()).firstOrNull;
+      return await _localDefaultOffice() ?? (await _localOffices()).firstOrNull;
     }
+  }
+
+  @override
+  Future<Office> setDefaultOffice(Office office) async {
+    await _saveDefaultName(office.name);
+    try {
+      final saved = await _remote.setDefaultOffice(office);
+      await _save(saved, LocalSyncStatus.synced);
+      await _saveDefaultName(saved.name, status: LocalSyncStatus.synced);
+      return saved;
+    } catch (error) {
+      if (!isRetryableOfflineFailure(error)) rethrow;
+      await _save(office, LocalSyncStatus.pendingSync);
+      rethrow;
+    }
+  }
+
+  Future<void> _saveDefaultName(String name,
+          {LocalSyncStatus status = LocalSyncStatus.pendingSync}) =>
+      _local.save(
+        id: _defaultOfficeId,
+        entityType: _preferenceEntityType,
+        payload: {'company': name},
+        status: status,
+      );
+
+  Future<Office?> _localDefaultOffice() async {
+    final preference = await _local.get(_defaultOfficeId);
+    final name = preference?.payload['company']?.toString();
+    if (name == null || name.isEmpty) return null;
+    final offices = await _localOffices();
+    return offices.where((office) => office.name == name).firstOrNull;
   }
 
   Future<void> _save(Office office, LocalSyncStatus status) => _local.save(

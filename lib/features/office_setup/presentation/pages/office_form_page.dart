@@ -12,20 +12,23 @@ import '../../domain/repositories/office_repository.dart';
 import '../bloc/office_form_bloc.dart';
 
 class OfficeFormPage extends StatelessWidget {
-  const OfficeFormPage({required this.officeType, super.key});
+  const OfficeFormPage({required this.officeType, this.office, super.key});
   final OfficeType officeType;
+  final Office? office;
   @override
   Widget build(BuildContext context) => BlocProvider(
         create: (context) => OfficeFormBloc(
           officeType: officeType,
           repository: context.read<OfficeRepository>(),
+          office: office,
         ),
-        child: const _OfficeFormView(),
+        child: _OfficeFormView(editing: office != null),
       );
 }
 
 class _OfficeFormView extends StatefulWidget {
-  const _OfficeFormView();
+  const _OfficeFormView({required this.editing});
+  final bool editing;
   @override
   State<_OfficeFormView> createState() => _OfficeFormViewState();
 }
@@ -66,6 +69,10 @@ class _OfficeFormViewState extends State<_OfficeFormView> {
           if ((state.status == OfficeFormStatus.success ||
                   state.status == OfficeFormStatus.offlinePreview) &&
               state.createdOffice != null) {
+            if (widget.editing) {
+              Navigator.of(context).pop(state.createdOffice);
+              return;
+            }
             final offline = state.status == OfficeFormStatus.offlinePreview;
             Navigator.of(context).pushAndRemoveUntil(
               MaterialPageRoute<void>(

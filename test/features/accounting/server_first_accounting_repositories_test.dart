@@ -63,6 +63,27 @@ void main() {
     expect(local.records.values.single.status, LocalSyncStatus.pendingSync);
     expect((await repository.getGroups()).single.title, group.title);
   });
+
+  test('قالب پیشنهادی در قطع اتصال روی گوشی ساخته و قابل خواندن است', () async {
+    final local = FakeLocalRecordStore();
+    final repository = ServerFirstChartOfAccountsRepository(
+      _ChartRepository(account, error: _networkError),
+      local: local,
+    );
+
+    final preview = await repository.previewTemplate('دفتر', 'Iran Standard');
+    final saved = await repository.applyTemplate('دفتر', 'Iran Standard');
+    final restored = await repository.getAccounts('دفتر');
+
+    expect(preview, isNotEmpty);
+    expect(saved, isNotEmpty);
+    expect(restored.map((item) => item.code), containsAll(['1', '11', '1101']));
+    expect(
+        local.records.values.any(
+          (record) => record.status == LocalSyncStatus.pendingSync,
+        ),
+        isTrue);
+  });
 }
 
 const _networkError = ApiException(

@@ -89,13 +89,17 @@ class ServerFirstChartOfAccountsRepository
       return saved;
     } catch (error) {
       if (!isRetryableOfflineFailure(error)) rethrow;
+      final offlineAccounts = _offlineTemplateAccounts(company, template);
+      for (final account in offlineAccounts) {
+        await _save(company, account, LocalSyncStatus.pendingSync);
+      }
       await _local.save(
         id: 'account-template:${Uri.encodeComponent(company)}',
         entityType: 'account_template:$company',
         payload: {'template': template},
         status: LocalSyncStatus.pendingSync,
       );
-      rethrow;
+      return offlineAccounts;
     }
   }
 
@@ -103,8 +107,14 @@ class ServerFirstChartOfAccountsRepository
   Future<List<ChartTemplateRow>> previewTemplate(
     String company,
     String template,
-  ) =>
-      _remote.previewTemplate(company, template);
+  ) async {
+    try {
+      return await _remote.previewTemplate(company, template);
+    } catch (error) {
+      if (!isRetryableOfflineFailure(error)) rethrow;
+      return _offlineTemplateRows(template);
+    }
+  }
 
   Future<void> _cacheRemote(String company, AccountNode account) async {
     final existing = await _local.get(_id(company, account));
@@ -145,9 +155,61 @@ class ServerFirstChartOfAccountsRepository
 
   String _id(String company, AccountNode value) =>
       'account:${Uri.encodeComponent(company)}:${Uri.encodeComponent(_key(value))}';
-  String _key(AccountNode value) => value.id.isNotEmpty
-      ? value.id
-      : '${value.level.name}:${value.code}:${value.title}';
+  String _key(AccountNode value) => value.code.isNotEmpty
+      ? '${value.level.name}:${value.code}'
+      : value.id.isNotEmpty
+          ? value.id
+          : '${value.level.name}:${value.title}';
+
+  List<ChartTemplateRow> _offlineTemplateRows(String template) {
+    if (template != 'Iran Standard') return const [];
+    return const [
+      ChartTemplateRow(key: '1', level: 'Group', title: 'دارایی‌ها'),
+      ChartTemplateRow(
+          key: '11',
+          level: 'General',
+          title: 'دارایی‌های جاری',
+          parentKey: '1'),
+      ChartTemplateRow(
+          key: '1101',
+          level: 'Ledger',
+          title: 'موجودی نقد و بانک',
+          parentKey: '11'),
+      ChartTemplateRow(key: '2', level: 'Group', title: 'بدهی‌ها'),
+      ChartTemplateRow(
+          key: '21', level: 'General', title: 'بدهی‌های جاری', parentKey: '2'),
+      ChartTemplateRow(
+          key: '2101',
+          level: 'Ledger',
+          title: 'حساب‌های پرداختنی',
+          parentKey: '21'),
+      ChartTemplateRow(key: '3', level: 'Group', title: 'حقوق مالکانه'),
+      ChartTemplateRow(key: '4', level: 'Group', title: 'درآمدها'),
+      ChartTemplateRow(key: '5', level: 'Group', title: 'هزینه‌ها'),
+    ];
+  }
+
+  List<AccountNode> _offlineTemplateAccounts(String company, String template) {
+    final rows = _offlineTemplateRows(template);
+    String id(String key) =>
+        'offline-template:${Uri.encodeComponent(company)}:$key';
+    return rows
+        .map((row) => AccountNode(
+              id: id(row.key),
+              code: row.key,
+              title: row.title,
+              level: switch (row.level) {
+                'Group' => AccountLevel.group,
+                'General' => AccountLevel.general,
+                _ => AccountLevel.ledger,
+              },
+              parentId: row.parentKey == null ? null : id(row.parentKey!),
+              nature: const {'2', '21', '2101', '3', '4'}.contains(row.key)
+                  ? AccountNature.credit
+                  : AccountNature.debit,
+            ))
+        .toList(growable: false);
+  }
 
   Map<String, dynamic> _encode(AccountNode value) => {
         'id': value.id,

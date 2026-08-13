@@ -16,17 +16,30 @@ class OfficeFormBloc extends Bloc<OfficeFormEvent, OfficeFormState> {
   OfficeFormBloc({
     required OfficeType officeType,
     required OfficeRepository repository,
+    Office? office,
     this.allowOfflinePreview = AppConfig.offlineDemoMode,
   })  : _repository = repository,
+        _originalOffice = office,
         super(OfficeFormState(
-          officeType: officeType,
-          activityType: 'بازرگانی',
-          companyType: officeType == OfficeType.legal ? 'سهامی خاص' : '',
-          parentOffice: 'ندارد',
-          province: 'تهران',
-          city: 'تهران',
-          fiscalYear: '۱۴۰۵',
-          chartTemplate: 'استاندارد ایران',
+          officeType: office?.type ?? officeType,
+          officeName: office?.name ?? '',
+          ownerFullName: office?.ownerFullName ?? '',
+          registrationNumber: office?.registrationNumber ?? '',
+          nationalId: office?.nationalId ?? '',
+          activityType: office?.activityType ?? 'بازرگانی',
+          companyType: office?.companyType ??
+              (officeType == OfficeType.legal ? 'سهامی خاص' : ''),
+          parentOffice: office?.parentOffice ?? 'ندارد',
+          phone: office?.phone ?? '',
+          email: office?.email ?? '',
+          website: office?.website ?? '',
+          province: office?.province ?? 'تهران',
+          city: office?.city ?? 'تهران',
+          address: office?.address ?? '',
+          postalCode: office?.postalCode ?? '',
+          fiscalYear: office?.fiscalYear ?? '۱۴۰۵',
+          chartTemplate: office?.chartTemplate ?? 'استاندارد ایران',
+          description: office?.description ?? '',
         )) {
     on<OfficeTypeChanged>((event, emit) => emit(state.copyWith(
           officeType: event.value,
@@ -44,6 +57,7 @@ class OfficeFormBloc extends Bloc<OfficeFormEvent, OfficeFormState> {
   }
 
   final OfficeRepository _repository;
+  final Office? _originalOffice;
   final bool allowOfflinePreview;
 
   void _fieldChanged(OfficeFieldChanged event, Emitter<OfficeFormState> emit) {
@@ -94,7 +108,7 @@ class OfficeFormBloc extends Bloc<OfficeFormEvent, OfficeFormState> {
         errors: const {},
         clearMessage: true));
     try {
-      final office = await _repository.createOffice(Office(
+      final draft = Office(
         name: state.officeName.trim(),
         type: state.officeType,
         fiscalYearStart: DateTime(DateTime.now().year, 1),
@@ -114,7 +128,10 @@ class OfficeFormBloc extends Bloc<OfficeFormEvent, OfficeFormState> {
         fiscalYear: state.fiscalYear.trim(),
         chartTemplate: state.chartTemplate.trim(),
         description: state.description.trim(),
-      ));
+      );
+      final office = _originalOffice == null
+          ? await _repository.createOffice(draft)
+          : await _repository.updateOffice(_originalOffice.name, draft);
       emit(state.copyWith(
           status: OfficeFormStatus.success,
           createdOffice: office,

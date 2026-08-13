@@ -32,4 +32,10 @@ class FakeOfficeRepository implements OfficeRepository {
     if (error != null) throw error!;
     return office;
   }
+
+  @override
+  Future<Office> setDefaultOffice(Office office) async {
+    if (error != null) throw error!;
+    return office;
+  }
 }
