@@ -42,10 +42,11 @@ class _ChartTemplatePageState extends State<ChartTemplatePage> {
     try {
       await widget.repository.applyTemplate(widget.company, template);
       if (mounted) Navigator.of(context).pop(true);
-    } catch (_) {
+    } catch (exception) {
       if (mounted) {
-        setState(() => error =
-            'ایجاد سرفصل‌ها در ASOUD ERP انجام نشد و موفقیت ظاهری ثبت نشد.');
+        setState(() => error = exception is StateError
+            ? exception.message
+            : 'ایجاد سرفصل‌ها در ASOUD ERP انجام نشد و موفقیت ظاهری ثبت نشد.');
       }
     } finally {
       if (mounted) setState(() => saving = false);

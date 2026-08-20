@@ -35,8 +35,9 @@ void main() {
       local: local,
     );
 
-    await expectLater(repository.save(profile), throwsA(_networkError));
+    final saved = await repository.save(profile);
 
+    expect(saved.displayName, profile.displayName);
     expect(local.records.values.single.status, LocalSyncStatus.pendingSync);
     final values = await repository.list(company: 'دفتر');
     expect(values.single.displayName, profile.displayName);

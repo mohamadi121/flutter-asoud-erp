@@ -110,6 +110,8 @@ void main() {
 
 class _FakeChartRepository implements ChartOfAccountsRepository {
   @override
+  Future<void> deleteAccount(String company, AccountNode account) async {}
+  @override
   Future<List<ChartTemplateRow>> previewTemplate(
           String company, String template) async =>
       const [

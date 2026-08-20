@@ -8,6 +8,39 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../helpers/fake_local_record_store.dart';
 
 void main() {
+  test('داشبورد HR بدون سرور به حالت خالی قابل استفاده برمی‌گردد', () async {
+    final repository = ServerFirstHrRepository(_OfflineHrRepository(),
+        local: FakeLocalRecordStore());
+
+    final dashboard = await repository.dashboard('دفتر');
+
+    expect(dashboard.employee.id, isEmpty);
+    expect(dashboard.employee.company, 'دفتر');
+  });
+
+  test('پرسنل ثبت‌شده محلی در فهرست HR دیده می‌شود', () async {
+    final local = FakeLocalRecordStore();
+    await local.save(
+      id: 'party:local-1',
+      entityType: 'party_profile',
+      payload: const {
+        'id': 'local-1',
+        'display_name': 'پرسنل محلی',
+        'company': 'دفتر',
+        'roles': ['employee'],
+        'department': 'مالی',
+      },
+      status: LocalSyncStatus.pendingSync,
+    );
+    final repository =
+        ServerFirstHrRepository(_OfflineHrRepository(), local: local);
+
+    final team = await repository.team();
+
+    expect(team.single.name, 'پرسنل محلی');
+    expect(team.single.department, 'مالی');
+  });
+
   test('پیش‌نویس گزارش کار در قطع اتصال روی گوشی باقی می‌ماند', () async {
     final local = FakeLocalRecordStore();
     final repository =

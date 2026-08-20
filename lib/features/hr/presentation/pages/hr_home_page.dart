@@ -8,6 +8,8 @@ import '../../../../core/widgets/asoud_ui.dart';
 import '../../domain/hr_models.dart';
 import '../../domain/hr_repository.dart';
 import '../cubit/hr_cubit.dart';
+import '../../../parties/presentation/pages/party_management_page.dart';
+import '../../../parties/domain/entities/party_profile.dart';
 
 class HrHomePage extends StatelessWidget {
   const HrHomePage({required this.company, super.key});
@@ -37,6 +39,9 @@ class _HrHome extends StatelessWidget {
               return _Error(onRetry: context.read<HrCubit>().loadDashboard);
             }
             final data = state.dashboard!;
+            if (data.employee.id.isEmpty) {
+              return _OfflineHrHome(company: company);
+            }
             return RefreshIndicator(
               onRefresh: context.read<HrCubit>().loadDashboard,
               child: ListView(
@@ -78,6 +83,16 @@ class _HrHome extends StatelessWidget {
                       () => _push(
                           context, HrProfilePage(employee: data.employee))),
                   _Action(
+                      'مدیریت پرسنل',
+                      'مشاهده، ایجاد و ویرایش اطلاعات پرسنلی',
+                      Icons.people_alt_outlined,
+                      AsoudColors.warning,
+                      () => _push(
+                          context,
+                          PartyManagementPage(
+                              company: company,
+                              initialRole: PartyRole.employee))),
+                  _Action(
                       'تیم و ساختار سازمانی',
                       'همکاران، واحدها و مسیر سازمانی',
                       Icons.account_tree_outlined,
@@ -111,6 +126,79 @@ class _HrHome extends StatelessWidget {
       );
   void _push(BuildContext context, Widget page) =>
       Navigator.push(context, MaterialPageRoute<void>(builder: (_) => page));
+}
+
+class _OfflineHrHome extends StatelessWidget {
+  const _OfflineHrHome({required this.company});
+  final String company;
+
+  @override
+  Widget build(BuildContext context) => ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AsoudColors.warning.withValues(alpha: .08),
+              border:
+                  Border.all(color: AsoudColors.warning.withValues(alpha: .35)),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Row(children: [
+              AsoudIconBox(
+                  icon: Icons.cloud_off_rounded, color: AsoudColors.warning),
+              SizedBox(width: 10),
+              Expanded(
+                  child: Text(
+                'اتصال به سرور برقرار نیست. اطلاعات این بخش روی گوشی ذخیره می‌شود و پس از اتصال همگام خواهد شد.',
+                style: TextStyle(fontSize: 10),
+              )),
+            ]),
+          ),
+          const SizedBox(height: 16),
+          const AsoudSectionTitle(title: 'منابع انسانی'),
+          _Action(
+            'پرسنل و اشخاص',
+            'ثبت و ویرایش اطلاعات پرسنل به‌صورت محلی',
+            Icons.people_alt_outlined,
+            AsoudColors.cyan,
+            () => Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => PartyManagementPage(
+                      company: company, initialRole: PartyRole.employee),
+                )),
+          ),
+          _Action(
+            'گزارش کار روزانه',
+            'ثبت پیش‌نویس و نگهداری روی گوشی',
+            Icons.fact_check_outlined,
+            AsoudColors.success,
+            () => Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => WorkReportsPage(company: company),
+                )),
+          ),
+          _Action(
+            'مکاتبات داخلی',
+            'ثبت پیش‌نویس آفلاین برای همگام‌سازی بعدی',
+            Icons.mark_email_unread_outlined,
+            AsoudColors.purple,
+            () => Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => HrCommunicationsPage(company: company),
+                )),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: context.read<HrCubit>().loadDashboard,
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('بررسی دوباره اتصال'),
+          ),
+        ],
+      );
 }
 
 class HrProfilePage extends StatelessWidget {

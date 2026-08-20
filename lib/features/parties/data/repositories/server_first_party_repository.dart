@@ -37,7 +37,13 @@ class ServerFirstPartyRepository implements PartyRepository {
     PartyRole? primaryRole,
     Set<String> detailGroups = const {},
   }) async {
-    final draft = _copyProfile(profile, detailGroups: detailGroups);
+    final draft = _copyProfile(
+      profile,
+      id: profile.id?.isNotEmpty == true
+          ? profile.id
+          : 'LOCAL-${DateTime.now().microsecondsSinceEpoch}',
+      detailGroups: detailGroups,
+    );
     try {
       final saved = await _remote.save(
         profile,
@@ -49,7 +55,7 @@ class ServerFirstPartyRepository implements PartyRepository {
     } catch (error) {
       if (!isRetryableOfflineFailure(error)) rethrow;
       await _saveProfile(draft, LocalSyncStatus.pendingSync);
-      rethrow;
+      return draft;
     }
   }
 
@@ -405,9 +411,9 @@ class ServerFirstPartyRepository implements PartyRepository {
       );
 
   PartyProfile _copyProfile(PartyProfile value,
-          {Set<String>? detailGroups, bool? disabled}) =>
+          {String? id, Set<String>? detailGroups, bool? disabled}) =>
       PartyProfile(
-        id: value.id,
+        id: id ?? value.id,
         company: value.company,
         kind: value.kind,
         displayName: value.displayName,

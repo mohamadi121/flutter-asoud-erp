@@ -11,6 +11,7 @@ import 'fiscal_years_page.dart';
 import '../../../accounting/presentation/pages/chart_setup_page.dart';
 import '../../../accounting/presentation/pages/detail_groups_page.dart';
 import '../../../parties/presentation/pages/party_management_page.dart';
+import '../../../parties/domain/entities/party_profile.dart';
 import '../../../hr/presentation/pages/hr_home_page.dart';
 
 class BaseAccountingSetupPage extends StatelessWidget {
@@ -38,59 +39,75 @@ class BaseAccountingSetupPage extends StatelessWidget {
               const Text('ماژول‌های تنظیمات پایه',
                   style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900)),
               const SizedBox(height: 10),
-              _ModuleTile(
-                title: 'حسابداری و مالی',
-                subtitle: 'سال مالی، کدینگ، سرفصل‌ها و گروه‌های تفصیلی',
-                icon: Icons.account_balance_rounded,
-                color: AsoudColors.primary,
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => AccountingBaseSetupPage(
-                      officeName: officeName,
-                      offlinePreview: offlinePreview,
+              GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: 2,
+                childAspectRatio: 1.12,
+                mainAxisSpacing: 10,
+                crossAxisSpacing: 10,
+                children: [
+                  _ModuleGridTile(
+                    title: 'حسابداری',
+                    subtitle: 'کدینگ، سرفصل‌ها و تفصیلی',
+                    icon: Icons.account_balance_rounded,
+                    color: AsoudColors.primary,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                          builder: (_) => AccountingBaseSetupPage(
+                                officeName: officeName,
+                                offlinePreview: offlinePreview,
+                              )),
                     ),
                   ),
-                ),
-              ),
-              _ModuleTile(
-                title: 'مدیریت اشخاص',
-                subtitle: 'مشتریان، تأمین‌کنندگان، پرسنل و سایر اشخاص',
-                icon: Icons.people_alt_rounded,
-                color: AsoudColors.cyan,
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => PartyManagementPage(company: officeName),
+                  const _ModuleGridTile(
+                    title: 'مالی و خزانه',
+                    subtitle: 'بانک، صندوق و پرداخت‌ها',
+                    icon: Icons.account_balance_wallet_outlined,
+                    color: AsoudColors.success,
                   ),
-                ),
-              ),
-              const _ModuleTile(
-                title: 'خرید و تدارکات',
-                subtitle: 'تنظیمات تأمین‌کنندگان، درخواست و سفارش خرید',
-                icon: Icons.shopping_cart_checkout_rounded,
-                color: AsoudColors.warning,
-              ),
-              const _ModuleTile(
-                title: 'فروش و درآمد',
-                subtitle: 'تنظیمات مشتریان، قیمت‌گذاری و فروش',
-                icon: Icons.point_of_sale_rounded,
-                color: AsoudColors.success,
-              ),
-              const _ModuleTile(
-                title: 'انبار و کالا',
-                subtitle: 'تنظیمات کالا، واحد سنجش و انبارها',
-                icon: Icons.inventory_2_outlined,
-                color: AsoudColors.purple,
-              ),
-              _ModuleTile(
-                title: 'منابع انسانی',
-                subtitle: 'تنظیمات پرسنل، نقش‌ها و ساختار سازمانی',
-                icon: Icons.badge_outlined,
-                color: Color(0xFFEF6C5B),
-                onTap: officeName == null
-                    ? null
-                    : () => Navigator.of(context).push(MaterialPageRoute<void>(
-                          builder: (_) => HrHomePage(company: officeName!),
-                        )),
+                  const _ModuleGridTile(
+                    title: 'انبار و کالا',
+                    subtitle: 'کالا، واحد سنجش و انبارها',
+                    icon: Icons.inventory_2_outlined,
+                    color: AsoudColors.purple,
+                  ),
+                  _ModuleGridTile(
+                    title: 'منابع انسانی',
+                    subtitle: 'پرسنل، نقش‌ها و ساختار سازمانی',
+                    icon: Icons.badge_outlined,
+                    color: const Color(0xFFEF6C5B),
+                    onTap: officeName == null
+                        ? null
+                        : () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                  builder: (_) =>
+                                      HrHomePage(company: officeName!)),
+                            ),
+                  ),
+                  _ModuleGridTile(
+                    title: 'خرید و تدارکات',
+                    subtitle: 'تأمین‌کنندگان و سفارش خرید',
+                    icon: Icons.shopping_cart_checkout_rounded,
+                    color: AsoudColors.warning,
+                    onTap: () =>
+                        Navigator.of(context).push(MaterialPageRoute<void>(
+                      builder: (_) => PartyManagementPage(
+                          company: officeName, initialRole: PartyRole.supplier),
+                    )),
+                  ),
+                  _ModuleGridTile(
+                    title: 'فروش و درآمد',
+                    subtitle: 'مشتریان، قیمت‌گذاری و فروش',
+                    icon: Icons.point_of_sale_rounded,
+                    color: AsoudColors.success,
+                    onTap: () =>
+                        Navigator.of(context).push(MaterialPageRoute<void>(
+                      builder: (_) => PartyManagementPage(
+                          company: officeName, initialRole: PartyRole.customer),
+                    )),
+                  ),
+                ],
               ),
               const SizedBox(height: 4),
               const Text(
@@ -199,8 +216,8 @@ class AccountingBaseSetupPage extends StatelessWidget {
       );
 }
 
-class _ModuleTile extends StatelessWidget {
-  const _ModuleTile({
+class _ModuleGridTile extends StatelessWidget {
+  const _ModuleGridTile({
     required this.title,
     required this.subtitle,
     required this.icon,
@@ -214,36 +231,33 @@ class _ModuleTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Card(
-        margin: const EdgeInsets.only(bottom: 10),
+        margin: EdgeInsets.zero,
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(14),
           child: Padding(
-            padding: const EdgeInsets.all(13),
-            child: Row(children: [
-              AsoudIconBox(icon: icon, color: color, size: 44),
-              const SizedBox(width: 11),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title,
-                        style: const TextStyle(
-                            fontSize: 12, fontWeight: FontWeight.w800)),
-                    const SizedBox(height: 4),
-                    Text(subtitle,
-                        style: const TextStyle(
-                            fontSize: 9, color: AsoudColors.muted)),
-                  ],
-                ),
-              ),
-              Icon(
-                onTap == null
-                    ? Icons.lock_outline_rounded
-                    : Icons.chevron_left_rounded,
-                size: 20,
-                color: onTap == null ? AsoudColors.muted : AsoudColors.primary,
-              ),
+            padding: const EdgeInsets.all(12),
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                AsoudIconBox(icon: icon, color: color, size: 42),
+                Icon(
+                    onTap == null
+                        ? Icons.lock_outline_rounded
+                        : Icons.chevron_left_rounded,
+                    size: 18,
+                    color: onTap == null ? AsoudColors.muted : color),
+              ]),
+              const Spacer(),
+              Text(title,
+                  style: const TextStyle(
+                      fontSize: 11, fontWeight: FontWeight.w900)),
+              const SizedBox(height: 4),
+              Text(subtitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style:
+                      const TextStyle(fontSize: 8.5, color: AsoudColors.muted)),
             ]),
           ),
         ),
