@@ -121,6 +121,11 @@ class _ChartRepository implements ChartOfAccountsRepository {
   }
 
   @override
+  Future<void> deleteAccount(String company, AccountNode value) async {
+    _check();
+  }
+
+  @override
   Future<List<AccountNode>> importAccounts(
       String company, List<Map<String, dynamic>> rows) async {
     _check();

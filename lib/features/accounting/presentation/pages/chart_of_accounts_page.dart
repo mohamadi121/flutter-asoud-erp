@@ -7,7 +7,6 @@ import '../../domain/entities/account_node.dart';
 import '../../domain/repositories/chart_of_accounts_repository.dart';
 import '../cubit/chart_of_accounts_cubit.dart';
 import 'account_form_page.dart';
-import 'account_level_page.dart';
 
 class ChartOfAccountsPage extends StatelessWidget {
   const ChartOfAccountsPage({this.company, this.repository, super.key});
@@ -246,78 +245,59 @@ class _AccountTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasChildren = account.children.isNotEmpty;
     final color = _levelColor(account.level);
+    final horizontalInset = switch (account.level) {
+      AccountLevel.group => 0.0,
+      AccountLevel.general => 10.0,
+      AccountLevel.ledger => 20.0,
+      AccountLevel.detail => 30.0,
+    };
+    final tileHeight = switch (account.level) {
+      AccountLevel.group => 86.0,
+      AccountLevel.general => 78.0,
+      AccountLevel.ledger => 70.0,
+      AccountLevel.detail => 62.0,
+    };
     if (hasChildren) {
-      return Card(
-        elevation: 0,
-        color: Colors.white,
-        child: ExpansionTile(
-          leading: _CodeBadge(code: account.code, color: color),
-          title: Text(account.title,
-              style: const TextStyle(fontWeight: FontWeight.w700)),
-          subtitle: Text(_levelTitle(account.level)),
-          trailing: account.level == AccountLevel.group ||
-                  account.level == AccountLevel.general
-              ? IconButton(
-                  tooltip: account.level == AccountLevel.group
-                      ? 'مشاهده حساب‌های کل'
-                      : 'مشاهده حساب‌های معین',
-                  onPressed: company == null || repository == null
-                      ? null
-                      : () async {
-                          final changed =
-                              await Navigator.of(context).push<bool>(
-                            MaterialPageRoute<bool>(
-                              builder: (_) => AccountLevelPage(
-                                parent: account,
-                                company: company!,
-                                repository: repository!,
-                              ),
-                            ),
-                          );
-                          if (changed == true && context.mounted) {
-                            context.read<ChartOfAccountsCubit>().load();
-                          }
-                        },
-                  icon: const Icon(Icons.chevron_left_rounded),
-                )
-              : null,
-          children: account.children
-              .map((child) => Padding(
-                  padding: const EdgeInsets.only(right: 12),
-                  child: _AccountTile(
-                    account: child,
-                    company: company,
-                    repository: repository,
-                  )))
-              .toList(),
-        ),
-      );
-    }
-    return Card(
-      elevation: 0,
-      color: Colors.white,
-      child: ListTile(
-        leading: _CodeBadge(code: account.code, color: color),
-        title: Text(account.title),
-        subtitle: Text(_levelTitle(account.level)),
-        trailing: IconButton(
-          icon: const Icon(Icons.edit_outlined),
-          onPressed: () async {
-            final saved = await Navigator.of(context).push<AccountNode>(
-              MaterialPageRoute<AccountNode>(
-                  builder: (_) => AccountFormPage(
-                        account: account,
+      return Padding(
+          padding: EdgeInsets.symmetric(horizontal: horizontalInset),
+          child: Card(
+            elevation: 0,
+            color: Colors.white,
+            child: ExpansionTile(
+              minTileHeight: tileHeight,
+              leading: _CodeBadge(code: account.code, color: color),
+              title: Text(account.title,
+                  style: const TextStyle(fontWeight: FontWeight.w700)),
+              subtitle: Text(_levelTitle(account.level)),
+              trailing: _AccountMenu(
+                  account: account, company: company, repository: repository),
+              children: account.children
+                  .map((child) => Padding(
+                      padding: const EdgeInsets.only(right: 12),
+                      child: _AccountTile(
+                        account: child,
                         company: company,
                         repository: repository,
-                      )),
-            );
-            if (saved != null && context.mounted) {
-              context.read<ChartOfAccountsCubit>().load();
-            }
-          },
-        ),
-      ),
-    );
+                      )))
+                  .toList(),
+            ),
+          ));
+    }
+    return Padding(
+        padding: EdgeInsets.symmetric(horizontal: horizontalInset),
+        child: Card(
+          elevation: 0,
+          color: Colors.white,
+          child: SizedBox(
+              height: tileHeight,
+              child: ListTile(
+                leading: _CodeBadge(code: account.code, color: color),
+                title: Text(account.title),
+                subtitle: Text(_levelTitle(account.level)),
+                trailing: _AccountMenu(
+                    account: account, company: company, repository: repository),
+              )),
+        ));
   }
 
   Color _levelColor(AccountLevel level) => switch (level) {
@@ -333,6 +313,76 @@ class _AccountTile extends StatelessWidget {
         AccountLevel.ledger => 'معین',
         AccountLevel.detail => 'تفصیلی',
       };
+}
+
+class _AccountMenu extends StatelessWidget {
+  const _AccountMenu(
+      {required this.account, required this.company, required this.repository});
+  final AccountNode account;
+  final String? company;
+  final ChartOfAccountsRepository? repository;
+
+  @override
+  Widget build(BuildContext context) => PopupMenuButton<String>(
+        onSelected: (value) =>
+            value == 'edit' ? _edit(context) : _delete(context),
+        itemBuilder: (_) => const [
+          PopupMenuItem(
+              value: 'edit',
+              child: ListTile(
+                  leading: Icon(Icons.edit_outlined), title: Text('ویرایش'))),
+          PopupMenuItem(
+              value: 'delete',
+              child: ListTile(
+                  leading: Icon(Icons.delete_outline, color: Colors.red),
+                  title: Text('حذف', style: TextStyle(color: Colors.red)))),
+        ],
+      );
+
+  Future<void> _edit(BuildContext context) async {
+    final saved = await Navigator.of(context)
+        .push<AccountNode>(MaterialPageRoute<AccountNode>(
+      builder: (_) => AccountFormPage(
+          account: account, company: company, repository: repository),
+    ));
+    if (saved != null && context.mounted) {
+      context.read<ChartOfAccountsCubit>().load();
+    }
+  }
+
+  Future<void> _delete(BuildContext context) async {
+    if (company == null || repository == null) return;
+    final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+              title: const Text('حذف سرفصل'),
+              content: Text(account.children.isEmpty
+                  ? 'سرفصل «${account.title}» حذف شود؟'
+                  : 'این سرفصل زیرمجموعه دارد و تا حذف زیرمجموعه‌ها قابل حذف نیست.'),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(dialogContext, false),
+                    child: const Text('انصراف')),
+                if (account.children.isEmpty)
+                  FilledButton(
+                      onPressed: () => Navigator.pop(dialogContext, true),
+                      child: const Text('حذف')),
+              ],
+            ));
+    if (confirmed != true || !context.mounted) return;
+    try {
+      await repository!.deleteAccount(company!, account);
+      if (context.mounted) context.read<ChartOfAccountsCubit>().load();
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text(
+                  'حذف سرفصل انجام نشد؛ گردش یا زیرمجموعه حساب را بررسی کنید.')),
+        );
+      }
+    }
+  }
 }
 
 class _CodeBadge extends StatelessWidget {

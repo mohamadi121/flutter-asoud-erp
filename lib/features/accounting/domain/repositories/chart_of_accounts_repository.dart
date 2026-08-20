@@ -5,6 +5,7 @@ abstract interface class ChartOfAccountsRepository {
   Future<AccountNode> createAccount(String company, AccountNode account,
       {required bool autoCode});
   Future<AccountNode> updateAccount(String company, AccountNode account);
+  Future<void> deleteAccount(String company, AccountNode account);
   Future<List<AccountNode>> importAccounts(
       String company, List<Map<String, dynamic>> rows);
   Future<List<ChartTemplateRow>> previewTemplate(

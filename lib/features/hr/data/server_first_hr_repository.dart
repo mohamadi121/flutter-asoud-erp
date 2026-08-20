@@ -11,15 +11,106 @@ class ServerFirstHrRepository implements HrRepository {
   final LocalRecordStore local;
 
   @override
-  Future<HrDashboard> dashboard(String company) => remote.dashboard(company);
+  Future<HrDashboard> dashboard(String company) async {
+    try {
+      final value = await remote.dashboard(company);
+      await local.save(
+        id: 'hr-dashboard:${Uri.encodeComponent(company)}',
+        entityType: 'hr_dashboard:$company',
+        payload: _dashboardToJson(value),
+        status: LocalSyncStatus.synced,
+      );
+      return value;
+    } catch (error) {
+      if (!isRetryableOfflineFailure(error)) rethrow;
+      final cached = await local.get(
+        'hr-dashboard:${Uri.encodeComponent(company)}',
+      );
+      if (cached != null) return HrDashboard.fromJson(cached.payload);
+      return HrDashboard(
+        employee: HrEmployee(id: '', name: '', company: company),
+      );
+    }
+  }
+
   @override
-  Future<HrEmployee> myProfile() => remote.myProfile();
+  Future<HrEmployee> myProfile() async {
+    try {
+      final value = await remote.myProfile();
+      await local.save(
+        id: 'hr-profile:me',
+        entityType: 'hr_profile',
+        payload: value.toJson(),
+        status: LocalSyncStatus.synced,
+      );
+      return value;
+    } catch (error) {
+      if (!isRetryableOfflineFailure(error)) rethrow;
+      final cached = await local.get('hr-profile:me');
+      return cached == null
+          ? const HrEmployee(id: '', name: '', company: '')
+          : HrEmployee.fromJson(cached.payload);
+    }
+  }
+
   @override
-  Future<List<HrEmployee>> team({String query = ''}) =>
-      remote.team(query: query);
+  Future<List<HrEmployee>> team({String query = ''}) async {
+    try {
+      final values = await remote.team(query: query);
+      for (final value in values) {
+        await local.save(
+          id: 'hr-employee:${value.id}',
+          entityType: 'hr_employee',
+          payload: value.toJson(),
+          status: LocalSyncStatus.synced,
+        );
+      }
+      return values;
+    } catch (error) {
+      if (!isRetryableOfflineFailure(error)) rethrow;
+      final values = (await local.list(entityType: 'hr_employee'))
+          .map((record) => HrEmployee.fromJson(record.payload));
+      final partyEmployees = (await local.list(entityType: 'party_profile'))
+          .where((record) => (record.payload['roles'] as List? ?? const [])
+              .map((role) => role.toString())
+              .contains('employee'))
+          .map((record) => HrEmployee(
+                id: record.payload['id']?.toString() ?? '',
+                name: record.payload['display_name']?.toString() ?? '',
+                company: record.payload['company']?.toString() ?? '',
+                department: record.payload['department']?.toString() ?? '',
+                designation: record.payload['job_title']?.toString() ?? '',
+                phone: record.payload['mobile']?.toString() ?? '',
+                email: record.payload['email']?.toString() ?? '',
+              ));
+      return [...values, ...partyEmployees]
+          .where((item) => query.isEmpty || item.name.contains(query))
+          .toList(growable: false);
+    }
+  }
+
   @override
-  Future<List<Map<String, dynamic>>> organization(String company) =>
-      remote.organization(company);
+  Future<List<Map<String, dynamic>>> organization(String company) async {
+    try {
+      final values = await remote.organization(company);
+      await local.save(
+        id: 'hr-organization:${Uri.encodeComponent(company)}',
+        entityType: 'hr_organization:$company',
+        payload: {'items': values},
+        status: LocalSyncStatus.synced,
+      );
+      return values;
+    } catch (error) {
+      if (!isRetryableOfflineFailure(error)) rethrow;
+      final cached = await local.get(
+        'hr-organization:${Uri.encodeComponent(company)}',
+      );
+      return (cached?.payload['items'] as List? ?? const [])
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList(growable: false);
+    }
+  }
 
   @override
   Future<List<WorkReport>> reports() async {
@@ -132,5 +223,33 @@ class ServerFirstHrRepository implements HrRepository {
         for (final e in b) e.id: e
       }.values.toList();
   @override
-  Future<List<Map<String, dynamic>>> notifications() => remote.notifications();
+  Future<List<Map<String, dynamic>>> notifications() async {
+    try {
+      final values = await remote.notifications();
+      await local.save(
+        id: 'hr-notifications',
+        entityType: 'hr_notifications',
+        payload: {'items': values},
+        status: LocalSyncStatus.synced,
+      );
+      return values;
+    } catch (error) {
+      if (!isRetryableOfflineFailure(error)) rethrow;
+      final cached = await local.get('hr-notifications');
+      return (cached?.payload['items'] as List? ?? const [])
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList(growable: false);
+    }
+  }
+
+  Map<String, dynamic> _dashboardToJson(HrDashboard value) => {
+        'employee': value.employee.toJson(),
+        'pending_tasks': value.pendingTasks,
+        'unread_notifications': value.unreadNotifications,
+        'unread_communications': value.unreadCommunications,
+        'today_report': value.todayReportStatus == null
+            ? null
+            : {'status': value.todayReportStatus},
+      };
 }

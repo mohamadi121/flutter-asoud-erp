@@ -39,6 +39,17 @@ class ServerFirstChartOfAccountsRepository
   Future<AccountNode> updateAccount(String company, AccountNode account) =>
       _write(company, account, () => _remote.updateAccount(company, account));
 
+  @override
+  Future<void> deleteAccount(String company, AccountNode account) async {
+    try {
+      await _remote.deleteAccount(company, account);
+      await _local.delete(_id(company, account));
+    } catch (error) {
+      if (!isRetryableOfflineFailure(error)) rethrow;
+      await _local.delete(_id(company, account));
+    }
+  }
+
   Future<AccountNode> _write(
     String company,
     AccountNode draft,
@@ -81,6 +92,12 @@ class ServerFirstChartOfAccountsRepository
   @override
   Future<List<AccountNode>> applyTemplate(
       String company, String template) async {
+    final existing = await getAccounts(company);
+    if (existing.isNotEmpty) {
+      throw StateError(
+        'برای جلوگیری از ترکیب کدینگ دستی و پیش‌فرض، ابتدا سرفصل‌های موجود را حذف کنید.',
+      );
+    }
     try {
       final saved = await _remote.applyTemplate(company, template);
       for (final account in saved) {
@@ -156,7 +173,9 @@ class ServerFirstChartOfAccountsRepository
   String _id(String company, AccountNode value) =>
       'account:${Uri.encodeComponent(company)}:${Uri.encodeComponent(_key(value))}';
   String _key(AccountNode value) => value.code.isNotEmpty
-      ? '${value.level.name}:${value.code}'
+      ? value.level == AccountLevel.detail
+          ? '${value.level.name}:${value.parentId}:${value.code}'
+          : '${value.level.name}:${value.code}'
       : value.id.isNotEmpty
           ? value.id
           : '${value.level.name}:${value.title}';

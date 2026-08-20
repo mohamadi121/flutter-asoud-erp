@@ -60,6 +60,14 @@ class FrappeChartOfAccountsRepository implements ChartOfAccountsRepository {
   }
 
   @override
+  Future<void> deleteAccount(String company, AccountNode account) async {
+    await _client.callAsoudMethod(
+      'asoud_erp.api.v1.account.delete_account',
+      data: {'company': company, 'account': account.id},
+    );
+  }
+
+  @override
   Future<List<AccountNode>> importAccounts(
       String company, List<Map<String, dynamic>> rows) async {
     final response = await _client.callAsoudMethod(
@@ -118,6 +126,7 @@ class FrappeChartOfAccountsRepository implements ChartOfAccountsRepository {
         title: json['account_name'] as String? ?? '',
         level: _levelFromApi(json['asoud_level'] as String?),
         parentId: json['parent_account'] as String?,
+        isActive: json['disabled'] != 1 && json['disabled'] != true,
         nature: _natureFromRootType(json['root_type'] as String?),
         accountType: json['account_type'] as String? ?? '',
       );
