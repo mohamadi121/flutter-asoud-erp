@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../../../../core/offline/local_database_store.dart';
 import '../../../../core/offline/local_record.dart';
 import '../../../../core/offline/offline_failure.dart';
@@ -9,6 +11,7 @@ class ServerFirstOfficeRepository implements OfficeRepository {
   ServerFirstOfficeRepository(
     this._remote, {
     LocalRecordStore? local,
+    this.defaultOfficeTimeout = const Duration(seconds: 4),
   }) : _local = local ?? LocalDatabaseStore.instance;
 
   static const _entityType = 'office';
@@ -16,6 +19,7 @@ class ServerFirstOfficeRepository implements OfficeRepository {
   static const _defaultOfficeId = 'office_preference:default';
   final OfficeRepository _remote;
   final LocalRecordStore _local;
+  final Duration defaultOfficeTimeout;
 
   @override
   Future<Office> createOffice(Office office) => _write(
@@ -61,12 +65,15 @@ class ServerFirstOfficeRepository implements OfficeRepository {
   @override
   Future<Office?> getDefaultOffice() async {
     try {
-      final office = await _remote.getDefaultOffice();
+      final office =
+          await _remote.getDefaultOffice().timeout(defaultOfficeTimeout);
       if (office != null) await _cacheRemote(office);
       if (office != null) await _saveDefaultName(office.name);
       return await _localDefaultOffice() ?? office;
     } catch (error) {
-      if (!isRetryableOfflineFailure(error)) rethrow;
+      if (error is! TimeoutException && !isRetryableOfflineFailure(error)) {
+        rethrow;
+      }
       return await _localDefaultOffice() ?? (await _localOffices()).firstOrNull;
     }
   }

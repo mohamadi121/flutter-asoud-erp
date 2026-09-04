@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:asoud_erp/core/network/api_exception.dart';
 import 'package:asoud_erp/core/offline/local_record.dart';
 import 'package:asoud_erp/features/office_setup/data/repositories/server_first_office_repository.dart';
@@ -51,6 +53,16 @@ void main() {
     await expectLater(repository.createOffice(office), throwsA(validation));
     expect(local.records, isEmpty);
   });
+
+  test('دریافت دفتر فعال در انتظار سرور گیر نمی‌کند', () async {
+    final repository = ServerFirstOfficeRepository(
+      _HangingOfficeRepository(office),
+      local: FakeLocalRecordStore(),
+      defaultOfficeTimeout: const Duration(milliseconds: 10),
+    );
+
+    expect(await repository.getDefaultOffice(), isNull);
+  });
 }
 
 const _networkError = ApiException(
@@ -93,4 +105,11 @@ class _OfficeRepository implements OfficeRepository {
     if (error != null) _throw();
     return value;
   }
+}
+
+class _HangingOfficeRepository extends _OfficeRepository {
+  _HangingOfficeRepository(super.office);
+
+  @override
+  Future<Office?> getDefaultOffice() => Completer<Office?>().future;
 }
