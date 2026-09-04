@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:asoud_erp/core/network/api_exception.dart';
 import 'package:asoud_erp/core/offline/local_record.dart';
 import 'package:asoud_erp/features/hr/data/server_first_hr_repository.dart';
@@ -11,6 +13,19 @@ void main() {
   test('داشبورد HR بدون سرور به حالت خالی قابل استفاده برمی‌گردد', () async {
     final repository = ServerFirstHrRepository(_OfflineHrRepository(),
         local: FakeLocalRecordStore());
+
+    final dashboard = await repository.dashboard('دفتر');
+
+    expect(dashboard.employee.id, isEmpty);
+    expect(dashboard.employee.company, 'دفتر');
+  });
+
+  test('داشبورد HR در انتظار سرور گیر نمی‌کند و محلی باز می‌شود', () async {
+    final repository = ServerFirstHrRepository(
+      _HangingHrRepository(),
+      local: FakeLocalRecordStore(),
+      dashboardTimeout: const Duration(milliseconds: 10),
+    );
 
     final dashboard = await repository.dashboard('دفتر');
 
@@ -99,4 +114,10 @@ class _OfflineHrRepository implements HrRepository {
       offline;
   @override
   Future<List<Map<String, dynamic>>> notifications() async => offline;
+}
+
+class _HangingHrRepository extends _OfflineHrRepository {
+  @override
+  Future<HrDashboard> dashboard(String company) =>
+      Completer<HrDashboard>().future;
 }

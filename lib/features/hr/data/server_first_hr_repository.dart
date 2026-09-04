@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../../../core/offline/local_database_store.dart';
 import '../../../core/offline/local_record.dart';
 import '../../../core/offline/offline_failure.dart';
@@ -5,15 +7,19 @@ import '../domain/hr_models.dart';
 import '../domain/hr_repository.dart';
 
 class ServerFirstHrRepository implements HrRepository {
-  ServerFirstHrRepository(this.remote, {LocalRecordStore? local})
-      : local = local ?? LocalDatabaseStore.instance;
+  ServerFirstHrRepository(
+    this.remote, {
+    LocalRecordStore? local,
+    this.dashboardTimeout = const Duration(seconds: 4),
+  }) : local = local ?? LocalDatabaseStore.instance;
   final HrRepository remote;
   final LocalRecordStore local;
+  final Duration dashboardTimeout;
 
   @override
   Future<HrDashboard> dashboard(String company) async {
     try {
-      final value = await remote.dashboard(company);
+      final value = await remote.dashboard(company).timeout(dashboardTimeout);
       await local.save(
         id: 'hr-dashboard:${Uri.encodeComponent(company)}',
         entityType: 'hr_dashboard:$company',
@@ -22,7 +28,7 @@ class ServerFirstHrRepository implements HrRepository {
       );
       return value;
     } catch (error) {
-      if (!isRetryableOfflineFailure(error)) rethrow;
+      if (!_canUseLocalFallback(error)) rethrow;
       final cached = await local.get(
         'hr-dashboard:${Uri.encodeComponent(company)}',
       );
@@ -32,6 +38,9 @@ class ServerFirstHrRepository implements HrRepository {
       );
     }
   }
+
+  bool _canUseLocalFallback(Object error) =>
+      error is TimeoutException || isRetryableOfflineFailure(error);
 
   @override
   Future<HrEmployee> myProfile() async {
