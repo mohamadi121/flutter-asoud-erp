@@ -43,7 +43,7 @@ class BaseAccountingSetupPage extends StatelessWidget {
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 crossAxisCount: 2,
-                childAspectRatio: 1.12,
+                childAspectRatio: .92,
                 mainAxisSpacing: 10,
                 crossAxisSpacing: 10,
                 children: [
@@ -251,13 +251,13 @@ class _ModuleGridTile extends StatelessWidget {
               const Spacer(),
               Text(title,
                   style: const TextStyle(
-                      fontSize: 11, fontWeight: FontWeight.w900)),
+                      fontSize: 13, fontWeight: FontWeight.w900)),
               const SizedBox(height: 4),
               Text(subtitle,
-                  maxLines: 2,
+                  maxLines: 3,
                   overflow: TextOverflow.ellipsis,
-                  style:
-                      const TextStyle(fontSize: 8.5, color: AsoudColors.muted)),
+                  style: const TextStyle(
+                      fontSize: 10.5, height: 1.6, color: AsoudColors.muted)),
             ]),
           ),
         ),
@@ -304,6 +304,35 @@ class _SetupOverview extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            const Expanded(
+                child: Text('تنظیمات پایه دفتر',
+                    style:
+                        TextStyle(fontSize: 18, fontWeight: FontWeight.w900))),
+            Container(
+              width: 100,
+              height: 96,
+              decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                      colors: [Color(0xFFE4EFFF), Color(0xFFF3F7FF)]),
+                  borderRadius: BorderRadius.circular(20)),
+              child: const Stack(alignment: Alignment.center, children: [
+                Icon(Icons.assignment_turned_in_outlined,
+                    color: AsoudColors.primary, size: 64),
+                Positioned(
+                    bottom: 2,
+                    left: 4,
+                    child: Icon(Icons.settings_rounded,
+                        color: AsoudColors.warning, size: 32)),
+                Positioned(
+                    bottom: 4,
+                    right: 0,
+                    child: Icon(Icons.trending_up_rounded,
+                        color: AsoudColors.primary, size: 36)),
+              ]),
+            ),
+          ]),
+          const SizedBox(height: 12),
           Text(officeName ?? 'دفتر کار',
               style: const TextStyle(fontWeight: FontWeight.w900)),
           const SizedBox(height: 5),

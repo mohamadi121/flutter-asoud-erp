@@ -18,6 +18,7 @@ class _ChartTemplatePageState extends State<ChartTemplatePage> {
   late Future<List<ChartTemplateRow>> preview;
   bool saving = false;
   bool canApply = false;
+  bool hasExistingAccounts = false;
   String? error;
 
   @override
@@ -30,11 +31,18 @@ class _ChartTemplatePageState extends State<ChartTemplatePage> {
     if (mounted) setState(() => canApply = false);
     final rows =
         await widget.repository.previewTemplate(widget.company, template);
-    if (mounted) setState(() => canApply = rows.isNotEmpty);
+    final existing = await widget.repository.getAccounts(widget.company);
+    if (mounted) {
+      setState(() {
+        hasExistingAccounts = existing.isNotEmpty;
+        canApply = rows.isNotEmpty && !hasExistingAccounts;
+      });
+    }
     return rows;
   }
 
   Future<void> apply() async {
+    if (saving || !canApply) return;
     setState(() {
       saving = true;
       error = null;
@@ -65,6 +73,16 @@ class _ChartTemplatePageState extends State<ChartTemplatePage> {
             padding: const EdgeInsets.all(16),
             children: [
               const _InfoCard(),
+              if (hasExistingAccounts)
+                const Card(
+                  child: ListTile(
+                    leading: Icon(Icons.info_outline),
+                    title: Text('این دفتر سرفصل ثبت‌شده دارد'),
+                    subtitle: Text(
+                      'قالب فقط برای مقایسه نمایش داده می‌شود. اعمال آن روی کدینگ موجود غیرفعال است تا حساب‌های دستی تکرار یا جایگزین نشوند. برای ادامه، سرفصل‌های فعلی را ویرایش کنید.',
+                    ),
+                  ),
+                ),
               const SizedBox(height: 16),
               const Text('پیش‌نمایش ساختار',
                   style: TextStyle(fontWeight: FontWeight.w900)),

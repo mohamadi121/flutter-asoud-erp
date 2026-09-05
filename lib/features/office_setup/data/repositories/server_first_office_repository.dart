@@ -69,7 +69,9 @@ class ServerFirstOfficeRepository implements OfficeRepository {
           await _remote.getDefaultOffice().timeout(defaultOfficeTimeout);
       if (office != null) await _cacheRemote(office);
       if (office != null) await _saveDefaultName(office.name);
-      return await _localDefaultOffice() ?? office;
+      return await _localDefaultOffice() ??
+          office ??
+          (await _localOffices()).firstOrNull;
     } catch (error) {
       if (error is! TimeoutException && !isRetryableOfflineFailure(error)) {
         rethrow;

@@ -13,6 +13,7 @@ import '../../../workflows/presentation/pages/workflow_list_page.dart';
 import '../../../workflows/presentation/pages/workflow_tasks_page.dart';
 import '../../../purchase/presentation/pages/purchase_requests_page.dart';
 import '../../../hr/presentation/pages/hr_home_page.dart';
+import 'first_office_card.dart';
 
 class DashboardLandingPage extends StatefulWidget {
   const DashboardLandingPage({this.offlinePreview = false, super.key});
@@ -29,11 +30,16 @@ class _DashboardLandingPageState extends State<DashboardLandingPage> {
   @override
   void initState() {
     super.initState();
-    _office = context.read<OfficeRepository>().getDefaultOffice();
+    _office = _loadOffice();
   }
 
+  Future<Office?> _loadOffice() => context
+      .read<OfficeRepository>()
+      .getDefaultOffice()
+      .timeout(const Duration(seconds: 8));
+
   void _reload() => setState(
-        () => _office = context.read<OfficeRepository>().getDefaultOffice(),
+        () => _office = _loadOffice(),
       );
 
   @override
@@ -82,7 +88,9 @@ class DashboardPage extends StatelessWidget {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
               children: [
-                if (!hasOffice)
+                if (!hasOffice && !loadError)
+                  FirstOfficeCard(onCreated: onOfficeCreated)
+                else if (!hasOffice)
                   _EmptyOfficeDashboard(
                     loadError: loadError,
                     onCreated: onOfficeCreated,
@@ -140,6 +148,13 @@ class DashboardPage extends StatelessWidget {
       bottomNavigationBar: NavigationBar(
         selectedIndex: 0,
         onDestinationSelected: (index) {
+          if (!hasOffice && index != 0) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content:
+                  Text('برای استفاده از این بخش ابتدا دفتر کار را ایجاد کنید.'),
+            ));
+            return;
+          }
           if (index == 1) {
             Navigator.of(context).push(MaterialPageRoute<void>(
               builder: (_) => WorkflowListPage(company: officeName),
@@ -180,68 +195,89 @@ class _EmptyOfficeDashboard extends StatelessWidget {
   final VoidCallback? onCreated;
 
   @override
-  Widget build(BuildContext context) => Column(
-        children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: loadError
-                  ? AsoudColors.warning.withValues(alpha: .08)
-                  : AsoudColors.primary.withValues(alpha: .06),
-              border: Border.all(
+  Widget build(BuildContext context) => loadError
+      ? Padding(
+          padding: const EdgeInsets.symmetric(vertical: 48),
+          child: Column(children: [
+            const Icon(Icons.cloud_off_rounded,
+                size: 48, color: AsoudColors.warning),
+            const SizedBox(height: 16),
+            const Text('اطلاعات دفتر در دسترس نیست',
+                textAlign: TextAlign.center),
+            const SizedBox(height: 8),
+            const Text(
+                'نمی‌توانیم وجود دفتر قبلی را بررسی کنیم. دوباره تلاش کنید.',
+                textAlign: TextAlign.center),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+                onPressed: onCreated,
+                icon: const Icon(Icons.refresh),
+                label: const Text('تلاش دوباره')),
+          ]),
+        )
+      : Column(
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
                 color: loadError
-                    ? AsoudColors.warning.withValues(alpha: .45)
-                    : AsoudColors.primary.withValues(alpha: .22),
-              ),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(children: [
-              AsoudIconBox(
-                icon: loadError
-                    ? Icons.cloud_off_rounded
-                    : Icons.business_center_outlined,
-                color: loadError ? AsoudColors.warning : AsoudColors.primary,
-                size: 52,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                loadError
-                    ? 'اطلاعات دفتر در دسترس نیست'
-                    : 'هنوز دفتری ایجاد نشده است',
-                style:
-                    const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                loadError
-                    ? 'پس از اتصال سرور دوباره تلاش کنید یا برای ادامه طراحی، یک دفتر موقت بسازید.'
-                    : 'برای شروع، مشخصات دفتر حقیقی یا حقوقی خود را ثبت کنید.',
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 10, color: AsoudColors.muted),
-              ),
-              const SizedBox(height: 18),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: () async {
-                    await Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const OfficeTypePage(),
-                      ),
-                    );
-                    onCreated?.call();
-                  },
-                  icon: const Icon(Icons.add_business_rounded),
-                  label: const Text('ایجاد دفتر کار'),
+                    ? AsoudColors.warning.withValues(alpha: .08)
+                    : AsoudColors.primary.withValues(alpha: .06),
+                border: Border.all(
+                  color: loadError
+                      ? AsoudColors.warning.withValues(alpha: .45)
+                      : AsoudColors.primary.withValues(alpha: .22),
                 ),
+                borderRadius: BorderRadius.circular(16),
               ),
-            ]),
-          ),
-          const SizedBox(height: 18),
-          const _EmptyMetricsGrid(),
-        ],
-      );
+              child: Column(children: [
+                AsoudIconBox(
+                  icon: loadError
+                      ? Icons.cloud_off_rounded
+                      : Icons.business_center_outlined,
+                  color: loadError ? AsoudColors.warning : AsoudColors.primary,
+                  size: 52,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  loadError
+                      ? 'اطلاعات دفتر در دسترس نیست'
+                      : 'هنوز دفتری ایجاد نشده است',
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  loadError
+                      ? 'پس از اتصال سرور دوباره تلاش کنید یا برای ادامه طراحی، یک دفتر موقت بسازید.'
+                      : 'برای شروع، مشخصات دفتر حقیقی یا حقوقی خود را ثبت کنید.',
+                  textAlign: TextAlign.center,
+                  style:
+                      const TextStyle(fontSize: 10, color: AsoudColors.muted),
+                ),
+                const SizedBox(height: 18),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: () async {
+                      await Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const OfficeTypePage(),
+                        ),
+                      );
+                      onCreated?.call();
+                    },
+                    icon: const Icon(Icons.add_business_rounded),
+                    label: const Text('ایجاد دفتر کار'),
+                  ),
+                ),
+              ]),
+            ),
+            const SizedBox(height: 18),
+            const _EmptyMetricsGrid(),
+          ],
+        );
 }
 
 class _EmptyMetricsGrid extends StatelessWidget {
@@ -311,7 +347,7 @@ class _Header extends StatelessWidget {
                 const Text('دفتر کار',
                     style:
                         TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
-                Text(officeName ?? 'هنوز دفتری انتخاب نشده',
+                Text(officeName ?? 'برای شروع، اطلاعات اولیه دفتر را ثبت کنید',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(

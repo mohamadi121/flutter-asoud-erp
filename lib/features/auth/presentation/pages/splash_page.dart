@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/config/app_config.dart';
+import '../../../dashboard/presentation/pages/dashboard_page.dart';
 import 'login_page.dart';
 
 class SplashPage extends StatefulWidget {
@@ -19,7 +21,10 @@ class _SplashPageState extends State<SplashPage> {
     Timer(const Duration(milliseconds: 1400), () {
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute<void>(builder: (_) => const LoginPage()),
+        MaterialPageRoute<void>(
+            builder: (_) => AppConfig.offlineDemoMode
+                ? const DashboardLandingPage(offlinePreview: true)
+                : const LoginPage()),
       );
     });
   }

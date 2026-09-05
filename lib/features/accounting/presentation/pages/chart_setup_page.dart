@@ -113,10 +113,10 @@ class _WarningCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('کدینگ حسابداری هنوز کامل نشده است',
+                Text('مدیریت کدینگ حسابداری دفتر',
                     style: TextStyle(fontWeight: FontWeight.w900)),
                 SizedBox(height: 4),
-                Text('روش ساخت سرفصل‌ها را انتخاب و اطلاعات را تکمیل کنید.',
+                Text('سرفصل‌های موجود را مدیریت کنید یا روش ایجاد را انتخاب کنید.',
                     style: TextStyle(fontSize: 9, color: AsoudColors.muted)),
               ],
             ),

@@ -59,8 +59,9 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(390, 844));
     await tester.pumpWidget(_app(const DashboardLandingPage()));
     await tester.pumpAndSettle();
-    expect(find.text('هنوز دفتری ایجاد نشده است'), findsOneWidget);
-    expect(find.text('ایجاد دفتر کار'), findsOneWidget);
+    expect(find.text('شروع ایجاد دفتر'), findsOneWidget);
+    expect(find.text('مشاهده راهنما'), findsOneWidget);
+    expect(find.text('دریافتی امروز'), findsNothing);
     expect(find.text('عملیات سریع'), findsNothing);
     expect(tester.takeException(), isNull);
     await tester.binding.setSurfaceSize(null);

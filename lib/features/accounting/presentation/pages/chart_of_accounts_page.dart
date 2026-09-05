@@ -324,20 +324,54 @@ class _AccountMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => PopupMenuButton<String>(
-        onSelected: (value) =>
-            value == 'edit' ? _edit(context) : _delete(context),
-        itemBuilder: (_) => const [
-          PopupMenuItem(
+        tooltip: 'عملیات سرفصل: ویرایش، زیرمجموعه و حذف',
+        icon: const Icon(Icons.more_vert),
+        onSelected: (value) {
+          if (value == 'edit') {
+            _edit(context);
+          } else if (value == 'add') {
+            _addChild(context);
+          } else if (value == 'delete') {
+            _delete(context);
+          }
+        },
+        itemBuilder: (_) => [
+          if (account.level != AccountLevel.detail)
+            const PopupMenuItem(
+              value: 'add',
+              child: ListTile(
+                leading: Icon(Icons.playlist_add),
+                title: Text('افزودن زیرمجموعه'),
+              ),
+            ),
+          const PopupMenuItem(
               value: 'edit',
               child: ListTile(
                   leading: Icon(Icons.edit_outlined), title: Text('ویرایش'))),
-          PopupMenuItem(
+          const PopupMenuItem(
               value: 'delete',
               child: ListTile(
                   leading: Icon(Icons.delete_outline, color: Colors.red),
                   title: Text('حذف', style: TextStyle(color: Colors.red)))),
         ],
       );
+
+  Future<void> _addChild(BuildContext context) async {
+    if (account.level == AccountLevel.detail) return;
+    final saved = await Navigator.of(context).push<AccountNode>(
+      MaterialPageRoute<AccountNode>(
+        builder: (_) => AccountFormPage(
+          company: company,
+          repository: repository,
+          initialParentId: account.id,
+          initialLevel: AccountLevel.values[account.level.index + 1],
+        ),
+      ),
+    );
+    if (saved != null && context.mounted) {
+      context.read<ChartOfAccountsCubit>().load();
+    }
+  }
 
   Future<void> _edit(BuildContext context) async {
     final saved = await Navigator.of(context)

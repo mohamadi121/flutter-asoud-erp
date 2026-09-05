@@ -19,6 +19,35 @@ abstract final class AsoudTheme {
       colorScheme: scheme,
       scaffoldBackgroundColor: AsoudColors.background,
       textTheme: textTheme,
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: AsoudColors.text,
+        contentTextStyle:
+            textTheme.bodyMedium?.copyWith(color: Colors.white, height: 1.6),
+        elevation: 4,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        insetPadding: const EdgeInsets.all(16),
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: const Color(0xFFFAFAFF),
+        surfaceTintColor: Colors.transparent,
+        elevation: 8,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+            side: const BorderSide(color: AsoudColors.border)),
+        titleTextStyle: textTheme.titleLarge
+            ?.copyWith(fontWeight: FontWeight.w800, color: AsoudColors.text),
+        contentTextStyle: textTheme.bodyMedium
+            ?.copyWith(height: 1.7, color: AsoudColors.muted),
+        actionsPadding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+      ),
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: Color(0xFFFAFAFF),
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+        dragHandleColor: AsoudColors.border,
+      ),
       appBarTheme: const AppBarTheme(
         centerTitle: false,
         elevation: 0,

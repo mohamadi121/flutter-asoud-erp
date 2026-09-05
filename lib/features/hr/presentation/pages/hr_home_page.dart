@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../domain/hr_models.dart';
+import 'organization_page.dart';
 import '../../domain/hr_repository.dart';
 import '../cubit/hr_cubit.dart';
 import '../../../parties/presentation/pages/party_management_page.dart';
@@ -97,7 +98,7 @@ class _HrHome extends StatelessWidget {
                       'همکاران، واحدها و مسیر سازمانی',
                       Icons.account_tree_outlined,
                       AsoudColors.cyan,
-                      () => _push(context, HrTeamPage(company: company))),
+                      () => _push(context, OrganizationPage(company: company))),
                   _Action(
                       'گزارش کار روزانه',
                       'فعالیت‌ها، پیش‌نویس و بازخورد',
@@ -157,6 +158,16 @@ class _OfflineHrHome extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           const AsoudSectionTitle(title: 'منابع انسانی'),
+          _Action(
+            'ساختار سازمانی',
+            'جایگاه‌ها، بالادست و انتصاب پرسنل',
+            Icons.account_tree_outlined,
+            AsoudColors.primary,
+            () => Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                    builder: (_) => OrganizationPage(company: company))),
+          ),
           _Action(
             'پرسنل و اشخاص',
             'ثبت و ویرایش اطلاعات پرسنل به‌صورت محلی',

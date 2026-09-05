@@ -222,11 +222,16 @@ class _OfficesView extends StatelessWidget {
               _OfficeAction(
                 icon: Icons.visibility_outlined,
                 title: 'مشاهده اطلاعات دفتر',
-                onTap: () {
+                onTap: () async {
                   Navigator.pop(sheetContext);
-                  Navigator.of(context).push(MaterialPageRoute<void>(
-                    builder: (_) => OfficeDetailsPage(office: office),
+                  final active =
+                      context.read<OfficesCubit>().state.defaultOffice?.name ==
+                          office.name;
+                  await Navigator.of(context).push(MaterialPageRoute<void>(
+                    builder: (_) =>
+                        OfficeDetailsPage(office: office, isActive: active),
                   ));
+                  if (context.mounted) context.read<OfficesCubit>().retry();
                 },
               ),
               _OfficeAction(
