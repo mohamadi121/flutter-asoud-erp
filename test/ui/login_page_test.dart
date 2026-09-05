@@ -40,8 +40,8 @@ void main() {
     );
     await tester.tap(find.text('ادامه موقت بدون ورود'));
     await tester.pumpAndSettle();
-    expect(find.text('هنوز دفتری ایجاد نشده است'), findsOneWidget);
-    expect(find.text('ایجاد دفتر کار'), findsOneWidget);
+    expect(find.text('بیایید دفتر کار شما\nرا برای اولین بار راه‌اندازی کنیم'), findsOneWidget);
+    expect(find.text('شروع ایجاد دفتر'), findsOneWidget);
     expect(find.text('شخص حقیقی'), findsNothing);
   });
 }
