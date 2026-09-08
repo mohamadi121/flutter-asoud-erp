@@ -9,10 +9,17 @@ class OfflineMutationStore {
     required String operation,
     required String target,
     required Map<String, dynamic> payload,
+    String? owner,
+    String? server,
   }) async {
     final record = await LocalDatabaseStore.instance.save(
       entityType: target,
-      payload: {'operation': operation, ...payload},
+      payload: {
+        ...payload,
+        'operation': operation,
+        '_asoud_owner': owner,
+        '_asoud_server': server
+      },
       status: LocalSyncStatus.localOnly,
     );
     return record.id;

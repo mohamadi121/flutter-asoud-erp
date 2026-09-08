@@ -3,6 +3,10 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../core/network/frappe_client.dart';
+import '../core/network/session_vault.dart';
+import '../core/offline/local_database_store.dart';
+import '../core/offline/local_record.dart';
+import '../features/hr/data/personnel_repository.dart';
 import '../core/offline/offline_sync_lifecycle.dart';
 import '../core/offline/offline_sync_service.dart';
 import '../core/theme/asoud_theme.dart';
@@ -47,8 +51,33 @@ class AsoudErpApp extends StatefulWidget {
 }
 
 class _AsoudErpAppState extends State<AsoudErpApp> {
-  late final FrappeClient client = FrappeClient();
-  late final OfflineSyncService syncService = OfflineSyncService(client);
+  late final FrappeClient client =
+      FrappeClient(sessionVault: const SecureSessionVault());
+  late final OfflineSyncService syncService =
+      OfflineSyncService(client, afterSync: _syncPersonnel);
+
+  Future<void> _syncPersonnel() async {
+    if (!client.isAuthenticated) return;
+    final owner = (await client.getCurrentUser()).userId;
+    final pending = await LocalDatabaseStore.instance.list(
+        entityType: 'personnel_outbox',
+        statuses: {LocalSyncStatus.pendingSync});
+    final companies = pending
+        .where((r) =>
+            r.payload['owner'] == owner &&
+            r.payload['server'] == client.serverIdentity)
+        .map((r) => r.payload['company'])
+        .whereType<String>()
+        .toSet();
+    for (final company in companies) {
+      final repository = PersonnelRepository(client);
+      try {
+        await repository.synchronize(company);
+      } finally {
+        repository.dispose();
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

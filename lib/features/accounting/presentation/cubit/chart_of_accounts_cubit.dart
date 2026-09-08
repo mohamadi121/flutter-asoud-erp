@@ -49,6 +49,7 @@ class ChartOfAccountsCubit extends Cubit<ChartOfAccountsState> {
               isActive: item.isActive,
               nature: item.nature,
               accountType: item.accountType,
+              detailGroupIds: item.detailGroupIds,
               children: childrenOf(item.id),
             ))
         .toList(growable: false);

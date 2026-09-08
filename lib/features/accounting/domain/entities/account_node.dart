@@ -15,6 +15,7 @@ class AccountNode extends Equatable {
     this.nature = AccountNature.debit,
     this.accountType = '',
     this.children = const [],
+    this.detailGroupIds = const [],
   });
 
   final String id;
@@ -26,6 +27,9 @@ class AccountNode extends Equatable {
   final AccountNature nature;
   final String accountType;
   final List<AccountNode> children;
+  final List<String> detailGroupIds;
+  bool get isTerminal => level == AccountLevel.ledger ||
+      level == AccountLevel.detail || detailGroupIds.isNotEmpty;
 
   @override
   List<Object?> get props => [
@@ -37,6 +41,7 @@ class AccountNode extends Equatable {
         isActive,
         nature,
         accountType,
-        children
+        children,
+        detailGroupIds,
       ];
 }

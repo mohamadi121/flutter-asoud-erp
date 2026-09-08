@@ -18,7 +18,10 @@ class ChartOfAccountsPage extends StatelessWidget {
           company: company,
           repository: repository,
         )..load(),
-        child: _ChartOfAccountsView(company: company, repository: repository),
+        child: Directionality(
+          textDirection: TextDirection.rtl,
+          child: _ChartOfAccountsView(company: company, repository: repository),
+        ),
       );
 }
 
@@ -110,11 +113,21 @@ class _ChartOfAccountsViewState extends State<_ChartOfAccountsView> {
                 if (visible.isEmpty)
                   const _EmptyAccounts()
                 else
-                  ...visible.map((account) => _AccountTile(
+                  Card(
+                    key: const ValueKey('account-tree-card'),
+                    elevation: 0,
+                    color: Colors.white,
+                    clipBehavior: Clip.antiAlias,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                      side: const BorderSide(color: AsoudColors.border),
+                    ),
+                    child: Column(children: visible.map((account) => _AccountTile(
                         account: account,
                         company: widget.company,
                         repository: widget.repository,
-                      )),
+                      )).toList()),
+                  ),
               ]);
         })),
       );
@@ -136,6 +149,7 @@ class _ChartOfAccountsViewState extends State<_ChartOfAccountsView> {
                 isActive: account.isActive,
                 nature: account.nature,
                 accountType: account.accountType,
+                detailGroupIds: account.detailGroupIds,
                 children: children,
               )
             : null;
@@ -154,6 +168,7 @@ class _ChartOfAccountsViewState extends State<_ChartOfAccountsView> {
             isActive: account.isActive,
             nature: account.nature,
             accountType: account.accountType,
+            detailGroupIds: account.detailGroupIds,
           ),
           ..._flatten(account.children),
         ],
@@ -247,30 +262,33 @@ class _AccountTile extends StatelessWidget {
     final color = _levelColor(account.level);
     final horizontalInset = switch (account.level) {
       AccountLevel.group => 0.0,
-      AccountLevel.general => 10.0,
-      AccountLevel.ledger => 20.0,
-      AccountLevel.detail => 30.0,
+      AccountLevel.general => 0.0,
+      AccountLevel.ledger => 0.0,
+      AccountLevel.detail => 0.0,
     };
     final tileHeight = switch (account.level) {
-      AccountLevel.group => 86.0,
-      AccountLevel.general => 78.0,
-      AccountLevel.ledger => 70.0,
-      AccountLevel.detail => 62.0,
+      AccountLevel.group => 64.0,
+      AccountLevel.general => 60.0,
+      AccountLevel.ledger => 56.0,
+      AccountLevel.detail => 52.0,
     };
     if (hasChildren) {
       return Padding(
           padding: EdgeInsets.symmetric(horizontal: horizontalInset),
-          child: Card(
-            elevation: 0,
-            color: Colors.white,
-            child: ExpansionTile(
+          child: ExpansionTile(
+              shape: const Border(),
+              collapsedShape: const Border(),
+              key: PageStorageKey('account-${account.id}'),
+              initiallyExpanded: true,
               minTileHeight: tileHeight,
-              leading: _CodeBadge(code: account.code, color: color),
+              leading: Icon(account.level == AccountLevel.group
+                  ? Icons.folder_rounded : Icons.folder_open_outlined, color: color),
               title: Text(account.title,
                   style: const TextStyle(fontWeight: FontWeight.w700)),
-              subtitle: Text(_levelTitle(account.level)),
-              trailing: _AccountMenu(
-                  account: account, company: company, repository: repository),
+              trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                Text(account.code, style: const TextStyle(color: AsoudColors.muted)),
+                _AccountMenu(account: account, company: company, repository: repository),
+              ]),
               children: account.children
                   .map((child) => Padding(
                       padding: const EdgeInsets.only(right: 12),
@@ -280,39 +298,33 @@ class _AccountTile extends StatelessWidget {
                         repository: repository,
                       )))
                   .toList(),
-            ),
-          ));
+            ));
     }
     return Padding(
         padding: EdgeInsets.symmetric(horizontal: horizontalInset),
-        child: Card(
-          elevation: 0,
-          color: Colors.white,
-          child: SizedBox(
+        child: SizedBox(
               height: tileHeight,
               child: ListTile(
-                leading: _CodeBadge(code: account.code, color: color),
+                leading: Icon(switch (account.level) {
+                  AccountLevel.group => Icons.folder_rounded,
+                  AccountLevel.general => Icons.folder_open_outlined,
+                  _ => Icons.description_outlined,
+                }, color: color),
                 title: Text(account.title),
-                subtitle: Text(_levelTitle(account.level)),
-                trailing: _AccountMenu(
-                    account: account, company: company, repository: repository),
-              )),
-        ));
+                trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Text(account.code, style: const TextStyle(color: AsoudColors.muted)),
+                  _AccountMenu(account: account, company: company, repository: repository),
+                ]),
+              )));
   }
 
   Color _levelColor(AccountLevel level) => switch (level) {
         AccountLevel.group => AsoudColors.primary,
         AccountLevel.general => const Color(0xFF26A69A),
-        AccountLevel.ledger => const Color(0xFFFFB547),
+        AccountLevel.ledger => const Color(0xFF26A69A),
         AccountLevel.detail => const Color(0xFFEF6C5B),
       };
 
-  String _levelTitle(AccountLevel level) => switch (level) {
-        AccountLevel.group => 'گروه',
-        AccountLevel.general => 'کل',
-        AccountLevel.ledger => 'معین',
-        AccountLevel.detail => 'تفصیلی',
-      };
 }
 
 class _AccountMenu extends StatelessWidget {
@@ -336,7 +348,7 @@ class _AccountMenu extends StatelessWidget {
           }
         },
         itemBuilder: (_) => [
-          if (account.level != AccountLevel.detail)
+          if (!account.isTerminal)
             const PopupMenuItem(
               value: 'add',
               child: ListTile(
@@ -419,19 +431,3 @@ class _AccountMenu extends StatelessWidget {
   }
 }
 
-class _CodeBadge extends StatelessWidget {
-  const _CodeBadge({required this.code, required this.color});
-  final String code;
-  final Color color;
-  @override
-  Widget build(BuildContext context) => Container(
-        constraints: const BoxConstraints(minWidth: 42),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
-        decoration: BoxDecoration(
-            color: color.withValues(alpha: .13),
-            borderRadius: BorderRadius.circular(10)),
-        child: Text(code,
-            textAlign: TextAlign.center,
-            style: TextStyle(color: color, fontWeight: FontWeight.w800)),
-      );
-}

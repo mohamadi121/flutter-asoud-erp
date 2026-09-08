@@ -73,6 +73,12 @@ class DetailGroupsCubit extends Cubit<DetailGroupsState> {
   }
 
   Future<bool> saveGroup(String code, String title, {String? id}) async {
+    if (isClosed || state.status == DetailGroupsStatus.loading) return false;
+    code = code.trim().split('').map((character) {
+      final persian = '۰۱۲۳۴۵۶۷۸۹'.indexOf(character);
+      final arabic = '٠١٢٣٤٥٦٧٨٩'.indexOf(character);
+      return persian >= 0 ? '$persian' : arabic >= 0 ? '$arabic' : character;
+    }).join();
     if (!RegExp(r'^\d{3,12}$').hasMatch(code.trim()) ||
         title.trim().length < 2) {
       emit(DetailGroupsState(

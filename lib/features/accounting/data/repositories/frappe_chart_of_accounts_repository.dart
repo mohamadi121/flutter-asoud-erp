@@ -28,6 +28,7 @@ class FrappeChartOfAccountsRepository implements ChartOfAccountsRepository {
         'company': company,
         'account_name': account.title,
         'level': _levelToApi(account.level),
+        'detail_groups': account.detailGroupIds,
         'parent_account': account.parentId,
         'account_number': account.code.isEmpty ? null : account.code,
         'auto_code': autoCode ? 1 : 0,
@@ -47,6 +48,7 @@ class FrappeChartOfAccountsRepository implements ChartOfAccountsRepository {
       data: {
         'company': company,
         'account': account.id,
+        'detail_groups': account.detailGroupIds,
         'account_name': account.title,
         'parent_account': account.parentId,
         'disabled': account.isActive ? 0 : 1,
@@ -129,6 +131,7 @@ class FrappeChartOfAccountsRepository implements ChartOfAccountsRepository {
         isActive: json['disabled'] != 1 && json['disabled'] != true,
         nature: _natureFromRootType(json['root_type'] as String?),
         accountType: json['account_type'] as String? ?? '',
+        detailGroupIds: (json['detail_groups'] as List? ?? const []).cast<String>(),
       );
 
   AccountLevel _levelFromApi(String? value) => switch (value) {

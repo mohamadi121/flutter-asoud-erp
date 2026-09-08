@@ -4,6 +4,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../domain/entities/account_node.dart';
+import '../../domain/entities/detail_group.dart';
+import '../../domain/repositories/detail_group_repository.dart';
 import '../../domain/repositories/chart_of_accounts_repository.dart';
 import '../cubit/account_form_cubit.dart';
 
@@ -50,6 +52,14 @@ class _AccountFormView extends StatefulWidget {
 
 class _AccountFormViewState extends State<_AccountFormView> {
   bool stagedView = true;
+  Future<List<DetailGroup>>? groups;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    groups ??= RepositoryProvider.of<DetailGroupRepository?>(context)?.getGroups()
+        ?? Future.value(const <DetailGroup>[]);
+  }
 
   @override
   Widget build(BuildContext context) =>
@@ -68,7 +78,7 @@ class _AccountFormViewState extends State<_AccountFormView> {
               title: state.mode == AccountFormMode.create
                   ? 'تکمیل اطلاعات حساب'
                   : 'ویرایش اطلاعات حساب',
-              subtitle: 'ایجاد یا ویرایش حساب کل و معین',
+              subtitle: _levelTitle(state.level),
             ),
             body: SafeArea(
               child: FutureBuilder<List<AccountNode>>(
@@ -76,7 +86,8 @@ class _AccountFormViewState extends State<_AccountFormView> {
                 builder: (context, snapshot) {
                   final accounts = _flatten(snapshot.data ?? const []);
                   final parents = accounts
-                      .where((item) => item.level == _parentLevel(state.level))
+                      .where((item) => item.level == _parentLevel(state.level) &&
+                          (state.level == AccountLevel.detail || !item.isTerminal))
                       .toList(growable: false);
                   return ListView(
                     padding: const EdgeInsets.fromLTRB(16, 10, 16, 30),
@@ -87,8 +98,8 @@ class _AccountFormViewState extends State<_AccountFormView> {
                             setState(() => stagedView = value),
                       ),
                       const SizedBox(height: 28),
-                      _LevelSelector(
-                          value: state.level, onChanged: cubit.setLevel),
+                      if (state.mode == AccountFormMode.create)
+                        _LevelSelector(value: state.level, onChanged: cubit.setLevel),
                       const SizedBox(height: 14),
                       Container(
                         padding: const EdgeInsets.all(16),
@@ -100,8 +111,8 @@ class _AccountFormViewState extends State<_AccountFormView> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('اطلاعات اصلی سرفصل',
-                                style: TextStyle(fontWeight: FontWeight.w900)),
+                            Text('اطلاعات ${_levelTitle(state.level)}',
+                                style: const TextStyle(fontWeight: FontWeight.w900)),
                             const SizedBox(height: 12),
                             Text('سطح حساب *', style: _labelStyle),
                             const SizedBox(height: 5),
@@ -176,6 +187,7 @@ class _AccountFormViewState extends State<_AccountFormView> {
                                   value == null ? null : cubit.setNature(value),
                             ),
                             const SizedBox(height: 10),
+                            if (state.level == AccountLevel.ledger) ...[
                             Text('نوع حساب *', style: _labelStyle),
                             const SizedBox(height: 5),
                             DropdownButtonFormField<String>(
@@ -207,6 +219,7 @@ class _AccountFormViewState extends State<_AccountFormView> {
                                   ? null
                                   : cubit.setAccountType(value),
                             ),
+                            ],
                             const SizedBox(height: 12),
                             _RecommendationSwitch(
                               autoCode: state.autoCode,
@@ -233,6 +246,39 @@ class _AccountFormViewState extends State<_AccountFormView> {
                           ],
                         ),
                       ),
+                      if (state.level != AccountLevel.detail)
+                        FutureBuilder<List<DetailGroup>>(
+                          future: groups,
+                          builder: (context, groupSnapshot) => Card(
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                const Text('گروه‌های تفصیلی شناور', style: TextStyle(fontWeight: FontWeight.bold)),
+                                const Text('با انتخاب گروه تفصیلی، این حساب در همین سطح نهایی می‌شود.'),
+                                if (groupSnapshot.connectionState == ConnectionState.waiting)
+                                  const LinearProgressIndicator(),
+                                if (groupSnapshot.hasError)
+                                  TextButton(onPressed: () => setState(() {
+                                    groups = context.read<DetailGroupRepository>().getGroups();
+                                  }), child: const Text('دریافت گروه‌ها ناموفق بود؛ تلاش دوباره')),
+                                for (final group in groupSnapshot.data ?? const <DetailGroup>[])
+                                  CheckboxListTile(
+                                    contentPadding: EdgeInsets.zero,
+                                    title: Text(group.title),
+                                    subtitle: Text(group.code),
+                                    value: state.detailGroupIds.contains(group.id.isEmpty ? group.code : group.id),
+                                    onChanged: group.disabled || state.status == AccountFormStatus.saving
+                                        ? null : (value) => cubit.selectDetailGroup(group.id.isEmpty ? group.code : group.id, value ?? false),
+                                  ),
+                                for (final id in state.detailGroupIds.where((id) =>
+                                    !(groupSnapshot.data ?? const <DetailGroup>[]).any((g) => (g.id.isEmpty ? g.code : g.id) == id)))
+                                  CheckboxListTile(title: Text(id), value: true,
+                                    onChanged: state.status == AccountFormStatus.saving ? null :
+                                        (_) => cubit.selectDetailGroup(id, false)),
+                              ]),
+                            ),
+                          ),
+                        ),
                     ],
                   );
                 },

@@ -8,6 +8,8 @@ import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 import '../config/app_config.dart';
 import '../offline/offline_mutation_store.dart';
 import 'api_exception.dart';
+import 'session_vault.dart';
+import '../offline/offline_failure.dart';
 
 class FrappeSession {
   const FrappeSession({required this.userId, required this.fullName});
@@ -51,6 +53,17 @@ class FrappeUserContext {
   final String? company;
 
   bool hasRole(String role) => roles.contains(role);
+
+  Map<String, dynamic> toJson() => {
+        'user_id': userId,
+        'full_name': fullName,
+        'roles': roles,
+        'employee': {
+          'name': employeeId,
+          'employee_name': employeeName,
+          'company': company
+        },
+      };
 }
 
 abstract interface class FrappeApiClient {
@@ -107,6 +120,7 @@ class FrappeClient implements FrappeApiClient {
     String apiSecret = AppConfig.erpNextApiSecret,
     Dio? dio,
     CookieJar? cookieJar,
+    SessionVault? sessionVault,
   }) {
     final normalizedBaseUrl = baseUrl.endsWith('/')
         ? baseUrl.substring(0, baseUrl.length - 1)
@@ -143,10 +157,90 @@ class FrappeClient implements FrappeApiClient {
       client,
       memoryCookies,
       Uri.parse(normalizedBaseUrl),
+      sessionVault,
     );
   }
 
-  FrappeClient._(this._dio, this._cookies, this._baseUri);
+  FrappeClient._(this._dio, this._cookies, this._baseUri, this._vault);
+
+  final SessionVault? _vault;
+  FrappeUserContext? _knownUser;
+  DateTime? _offlineUntil;
+  int _sessionGeneration = 0;
+  Future<void> _vaultWrites = Future<void>.value();
+  String get serverIdentity => _baseUri.toString();
+  Future<void> _writeVault(Future<void> Function() action) {
+    final next =
+        _vaultWrites.then((_) => action(), onError: (Object _) => action());
+    _vaultWrites = next;
+    return next;
+  }
+
+  static const offlineSessionLifetime = Duration(hours: 24);
+
+  Future<bool> restoreSession() async {
+    final generation = _sessionGeneration;
+    final encoded = await _vault?.read(_baseUri.toString());
+    if (generation != _sessionGeneration) return false;
+    if (encoded == null) return false;
+    try {
+      final data = jsonDecode(encoded) as Map<String, dynamic>;
+      final expires = DateTime.parse(data['offline_until'] as String);
+      final user = FrappeUserContext.fromJson(
+          Map<String, dynamic>.from(data['user'] as Map));
+      final cookie = Cookie.fromSetCookieValue(data['cookie'] as String);
+      if (!DateTime.now().isBefore(expires) ||
+          user.userId == 'Guest' ||
+          cookie.name != 'sid' ||
+          cookie.value.isEmpty ||
+          cookie.value.toLowerCase() == 'guest') {
+        await _clearSession();
+        return false;
+      }
+      await _cookies.saveFromResponse(_baseUri, [cookie]);
+      if (!await _hasValidSessionCookie()) {
+        await _clearSession();
+        return false;
+      }
+      if (generation != _sessionGeneration) return false;
+      _knownUser = user;
+      _offlineUntil = expires;
+      _setAuthenticated(true);
+      return true;
+    } on FormatException {
+      await _clearSession();
+      return false;
+    } on TypeError {
+      await _clearSession();
+      return false;
+    }
+  }
+
+  Future<void> _remember(FrappeUserContext user) async {
+    final generation = _sessionGeneration;
+    var until = DateTime.now().add(offlineSessionLifetime);
+    final cookies = await _cookies.loadForRequest(_baseUri);
+    if (generation != _sessionGeneration || !isAuthenticated) return;
+    final sessions = cookies.where((c) => c.name == 'sid');
+    if (sessions.isEmpty) return;
+    final cookie = sessions.first;
+    if (cookie.expires != null && cookie.expires!.isBefore(until)) {
+      until = cookie.expires!;
+    }
+    _knownUser = user;
+    _offlineUntil = until;
+    if (_vault == null) return;
+    final encoded = jsonEncode({
+      'user': user.toJson(),
+      'cookie': cookie.toString(),
+      'offline_until': until.toIso8601String(),
+    });
+    await _writeVault(() async {
+      if (generation == _sessionGeneration && isAuthenticated) {
+        await _vault.write(_baseUri.toString(), encoded);
+      }
+    });
+  }
 
   final Dio _dio;
   final CookieJar _cookies;
@@ -208,13 +302,43 @@ class FrappeClient implements FrappeApiClient {
 
   @override
   Future<FrappeUserContext> getCurrentUser() async {
-    final data = await callAsoudMethod('asoud_erp.api.v1.auth.current_user');
-    if (data is! Map) throw const ApiException.protocol();
+    final generation = _sessionGeneration;
+    dynamic data;
     try {
-      return FrappeUserContext.fromJson(Map<String, dynamic>.from(data));
+      data = await callAsoudMethod('asoud_erp.api.v1.auth.current_user');
+    } catch (error) {
+      if (isRetryableOfflineFailure(error) &&
+          generation == _sessionGeneration &&
+          isAuthenticated &&
+          _knownUser != null &&
+          _offlineUntil != null &&
+          DateTime.now().isBefore(_offlineUntil!)) {
+        return _knownUser!;
+      }
+      rethrow;
+    }
+    if (generation != _sessionGeneration) {
+      throw const ApiException(
+          kind: ApiFailureKind.unauthenticated, message: 'نشست تغییر کرده است');
+    }
+    if (data is! Map) throw const ApiException.protocol();
+    late FrappeUserContext user;
+    try {
+      user = FrappeUserContext.fromJson(Map<String, dynamic>.from(data));
     } on Object {
       throw const ApiException.protocol();
     }
+    if (_knownUser != null && _knownUser!.userId != user.userId) {
+      await _clearSession();
+      throw const ApiException(
+          kind: ApiFailureKind.unauthenticated, message: 'نشست تغییر کرده است');
+    }
+    if (isAuthenticated) await _remember(user);
+    if (generation != _sessionGeneration) {
+      throw const ApiException(
+          kind: ApiFailureKind.unauthenticated, message: 'نشست تغییر کرده است');
+    }
+    return user;
   }
 
   @override
@@ -408,6 +532,8 @@ class FrappeClient implements FrappeApiClient {
       operation: operation,
       target: target,
       payload: data,
+      owner: isAuthenticated ? _knownUser?.userId : null,
+      server: serverIdentity,
     );
     try {
       final response = await request(id);
@@ -551,9 +677,13 @@ class FrappeClient implements FrappeApiClient {
   }
 
   Future<void> _clearSession({bool notify = true}) async {
-    await _cookies.deleteAll();
+    _sessionGeneration++;
+    _knownUser = null;
+    _offlineUntil = null;
     if (notify) _setAuthenticated(false);
     if (!notify) _isAuthenticated = false;
+    await _cookies.deleteAll();
+    await _writeVault(() async => _vault?.delete(_baseUri.toString()));
   }
 
   Future<void> close() async {

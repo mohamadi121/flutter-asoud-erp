@@ -84,39 +84,80 @@ class _DetailGroupsView extends StatelessWidget {
 
   Future<void> _showGroupDialog(BuildContext context,
       {DetailGroup? group}) async {
-    final title = TextEditingController(text: group?.title);
-    final code = TextEditingController(text: group?.code);
     final cubit = context.read<DetailGroupsCubit>();
     await showDialog<void>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
+      barrierDismissible: false,
+      builder: (_) => _GroupDialog(cubit: cubit, group: group),
+    );
+  }
+}
+
+class _GroupDialog extends StatefulWidget {
+  const _GroupDialog({required this.cubit, this.group});
+  final DetailGroupsCubit cubit;
+  final DetailGroup? group;
+
+  @override
+  State<_GroupDialog> createState() => _GroupDialogState();
+}
+
+class _GroupDialogState extends State<_GroupDialog> {
+  late final title = TextEditingController(text: widget.group?.title);
+  late final code = TextEditingController(text: widget.group?.code);
+  bool saving = false;
+
+  @override
+  void dispose() {
+    title.dispose();
+    code.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => PopScope(
+    canPop: !saving,
+    child: AlertDialog(
         title:
-            Text(group == null ? 'افزودن گروه تفصیلی' : 'ویرایش گروه تفصیلی'),
+            Text(widget.group == null ? 'افزودن گروه تفصیلی' : 'ویرایش گروه تفصیلی'),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
           TextField(
             controller: title,
+            enabled: !saving,
             decoration: const InputDecoration(labelText: 'عنوان گروه'),
           ),
           const SizedBox(height: 10),
           TextField(
             controller: code,
+            enabled: !saving,
             keyboardType: TextInputType.number,
             decoration: const InputDecoration(labelText: 'کد گروه'),
+          ),
+          BlocBuilder<DetailGroupsCubit, DetailGroupsState>(
+            bloc: widget.cubit,
+            builder: (_, state) => state.status == DetailGroupsStatus.failure
+                ? Text(state.message ?? '', style: const TextStyle(color: Colors.red))
+                : const SizedBox.shrink(),
           ),
         ]),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
+              onPressed: saving ? null : () => Navigator.pop(context),
               child: const Text('انصراف')),
           FilledButton(
-            onPressed: () async {
-              final saved = await cubit.saveGroup(
+            onPressed: saving ? null : () async {
+              setState(() => saving = true);
+              final saved = await widget.cubit.saveGroup(
                 code.text,
                 title.text,
-                id: group?.id,
+                id: widget.group?.id,
               );
-              if (saved && dialogContext.mounted) {
-                Navigator.pop(dialogContext);
+              if (!mounted) return;
+              setState(() => saving = false);
+              if (saved) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) Navigator.pop(context);
+                });
               }
             },
             child: const Text('ذخیره'),
@@ -124,9 +165,6 @@ class _DetailGroupsView extends StatelessWidget {
         ],
       ),
     );
-    title.dispose();
-    code.dispose();
-  }
 }
 
 class _HelpCard extends StatelessWidget {

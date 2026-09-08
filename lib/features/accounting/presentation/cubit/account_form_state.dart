@@ -26,6 +26,7 @@ class AccountFormState extends Equatable {
     this.status = AccountFormStatus.editing,
     this.message,
     this.savedAccount,
+    this.detailGroupIds = const [],
   });
 
   final AccountFormMode mode;
@@ -41,6 +42,7 @@ class AccountFormState extends Equatable {
   final AccountFormStatus status;
   final String? message;
   final AccountNode? savedAccount;
+  final List<String> detailGroupIds;
 
   bool get requiresParent => level != AccountLevel.group;
   bool get isValid =>
@@ -57,6 +59,7 @@ class AccountFormState extends Equatable {
         nature: nature,
         accountType: accountType,
         isActive: isActive,
+        detailGroupIds: detailGroupIds,
       );
 
   AccountFormState copyWith({
@@ -73,6 +76,7 @@ class AccountFormState extends Equatable {
     String? message,
     bool clearMessage = false,
     AccountNode? savedAccount,
+    List<String>? detailGroupIds,
   }) =>
       AccountFormState(
         mode: mode,
@@ -88,6 +92,7 @@ class AccountFormState extends Equatable {
         status: status ?? AccountFormStatus.editing,
         message: clearMessage ? null : message ?? this.message,
         savedAccount: savedAccount ?? this.savedAccount,
+        detailGroupIds: detailGroupIds ?? this.detailGroupIds,
       );
 
   @override
@@ -105,5 +110,6 @@ class AccountFormState extends Equatable {
         status,
         message,
         savedAccount,
+        detailGroupIds,
       ];
 }

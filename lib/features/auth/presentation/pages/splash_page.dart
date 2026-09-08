@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/network/frappe_client.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/config/app_config.dart';
@@ -15,18 +17,41 @@ class SplashPage extends StatefulWidget {
 }
 
 class _SplashPageState extends State<SplashPage> {
+  Timer? _timer;
+  String? _error;
   @override
   void initState() {
     super.initState();
-    Timer(const Duration(milliseconds: 1400), () {
+    _timer = Timer(const Duration(milliseconds: 1400), _open);
+  }
+
+  Future<void> _open() async {
+    if (!mounted) return;
+    setState(() => _error = null);
+    final client = context.read<FrappeApiClient>();
+    try {
+      final restored =
+          client is FrappeClient ? await client.restoreSession() : false;
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(
-            builder: (_) => AppConfig.offlineDemoMode
-                ? const DashboardLandingPage(offlinePreview: true)
-                : const LoginPage()),
+            builder: (_) => restored
+                ? const DashboardLandingPage()
+                : AppConfig.offlineDemoMode
+                    ? const DashboardLandingPage(offlinePreview: true)
+                    : const LoginPage()),
       );
-    });
+    } catch (_) {
+      if (mounted) {
+        setState(() => _error = 'بازیابی نشست امن ممکن نشد؛ دوباره تلاش کنید.');
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
   }
 
   @override
@@ -61,12 +86,18 @@ class _SplashPageState extends State<SplashPage> {
               const Text('حسابداری یکپارچه برای کسب‌وکار شما',
                   style: TextStyle(color: Color(0xD9FFFFFF), fontSize: 11)),
               const SizedBox(height: 54),
-              const SizedBox(
-                width: 26,
-                height: 26,
-                child: CircularProgressIndicator(
-                    color: Colors.white, strokeWidth: 2.4),
-              ),
+              if (_error != null)
+                TextButton(
+                    onPressed: _open,
+                    child: Text(_error!,
+                        style: const TextStyle(color: Colors.white)))
+              else
+                const SizedBox(
+                  width: 26,
+                  height: 26,
+                  child: CircularProgressIndicator(
+                      color: Colors.white, strokeWidth: 2.4),
+                ),
             ]),
           ),
         ),

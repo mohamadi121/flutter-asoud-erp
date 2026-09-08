@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/config/app_config.dart';
+import '../../../../core/network/api_exception.dart';
+import '../../domain/repositories/auth_repository.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../dashboard/presentation/pages/dashboard_page.dart';
 
-/// This screen remains visible before deployment, but intentionally prevents
-/// both demo and real authentication until ASOUD ERP is available.
+/// Preview builds remain usable without a server; connected builds sign in.
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -17,6 +20,36 @@ class _LoginPageState extends State<LoginPage> {
   final _username = TextEditingController();
   final _password = TextEditingController();
   bool _obscurePassword = true;
+  bool _busy = false;
+  String? _error;
+  Future<void> _login() async {
+    if (_busy || AppConfig.offlineDemoMode) return;
+    if (_username.text.trim().isEmpty || _password.text.isEmpty) {
+      setState(() => _error = 'نام کاربری و رمز عبور را وارد کنید.');
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await context
+          .read<AuthRepository>()
+          .signIn(username: _username.text.trim(), password: _password.text);
+      _password.clear();
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(MaterialPageRoute<void>(
+          builder: (_) => const DashboardLandingPage()));
+    } catch (error) {
+      if (mounted) {
+        setState(() => _error = error is ApiException
+            ? error.message
+            : 'ورود ممکن نشد؛ اتصال و ذخیره امن گوشی را بررسی کنید.');
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
 
   @override
   void dispose() {
@@ -49,13 +82,15 @@ class _LoginPageState extends State<LoginPage> {
                             color: AsoudColors.text)),
                     const SizedBox(height: 7),
                     const Text(
-                        'ورود به حساب کاربری پس از آماده‌شدن سرور ASOUD ERP فعال می‌شود.',
+                        AppConfig.offlineDemoMode
+                            ? 'ورود به حساب کاربری پس از آماده‌شدن سرور ASOUD ERP فعال می‌شود.'
+                            : 'ورود به حساب کاربری ASOUD ERP',
                         style:
                             TextStyle(fontSize: 11, color: AsoudColors.muted)),
                     const SizedBox(height: 30),
                     TextField(
                       controller: _username,
-                      enabled: false,
+                      enabled: !AppConfig.offlineDemoMode && !_busy,
                       keyboardType: TextInputType.emailAddress,
                       textDirection: TextDirection.ltr,
                       decoration: const InputDecoration(
@@ -66,7 +101,7 @@ class _LoginPageState extends State<LoginPage> {
                     const SizedBox(height: 14),
                     TextField(
                       controller: _password,
-                      enabled: false,
+                      enabled: !AppConfig.offlineDemoMode && !_busy,
                       obscureText: _obscurePassword,
                       textDirection: TextDirection.ltr,
                       decoration: InputDecoration(
@@ -85,13 +120,20 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                     ),
                     const SizedBox(height: 14),
-                    const _LoginUnavailable(),
+                    if (AppConfig.offlineDemoMode) const _LoginUnavailable(),
+                    if (_error != null)
+                      Text(_error!, style: const TextStyle(color: Colors.red)),
                     const SizedBox(height: 22),
-                    const SizedBox(
+                    SizedBox(
                       height: 52,
                       child: FilledButton(
-                        onPressed: null,
-                        child: Text('ورود تا آماده‌شدن سرور غیرفعال است'),
+                        onPressed:
+                            AppConfig.offlineDemoMode || _busy ? null : _login,
+                        child: Text(AppConfig.offlineDemoMode
+                            ? 'ورود تا آماده‌شدن سرور غیرفعال است'
+                            : _busy
+                                ? 'در حال ورود…'
+                                : 'ورود'),
                       ),
                     ),
                     const SizedBox(height: 10),

@@ -9,8 +9,7 @@ import '../../domain/hr_models.dart';
 import 'organization_page.dart';
 import '../../domain/hr_repository.dart';
 import '../cubit/hr_cubit.dart';
-import '../../../parties/presentation/pages/party_management_page.dart';
-import '../../../parties/domain/entities/party_profile.dart';
+import 'personnel_page.dart';
 
 class HrHomePage extends StatelessWidget {
   const HrHomePage({required this.company, super.key});
@@ -90,9 +89,7 @@ class _HrHome extends StatelessWidget {
                       AsoudColors.warning,
                       () => _push(
                           context,
-                          PartyManagementPage(
-                              company: company,
-                              initialRole: PartyRole.employee))),
+                          PersonnelPage(company: company))),
                   _Action(
                       'تیم و ساختار سازمانی',
                       'همکاران، واحدها و مسیر سازمانی',
@@ -176,8 +173,7 @@ class _OfflineHrHome extends StatelessWidget {
             () => Navigator.push(
                 context,
                 MaterialPageRoute<void>(
-                  builder: (_) => PartyManagementPage(
-                      company: company, initialRole: PartyRole.employee),
+                  builder: (_) => PersonnelPage(company: company),
                 )),
           ),
           _Action(

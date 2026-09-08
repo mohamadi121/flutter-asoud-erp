@@ -9,6 +9,20 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../helpers/fake_local_record_store.dart';
 
 void main() {
+  test('unowned, other-user and other-server queued mutations are never replayed', () async {
+    final local = FakeLocalRecordStore();
+    for (final entry in [
+      {'operation': 'asoud_method'},
+      {'operation': 'asoud_method', '_asoud_owner': 'other', '_asoud_server': 'injected-client'},
+      {'operation': 'asoud_method', '_asoud_owner': 'user', '_asoud_server': 'other-server'},
+    ]) {
+      await local.save(entityType: 'test', payload: entry, status: LocalSyncStatus.pendingSync);
+    }
+    final client = _ReplayClient();
+    final report = await OfflineSyncService(client, local: local).syncNow();
+    expect(client.replayCalls, 0);
+    expect(report.remaining, 3);
+  });
   test('صف به‌ترتیب Replay و رکورد دامنه synced می‌شود', () async {
     final local = FakeLocalRecordStore();
     await local.save(
@@ -16,6 +30,8 @@ void main() {
       entityType: 'asoud_erp.api.v1.setup.save_office',
       payload: const {
         'operation': 'asoud_method',
+        '_asoud_owner': 'user',
+        '_asoud_server': 'injected-client',
         'company_name': 'دفتر نمونه',
       },
       status: LocalSyncStatus.pendingSync,
@@ -88,7 +104,12 @@ void main() {
 Future<void> _mutation(FakeLocalRecordStore local, String id) => local.save(
       id: id,
       entityType: 'asoud_erp.api.v1.test.save',
-      payload: const {'operation': 'asoud_method', 'value': 1},
+      payload: const {
+        'operation': 'asoud_method',
+        'value': 1,
+        '_asoud_owner': 'user',
+        '_asoud_server': 'injected-client'
+      },
       status: LocalSyncStatus.pendingSync,
     );
 
@@ -135,7 +156,8 @@ class _ReplayClient implements FrappeApiClient {
           String doctype, Map<String, dynamic> data) =>
       throw UnimplementedError();
   @override
-  Future<FrappeUserContext> getCurrentUser() => throw UnimplementedError();
+  Future<FrappeUserContext> getCurrentUser() async =>
+      const FrappeUserContext(userId: 'user', fullName: 'User', roles: []);
   @override
   Future<List<Map<String, dynamic>>> getResourceList(String doctype,
           {Map<String, dynamic>? queryParameters}) =>

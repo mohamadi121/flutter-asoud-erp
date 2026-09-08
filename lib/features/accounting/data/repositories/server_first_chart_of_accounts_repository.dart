@@ -239,6 +239,7 @@ class ServerFirstChartOfAccountsRepository
         'is_active': value.isActive,
         'nature': value.nature.name,
         'account_type': value.accountType,
+        'detail_groups': value.detailGroupIds,
       };
 
   AccountNode _decode(Map<String, dynamic> value) => AccountNode(
@@ -250,5 +251,6 @@ class ServerFirstChartOfAccountsRepository
         isActive: value['is_active'] != false,
         nature: AccountNature.values.byName(value['nature'] as String),
         accountType: value['account_type']?.toString() ?? '',
+        detailGroupIds: (value['detail_groups'] as List? ?? const []).cast<String>(),
       );
 }

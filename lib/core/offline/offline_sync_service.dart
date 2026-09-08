@@ -22,14 +22,22 @@ class OfflineSyncService {
   OfflineSyncService(
     this._client, {
     LocalRecordStore? local,
+    this.afterSync,
   }) : _local = local ?? LocalDatabaseStore.instance;
 
   final FrappeApiClient _client;
   final LocalRecordStore _local;
+  final Future<void> Function()? afterSync;
   Future<OfflineSyncReport>? _activeSync;
 
   Future<OfflineSyncReport> syncNow() =>
-      _activeSync ??= _run().whenComplete(() => _activeSync = null);
+      _activeSync ??= _runAll().whenComplete(() => _activeSync = null);
+
+  Future<OfflineSyncReport> _runAll() async {
+    final report = await _run();
+    await afterSync?.call();
+    return report;
+  }
 
   Future<OfflineSyncReport> _run() async {
     var synced = 0;
@@ -43,9 +51,28 @@ class OfflineSyncService {
         .toList(growable: false)
       ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
 
+    if (!_client.isAuthenticated || mutations.isEmpty) {
+      return OfflineSyncReport(
+          synced: 0, failed: 0, remaining: mutations.length);
+    }
+    final owner = (await _client.getCurrentUser()).userId;
+    final server =
+        _client is FrappeClient ? _client.serverIdentity : 'injected-client';
+
     for (final record in mutations) {
+      // Legacy/unassigned demo mutations require explicit adoption, never guess an owner.
+      if (record.payload['_asoud_owner'] != owner ||
+          record.payload['_asoud_server'] != server) {
+        continue;
+      }
+      if (!_client.isAuthenticated ||
+          (await _client.getCurrentUser()).userId != owner) {
+        break;
+      }
       final payload = Map<String, dynamic>.from(record.payload)
-        ..remove('operation');
+        ..remove('operation')
+        ..remove('_asoud_owner')
+        ..remove('_asoud_server');
       try {
         final response = await _client.replayOfflineMutation(
           mutationId: record.id,

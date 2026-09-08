@@ -16,6 +16,7 @@ void main() {
     code: '101',
     title: 'موجودی نقد',
     level: AccountLevel.general,
+    detailGroupIds: ['10000', '30000'],
   );
   const group = DetailGroup(id: 'DG-1', code: '1000', title: 'مشتریان');
 
