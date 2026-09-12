@@ -95,6 +95,6 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('آپلود قرارداد'), findsOneWidget);
       expect(tester.takeException(), isNull);
-    });
+    }, tags: 'golden');
   }
 }

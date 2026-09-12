@@ -147,7 +147,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('سابقه ویرایش‌شده'), findsOneWidget);
       expect(tester.takeException(), isNull);
-    });
+    }, tags: 'golden');
   }
 
   testWidgets('profile details open a separate locked-style editor and refresh after save', (tester) async {
@@ -166,7 +166,7 @@ void main() {
     expect(repo.profile['display_name'], 'علی جدید');
     expect(find.byType(TextFormField), findsNothing);
     expect(tester.takeException(), isNull);
-  });
+  }, tags: 'golden');
 
   testWidgets('recent activity opens its own record and system audit has no edit action', (tester) async {
     final repo = _Repository();
