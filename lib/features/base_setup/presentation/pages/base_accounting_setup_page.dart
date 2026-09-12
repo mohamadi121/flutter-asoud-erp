@@ -13,6 +13,8 @@ import '../../../accounting/presentation/pages/detail_groups_page.dart';
 import '../../../parties/presentation/pages/party_management_page.dart';
 import '../../../parties/domain/entities/party_profile.dart';
 import '../../../hr/presentation/pages/hr_home_page.dart';
+import '../../../workflows/presentation/pages/workflow_list_page.dart';
+import '../../../purchase/presentation/pages/purchase_requests_page.dart';
 
 class BaseAccountingSetupPage extends StatelessWidget {
   const BaseAccountingSetupPage(
@@ -36,6 +38,34 @@ class BaseAccountingSetupPage extends StatelessWidget {
               _SetupOverview(
                   officeName: officeName, offlinePreview: offlinePreview),
               const SizedBox(height: 18),
+              Card(
+                  child: ListTile(
+                leading: const AsoudIconBox(
+                    icon: Icons.hub_outlined, color: AsoudColors.primary),
+                title: const Text('طراح گردش‌کار و فرم درخواست'),
+                subtitle: const Text('بررسی فرایندهای قبلی و طراحی مراحل'),
+                trailing: const Icon(Icons.chevron_left),
+                onTap: officeName == null
+                    ? null
+                    : () => Navigator.of(context).push(MaterialPageRoute<void>(
+                          builder: (_) => WorkflowListPage(company: officeName),
+                        )),
+              )),
+              Card(
+                  child: ListTile(
+                leading: const AsoudIconBox(
+                    icon: Icons.assignment_outlined,
+                    color: AsoudColors.warning),
+                title: const Text('درخواست‌های خرید'),
+                subtitle: const Text('ثبت و مشاهده درخواست‌های موجود'),
+                trailing: const Icon(Icons.chevron_left),
+                onTap: officeName == null
+                    ? null
+                    : () => Navigator.of(context).push(MaterialPageRoute<void>(
+                          builder: (_) =>
+                              PurchaseRequestsPage(company: officeName!),
+                        )),
+              )),
               const Text('ماژول‌های تنظیمات پایه',
                   style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900)),
               const SizedBox(height: 10),
@@ -47,6 +77,20 @@ class BaseAccountingSetupPage extends StatelessWidget {
                 mainAxisSpacing: 10,
                 crossAxisSpacing: 10,
                 children: [
+                  _ModuleGridTile(
+                    title: 'اشخاص و شرکت‌ها',
+                    subtitle: 'مشتریان، تأمین‌کنندگان و پرسنل',
+                    icon: Icons.people_outline_rounded,
+                    color: AsoudColors.primary,
+                    onTap: officeName == null
+                        ? null
+                        : () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                  builder: (_) => PartyManagementPage(
+                                      company: officeName,
+                                      createWhenEmpty: true)),
+                            ),
+                  ),
                   _ModuleGridTile(
                     title: 'حسابداری',
                     subtitle: 'کدینگ، سرفصل‌ها و تفصیلی',

@@ -33,16 +33,22 @@ class PartiesCubit extends Cubit<PartiesState> {
   final PartyRepository repository;
   final String? company;
 
+  int _loadVersion = 0;
+
   Future<void> load({PartyRole? role, String? search}) async {
+    if (isClosed) return;
+    final version = ++_loadVersion;
     emit(PartiesState(status: PartiesStatus.loading, items: state.items));
     try {
       final items =
           await repository.list(company: company, role: role, search: search);
+      if (isClosed || version != _loadVersion) return;
       emit(PartiesState(
         status: items.isEmpty ? PartiesStatus.empty : PartiesStatus.success,
         items: items,
       ));
     } catch (_) {
+      if (isClosed || version != _loadVersion) return;
       emit(PartiesState(
         status: PartiesStatus.failure,
         items: state.items,

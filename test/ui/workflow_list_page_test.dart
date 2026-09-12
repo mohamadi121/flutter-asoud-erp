@@ -148,6 +148,13 @@ void main() {
     expect(find.text('نیازمند تکمیل'), findsOneWidget);
     expect(find.text('ایجاد گردش‌کار جدید'), findsOneWidget);
     expect(tester.takeException(), isNull);
+    await tester.tap(find.byTooltip('عملیات فرایند').first);
+    await tester.pumpAndSettle();
+    expect(find.text('طراحی مراحل و فرم درخواست'), findsOneWidget);
+    await tester.tap(find.text('طراحی مراحل و فرم درخواست'));
+    await tester.pumpAndSettle();
+    expect(find.text('طراحی فرایند'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('دکمه ایجاد به صفحه فرم مرحله بعد می‌رود', (tester) async {

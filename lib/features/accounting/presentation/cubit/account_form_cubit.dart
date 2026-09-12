@@ -14,6 +14,7 @@ class AccountFormCubit extends Cubit<AccountFormState> {
     String? initialParentId,
     this.company,
     this.repository,
+    this.lockHierarchy = false,
   }) : super(AccountFormState(
           mode: account == null ? AccountFormMode.create : AccountFormMode.edit,
           originalId: account?.id,
@@ -30,16 +31,27 @@ class AccountFormCubit extends Cubit<AccountFormState> {
 
   final String? company;
   final ChartOfAccountsRepository? repository;
+  final bool lockHierarchy;
 
   void setTitle(String value) => emit(state.copyWith(title: value));
   void setCode(String value) => emit(state.copyWith(code: value));
   void setLevel(AccountLevel value) {
-    if (state.mode == AccountFormMode.edit || value == state.level) return;
-    emit(state.copyWith(level: value, clearParent: true, accountType: '',
-        detailGroupIds: value == AccountLevel.detail ? const [] : state.detailGroupIds));
+    if (lockHierarchy ||
+        state.mode == AccountFormMode.edit ||
+        value == state.level) {
+      return;
+    }
+    emit(state.copyWith(
+        level: value,
+        clearParent: true,
+        accountType: '',
+        detailGroupIds:
+            value == AccountLevel.detail ? const [] : state.detailGroupIds));
   }
-  void setParent(String? value) =>
-      emit(state.copyWith(parentId: value, clearParent: value == null));
+
+  void setParent(String? value) => lockHierarchy
+      ? null
+      : emit(state.copyWith(parentId: value, clearParent: value == null));
   void setNature(AccountNature value) => emit(state.copyWith(nature: value));
   void setAccountType(String value) => emit(state.copyWith(accountType: value));
   void setActive(bool value) => emit(state.copyWith(isActive: value));
@@ -74,18 +86,24 @@ class AccountFormCubit extends Cubit<AccountFormState> {
           collect(node.children);
         }
       }
+
       collect(accounts);
-      final hasChildren = all.any((a) => a.parentId == state.originalId &&
-          state.originalId != null && a.level != AccountLevel.detail);
+      final hasChildren = all.any((a) =>
+          a.parentId == state.originalId &&
+          state.originalId != null &&
+          a.level != AccountLevel.detail);
       final parent = all.where((a) => a.id == state.parentId).firstOrNull;
       if ((state.detailGroupIds.isNotEmpty && hasChildren) ||
           (state.level != AccountLevel.detail && parent?.isTerminal == true)) {
-        emit(state.copyWith(status: AccountFormStatus.failure,
-            message: 'حساب دارای زیرمجموعه نمی‌تواند نهایی شود؛ حساب نهایی نیز زیرمجموعه حساب نمی‌پذیرد.'));
+        emit(state.copyWith(
+            status: AccountFormStatus.failure,
+            message:
+                'حساب دارای زیرمجموعه نمی‌تواند نهایی شود؛ حساب نهایی نیز زیرمجموعه حساب نمی‌پذیرد.'));
         return;
       }
     } catch (_) {
-      emit(state.copyWith(status: AccountFormStatus.failure,
+      emit(state.copyWith(
+          status: AccountFormStatus.failure,
           message: 'بررسی ساختار حساب ممکن نشد؛ اطلاعات ذخیره نشده است.'));
       return;
     }

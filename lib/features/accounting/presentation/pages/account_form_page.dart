@@ -33,32 +33,41 @@ class AccountFormPage extends StatelessWidget {
           repository: repository,
           initialLevel: initialLevel,
           initialParentId: initialParentId,
+          lockHierarchy: account != null ||
+              initialLevel != null ||
+              initialParentId != null,
         ),
-        child: _AccountFormView(
-          accounts: repository == null || company == null
-              ? Future.value(const <AccountNode>[])
-              : repository!.getAccounts(company!),
-        ),
+        child: Directionality(
+            textDirection: TextDirection.rtl,
+            child: _AccountFormView(
+              contextual: account != null ||
+                  initialLevel != null ||
+                  initialParentId != null,
+              accounts: repository == null || company == null
+                  ? Future.value(const <AccountNode>[])
+                  : repository!.getAccounts(company!),
+            )),
       );
 }
 
 class _AccountFormView extends StatefulWidget {
-  const _AccountFormView({required this.accounts});
+  const _AccountFormView({required this.accounts, required this.contextual});
   final Future<List<AccountNode>> accounts;
+  final bool contextual;
 
   @override
   State<_AccountFormView> createState() => _AccountFormViewState();
 }
 
 class _AccountFormViewState extends State<_AccountFormView> {
-  bool stagedView = true;
   Future<List<DetailGroup>>? groups;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    groups ??= RepositoryProvider.of<DetailGroupRepository?>(context)?.getGroups()
-        ?? Future.value(const <DetailGroup>[]);
+    groups ??=
+        RepositoryProvider.of<DetailGroupRepository?>(context)?.getGroups() ??
+            Future.value(const <DetailGroup>[]);
   }
 
   @override
@@ -86,20 +95,18 @@ class _AccountFormViewState extends State<_AccountFormView> {
                 builder: (context, snapshot) {
                   final accounts = _flatten(snapshot.data ?? const []);
                   final parents = accounts
-                      .where((item) => item.level == _parentLevel(state.level) &&
-                          (state.level == AccountLevel.detail || !item.isTerminal))
+                      .where((item) =>
+                          item.level == _parentLevel(state.level) &&
+                          (state.level == AccountLevel.detail ||
+                              !item.isTerminal))
                       .toList(growable: false);
                   return ListView(
                     padding: const EdgeInsets.fromLTRB(16, 10, 16, 30),
                     children: [
-                      _ViewSelector(
-                        staged: stagedView,
-                        onChanged: (value) =>
-                            setState(() => stagedView = value),
-                      ),
-                      const SizedBox(height: 28),
-                      if (state.mode == AccountFormMode.create)
-                        _LevelSelector(value: state.level, onChanged: cubit.setLevel),
+                      if (!widget.contextual &&
+                          state.mode == AccountFormMode.create)
+                        _LevelSelector(
+                            value: state.level, onChanged: cubit.setLevel),
                       const SizedBox(height: 14),
                       Container(
                         padding: const EdgeInsets.all(16),
@@ -112,12 +119,15 @@ class _AccountFormViewState extends State<_AccountFormView> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text('اطلاعات ${_levelTitle(state.level)}',
-                                style: const TextStyle(fontWeight: FontWeight.w900)),
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w900)),
                             const SizedBox(height: 12),
-                            Text('سطح حساب *', style: _labelStyle),
-                            const SizedBox(height: 5),
-                            _ReadOnlyField(value: _levelTitle(state.level)),
-                            if (state.requiresParent) ...[
+                            if (!widget.contextual) ...[
+                              Text('سطح حساب *', style: _labelStyle),
+                              const SizedBox(height: 5),
+                              _ReadOnlyField(value: _levelTitle(state.level)),
+                            ],
+                            if (state.requiresParent && !widget.contextual) ...[
                               const SizedBox(height: 10),
                               Text('${_parentTitle(state.level)} والد *',
                                   style: _labelStyle),
@@ -188,37 +198,38 @@ class _AccountFormViewState extends State<_AccountFormView> {
                             ),
                             const SizedBox(height: 10),
                             if (state.level == AccountLevel.ledger) ...[
-                            Text('نوع حساب *', style: _labelStyle),
-                            const SizedBox(height: 5),
-                            DropdownButtonFormField<String>(
-                              isExpanded: true,
-                              initialValue: state.accountType,
-                              items: const [
-                                DropdownMenuItem(
-                                    value: '', child: Text('عادی')),
-                                DropdownMenuItem(
-                                    value: 'Bank', child: Text('بانک')),
-                                DropdownMenuItem(
-                                    value: 'Cash', child: Text('صندوق')),
-                                DropdownMenuItem(
-                                    value: 'Receivable',
-                                    child: Text('دریافتنی')),
-                                DropdownMenuItem(
-                                    value: 'Payable', child: Text('پرداختنی')),
-                                DropdownMenuItem(
-                                    value: 'Fixed Asset',
-                                    child: Text('دارایی ثابت')),
-                                DropdownMenuItem(
-                                    value: 'Income Account',
-                                    child: Text('حساب درآمد')),
-                                DropdownMenuItem(
-                                    value: 'Expense Account',
-                                    child: Text('حساب هزینه')),
-                              ],
-                              onChanged: (value) => value == null
-                                  ? null
-                                  : cubit.setAccountType(value),
-                            ),
+                              Text('نوع حساب *', style: _labelStyle),
+                              const SizedBox(height: 5),
+                              DropdownButtonFormField<String>(
+                                isExpanded: true,
+                                initialValue: state.accountType,
+                                items: const [
+                                  DropdownMenuItem(
+                                      value: '', child: Text('عادی')),
+                                  DropdownMenuItem(
+                                      value: 'Bank', child: Text('بانک')),
+                                  DropdownMenuItem(
+                                      value: 'Cash', child: Text('صندوق')),
+                                  DropdownMenuItem(
+                                      value: 'Receivable',
+                                      child: Text('دریافتنی')),
+                                  DropdownMenuItem(
+                                      value: 'Payable',
+                                      child: Text('پرداختنی')),
+                                  DropdownMenuItem(
+                                      value: 'Fixed Asset',
+                                      child: Text('دارایی ثابت')),
+                                  DropdownMenuItem(
+                                      value: 'Income Account',
+                                      child: Text('حساب درآمد')),
+                                  DropdownMenuItem(
+                                      value: 'Expense Account',
+                                      child: Text('حساب هزینه')),
+                                ],
+                                onChanged: (value) => value == null
+                                    ? null
+                                    : cubit.setAccountType(value),
+                              ),
                             ],
                             const SizedBox(height: 12),
                             _RecommendationSwitch(
@@ -252,30 +263,80 @@ class _AccountFormViewState extends State<_AccountFormView> {
                           builder: (context, groupSnapshot) => Card(
                             child: Padding(
                               padding: const EdgeInsets.all(16),
-                              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                const Text('گروه‌های تفصیلی شناور', style: TextStyle(fontWeight: FontWeight.bold)),
-                                const Text('با انتخاب گروه تفصیلی، این حساب در همین سطح نهایی می‌شود.'),
-                                if (groupSnapshot.connectionState == ConnectionState.waiting)
-                                  const LinearProgressIndicator(),
-                                if (groupSnapshot.hasError)
-                                  TextButton(onPressed: () => setState(() {
-                                    groups = context.read<DetailGroupRepository>().getGroups();
-                                  }), child: const Text('دریافت گروه‌ها ناموفق بود؛ تلاش دوباره')),
-                                for (final group in groupSnapshot.data ?? const <DetailGroup>[])
-                                  CheckboxListTile(
-                                    contentPadding: EdgeInsets.zero,
-                                    title: Text(group.title),
-                                    subtitle: Text(group.code),
-                                    value: state.detailGroupIds.contains(group.id.isEmpty ? group.code : group.id),
-                                    onChanged: group.disabled || state.status == AccountFormStatus.saving
-                                        ? null : (value) => cubit.selectDetailGroup(group.id.isEmpty ? group.code : group.id, value ?? false),
-                                  ),
-                                for (final id in state.detailGroupIds.where((id) =>
-                                    !(groupSnapshot.data ?? const <DetailGroup>[]).any((g) => (g.id.isEmpty ? g.code : g.id) == id)))
-                                  CheckboxListTile(title: Text(id), value: true,
-                                    onChanged: state.status == AccountFormStatus.saving ? null :
-                                        (_) => cubit.selectDetailGroup(id, false)),
-                              ]),
+                              child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text('گروه‌های تفصیلی شناور',
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.bold)),
+                                    const Text(
+                                        'با انتخاب گروه تفصیلی، این حساب در همین سطح نهایی می‌شود.'),
+                                    if (groupSnapshot.connectionState ==
+                                        ConnectionState.waiting)
+                                      const LinearProgressIndicator(),
+                                    if (groupSnapshot.hasError)
+                                      TextButton(
+                                          onPressed: () => setState(() {
+                                                groups = context
+                                                    .read<
+                                                        DetailGroupRepository>()
+                                                    .getGroups();
+                                              }),
+                                          child: const Text(
+                                              'دریافت گروه‌ها ناموفق بود؛ تلاش دوباره')),
+                                    const SizedBox(height: 12),
+                                    GridView(
+                                      key: const ValueKey(
+                                          'detail-group-choices'),
+                                      shrinkWrap: true,
+                                      physics:
+                                          const NeverScrollableScrollPhysics(),
+                                      gridDelegate:
+                                          const SliverGridDelegateWithFixedCrossAxisCount(
+                                              crossAxisCount: 2,
+                                              mainAxisSpacing: 8,
+                                              crossAxisSpacing: 8,
+                                              mainAxisExtent: 144),
+                                      children: [
+                                        for (final group
+                                            in groupSnapshot.data ??
+                                                const <DetailGroup>[])
+                                          _DetailGroupChoice(
+                                              group: group,
+                                              selected: state.detailGroupIds
+                                                  .contains(group.id.isEmpty
+                                                      ? group.code
+                                                      : group.id),
+                                              onChanged: group.disabled ||
+                                                      state.status ==
+                                                          AccountFormStatus
+                                                              .saving
+                                                  ? null
+                                                  : (value) =>
+                                                      cubit.selectDetailGroup(
+                                                          group.id.isEmpty
+                                                              ? group.code
+                                                              : group.id,
+                                                          value)),
+                                      ],
+                                    ),
+                                    for (final id in state.detailGroupIds.where(
+                                        (id) => !(groupSnapshot.data ??
+                                                const <DetailGroup>[])
+                                            .any((g) =>
+                                                (g.id.isEmpty
+                                                    ? g.code
+                                                    : g.id) ==
+                                                id)))
+                                      CheckboxListTile(
+                                          title: Text(id),
+                                          value: true,
+                                          onChanged: state.status ==
+                                                  AccountFormStatus.saving
+                                              ? null
+                                              : (_) => cubit.selectDetailGroup(
+                                                  id, false)),
+                                  ]),
                             ),
                           ),
                         ),
@@ -312,46 +373,68 @@ class _AccountFormViewState extends State<_AccountFormView> {
       level == AccountLevel.ledger ? 'حساب کل' : 'گروه حساب';
 }
 
-class _ViewSelector extends StatelessWidget {
-  const _ViewSelector({required this.staged, required this.onChanged});
-  final bool staged;
-  final ValueChanged<bool> onChanged;
+class _DetailGroupChoice extends StatelessWidget {
+  const _DetailGroupChoice(
+      {required this.group, required this.selected, this.onChanged});
+  final DetailGroup group;
+  final bool selected;
+  final ValueChanged<bool>? onChanged;
+
   @override
-  Widget build(BuildContext context) => Container(
-        height: 44,
-        padding: const EdgeInsets.all(3),
-        decoration: BoxDecoration(
-          border: Border.all(color: AsoudColors.border),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(children: [
-          for (final item in const [
-            (true, 'نمای مرحله‌ای'),
-            (false, 'نمای درختی')
-          ])
-            Expanded(
-              child: InkWell(
-                onTap: () => onChanged(item.$1),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 160),
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color:
-                        staged == item.$1 ? AsoudColors.primary : Colors.white,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(item.$2,
-                      style: TextStyle(
-                        color: staged == item.$1
-                            ? Colors.white
-                            : AsoudColors.muted,
-                        fontWeight: FontWeight.w800,
-                      )),
-                ),
-              ),
-            ),
-        ]),
-      );
+  Widget build(BuildContext context) {
+    final role = (group.iconKey ?? group.partyRole ?? '').toLowerCase();
+    final (icon, fallback) = switch (role) {
+      'supplier' => (Icons.inventory_2_outlined, AsoudColors.success),
+      'employee' => (Icons.badge_outlined, AsoudColors.warning),
+      'cash' => (Icons.account_balance_wallet_outlined, AsoudColors.purple),
+      'bank' => (Icons.account_balance_outlined, AsoudColors.cyan),
+      'project' => (Icons.work_outline_rounded, AsoudColors.danger),
+      _ => (Icons.people_outline_rounded, AsoudColors.primary),
+    };
+    final hex = group.colorHex?.replaceFirst('#', '');
+    final parsed = hex == null ? null : int.tryParse(hex, radix: 16);
+    final color = parsed == null
+        ? fallback
+        : Color(hex!.length == 6 ? 0xFF000000 | parsed : parsed);
+    return Card(
+      key:
+          ValueKey('detail-choice-${group.id.isEmpty ? group.code : group.id}'),
+      margin: EdgeInsets.zero,
+      color: selected ? color.withValues(alpha: .08) : Colors.white,
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(color: selected ? color : AsoudColors.border)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onChanged == null ? null : () => onChanged!(!selected),
+        child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  Icon(icon, color: color, size: 26),
+                  const Spacer(),
+                  Checkbox(
+                      value: selected,
+                      activeColor: color,
+                      onChanged: onChanged == null
+                          ? null
+                          : (value) => onChanged!(value ?? false)),
+                ]),
+                Text(group.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 12, fontWeight: FontWeight.w800)),
+                Text(group.code,
+                    textDirection: TextDirection.ltr,
+                    style: TextStyle(fontSize: 11, color: color)),
+              ],
+            )),
+      ),
+    );
+  }
 }
 
 class _LevelSelector extends StatelessWidget {

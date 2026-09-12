@@ -107,7 +107,7 @@ void main() {
       (tester) async {
     await tester.pumpWidget(_app(const PartyManagementPage()));
     await tester.pumpAndSettle();
-    expect(find.text('مدیریت اشخاص'), findsOneWidget);
+    expect(find.text('اشخاص و شرکت‌ها'), findsOneWidget);
     expect(find.text('همه'), findsOneWidget);
     expect(find.text('مشتریان'), findsOneWidget);
     expect(find.text('تأمین‌کنندگان'), findsOneWidget);
@@ -118,7 +118,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('حقیقی'), findsOneWidget);
     expect(find.text('حقوقی'), findsOneWidget);
-    await tester.tap(find.text('پرسنل'));
+    // The fixed detail-group panel also contains the employee group label.
+    await tester.ensureVisible(find.text('پرسنل').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('پرسنل').last);
     await tester.pumpAndSettle();
     await tester.drag(find.byType(ListView).first, const Offset(0, -260));
     await tester.pumpAndSettle();

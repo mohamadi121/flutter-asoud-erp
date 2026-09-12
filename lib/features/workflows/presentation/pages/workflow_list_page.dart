@@ -9,6 +9,7 @@ import '../../domain/repositories/workflow_notification_repository.dart';
 import '../cubit/workflow_list_cubit.dart';
 import 'workflow_form_page.dart';
 import 'workflow_notifications_page.dart';
+import 'workflow_designer_page.dart';
 
 class WorkflowListPage extends StatelessWidget {
   const WorkflowListPage({this.company, this.onCreate, super.key});
@@ -342,6 +343,8 @@ class _WorkflowCard extends StatelessWidget {
               itemBuilder: (_) => [
                 const PopupMenuItem(
                     value: 'details', child: Text('مشاهده جزئیات')),
+                const PopupMenuItem(
+                    value: 'design', child: Text('طراحی مراحل و فرم درخواست')),
                 PopupMenuItem(
                   value: 'activate',
                   enabled: !item.isLocked,
@@ -351,6 +354,10 @@ class _WorkflowCard extends StatelessWidget {
               onSelected: (value) {
                 if (value == 'details') {
                   _showDetails(context);
+                } else if (value == 'design') {
+                  Navigator.of(context).push(MaterialPageRoute<void>(
+                    builder: (_) => WorkflowDesignerPage(definition: item.id),
+                  ));
                 }
               },
             ),

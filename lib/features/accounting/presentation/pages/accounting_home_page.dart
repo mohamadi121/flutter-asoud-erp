@@ -2,10 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/widgets/asoud_ui.dart';
-import 'chart_of_accounts_page.dart';
+import 'chart_setup_page.dart';
 import 'detail_groups_page.dart';
-import '../../domain/repositories/chart_of_accounts_repository.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../parties/presentation/pages/party_management_page.dart';
 
 class AccountingHomePage extends StatelessWidget {
@@ -44,14 +42,11 @@ class AccountingHomePage extends StatelessWidget {
                     title: Text(action.$1,
                         style: const TextStyle(fontWeight: FontWeight.w700)),
                     trailing: const Icon(Icons.chevron_left_rounded),
-                    onTap: action.$1 == 'سرفصل حساب‌ها'
-                        ? () =>
-                            Navigator.of(context).push(MaterialPageRoute<void>(
-                                builder: (_) => ChartOfAccountsPage(
-                                      company: company,
-                                      repository: context
-                                          .read<ChartOfAccountsRepository>(),
-                                    )))
+                    onTap: action.$1 == 'سرفصل حساب‌ها' && company != null
+                        ? () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                                builder: (_) =>
+                                    ChartSetupPage(company: company!)))
                         : action.$1 == 'گروه تفصیلی شناور'
                             ? () => Navigator.of(context).push(
                                   MaterialPageRoute<void>(

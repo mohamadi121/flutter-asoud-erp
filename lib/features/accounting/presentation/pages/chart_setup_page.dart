@@ -7,6 +7,8 @@ import '../../domain/repositories/chart_of_accounts_repository.dart';
 import 'chart_of_accounts_page.dart';
 import 'chart_excel_import_page.dart';
 import 'chart_template_page.dart';
+import 'account_form_page.dart';
+import '../../domain/entities/account_node.dart';
 
 class ChartSetupPage extends StatelessWidget {
   const ChartSetupPage({required this.company, super.key});
@@ -16,7 +18,7 @@ class ChartSetupPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: const AsoudHeader(
-          title: 'سرفصل‌های حسابداری',
+          title: 'مدیریت کدینگ حسابداری',
           subtitle: 'کدینگ حساب‌ها را انتخاب یا ایجاد کنید',
         ),
         body: SafeArea(
@@ -44,10 +46,19 @@ class ChartSetupPage extends StatelessWidget {
                   child: _ChoiceCard(
                     icon: Icons.add_rounded,
                     color: AsoudColors.success,
-                    title: 'ایجاد دستی',
+                    title: 'ایجاد سرفصل گروه',
                     subtitle: 'برای حسابدار حرفه‌ای یا کدینگ اختصاصی',
-                    action: 'ایجاد دستی',
-                    onTap: () => _openChart(context),
+                    action: 'افزودن گروه',
+                    onTap: () async {
+                      final saved = await Navigator.of(context)
+                          .push<AccountNode>(MaterialPageRoute(
+                              builder: (_) => AccountFormPage(
+                                  company: company,
+                                  repository:
+                                      context.read<ChartOfAccountsRepository>(),
+                                  initialLevel: AccountLevel.group)));
+                      if (saved != null && context.mounted) _openChart(context);
+                    },
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -116,7 +127,8 @@ class _WarningCard extends StatelessWidget {
                 Text('مدیریت کدینگ حسابداری دفتر',
                     style: TextStyle(fontWeight: FontWeight.w900)),
                 SizedBox(height: 4),
-                Text('سرفصل‌های موجود را مدیریت کنید یا روش ایجاد را انتخاب کنید.',
+                Text(
+                    'سرفصل‌های موجود را مدیریت کنید یا روش ایجاد را انتخاب کنید.',
                     style: TextStyle(fontSize: 9, color: AsoudColors.muted)),
               ],
             ),

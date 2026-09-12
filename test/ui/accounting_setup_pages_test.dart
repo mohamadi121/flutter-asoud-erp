@@ -8,6 +8,8 @@ import 'package:asoud_erp/features/accounting/presentation/pages/detail_groups_p
 import 'package:asoud_erp/features/accounting/presentation/pages/chart_excel_import_page.dart';
 import 'package:asoud_erp/features/accounting/presentation/pages/chart_template_page.dart';
 import 'package:asoud_erp/features/accounting/presentation/pages/account_level_page.dart';
+import 'package:asoud_erp/features/accounting/presentation/pages/account_form_page.dart';
+import 'package:asoud_erp/features/accounting/presentation/cubit/account_form_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -35,8 +37,23 @@ void main() {
   testWidgets('صفحه انتخاب سرفصل‌ها در عرض 390 بدون overflow است',
       (tester) async {
     await pumpPage(tester, const ChartSetupPage(company: 'شرکت نمونه'));
-    expect(find.text('سرفصل‌های حسابداری'), findsOneWidget);
-    expect(find.text('ایجاد دستی'), findsWidgets);
+    expect(find.text('مدیریت کدینگ حسابداری'), findsOneWidget);
+    expect(find.text('ایجاد سرفصل گروه'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'ایجاد گروه از صفحه قبلی با سطح ثابت و بدون انتخاب والد باز می‌شود',
+      (tester) async {
+    await pumpPage(tester, const ChartSetupPage(company: 'شرکت نمونه'));
+    await tester.tap(find.text('افزودن گروه'));
+    await tester.pumpAndSettle();
+    expect(find.byType(AccountFormPage), findsOneWidget);
+    final state =
+        tester.element(find.text('نام حساب *')).read<AccountFormCubit>().state;
+    expect(state.level, AccountLevel.group);
+    expect(state.parentId, isNull);
+    expect(find.text('سطح حساب *'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 

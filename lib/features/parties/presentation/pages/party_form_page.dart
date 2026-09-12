@@ -549,51 +549,56 @@ class _AutomaticDetailCode extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Card(
-        child: ExpansionTile(
-          initiallyExpanded: false,
-          maintainState: true,
-          tilePadding: const EdgeInsets.symmetric(horizontal: 12),
-          childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-          leading: const AsoudIconBox(
-              icon: Icons.tag_rounded, color: AsoudColors.primary, size: 32),
-          title: Text(
-              loading ? 'در حال محاسبه کد...' : (code ?? 'کد پس از اتصال سرور'),
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900)),
-          subtitle: Text(_selectedNames,
-              style: const TextStyle(fontSize: 9, color: AsoudColors.primary)),
-          children: [
-            if (loading)
-              const LinearProgressIndicator()
-            else if (groups.isEmpty)
-              const Text('گروه فعالی از Backend دریافت نشد.',
-                  style: TextStyle(fontSize: 10, color: AsoudColors.warning))
-            else
-              for (final group in groups)
-                ListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(
-                    selected.contains(group.id)
-                        ? Icons.radio_button_checked_rounded
-                        : Icons.radio_button_off_rounded,
-                    color: selected.contains(group.id)
-                        ? AsoudColors.primary
-                        : AsoudColors.muted,
+        child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(children: [
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const AsoudIconBox(
+                    icon: Icons.tag_rounded,
+                    color: AsoudColors.primary,
+                    size: 32),
+                title: Text(
+                    loading
+                        ? 'در حال محاسبه کد...'
+                        : (code ?? 'کد پس از اتصال سرور'),
+                    style:
+                        TextStyle(fontSize: 12, fontWeight: FontWeight.w900)),
+                subtitle: Text(_selectedNames,
+                    style: const TextStyle(
+                        fontSize: 9, color: AsoudColors.primary)),
+              ),
+              if (loading)
+                const LinearProgressIndicator()
+              else if (groups.isEmpty)
+                const Text('گروه فعالی از Backend دریافت نشد.',
+                    style: TextStyle(fontSize: 10, color: AsoudColors.warning))
+              else
+                for (final group in groups)
+                  ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(
+                      selected.contains(group.id)
+                          ? Icons.radio_button_checked_rounded
+                          : Icons.radio_button_off_rounded,
+                      color: selected.contains(group.id)
+                          ? AsoudColors.primary
+                          : AsoudColors.muted,
+                    ),
+                    trailing: AsoudIconBox(
+                      icon: _groupIcon(group.iconKey),
+                      color: _groupColor(group.colorHex),
+                      size: 30,
+                    ),
+                    title: Text(group.title,
+                        style: const TextStyle(
+                            fontSize: 11, fontWeight: FontWeight.w800)),
+                    subtitle: Text('کد گروه: ${group.code}',
+                        style: const TextStyle(fontSize: 8)),
+                    onTap: group.disabled ? null : () => onChanged(group.id),
                   ),
-                  trailing: AsoudIconBox(
-                    icon: _groupIcon(group.iconKey),
-                    color: _groupColor(group.colorHex),
-                    size: 30,
-                  ),
-                  title: Text(group.title,
-                      style: const TextStyle(
-                          fontSize: 11, fontWeight: FontWeight.w800)),
-                  subtitle: Text('کد گروه: ${group.code}',
-                      style: const TextStyle(fontSize: 8)),
-                  onTap: group.disabled ? null : () => onChanged(group.id),
-                ),
-          ],
-        ),
+            ])),
       );
 
   String get _selectedNames {

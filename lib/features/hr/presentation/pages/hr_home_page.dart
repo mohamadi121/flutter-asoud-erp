@@ -83,7 +83,7 @@ class _HrHome extends StatelessWidget {
                       () => _push(
                           context, HrProfilePage(employee: data.employee))),
                   _Action(
-                      'مدیریت پرسنل',
+                      'لیست پرسنل',
                       'مشاهده، ایجاد و ویرایش اطلاعات پرسنلی',
                       Icons.people_alt_outlined,
                       AsoudColors.warning,
@@ -166,7 +166,7 @@ class _OfflineHrHome extends StatelessWidget {
                     builder: (_) => OrganizationPage(company: company))),
           ),
           _Action(
-            'پرسنل و اشخاص',
+            'لیست پرسنل',
             'ثبت و ویرایش اطلاعات پرسنل به‌صورت محلی',
             Icons.people_alt_outlined,
             AsoudColors.cyan,

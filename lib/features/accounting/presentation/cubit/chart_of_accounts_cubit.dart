@@ -21,7 +21,8 @@ class ChartOfAccountsCubit extends Cubit<ChartOfAccountsState> {
       ));
       return;
     }
-    emit(const ChartOfAccountsState(status: ChartStatus.loading));
+    emit(ChartOfAccountsState(
+        status: ChartStatus.loading, accounts: state.accounts));
     try {
       final accounts = await repository!.getAccounts(company!);
       emit(ChartOfAccountsState(
@@ -52,7 +53,27 @@ class ChartOfAccountsCubit extends Cubit<ChartOfAccountsState> {
               detailGroupIds: item.detailGroupIds,
               children: childrenOf(item.id),
             ))
-        .toList(growable: false);
+        .toList(growable: false)
+      ..sort((a, b) => compareAccountCodes(a.code, b.code));
     return childrenOf(null);
   }
+}
+
+int compareAccountCodes(String first, String second) {
+  String normalize(String value) => value.trim().split('').map((char) {
+        final persian = '۰۱۲۳۴۵۶۷۸۹'.indexOf(char);
+        final arabic = '٠١٢٣٤٥٦٧٨٩'.indexOf(char);
+        return persian >= 0
+            ? '$persian'
+            : arabic >= 0
+                ? '$arabic'
+                : char;
+      }).join();
+  final a = normalize(first), b = normalize(second);
+  final an = BigInt.tryParse(a), bn = BigInt.tryParse(b);
+  if (an != null && bn != null) {
+    final comparison = an.compareTo(bn);
+    if (comparison != 0) return comparison;
+  }
+  return a.compareTo(b);
 }
