@@ -13,6 +13,46 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets(
+      'automatic code uses the people group and stays fixed when roles change',
+      (tester) async {
+    await tester
+        .pumpWidget(_app(const PartyFormPage(initialRole: PartyRole.customer)));
+    await tester.pumpAndSettle();
+    expect(find.text('people00001'), findsOneWidget);
+    expect(find.byIcon(Icons.radio_button_off_rounded), findsNothing);
+    await tester.tap(find.text('پرسنل'));
+    await tester.pumpAndSettle();
+    expect(find.text('people00001'), findsOneWidget);
+  });
+
+  testWidgets('editing a party displays the existing detail code',
+      (tester) async {
+    await tester.pumpWidget(_app(const PartyFormPage(
+        initialRole: PartyRole.customer,
+        profile: PartyProfile(
+            id: 'p',
+            kind: PartyKind.individual,
+            displayName: 'علی رضایی',
+            roles: {
+              PartyRole.customer
+            },
+            detailGroups: {
+              'people'
+            },
+            floatingDetails: [
+              FloatingDetail(
+                  id: 'd',
+                  code: '01007',
+                  title: 'علی رضایی',
+                  type: 'Customer',
+                  groupId: 'people')
+            ]))));
+    await tester.pumpAndSettle();
+    expect(find.text('01007'), findsOneWidget);
+    expect(find.text('people00001'), findsNothing);
+  });
+
   testWidgets('کدهای تفصیلی از منوی صفحه مشخصات باز می‌شوند', (tester) async {
     await tester.pumpWidget(_app(const PartyDetailPage(
       profile: PartyProfile(
@@ -118,7 +158,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('حقیقی'), findsOneWidget);
     expect(find.text('حقوقی'), findsOneWidget);
-    // The fixed detail-group panel also contains the employee group label.
+    // Roles change personnel fields without changing the accounting group.
     await tester.ensureVisible(find.text('پرسنل').last);
     await tester.pumpAndSettle();
     await tester.tap(find.text('پرسنل').last);
@@ -223,6 +263,7 @@ class _FakeDetailGroupRepository implements DetailGroupRepository {
   Future<void> disableGroup(String id) async {}
   @override
   Future<List<DetailGroup>> getGroups() async => const [
+        DetailGroup(id: 'people', code: '01000', title: 'اشخاص و شرکت‌ها'),
         DetailGroup(id: '20000', code: '20000', title: 'تأمین‌کنندگان'),
         DetailGroup(id: '30000', code: '30000', title: 'پرسنل'),
       ];

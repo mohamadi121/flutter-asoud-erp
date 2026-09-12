@@ -20,7 +20,7 @@ class PersonnelState {
   final String query, department, status;
   List<Map<String, dynamic>> get visible => rows.where((r) {
         final haystack =
-            '${r['display_name']} ${r['national_id']} ${r['job_title']} ${r['department']}'
+            '${r['display_name']} ${r['id']} ${r['employee_code']} ${r['national_id']} ${r['job_title']} ${r['department']}'
                 .toLowerCase();
         return haystack.contains(query.toLowerCase().trim()) &&
             (department.isEmpty || r['department'] == department) &&

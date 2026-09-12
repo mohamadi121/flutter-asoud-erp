@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/widgets/asoud_ui.dart';
+import '../../../../core/widgets/asoud_form.dart';
 import '../../../accounting/domain/entities/detail_group.dart';
 import '../../../accounting/domain/repositories/detail_group_repository.dart';
 import '../../domain/entities/party_profile.dart';
@@ -103,23 +104,19 @@ class _PartyFormPageState extends State<PartyFormPage> {
     try {
       final result = await context.read<DetailGroupRepository>().getGroups();
       if (!mounted) return;
-      final roleKey = switch (widget.initialRole) {
-        PartyRole.customer => 'Customer',
-        PartyRole.supplier => 'Supplier',
-        PartyRole.employee => 'Employee',
-        _ => null,
-      };
-      final preferred =
-          result.where((group) => group.partyRole == roleKey).firstOrNull?.id;
+      final active = result.where((group) => !group.disabled).toList();
+      final common = active.where((group) {
+        final title = group.title.replaceAll('‌', '').replaceAll(' ', '');
+        return title == 'اشخاصوشرکتها' || title == 'اشخاص';
+      }).firstOrNull;
+      final preferred = common ??
+          active
+              .where((group) => group.partyRole == _roleKey(widget.initialRole))
+              .firstOrNull;
       setState(() {
-        groups = result;
+        groups = active;
         if (selectedGroups.isEmpty) {
-          selectedGroups = {
-            if (preferred != null && result.any((g) => g.id == preferred))
-              preferred
-            else if (result.isNotEmpty)
-              result.first.id,
-          };
+          selectedGroups = {if (preferred != null) preferred.id};
         }
         loadingGroups = false;
       });
@@ -130,6 +127,11 @@ class _PartyFormPageState extends State<PartyFormPage> {
   }
 
   Future<void> _preview() async {
+    if (widget.profile != null) {
+      setState(() =>
+          previewCode = widget.profile!.floatingDetails.firstOrNull?.code);
+      return;
+    }
     if (selectedGroups.isEmpty) return;
     try {
       final code = await context
@@ -142,22 +144,19 @@ class _PartyFormPageState extends State<PartyFormPage> {
   }
 
   Future<void> _changeRoles(Set<PartyRole> value) async {
-    final matching = groups
-        .where(
-            (group) => value.any((role) => group.partyRole == _roleKey(role)))
-        .map((group) => group.id)
-        .toSet();
     setState(() {
       roles = value;
       if (value.contains(PartyRole.employee)) kind = PartyKind.individual;
-      if (matching.isNotEmpty) selectedGroups = matching;
-      previewCode = null;
     });
-    await _preview();
   }
 
   Future<void> _save() async {
     if (!formKey.currentState!.validate() || saving) return;
+    if (loadingGroups || selectedGroups.isEmpty) {
+      setState(() => error =
+          'ابتدا گروه تفصیلی اشخاص و شرکت‌ها را در حسابداری تعریف کنید.');
+      return;
+    }
     setState(() {
       saving = true;
       error = null;
@@ -249,32 +248,17 @@ class _PartyFormPageState extends State<PartyFormPage> {
   @override
   Widget build(BuildContext context) {
     final employee = roles.contains(PartyRole.employee);
-    return Scaffold(
-      appBar: AsoudHeader(
-        title: widget.pageTitle ??
-            (widget.profile == null
-                ? 'ایجاد ${_roleLabel(widget.initialRole)}'
-                : 'ویرایش ${_roleLabel(widget.initialRole)}'),
-        subtitle: 'فرم مشخصات و گروه تفصیلی',
-      ),
-      body: SafeArea(
-        child: Form(
-          key: formKey,
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 28),
-            children: [
+    return AsoudFormPage(
+      title: widget.pageTitle ?? (widget.profile == null
+        ? 'ایجاد ${_roleLabel(widget.initialRole)}' : 'ویرایش ${_roleLabel(widget.initialRole)}'),
+      subtitle: 'فرم مشخصات و گروه تفصیلی', formKey: formKey,
+      saving: saving, error: error, onSave: _save,
+      children: [
               _AutomaticDetailCode(
                 code: previewCode,
                 groups: groups,
                 selected: selectedGroups,
                 loading: loadingGroups,
-                onChanged: (group) async {
-                  setState(() {
-                    selectedGroups = {group};
-                    previewCode = null;
-                  });
-                  await _preview();
-                },
               ),
               const SizedBox(height: 12),
               const AsoudSectionTitle(title: 'تکمیل اطلاعات'),
@@ -304,7 +288,7 @@ class _PartyFormPageState extends State<PartyFormPage> {
                   onChanged: (value) => setState(() => employeeRoles = value),
                 ),
               const SizedBox(height: 14),
-              _FormSection(
+              AsoudFormSection(
                 title: 'اطلاعات اصلی',
                 children: [
                   if (kind == PartyKind.individual)
@@ -346,7 +330,7 @@ class _PartyFormPageState extends State<PartyFormPage> {
                     ]),
                 ],
               ),
-              _FormSection(
+              AsoudFormSection(
                 title: 'راه‌های ارتباطی',
                 children: [
                   Row(children: [
@@ -358,7 +342,7 @@ class _PartyFormPageState extends State<PartyFormPage> {
                   _input('website', 'وب‌سایت'),
                 ],
               ),
-              _FormSection(
+              AsoudFormSection(
                 title: 'آدرس و موقعیت',
                 children: [
                   Row(children: [
@@ -385,7 +369,7 @@ class _PartyFormPageState extends State<PartyFormPage> {
                   ]),
                 ],
               ),
-              _FormSection(
+              AsoudFormSection(
                 title:
                     employee ? 'اطلاعات شغلی و بانکی' : 'اطلاعات مالی و بانکی',
                 children: [
@@ -431,80 +415,34 @@ class _PartyFormPageState extends State<PartyFormPage> {
                   _input('card', 'شماره کارت'),
                 ],
               ),
-              _FormSection(title: 'توضیحات', children: [
+              AsoudFormSection(title: 'توضیحات', children: [
                 _input('description', 'توضیحات تکمیلی', lines: 3)
               ]),
-              if (error != null)
-                Text(error!,
-                    style: const TextStyle(
-                        color: AsoudColors.danger, fontSize: 10)),
-            ],
-          ),
-        ),
-      ),
-      bottomNavigationBar: AsoudBottomActions(
-        primaryLabel: saving ? 'در حال ذخیره...' : 'ذخیره',
-        onPrimary: saving ? null : _save,
-        secondaryLabel: 'انصراف',
-        onSecondary: () => Navigator.of(context).pop(),
-      ),
+      ],
     );
   }
 
   Widget _input(String key, String label,
           {bool required = false, int lines = 1}) =>
-      Padding(
-        padding: const EdgeInsets.only(bottom: 9),
-        child: TextFormField(
-          controller: fields[key],
-          maxLines: lines,
-          decoration: InputDecoration(labelText: label),
+      AsoudFormField(
+          controller: fields[key]!,
+          label: label,
+          lines: lines,
           validator: required
               ? (value) => value == null || value.trim().length < 3
                   ? 'این فیلد الزامی است.'
                   : null
-              : null,
-        ),
-      );
+              : null);
 
   Widget _dateInput(String key, String label, {bool required = false}) =>
-      Padding(
-        padding: const EdgeInsets.only(bottom: 9),
-        child: TextFormField(
-          controller: fields[key],
-          keyboardType: TextInputType.datetime,
-          decoration: InputDecoration(
-            labelText: label,
-            hintText: 'YYYY-MM-DD',
-            suffixIcon: const Icon(Icons.calendar_month_outlined),
-          ),
-          validator: (value) {
-            final normalized = value?.trim() ?? '';
-            if (!required && normalized.isEmpty) return null;
-            if (!RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(normalized)) {
-              return 'تاریخ را به شکل YYYY-MM-DD وارد کنید.';
-            }
-            return null;
-          },
-        ),
-      );
+      AsoudFormDateField(
+          controller: fields[key]!, label: label, required: required);
 
-  Widget _employeeGenderInput() => Padding(
-        padding: const EdgeInsets.only(bottom: 9),
-        child: DropdownButtonFormField<String>(
-          initialValue: fields['employeeGender']!.text.isEmpty
-              ? null
-              : fields['employeeGender']!.text,
-          decoration: const InputDecoration(labelText: 'جنسیت *'),
-          items: const [
-            DropdownMenuItem(value: 'Male', child: Text('مرد')),
-            DropdownMenuItem(value: 'Female', child: Text('زن')),
-            DropdownMenuItem(value: 'Other', child: Text('سایر')),
-          ],
-          onChanged: (value) => fields['employeeGender']!.text = value ?? '',
-          validator: (value) => value == null ? 'جنسیت را انتخاب کنید.' : null,
-        ),
-      );
+  Widget _employeeGenderInput() => AsoudFormDropdown(
+      controller: fields['employeeGender']!,
+      label: 'جنسیت *',
+      required: true,
+      options: const {'Male': 'مرد', 'Female': 'زن', 'Other': 'سایر'});
 
   Future<void> _configurePersonnelRoles() async {
     final result = await Navigator.of(context).push<Set<String>>(
@@ -534,100 +472,61 @@ String _roleLabel(PartyRole role) => switch (role) {
     };
 
 class _AutomaticDetailCode extends StatelessWidget {
-  const _AutomaticDetailCode({
-    required this.code,
-    required this.groups,
-    required this.selected,
-    required this.loading,
-    required this.onChanged,
-  });
+  const _AutomaticDetailCode(
+      {required this.code,
+      required this.groups,
+      required this.selected,
+      required this.loading});
   final String? code;
   final List<DetailGroup> groups;
   final Set<String> selected;
   final bool loading;
-  final ValueChanged<String> onChanged;
-
   @override
   Widget build(BuildContext context) => Card(
         child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(children: [
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const AsoudIconBox(
-                    icon: Icons.tag_rounded,
-                    color: AsoudColors.primary,
-                    size: 32),
-                title: Text(
-                    loading
-                        ? 'در حال محاسبه کد...'
-                        : (code ?? 'کد پس از اتصال سرور'),
-                    style:
-                        TextStyle(fontSize: 12, fontWeight: FontWeight.w900)),
-                subtitle: Text(_selectedNames,
-                    style: const TextStyle(
-                        fontSize: 9, color: AsoudColors.primary)),
-              ),
-              if (loading)
-                const LinearProgressIndicator()
-              else if (groups.isEmpty)
-                const Text('گروه فعالی از Backend دریافت نشد.',
-                    style: TextStyle(fontSize: 10, color: AsoudColors.warning))
-              else
-                for (final group in groups)
-                  ListTile(
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(
-                      selected.contains(group.id)
-                          ? Icons.radio_button_checked_rounded
-                          : Icons.radio_button_off_rounded,
-                      color: selected.contains(group.id)
-                          ? AsoudColors.primary
-                          : AsoudColors.muted,
-                    ),
-                    trailing: AsoudIconBox(
-                      icon: _groupIcon(group.iconKey),
-                      color: _groupColor(group.colorHex),
-                      size: 30,
-                    ),
-                    title: Text(group.title,
+            padding: const EdgeInsets.all(14),
+            child: Row(children: [
+              const AsoudIconBox(
+                  icon: Icons.tag_rounded,
+                  color: AsoudColors.primary,
+                  size: 38),
+              const SizedBox(width: 12),
+              Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                    const Text('کد تفصیلی',
+                        style: TextStyle(
+                            fontSize: 11, fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 4),
+                    if (loading)
+                      const LinearProgressIndicator()
+                    else
+                      Text(
+                          code ??
+                              (selected.isEmpty
+                                  ? 'ابتدا گروه تفصیلی را تعریف کنید'
+                                  : 'دریافت کد ممکن نشد'),
+                          textDirection: code == null
+                              ? TextDirection.rtl
+                              : TextDirection.ltr,
+                          style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                              color: AsoudColors.primary)),
+                    Text(
+                        groups
+                            .where((g) => selected.contains(g.id))
+                            .map((g) => g.title)
+                            .join(' • '),
                         style: const TextStyle(
-                            fontSize: 11, fontWeight: FontWeight.w800)),
-                    subtitle: Text('کد گروه: ${group.code}',
-                        style: const TextStyle(fontSize: 8)),
-                    onTap: group.disabled ? null : () => onChanged(group.id),
-                  ),
+                            fontSize: 10, color: AsoudColors.muted)),
+                  ])),
+              const Icon(Icons.lock_outline_rounded,
+                  size: 18, color: AsoudColors.muted),
             ])),
       );
-
-  String get _selectedNames {
-    final names = groups
-        .where((group) => selected.contains(group.id))
-        .map((group) => group.title)
-        .toList();
-    return names.isEmpty
-        ? 'انتخاب کارت، گروه متناظر را تعیین می‌کند'
-        : names.join(' • ');
-  }
 }
-
-Color _groupColor(String? value) {
-  final normalized = value?.replaceFirst('#', '');
-  final parsed =
-      normalized == null ? null : int.tryParse(normalized, radix: 16);
-  if (parsed == null) return AsoudColors.primary;
-  return Color(normalized!.length == 6 ? 0xFF000000 | parsed : parsed);
-}
-
-IconData _groupIcon(String? value) => switch (value) {
-      'supplier' => Icons.inventory_2_outlined,
-      'employee' => Icons.badge_outlined,
-      'cash' => Icons.account_balance_wallet_outlined,
-      'bank' => Icons.account_balance_outlined,
-      'project' => Icons.work_outline_rounded,
-      _ => Icons.people_outline_rounded,
-    };
 
 class _AdditionalRoleSelector extends StatelessWidget {
   const _AdditionalRoleSelector({required this.value, required this.onChanged});
@@ -767,26 +666,6 @@ class _PrimaryRoleGrid extends StatelessWidget {
       }).toList(),
     );
   }
-}
-
-class _FormSection extends StatelessWidget {
-  const _FormSection({required this.title, required this.children});
-  final String title;
-  final List<Widget> children;
-  @override
-  Widget build(BuildContext context) => Card(
-        margin: const EdgeInsets.only(bottom: 12),
-        child: ExpansionTile(
-          initiallyExpanded: false,
-          maintainState: true,
-          tilePadding: const EdgeInsets.symmetric(horizontal: 12),
-          childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-          title: Text(title,
-              style:
-                  const TextStyle(fontSize: 12, fontWeight: FontWeight.w900)),
-          children: children,
-        ),
-      );
 }
 
 class _BalanceSection extends StatelessWidget {

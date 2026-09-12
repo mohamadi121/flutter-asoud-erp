@@ -239,6 +239,14 @@ class PersonnelRepository {
         if (item.payload['action'] == 'update_personnel') {
           await _sharedProfile(response, LocalSyncStatus.synced);
         }
+        if (item.payload['action'] == 'update_record') {
+          await local.save(
+              id: _key('get_record',
+                  {'name': (item.payload['data'] as Map)['record_name']}),
+              entityType: 'personnel_cache',
+              payload: response,
+              status: LocalSyncStatus.synced);
+        }
         await local.setStatus(item.id, LocalSyncStatus.synced);
       } catch (error) {
         if (_offline(error)) return;
@@ -252,17 +260,25 @@ class PersonnelRepository {
 
   bool get localDemo => AppConfig.offlineDemoMode && !client.isAuthenticated;
 
-  Future<void> _sharedProfile(Map<String, dynamic> detail, LocalSyncStatus status) async {
+  Future<void> _sharedProfile(
+      Map<String, dynamic> detail, LocalSyncStatus status) async {
     final profile = detail['profile'];
     if (profile is! Map || profile['id'] == null) return;
-    final person = await local.get('party:${Uri.encodeComponent('${profile['id']}')}');
+    final person =
+        await local.get('party:${Uri.encodeComponent('${profile['id']}')}');
     if (person == null || person.payload['company'] != _company) return;
-    await local.save(id: person.id, entityType: person.entityType, status: status,
-      payload: {...person.payload,
-        for (final field in personnelFields)
-          if (profile.containsKey(field)) (field == 'address_line' ? 'address' : field): profile[field],
-      });
+    await local.save(
+        id: person.id,
+        entityType: person.entityType,
+        status: status,
+        payload: {
+          ...person.payload,
+          for (final field in personnelFields)
+            if (profile.containsKey(field))
+              (field == 'address_line' ? 'address' : field): profile[field],
+        });
   }
+
   Future<List<LocalRecord>> _pending() async =>
       (await local.list(entityType: 'personnel_outbox', statuses: {
         LocalSyncStatus.pendingSync,
@@ -292,10 +308,13 @@ class PersonnelRepository {
           };
         } else {
           final content = input['payload'] as Map;
+          final recordId = item.payload['action'] == 'update_record'
+              ? input['record_name']
+              : item.id;
           merged['records'] = [
-            ...(merged['records'] as List).where((r) => r['name'] != item.id),
+            ...(merged['records'] as List).where((r) => r['name'] != recordId),
             {
-              'name': item.id,
+              'name': recordId,
               'kind': content['kind'],
               'title': content['title'],
               'record_date': content['date'],
@@ -305,10 +324,17 @@ class PersonnelRepository {
           if (content['kind'] == 'photo') {
             merged['profile'] = {
               ...(merged['profile'] as Map),
-              'photo_record': item.id
+              'photo_record': recordId
             };
           }
         }
+      }
+      if (action == 'get_record' &&
+          item.payload['action'] == 'update_record' &&
+          data['name'] == input['record_name']) {
+        merged.addAll(Map<String, dynamic>.from(input['payload'] as Map));
+        merged['_can_edit'] = false;
+        merged['pending_sync'] = true;
       }
       if (action == 'list_personnel' &&
           item.payload['action'] == 'update_personnel') {
@@ -351,6 +377,12 @@ class PersonnelRepository {
       throw StateError(
           'ویرایش قبلی هنوز همگام نشده است؛ ابتدا وضعیت آن را بررسی کنید.');
     }
+    if (action == 'update_record' &&
+        (await _pending()).any((r) =>
+            r.payload['action'] == action &&
+            (r.payload['data'] as Map)['record_name'] == data['record_name'])) {
+      throw StateError('ویرایش قبلی سابقه هنوز همگام نشده است.');
+    }
     Map<String, dynamic> result;
     try {
       result = await _remote(action, data);
@@ -366,6 +398,20 @@ class PersonnelRepository {
       final detail =
           await local.get(_key('get_personnel', {'name': data['name']}));
       if (detail == null || detail.payload['can_edit'] != true) rethrow;
+      if (action == 'update_record') {
+        final cachedRecord =
+            await local.get(_key('get_record', {'name': data['record_name']}));
+        if (cachedRecord == null ||
+            cachedRecord.payload['_can_edit'] != true ||
+            cachedRecord.payload['_revision'] != data['revision'] ||
+            cachedRecord.payload['kind'] != (data['payload'] as Map)['kind']) {
+          rethrow;
+        }
+        if (!(detail.payload['records'] as List)
+            .any((r) => r['name'] == data['record_name'])) {
+          rethrow;
+        }
+      }
       final pending = await local.list(
           entityType: 'personnel_outbox',
           statuses: {LocalSyncStatus.pendingSync, LocalSyncStatus.syncFailed});
@@ -408,15 +454,17 @@ class PersonnelRepository {
         };
       } else {
         final payload = Map<String, dynamic>.from(data['payload'] as Map);
+        final recordId =
+            action == 'update_record' ? '${data['record_name']}' : id;
         await local.save(
-            id: _key('get_record', {'name': id}),
+            id: _key('get_record', {'name': recordId}),
             entityType: 'personnel_cache',
-            payload: payload,
+            payload: {...payload, '_can_edit': false, 'pending_sync': true},
             status: LocalSyncStatus.pendingSync);
         content['records'] = [
-          ...(content['records'] as List).where((r) => r['name'] != id),
+          ...(content['records'] as List).where((r) => r['name'] != recordId),
           {
-            'name': id,
+            'name': recordId,
             'kind': payload['kind'],
             'title': payload['title'],
             'record_date': payload['date'],
@@ -431,7 +479,9 @@ class PersonnelRepository {
           entityType: 'personnel_cache',
           payload: content,
           status: LocalSyncStatus.pendingSync);
-      if (action == 'update_personnel') await _sharedProfile(content, LocalSyncStatus.pendingSync);
+      if (action == 'update_personnel') {
+        await _sharedProfile(content, LocalSyncStatus.pendingSync);
+      }
       return action == 'update_personnel'
           ? content
           : {'id': id, 'pending_sync': true};
@@ -446,7 +496,16 @@ class PersonnelRepository {
           payload: result,
           status: LocalSyncStatus.synced);
     }
-    if (action == 'update_personnel') await _sharedProfile(result, LocalSyncStatus.synced);
+    if (action == 'update_record') {
+      await local.save(
+          id: _key('get_record', {'name': data['record_name']}),
+          entityType: 'personnel_cache',
+          payload: result,
+          status: LocalSyncStatus.synced);
+    }
+    if (action == 'update_personnel') {
+      await _sharedProfile(result, LocalSyncStatus.synced);
+    }
     return read ? _overlay(action, data, result) : result;
   }
 
@@ -476,6 +535,21 @@ class PersonnelRepository {
     }
     await call('add_record',
         {'name': id, 'payload': payload, 'request_id': requestId});
+  }
+
+  Future<void> updateRecord(String personId, String recordId,
+      Map<String, dynamic> payload, String revision, String requestId) async {
+    validatePersonnelRecord(payload);
+    if (revision.isEmpty || requestId.length < 8 || requestId.length > 100) {
+      throw const FormatException('اطلاعات نسخه سابقه نامعتبر است.');
+    }
+    await call('update_record', {
+      'name': personId,
+      'record_name': recordId,
+      'payload': payload,
+      'revision': revision,
+      'request_id': requestId
+    });
   }
 
   Future<LocalRecord> _demoPerson(String id) async {
@@ -515,7 +589,18 @@ class PersonnelRepository {
         throw StateError('سابقه یافت نشد');
       }
       await _demoPerson('${record.payload['party']}');
-      return Map<String, dynamic>.from(record.payload['content'] as Map);
+      final content =
+          Map<String, dynamic>.from(record.payload['content'] as Map);
+      final editable = !content.containsKey('_update') &&
+          !content.containsKey('_record_update');
+      content.remove('_update');
+      content.remove('_record_update');
+      return {
+        ...content,
+        '_id': record.id,
+        '_revision': record.updatedAt.toIso8601String(),
+        '_can_edit': editable
+      };
     }
     final person = await _demoPerson('${data['name']}');
     if (action == 'get_personnel') {
@@ -561,11 +646,59 @@ class PersonnelRepository {
               'kind': 'history',
               'title': 'ویرایش اطلاعات پرسنلی',
               'date': DateTime.now().toIso8601String().substring(0, 10),
-              'notes': values.keys.join('، ')
+              'notes': values.keys.join('، '),
+              '_update': true
             }
           },
           status: LocalSyncStatus.localOnly);
       return _demo('get_personnel', {'name': data['name']});
+    }
+    if (action == 'update_record') {
+      final record = await local.get('${data['record_name']}');
+      if (record == null ||
+          record.entityType != 'personnel_demo_record' ||
+          record.payload['party'] != data['name']) {
+        throw StateError('سابقه متعلق به این پرسنل نیست.');
+      }
+      final previous = record.payload['content'] as Map;
+      final next = Map<String, dynamic>.from(data['payload'] as Map);
+      if (previous.containsKey('_update') ||
+          previous.containsKey('_record_update') ||
+          previous['kind'] != next['kind']) {
+        throw StateError('ویرایش این سابقه مجاز نیست.');
+      }
+      final receiptId = 'personnel-demo-edit:${data['request_id']}';
+      final receipt = await local.get(receiptId);
+      if (receipt != null) {
+        if (!_same(receipt.payload['request'], data)) {
+          throw StateError('شناسه درخواست تکراری با اطلاعات متفاوت');
+        }
+        return _demo('get_record', {'name': record.id});
+      }
+      if (record.updatedAt.toIso8601String() != data['revision']) {
+        throw StateError('سابقه تغییر کرده است؛ دوباره باز کنید.');
+      }
+      await local.save(
+          id: record.id,
+          entityType: record.entityType,
+          payload: {...record.payload, 'content': next},
+          status: LocalSyncStatus.localOnly);
+      await local.save(
+          id: receiptId,
+          entityType: 'personnel_demo_record',
+          payload: {
+            'party': data['name'],
+            'request': data,
+            'content': {
+              'kind': 'history',
+              'title': 'ویرایش سابقه پرسنلی',
+              'date': DateTime.now().toIso8601String().substring(0, 10),
+              'notes': next['title'],
+              '_record_update': true,
+            }
+          },
+          status: LocalSyncStatus.localOnly);
+      return _demo('get_record', {'name': record.id});
     }
     if (action == 'add_record') {
       final key = 'personnel-demo:${data['request_id']}';

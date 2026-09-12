@@ -78,20 +78,6 @@ class BaseAccountingSetupPage extends StatelessWidget {
                 crossAxisSpacing: 10,
                 children: [
                   _ModuleGridTile(
-                    title: 'اشخاص و شرکت‌ها',
-                    subtitle: 'مشتریان، تأمین‌کنندگان و پرسنل',
-                    icon: Icons.people_outline_rounded,
-                    color: AsoudColors.primary,
-                    onTap: officeName == null
-                        ? null
-                        : () => Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                  builder: (_) => PartyManagementPage(
-                                      company: officeName,
-                                      createWhenEmpty: true)),
-                            ),
-                  ),
-                  _ModuleGridTile(
                     title: 'حسابداری',
                     subtitle: 'کدینگ، سرفصل‌ها و تفصیلی',
                     icon: Icons.account_balance_rounded,
@@ -239,6 +225,21 @@ class AccountingBaseSetupPage extends StatelessWidget {
                               company: officeName!,
                             ),
                           ),
+                        ),
+              ),
+              const SizedBox(height: 9),
+              _SetupTile(
+                icon: Icons.people_outline_rounded,
+                color: AsoudColors.primary,
+                title: 'اشخاص و شرکت‌ها',
+                subtitle: 'تعریف اشخاص، شرکت‌ها و کد تفصیلی',
+                status: 'اطلاعات پایه حسابداری',
+                onTap: officeName == null
+                    ? null
+                    : () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                              builder: (_) =>
+                                  PartyManagementPage(company: officeName)),
                         ),
               ),
               const SizedBox(height: 9),

@@ -174,8 +174,9 @@ void main() {
     expect(find.text('ویرایش'), findsNothing);
     expect(find.text('secret-bank'), findsNothing);
     expect(find.text('secret-iban'), findsNothing);
-    expect(tester.widget<TextField>(find.byType(TextField).first).readOnly,
-        isTrue);
+    expect(find.byType(TextFormField), findsNothing);
+    expect(find.text('ویرایش اطلاعات'), findsNothing);
+    expect(find.text('نام و نام خانوادگی'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
   test('filter combines query department and status', () {
@@ -307,8 +308,8 @@ void main() {
     await tester.pumpWidget(
         MaterialApp(home: PersonnelPage(company: 'office', repository: repo)));
     await tester.pumpAndSettle();
-    expect(find.text('لیست پرسنل'), findsOneWidget);
-    await tester.tap(find.widgetWithText(ChoiceChip, 'غیرفعال'));
+    expect(find.text('پرسنل'), findsNWidgets(2));
+    await tester.tap(find.widgetWithText(ChoiceChip, 'غیرفعال (1)'));
     await tester.pumpAndSettle();
     expect(find.text('علی'), findsNothing);
     expect(find.text('رضا'), findsOneWidget);

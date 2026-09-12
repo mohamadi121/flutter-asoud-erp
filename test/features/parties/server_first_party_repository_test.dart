@@ -51,17 +51,26 @@ void main() {
       local: local,
     );
 
-    expect(await repository.previewNextCode('1000'), '1000');
+    await local.save(
+        id: 'detail-group:people',
+        entityType: 'detail_group',
+        payload: {
+          'id': 'people',
+          'code': '01000',
+          'title': 'اشخاص و شرکت‌ها',
+          'disabled': false
+        });
+    expect(await repository.previewNextCode('people'), '01000');
     await expectLater(
       repository.createDetail(
         title: 'مشتری نمونه',
         type: 'Customer',
-        detailGroup: '1000',
+        detailGroup: 'people',
         profileId: 'PARTY-1',
       ),
       throwsA(_networkError),
     );
-    expect(await repository.previewNextCode('1000'), '1001');
+    expect(await repository.previewNextCode('people'), '01001');
   });
 }
 

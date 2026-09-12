@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'asoud_colors.dart';
+import '../widgets/asoud_form.dart';
 
 abstract final class AsoudTheme {
   static ThemeData get light {
@@ -54,18 +55,7 @@ abstract final class AsoudTheme {
         backgroundColor: AsoudColors.background,
         foregroundColor: AsoudColors.text,
       ),
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: AsoudColors.surface,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AsoudColors.border),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AsoudColors.border),
-        ),
-      ),
+      inputDecorationTheme: AsoudFormStyle.inputTheme,
       filledButtonTheme: FilledButtonThemeData(
         style: ButtonStyle(
           minimumSize: const WidgetStatePropertyAll(Size.fromHeight(50)),

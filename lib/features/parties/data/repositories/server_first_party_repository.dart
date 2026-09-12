@@ -65,13 +65,20 @@ class ServerFirstPartyRepository implements PartyRepository {
       return await _remote.previewNextCode(detailGroup);
     } catch (error) {
       if (!isRetryableOfflineFailure(error)) rethrow;
+      final groups = await _local.list(entityType: 'detail_group');
+      final group = groups
+          .where((r) =>
+              r.payload['id'] == detailGroup ||
+              (r.payload['id'] == '' && r.payload['code'] == detailGroup))
+          .firstOrNull;
+      final startCode = group?.payload['code']?.toString();
+      final start = int.tryParse(startCode ?? '');
+      if (start == null || group?.payload['disabled'] == true) rethrow;
       final details = await _localDetails(detailGroup: detailGroup);
       final codes =
           details.map((item) => int.tryParse(item.code)).whereType<int>();
-      return (codes.isEmpty
-              ? int.tryParse(detailGroup) ?? 1
-              : codes.reduce((a, b) => a > b ? a : b) + 1)
-          .toString();
+      final last = codes.fold(start - 1, (a, b) => a > b ? a : b);
+      return (last + 1).toString().padLeft(startCode!.length, '0');
     }
   }
 
