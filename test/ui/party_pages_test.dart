@@ -98,9 +98,9 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(_app(const PersonnelRolesPage()));
     await tester.pumpAndSettle();
-    expect(find.text('تنظیمات نقش‌های پرسنلی'), findsOneWidget);
-    expect(find.text('حالت پایه'), findsOneWidget);
-    expect(find.text('تأیید ترکیب نقش‌ها'), findsOneWidget);
+    expect(find.text('نقش و دسترسی'), findsOneWidget);
+    expect(find.text('نقش‌های استاندارد'), findsOneWidget);
+    expect(find.text('ذخیره'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

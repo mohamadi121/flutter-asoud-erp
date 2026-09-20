@@ -11,7 +11,7 @@ import '../../../office_setup/presentation/pages/office_type_page.dart';
 import '../../../office_setup/presentation/pages/offices_page.dart';
 import '../../../workflows/presentation/pages/workflow_list_page.dart';
 import '../../../workflows/presentation/pages/workflow_tasks_page.dart';
-import '../../../purchase/presentation/pages/purchase_requests_page.dart';
+import '../../../workflows/presentation/pages/generic_request_page.dart';
 import '../../../hr/presentation/pages/hr_home_page.dart';
 import 'first_office_card.dart';
 
@@ -128,7 +128,7 @@ class DashboardPage extends StatelessWidget {
                     ),
                     onPurchaseRequest: () => Navigator.of(context).push(
                       MaterialPageRoute<void>(
-                        builder: (_) => PurchaseRequestsPage(
+                        builder: (_) => GenericRequestsPage(
                           company: officeName ?? '',
                         ),
                       ),
@@ -569,8 +569,8 @@ class _QuickActions extends StatelessWidget {
         null
       ),
       (
-        'درخواست خرید',
-        'Material Request',
+        'ثبت درخواست',
+        'Workflow Request',
         Icons.shopping_cart_checkout_rounded,
         AsoudColors.warning,
         onPurchaseRequest

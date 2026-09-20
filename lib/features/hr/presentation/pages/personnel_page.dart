@@ -11,6 +11,7 @@ import '../cubit/personnel_cubit.dart';
 
 import '../../../parties/domain/entities/party_profile.dart';
 import '../../../parties/presentation/pages/party_form_page.dart';
+import '../../../parties/presentation/pages/personnel_roles_page.dart';
 import 'hr_home_page.dart';
 part 'personnel_design.dart';
 part 'personnel_forms.dart';
@@ -69,6 +70,14 @@ const _organization = {
   'department': 'واحد سازمانی',
   'date_of_joining': 'تاریخ استخدام',
   'employment_type': 'نوع همکاری'
+};
+const _benefits = {
+  'base_salary': 'حقوق پایه',
+  'housing_allowance': 'حق مسکن',
+  'transport_allowance': 'حق ایاب و ذهاب',
+  'other_allowances': 'سایر مزایا',
+  'deductions': 'کسورات',
+  'net_salary': 'حقوق خالص'
 };
 const _sections = {
   'attendance': 'کارکرد و سوابق حضور',
@@ -281,7 +290,13 @@ class _PersonnelDetailState extends State<PersonnelDetailPage> {
                       await Navigator.push<bool>(
                           context,
                           MaterialPageRoute<bool>(
-                              builder: (_) => title.startsWith('ویرایش')
+                                builder: (_) => title == 'اطلاعات پرسنلی'
+                                  ? _PersonnelInfoPage(
+                                    profile: profile,
+                                    revision: '${data['revision']}',
+                                    canEdit: canEdit,
+                                    repository: widget.repository)
+                                  : title.startsWith('ویرایش')
                                   ? _ProfileEditor(
                                       title: title,
                                       labels: labels,

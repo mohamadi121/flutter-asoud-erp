@@ -10,6 +10,8 @@ import 'organization_page.dart';
 import '../../domain/hr_repository.dart';
 import '../cubit/hr_cubit.dart';
 import 'personnel_page.dart';
+import '../../../../core/network/frappe_client.dart';
+import '../../data/personnel_repository.dart';
 
 class HrHomePage extends StatelessWidget {
   const HrHomePage({required this.company, super.key});
@@ -80,8 +82,18 @@ class _HrHome extends StatelessWidget {
                       'اطلاعات کاری و مدیر مستقیم',
                       Icons.account_circle_outlined,
                       AsoudColors.primary,
-                      () => _push(
-                          context, HrProfilePage(employee: data.employee))),
+                      () {
+                        if (data.employee.partyProfile.isEmpty) {
+                          _push(context, HrProfilePage(employee: data.employee));
+                          return;
+                        }
+                        _push(
+                            context,
+                            PersonnelDetailPage(
+                                id: data.employee.partyProfile,
+                                repository: PersonnelRepository(
+                                    context.read<FrappeApiClient>())));
+                      }),
                   _Action(
                       'لیست پرسنل',
                       'مشاهده، ایجاد و ویرایش اطلاعات پرسنلی',

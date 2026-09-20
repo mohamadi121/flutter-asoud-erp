@@ -7,6 +7,7 @@ class HrEmployee extends Equatable {
       {required this.id,
       required this.name,
       required this.company,
+    this.partyProfile = '',
       this.department = '',
       this.designation = '',
       this.manager = '',
@@ -16,6 +17,7 @@ class HrEmployee extends Equatable {
   final String id,
       name,
       company,
+      partyProfile,
       department,
       designation,
       manager,
@@ -24,6 +26,7 @@ class HrEmployee extends Equatable {
       email;
   factory HrEmployee.fromJson(Map<String, dynamic> json) => HrEmployee(
       id: json['id']?.toString() ?? json['name']?.toString() ?? '',
+    partyProfile: json['party_profile']?.toString() ?? '',
       name: json['name']?.toString() ?? '',
       company: json['company']?.toString() ?? '',
       department: json['department']?.toString() ?? '',
@@ -34,6 +37,7 @@ class HrEmployee extends Equatable {
       email: json['personal_email']?.toString() ?? '');
   Map<String, dynamic> toJson() => {
         'id': id,
+        'party_profile': partyProfile,
         'name': name,
         'company': company,
         'department': department,

@@ -20,6 +20,15 @@ bool _same(Object? a, Object? b) {
   return a == b;
 }
 
+const financialPersonnelFields = {
+  'base_salary',
+  'housing_allowance',
+  'transport_allowance',
+  'other_allowances',
+  'deductions',
+  'net_salary'
+};
+
 const personnelFields = [
   'display_name',
   'national_id',
@@ -36,7 +45,13 @@ const personnelFields = [
   'date_of_joining',
   'job_title',
   'department',
-  'employment_type'
+  'employment_type',
+  'base_salary',
+  'housing_allowance',
+  'transport_allowance',
+  'other_allowances',
+  'deductions',
+  'net_salary'
 ];
 
 class PersonnelRepository {
@@ -46,6 +61,7 @@ class PersonnelRepository {
   final LocalRecordStore local;
   String? _company;
   String? _user;
+  bool _canHr = false;
   String get _server => client is FrappeClient
       ? (client as FrappeClient).serverIdentity
       : 'injected-client';
@@ -75,6 +91,8 @@ class PersonnelRepository {
         throw StateError('نشست کاربر تغییر کرده است');
       }
       _user = user.userId;
+      _canHr = user.roles
+          .any((role) => role == 'HR Manager' || role == 'System Manager');
     } catch (error) {
       if (client is FrappeClient || !_offline(error) || _user == null) rethrow;
     }
@@ -272,8 +290,10 @@ class PersonnelRepository {
         entityType: person.entityType,
         status: status,
         payload: {
-          ...person.payload,
-          for (final field in personnelFields)
+          for (final entry in person.payload.entries)
+            if (!financialPersonnelFields.contains(entry.key)) entry.key: entry.value,
+          for (final field in personnelFields
+              .where((field) => !financialPersonnelFields.contains(field)))
             if (profile.containsKey(field))
               (field == 'address_line' ? 'address' : field): profile[field],
         });
@@ -344,6 +364,10 @@ class PersonnelRepository {
                 : row)
             .toList();
       }
+    }
+    if (!_canHr && merged['profile'] is Map) {
+      merged['profile'] = Map<String, dynamic>.from(merged['profile'] as Map)
+        ..removeWhere((key, _) => financialPersonnelFields.contains(key));
     }
     return merged;
   }
@@ -517,6 +541,10 @@ class PersonnelRepository {
 
   Future<Map<String, dynamic>> detail(String id) =>
       call('get_personnel', {'name': id});
+  Future<Map<String, dynamic>> profileOptions(String id) =>
+      call('get_profile_options', {'name': id});
+  Future<Map<String, dynamic>> recordOptions(String id) =>
+      call('get_record_options', {'name': id});
   Future<Map<String, dynamic>> record(String id) =>
       call('get_record', {'name': id});
   Future<Map<String, dynamic>> update(
@@ -632,7 +660,8 @@ class PersonnelRepository {
           id: person.id,
           entityType: person.entityType,
           payload: {
-            ...person.payload,
+            for (final entry in person.payload.entries)
+            if (!financialPersonnelFields.contains(entry.key)) entry.key: entry.value,
             for (final e in values.entries)
               (e.key == 'address_line' ? 'address' : e.key): e.value,
           },

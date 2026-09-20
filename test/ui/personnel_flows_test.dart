@@ -14,6 +14,17 @@ const _kinds = {'attendance': 'کارکرد و سوابق حضور', 'evaluation
   'document': 'مدارک و مستندات', 'photo': 'تصویر پرسنل', 'history': 'تاریخچه'};
 
 class _Repository extends Mock implements PersonnelRepository {
+  @override
+  bool get localDemo => false;
+  @override
+  Future<Map<String, dynamic>> recordOptions(String id) async => {
+    'appraisal_cycles': [{'name': 'دوره سالانه'}]
+  };
+  @override
+  Future<Map<String, dynamic>> profileOptions(String id) async => {
+    'department': ['منابع انسانی'], 'job_title': ['کارشناس منابع انسانی'],
+    'employment_type': ['تمام وقت']
+  };
   final values = <String, Map<String, dynamic>>{};
   final profile = <String, dynamic>{'id': 'LOCAL-person', 'display_name': 'علی رضایی',
     'job_title': 'کارشناس منابع انسانی', 'department': 'منابع انسانی',
@@ -80,6 +91,23 @@ Future<void> _section(WidgetTester tester, String title) async {
 }
 
 void main() {
+  testWidgets('salary editor renders values and refreshes after save', (tester) async {
+    final repo = _Repository();
+    repo.profile['base_salary'] = '12345';
+    await _start(tester, repo);
+    await _tap(tester, 'اطلاعات پرسنلی');
+    await _tap(tester, 'حقوق و مزایا');
+    await _tap(tester, 'ثبت و ویرایش حقوق و مزایا');
+    await _section(tester, 'حقوق و مزایا');
+    final fields = find.byType(TextFormField);
+    expect(fields, findsNWidgets(6));
+    expect(tester.widget<TextFormField>(fields.first).controller!.text, '12345');
+    await tester.enterText(fields.first, '45678');
+    await _tap(tester, 'ذخیره');
+    expect(repo.profile['base_salary'].toString(), '45678');
+    expect(find.text('45678'), findsOneWidget);
+  });
+
   setUpAll(() async {
     await (FontLoader('Vazirmatn')..addFont(rootBundle.load('assets/fonts/Vazirmatn-Regular.ttf'))
       ..addFont(rootBundle.load('assets/fonts/Vazirmatn-Bold.ttf'))).load();
@@ -109,7 +137,9 @@ void main() {
       }
       if (e.key == 'evaluation') {
         await _section(tester, 'نتیجه ارزیابی');
-        await tester.enterText(find.widgetWithText(TextFormField, 'امتیاز از ۱۰۰ *'), '85');
+        await _tap(tester, 'دوره ارزیابی *');
+        await _tap(tester, 'دوره سالانه');
+        await tester.enterText(find.widgetWithText(TextFormField, 'امتیاز هدف از ۱۰۰ *'), '85');
         await tester.pumpAndSettle();
         await expectLater(find.byType(Scaffold).last, matchesGoldenFile('goldens/personnel_form_open_390.png'));
       }
@@ -119,6 +149,9 @@ void main() {
       }
       await _tap(tester, 'ذخیره');
       expect(repo.creates, 1);
+      if (e.key == 'evaluation') {
+        expect(repo.values['new']!['appraisal_cycle'], 'دوره سالانه');
+      }
       expect(find.text('سابقه نمونه'), findsOneWidget);
       if (e.key == 'evaluation') {
         await expectLater(find.byType(Scaffold).last, matchesGoldenFile('goldens/personnel_records_390.png'));

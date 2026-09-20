@@ -16,6 +16,31 @@ class _Client extends Mock implements FrappeApiClient {}
 class _Repository extends Mock implements PersonnelRepository {}
 
 void main() {
+  test('financial values stay out of shared party cache including legacy entries', () async {
+    final client = _Client();
+    when(() => client.isAuthenticated).thenReturn(true);
+    when(() => client.authenticationChanges).thenAnswer((_) => const Stream.empty());
+    when(() => client.getCurrentUser()).thenAnswer((_) async => const FrappeUserContext(
+      userId: 'hr', fullName: 'HR', roles: ['HR Manager']));
+    when(() => client.callMethod(any(), data: any(named: 'data'))).thenAnswer((call) async {
+      if ((call.positionalArguments.first as String).endsWith('list_personnel')) {
+        return {'message': {'data': {'rows': [], 'can_edit': true}}};
+      }
+      return {'message': {'data': {'profile': {'id': 'P1', 'company': 'office',
+        'base_salary': 456, 'display_name': 'Updated'}, 'can_edit': true, 'records': [], 'revision': '2'}}};
+    });
+    final store = FakeLocalRecordStore();
+    await store.save(id: 'party:P1', entityType: 'party_profile', payload: {
+      'company': 'office', 'base_salary': 123, 'display_name': 'Before'});
+    final repo = PersonnelRepository(client, local: store);
+    addTearDown(repo.dispose);
+    await repo.list('office');
+    await repo.update('P1', {'base_salary': 456}, '1');
+    final shared = (await store.get('party:P1'))!.payload;
+    expect(shared.containsKey('base_salary'), false);
+    expect(shared['display_name'], 'Updated');
+  });
+
   test('local import requires explicit binding, is durable and cannot be remapped', () async {
     final client = _Client();
     when(() => client.isAuthenticated).thenReturn(true);

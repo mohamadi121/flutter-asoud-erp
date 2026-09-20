@@ -5,6 +5,7 @@ import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../domain/entities/workflow_definition.dart';
 import '../cubit/workflow_designer_cubit.dart';
+import '../widgets/workflow_form_builder.dart';
 
 class WorkflowStageSettingsPage extends StatefulWidget {
   const WorkflowStageSettingsPage({
@@ -43,6 +44,7 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
   Set<String> escalationRoles = {};
   Set<String> selected = {};
   List<WorkflowFieldOption> fields = const [];
+  List<WorkflowFormFieldDefinition> formFields = const [];
   bool loadingFields = false;
 
   Map<String, dynamic> get config => widget.stage.config;
@@ -76,6 +78,10 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
     allowReject = config['allow_reject'] != false;
     allowReturn = config['allow_return'] != false;
     commentRequired = config['comment_required'] == true;
+    formFields = ((config['form_fields'] as List?) ?? const [])
+      .whereType<Map>()
+      .map(WorkflowFormFieldDefinition.fromMap)
+      .toList(growable: false);
     _initializeType();
     _loadSelected();
     if (widget.stage.type == WorkflowStageType.condition) _loadFields();
@@ -187,6 +193,11 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
             _ownerFields('مسئول مرحله'),
             const SizedBox(height: 14),
             _accessFields(),
+            const SizedBox(height: 14),
+            WorkflowFormBuilder(
+              fields: formFields,
+              onChanged: (value) => setState(() => formFields = value),
+            ),
             const SizedBox(height: 10),
             _actionSwitches(),
             const SizedBox(height: 10),
@@ -570,7 +581,7 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
           ..._assignment('assignee'),
           'document_access': accessMode,
           'instructions': details.text.trim(),
-          'form_fields': const [],
+          'form_fields': formFields.map((field) => field.toMap()).toList(),
           'allow_reject': allowReject,
           'allow_return': allowReturn,
           'comment_required': commentRequired,

@@ -17,3 +17,5 @@ android/**/build/
 ios/Pods/
 *.iml
 
+# Widget Preview related
+.widget_preview/
