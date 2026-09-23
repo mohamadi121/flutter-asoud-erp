@@ -14,6 +14,7 @@ import '../../../workflows/presentation/pages/workflow_tasks_page.dart';
 import '../../../workflows/presentation/pages/generic_request_page.dart';
 import '../../../hr/presentation/pages/hr_home_page.dart';
 import 'first_office_card.dart';
+import 'settings_dashboard_content.dart';
 
 class DashboardLandingPage extends StatefulWidget {
   const DashboardLandingPage({this.offlinePreview = false, super.key});
@@ -62,7 +63,7 @@ class _DashboardLandingPageState extends State<DashboardLandingPage> {
       );
 }
 
-class DashboardPage extends StatelessWidget {
+class DashboardPage extends StatefulWidget {
   const DashboardPage(
       {this.officeName,
       this.office,
@@ -78,77 +79,97 @@ class DashboardPage extends StatelessWidget {
   final VoidCallback? onOfficeCreated;
 
   @override
+  State<DashboardPage> createState() => _DashboardPageState();
+}
+
+class _DashboardPageState extends State<DashboardPage> {
+  int selectedIndex = 0;
+  String? get officeName => widget.officeName;
+  Office? get office => widget.office;
+  bool get offlinePreview => widget.offlinePreview;
+  bool get loadError => widget.loadError;
+  VoidCallback? get onOfficeCreated => widget.onOfficeCreated;
+
+  @override
   Widget build(BuildContext context) {
     final hasOffice = officeName?.trim().isNotEmpty == true;
     return Scaffold(
-      body: SafeArea(
-        child: Column(children: [
-          _Header(officeName: officeName),
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-              children: [
-                if (!hasOffice && !loadError)
-                  FirstOfficeCard(onCreated: onOfficeCreated)
-                else if (!hasOffice)
-                  _EmptyOfficeDashboard(
-                    loadError: loadError,
-                    onCreated: onOfficeCreated,
-                  )
-                else ...[
-                  _ConnectionBanner(offline: offlinePreview),
-                  const SizedBox(height: 10),
-                  const _MetricsGrid(),
-                  const SizedBox(height: 10),
-                  _SetupProgress(
-                    offline: offlinePreview,
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => BaseAccountingSetupPage(
-                          officeName: officeName,
-                          offlinePreview: offlinePreview,
+      body: selectedIndex == 4
+          ? SettingsDashboardContent(
+              company: officeName, offlinePreview: offlinePreview)
+          : SafeArea(
+              child: Column(children: [
+                _Header(officeName: officeName),
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                    children: [
+                      if (!hasOffice && !loadError)
+                        FirstOfficeCard(onCreated: onOfficeCreated)
+                      else if (!hasOffice)
+                        _EmptyOfficeDashboard(
+                          loadError: loadError,
+                          onCreated: onOfficeCreated,
+                        )
+                      else ...[
+                        _ConnectionBanner(offline: offlinePreview),
+                        const SizedBox(height: 10),
+                        const _MetricsGrid(),
+                        const SizedBox(height: 10),
+                        _SetupProgress(
+                          offline: offlinePreview,
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => BaseAccountingSetupPage(
+                                officeName: officeName,
+                                offlinePreview: offlinePreview,
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
+                        const SizedBox(height: 10),
+                        _InfoCards(office: office),
+                        const SizedBox(height: 14),
+                        const Text('عملیات سریع',
+                            style: TextStyle(
+                                fontSize: 14, fontWeight: FontWeight.w900)),
+                        const SizedBox(height: 8),
+                        _QuickActions(
+                          onAccounting: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => AccountingHomePage(
+                                company: officeName,
+                              ),
+                            ),
+                          ),
+                          onPurchaseRequest: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => GenericRequestsPage(
+                                company: officeName ?? '',
+                              ),
+                            ),
+                          ),
+                          onHr: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) =>
+                                  HrHomePage(company: officeName ?? ''),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
-                  const SizedBox(height: 10),
-                  _InfoCards(office: office),
-                  const SizedBox(height: 14),
-                  const Text('عملیات سریع',
-                      style:
-                          TextStyle(fontSize: 14, fontWeight: FontWeight.w900)),
-                  const SizedBox(height: 8),
-                  _QuickActions(
-                    onAccounting: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => AccountingHomePage(
-                          company: officeName,
-                        ),
-                      ),
-                    ),
-                    onPurchaseRequest: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => GenericRequestsPage(
-                          company: officeName ?? '',
-                        ),
-                      ),
-                    ),
-                    onHr: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => HrHomePage(company: officeName ?? ''),
-                      ),
-                    ),
-                  ),
-                ],
-              ],
+                ),
+              ]),
             ),
-          ),
-        ]),
-      ),
       bottomNavigationBar: NavigationBar(
-        selectedIndex: 0,
+        selectedIndex: selectedIndex,
         onDestinationSelected: (index) {
-          if (!hasOffice && index != 0) {
+          if (index == 0 || index == 3 || index == 4) {
+            setState(() => selectedIndex = index);
+            return;
+          }
+          if (!hasOffice) {
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
               content:
                   Text('برای استفاده از این بخش ابتدا دفتر کار را ایجاد کنید.'),
@@ -424,7 +445,7 @@ class _MetricsGrid extends StatelessWidget {
         physics: const NeverScrollableScrollPhysics(),
         crossAxisSpacing: 8,
         mainAxisSpacing: 8,
-        childAspectRatio: 1.55,
+        mainAxisExtent: 126,
         children: items
             .map((item) => Card(
                   child: Padding(
@@ -597,7 +618,7 @@ class _QuickActions extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       crossAxisSpacing: 8,
       mainAxisSpacing: 8,
-      childAspectRatio: 2.15,
+      mainAxisExtent: 112,
       children: items
           .map((item) => Card(
                 child: InkWell(

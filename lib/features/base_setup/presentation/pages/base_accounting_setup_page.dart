@@ -73,7 +73,7 @@ class BaseAccountingSetupPage extends StatelessWidget {
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 crossAxisCount: 2,
-                childAspectRatio: .92,
+                mainAxisExtent: 195,
                 mainAxisSpacing: 10,
                 crossAxisSpacing: 10,
                 children: [

@@ -29,15 +29,21 @@ class AsoudHeader extends StatelessWidget implements PreferredSizeWidget {
             Expanded(
               child: Column(mainAxisSize: MainAxisSize.min, children: [
                 Text(title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.center,
                     style: const TextStyle(
-                        fontSize: 17, fontWeight: FontWeight.w800)),
+                        fontSize: 17,
+                        height: 1.3,
+                        fontWeight: FontWeight.w800)),
                 if (subtitle != null) ...[
                   const SizedBox(height: 2),
                   Text(subtitle!,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,
                       style: const TextStyle(
-                          fontSize: 10, color: AsoudColors.muted)),
+                          fontSize: 10, height: 1.4, color: AsoudColors.muted)),
                 ],
               ]),
             ),
