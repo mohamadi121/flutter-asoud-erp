@@ -34,9 +34,8 @@ class _RequestFieldEditorPageState extends State<RequestFieldEditorPage> {
   late bool showInList = initial?.showInList ?? false;
   String? optionsError;
 
-  bool get isChoice => widget.type == 'Choice';
-  bool get hasDefault =>
-      widget.type != 'Attachment' && widget.type != 'Checkbox';
+  bool get isChoice => widget.type == 'Choice' || widget.type == 'Multi Choice';
+  bool get hasDefault => !requestFieldTypesWithoutDefault.contains(widget.type);
 
   @override
   void initState() {

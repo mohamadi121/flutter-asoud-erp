@@ -83,6 +83,19 @@ class GenericRequestRepository {
       (await read('request_options', {'company': company}) as List)
           .map((row) => Map<String, dynamic>.from(row as Map))
           .toList();
+
+  /// Choices for User, Department and Item Table fields ([fieldType]: `User`,
+  /// `Department`, `Item`, or `UOM` with [itemCode]), from the ERPNext masters.
+  Future<List<Map<String, dynamic>>> fieldOptions(String fieldType,
+          {String txt = '', String? itemCode}) async =>
+      (await read('request_field_options', {
+        'company': company,
+        'field_type': fieldType,
+        'txt': txt,
+        if (itemCode != null) 'item_code': itemCode,
+      }) as List)
+          .map((row) => Map<String, dynamic>.from(row as Map))
+          .toList();
   Future<void> create(Map<String, dynamic> data, String requestId) async {
     await identify();
     final payload = {...data, 'company': company, 'request_id': requestId};

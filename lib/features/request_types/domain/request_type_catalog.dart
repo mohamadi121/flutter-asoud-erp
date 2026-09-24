@@ -44,7 +44,8 @@ RequestIconOption requestIconFor(String? key) => requestIcons
     .firstWhere((item) => item.key == key, orElse: () => requestIcons.last);
 
 /// A field type offered by "افزودن فیلد جدید". [type] is the server value;
-/// types the request runtime cannot store yet are listed but disabled.
+/// a type the request runtime cannot store yet is listed with
+/// `supported: false` and shown disabled.
 class RequestFieldType {
   const RequestFieldType(this.type, this.label, this.icon,
       {this.supported = true});
@@ -62,15 +63,21 @@ const requestFieldTypes = [
   RequestFieldType('Choice', 'انتخابی', Icons.list_rounded),
   RequestFieldType('Checkbox', 'بله / خیر', Icons.check_box_outlined),
   RequestFieldType('Attachment', 'فایل', Icons.attach_file_rounded),
-  RequestFieldType('Multi Choice', 'چندانتخابی', Icons.checklist_rounded,
-      supported: false),
-  RequestFieldType('User', 'کاربر', Icons.person_outline_rounded,
-      supported: false),
-  RequestFieldType('Department', 'واحد سازمانی', Icons.groups_outlined,
-      supported: false),
-  RequestFieldType('Item Table', 'جدول اقلام', Icons.table_chart_outlined,
-      supported: false),
+  RequestFieldType('Multi Choice', 'چندانتخابی', Icons.checklist_rounded),
+  RequestFieldType('User', 'کاربر', Icons.person_outline_rounded),
+  RequestFieldType('Department', 'واحد سازمانی', Icons.groups_outlined),
+  RequestFieldType('Item Table', 'جدول اقلام', Icons.table_chart_outlined),
 ];
+
+/// Types whose value is an ERPNext record or a table; the server keeps no
+/// default value for them.
+const requestFieldTypesWithoutDefault = {
+  'Attachment',
+  'Checkbox',
+  'User',
+  'Department',
+  'Item Table',
+};
 
 RequestFieldType requestFieldTypeFor(String type) =>
     requestFieldTypes.firstWhere((item) => item.type == type,

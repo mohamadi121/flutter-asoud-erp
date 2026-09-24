@@ -8,6 +8,7 @@ import '../../../../core/widgets/asoud_form.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../data/generic_request_repository.dart';
 import '../../domain/entities/workflow_definition.dart';
+import '../widgets/request_link_fields.dart';
 
 class GenericRequestsPage extends StatefulWidget {
   const GenericRequestsPage(
@@ -254,7 +255,8 @@ class _GenericRequestPageState extends State<GenericRequestPage> {
   Widget dynamicField(Map raw) {
     final field = WorkflowFormFieldDefinition.fromMap(raw);
     final controller = fields.putIfAbsent(field.key, () {
-      final c = TextEditingController();
+      final initial = values[field.key];
+      final c = TextEditingController(text: initial is String ? initial : '');
       c.addListener(() => values[field.key] = c.text);
       return c;
     });
@@ -290,6 +292,37 @@ class _GenericRequestPageState extends State<GenericRequestPage> {
           onChanged: saving
               ? null
               : (value) => setState(() => values[field.key] = value));
+    }
+    final key = ValueKey('${selected!['name']}:${field.key}');
+    if (field.type == 'Multi Choice') {
+      return RequestMultiChoiceField(
+          key: key,
+          label: field.label,
+          options: field.options,
+          required: field.required,
+          enabled: !saving,
+          initialValue: (values[field.key] as List?)?.cast<String>(),
+          onChanged: (value) => values[field.key] = value);
+    }
+    if (field.type == 'User' || field.type == 'Department') {
+      return RequestLinkField(
+          key: key,
+          label: field.label,
+          required: field.required,
+          enabled: !saving,
+          loader: (txt) => widget.repository.fieldOptions(field.type, txt: txt),
+          onChanged: (value) => values[field.key] = value);
+    }
+    if (field.type == 'Item Table') {
+      return RequestItemTableField(
+          key: key,
+          label: field.label,
+          required: field.required,
+          enabled: !saving,
+          items: (txt) => widget.repository.fieldOptions('Item', txt: txt),
+          uoms: (itemCode) =>
+              widget.repository.fieldOptions('UOM', itemCode: itemCode),
+          onChanged: (rows) => values[field.key] = rows);
     }
     if (field.type == 'Date') {
       return AsoudFormDateField(
@@ -367,6 +400,16 @@ class _GenericRequestPageState extends State<GenericRequestPage> {
                               for (final field in selected!['fields'] as List) {
                                 if (field['type'] == 'Checkbox') {
                                   values[field['key']] = false;
+                                }
+                                // Defaults set in the request type builder.
+                                final initial =
+                                    '${field['default_value'] ?? ''}';
+                                if (initial.isEmpty) continue;
+                                if (field['type'] == 'Multi Choice') {
+                                  values[field['key']] = [initial];
+                                } else {
+                                  values[field['key']] = initial;
+                                  fields[field['key']]?.text = initial;
                                 }
                               }
                             })),
@@ -501,7 +544,7 @@ class _GenericRequestDetailPageState extends State<GenericRequestDetailPage> {
               }.entries)
                 ListTile(
                     title: Text(entry.key),
-                    subtitle: Text('${entry.value ?? '—'}')),
+                    subtitle: Text(formatRequestValue(entry.value))),
               for (final file in data['attachments'] as List? ?? [])
                 ListTile(
                     title: Text('${file['filename']}'),
