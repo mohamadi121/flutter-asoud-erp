@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/network/frappe_client.dart';
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/jalali_date.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../base_setup/presentation/pages/base_accounting_setup_page.dart';
 import '../../../base_setup/presentation/pages/roles_setup_page.dart';
@@ -10,8 +11,8 @@ import '../../../hr/presentation/pages/hr_home_page.dart';
 import '../../../hr/presentation/pages/organization_page.dart';
 import '../../../office_setup/presentation/pages/offices_page.dart';
 import '../../../parties/presentation/pages/party_management_page.dart';
+import '../../../request_types/presentation/pages/request_types_page.dart';
 import '../../../workflows/presentation/pages/generic_request_page.dart';
-import '../../../workflows/presentation/pages/workflow_list_page.dart';
 import '../../../workflows/presentation/pages/workflow_notifications_page.dart';
 import '../../../workflows/presentation/pages/workflow_tasks_page.dart';
 
@@ -60,17 +61,22 @@ class _SettingsDashboardContentState extends State<SettingsDashboardContent> {
         child: SafeArea(
           child: ListView(padding: const EdgeInsets.all(16), children: [
             Row(children: [
-              Expanded(
+              Flexible(
                   child: OutlinedButton.icon(
                 onPressed: () => _open(const OfficesPage()),
-                icon: const Icon(Icons.business_rounded),
+                style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, 42),
+                    padding: const EdgeInsets.symmetric(horizontal: 10)),
+                icon: const Icon(Icons.business_rounded, size: 20),
                 label: Text(company ?? 'انتخاب دفتر',
                     overflow: TextOverflow.ellipsis),
               )),
-              const SizedBox(width: 12),
-              const Text('ASOUD ERP',
-                  style: TextStyle(
-                      color: AsoudColors.primary, fontWeight: FontWeight.w900)),
+              const Expanded(
+                  child: Text('ASOUD ERP',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                          color: AsoudColors.primary,
+                          fontWeight: FontWeight.w900))),
               IconButton(
                   tooltip: 'اعلان‌ها',
                   onPressed: hasOffice
@@ -78,7 +84,7 @@ class _SettingsDashboardContentState extends State<SettingsDashboardContent> {
                       : null,
                   icon: const Icon(Icons.notifications_outlined)),
             ]),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
             FutureBuilder<FrappeUserContext?>(
                 future: user,
                 builder: (context, snapshot) {
@@ -109,40 +115,44 @@ class _SettingsDashboardContentState extends State<SettingsDashboardContent> {
                         ])),
                   ]);
                 }),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
             Container(
-                padding: const EdgeInsets.all(16),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
                     color: AsoudColors.primary.withValues(alpha: .07),
                     borderRadius: BorderRadius.circular(18)),
                 child: Row(children: [
-                  const AsoudIconBox(
-                      icon: Icons.calendar_month_outlined,
-                      color: AsoudColors.primary),
-                  const SizedBox(width: 12),
                   Expanded(
                       child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                        Text(
-                            '${now.year}/${now.month.toString().padLeft(2, '0')}/${now.day.toString().padLeft(2, '0')} · میلادی'),
+                        Text(formatJalaliLong(now),
+                            style: const TextStyle(
+                                fontSize: 15, fontWeight: FontWeight.w900)),
+                        const SizedBox(height: 2),
                         const Text('دسترسی سریع به بخش‌های موجود آسود',
                             style: TextStyle(
                                 color: AsoudColors.muted, fontSize: 11)),
                       ])),
+                  const SizedBox(width: 12),
+                  const AsoudIconBox(
+                      icon: Icons.calendar_month_outlined,
+                      color: AsoudColors.primary,
+                      size: 44),
                 ])),
-            const SizedBox(height: 22),
+            const SizedBox(height: 18),
             const Text('خلاصه وضعیت سیستم',
                 style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
             const SizedBox(height: 10),
             LayoutBuilder(
                 builder: (context, constraints) => GridView.count(
-                      crossAxisCount: constraints.maxWidth < 340 ? 2 : 3,
+                      crossAxisCount: constraints.maxWidth < 300 ? 2 : 3,
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
-                      mainAxisSpacing: 10,
-                      crossAxisSpacing: 10,
-                      mainAxisExtent: 210,
+                      mainAxisSpacing: 8,
+                      crossAxisSpacing: 8,
+                      mainAxisExtent: 126,
                       children: [
                         _StatusCard('کاربران فعال', Icons.people_outline,
                             AsoudColors.primary),
@@ -168,7 +178,7 @@ class _SettingsDashboardContentState extends State<SettingsDashboardContent> {
                 child: Text(
                     'آمار سیستم هنوز به منبع داده متصل نیست؛ خط تیره به معنی صفر نیست.',
                     style: TextStyle(fontSize: 11, color: AsoudColors.muted))),
-            const SizedBox(height: 22),
+            const SizedBox(height: 18),
             const Text('عملیات سریع',
                 style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
             if (!hasOffice)
@@ -177,12 +187,12 @@ class _SettingsDashboardContentState extends State<SettingsDashboardContent> {
             const SizedBox(height: 10),
             LayoutBuilder(
                 builder: (context, constraints) => GridView.count(
-                      crossAxisCount: constraints.maxWidth < 340 ? 2 : 4,
+                      crossAxisCount: constraints.maxWidth < 300 ? 3 : 4,
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
-                      mainAxisSpacing: 10,
-                      crossAxisSpacing: 10,
-                      mainAxisExtent: 180,
+                      mainAxisSpacing: 8,
+                      crossAxisSpacing: 8,
+                      mainAxisExtent: 96,
                       children: [
                         const _ActionCard('مدیریت کاربران',
                             Icons.person_outline, AsoudColors.primary),
@@ -203,7 +213,7 @@ class _SettingsDashboardContentState extends State<SettingsDashboardContent> {
                             AsoudColors.warning,
                             onTap: hasOffice
                                 ? () =>
-                                    _open(WorkflowListPage(company: company))
+                                    _open(RequestTypesPage(company: company!))
                                 : null),
                         _ActionCard('دفترها', Icons.business_outlined,
                             AsoudColors.purple,
@@ -266,22 +276,33 @@ class _StatusCard extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(16),
           child: Padding(
-              padding: const EdgeInsets.all(10),
-              child: Column(children: [
-                AsoudIconBox(icon: icon, color: color, size: 36),
-                const SizedBox(height: 8),
-                Text(title,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 12, height: 1.4)),
-                const Text('—',
-                    style: TextStyle(
-                        fontSize: 23,
-                        height: 1.2,
-                        fontWeight: FontWeight.w800)),
-                Text(onTap == null ? 'داده موجود نیست' : 'مشاهده کارتابل',
-                    style: const TextStyle(
-                        fontSize: 10, height: 1.3, color: AsoudColors.muted)),
-              ]))));
+              padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    AsoudIconBox(icon: icon, color: color, size: 32),
+                    const SizedBox(height: 6),
+                    Text(title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 11,
+                            height: 1.3,
+                            fontWeight: FontWeight.w700)),
+                    const Spacer(),
+                    const Text('—',
+                        style: TextStyle(
+                            fontSize: 18,
+                            height: 1.1,
+                            fontWeight: FontWeight.w800)),
+                    Text(onTap == null ? 'داده موجود نیست' : 'مشاهده کارتابل',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 9,
+                            height: 1.3,
+                            color: AsoudColors.muted)),
+                  ]))));
 }
 
 class _ActionCard extends StatelessWidget {
@@ -298,21 +319,25 @@ class _ActionCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
         child: Padding(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
             child:
                 Column(mainAxisAlignment: MainAxisAlignment.center, children: [
               Icon(icon,
-                  size: 30, color: onTap == null ? AsoudColors.muted : color),
-              const SizedBox(height: 8),
+                  size: 24, color: onTap == null ? AsoudColors.muted : color),
+              const SizedBox(height: 5),
               Text(title,
                   textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                      fontSize: 12, height: 1.4, fontWeight: FontWeight.w700)),
+                      fontSize: 11, height: 1.25, fontWeight: FontWeight.w700)),
               if (onTap == null || note != null)
                 Text(note ?? 'هنوز فعال نیست',
                     textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                        fontSize: 10, color: AsoudColors.muted)),
+                        fontSize: 9, height: 1.3, color: AsoudColors.muted)),
             ])),
       ));
 }
