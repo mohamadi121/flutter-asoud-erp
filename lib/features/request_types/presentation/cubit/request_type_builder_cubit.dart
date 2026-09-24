@@ -236,21 +236,3 @@ WorkflowStage? _formStage(WorkflowDesign design) {
   }
   return null;
 }
-
-  Future<void> _run(String failure, Future<void> Function() action) async {
-    if (state.saving) return;
-    emit(state.copyWith(saving: true, clearMessage: true));
-    try {
-      await action();
-    } catch (error) {
-      emit(state.copyWith(message: _error(error, failure)));
-    } finally {
-      emit(state.copyWith(saving: false));
-    }
-  }
-
-  String _error(Object error, String fallback) =>
-      error is ApiException && error.message.isNotEmpty
-          ? error.message
-          : fallback;
-}
