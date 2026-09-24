@@ -22,6 +22,10 @@ class WorkflowDefinition extends Equatable {
     this.missingRequirements = const [],
     this.iconKey,
     this.colorHex,
+    this.shortTitle,
+    this.category,
+    this.showInList = true,
+    this.userSubmittable = true,
   });
 
   final String id, code, title, targetDoctype;
@@ -31,6 +35,8 @@ class WorkflowDefinition extends Equatable {
   final DateTime? modified;
   final String? company, description, moduleKey, creationMode;
   final String? frappeWorkflow, pendingReason, iconKey, colorHex;
+  final String? shortTitle, category;
+  final bool showInList, userSubmittable;
   final List<String> missingRequirements;
 
   @override
@@ -53,6 +59,40 @@ class WorkflowDefinition extends Equatable {
         missingRequirements,
         iconKey,
         colorHex,
+        shortTitle,
+        category,
+        showInList,
+        userSubmittable,
+      ];
+}
+
+/// Presentation metadata of a request type (a workflow on
+/// `ASOUD Workflow Request`).
+class RequestTypeInfo extends Equatable {
+  const RequestTypeInfo({
+    required this.title,
+    this.shortTitle = '',
+    this.description = '',
+    this.category = 'General',
+    this.iconKey = 'purchase',
+    this.colorHex = '#1769F6',
+    this.showInList = true,
+    this.userSubmittable = true,
+  });
+
+  final String title, shortTitle, description, category, iconKey, colorHex;
+  final bool showInList, userSubmittable;
+
+  @override
+  List<Object> get props => [
+        title,
+        shortTitle,
+        description,
+        category,
+        iconKey,
+        colorHex,
+        showInList,
+        userSubmittable,
       ];
 }
 
@@ -223,6 +263,9 @@ class WorkflowFormFieldDefinition extends Equatable {
     required this.type,
     this.required = false,
     this.options = const [],
+    this.defaultValue = '',
+    this.helpText = '',
+    this.showInList = false,
   });
 
   factory WorkflowFormFieldDefinition.fromMap(Map<dynamic, dynamic> map) =>
@@ -236,11 +279,16 @@ class WorkflowFormFieldDefinition extends Equatable {
                 .map((item) => item.toString())
                 .toList(growable: false)
             : const [],
+        defaultValue: map['default_value']?.toString() ?? '',
+        helpText: map['help_text']?.toString() ?? '',
+        showInList: map['show_in_list'] == true || map['show_in_list'] == 1,
       );
 
   final String key, label, type;
   final bool required;
   final List<String> options;
+  final String defaultValue, helpText;
+  final bool showInList;
 
   Map<String, dynamic> toMap() => {
         'key': key,
@@ -248,6 +296,9 @@ class WorkflowFormFieldDefinition extends Equatable {
         'type': type,
         'required': required,
         'options': options,
+        if (defaultValue.isNotEmpty) 'default_value': defaultValue,
+        if (helpText.isNotEmpty) 'help_text': helpText,
+        if (showInList) 'show_in_list': true,
       };
 
   WorkflowFormFieldDefinition copyWith({
@@ -256,6 +307,9 @@ class WorkflowFormFieldDefinition extends Equatable {
     String? type,
     bool? required,
     List<String>? options,
+    String? defaultValue,
+    String? helpText,
+    bool? showInList,
   }) =>
       WorkflowFormFieldDefinition(
         key: key ?? this.key,
@@ -263,8 +317,20 @@ class WorkflowFormFieldDefinition extends Equatable {
         type: type ?? this.type,
         required: required ?? this.required,
         options: options ?? this.options,
+        defaultValue: defaultValue ?? this.defaultValue,
+        helpText: helpText ?? this.helpText,
+        showInList: showInList ?? this.showInList,
       );
 
   @override
-  List<Object> get props => [key, label, type, required, options];
+  List<Object> get props => [
+        key,
+        label,
+        type,
+        required,
+        options,
+        defaultValue,
+        helpText,
+        showInList,
+      ];
 }
