@@ -77,7 +77,7 @@ class RequestWorkflowStep extends StatelessWidget {
           ]);
         },
       );
-    }
+}
 
 IconData _stageIcon(WorkflowStageType type) => switch (type) {
       WorkflowStageType.start => Icons.play_arrow_rounded,

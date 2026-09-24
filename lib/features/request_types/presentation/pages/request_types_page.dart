@@ -101,70 +101,70 @@ class _RequestTypesPageState extends State<RequestTypesPage> {
               primaryLabel: 'ایجاد نوع درخواست جدید', onPrimary: _open),
         ),
       );
-    }
+}
 
-    class _RequestTypeCard extends StatelessWidget {
-      const _RequestTypeCard({required this.item, required this.onTap});
-      final WorkflowDefinition item;
-      final VoidCallback onTap;
+class _RequestTypeCard extends StatelessWidget {
+  const _RequestTypeCard({required this.item, required this.onTap});
+  final WorkflowDefinition item;
+  final VoidCallback onTap;
 
-      @override
-      Widget build(BuildContext context) {
-        final visual = requestIconFor(item.iconKey);
-        final subtitle = item.shortTitle?.isNotEmpty == true
-            ? item.shortTitle!
-            : item.description?.isNotEmpty == true
-                ? item.description!
-                : item.code;
-        final (badge, badgeColor) = item.status == WorkflowDefinitionStatus.active
-            ? (null, AsoudColors.success)
-            : item.isLocked
-                ? ('نیازمند تکمیل', AsoudColors.warning)
-                : ('غیرفعال', AsoudColors.muted);
-        return Card(
-          margin: const EdgeInsets.only(bottom: 10),
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(16),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(children: [
-                AsoudIconBox(icon: visual.icon, color: visual.color, size: 44),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(item.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              fontSize: 13, fontWeight: FontWeight.w900)),
-                      const SizedBox(height: 3),
-                      Text(subtitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              fontSize: 11, color: AsoudColors.muted)),
-                    ],
-                  ),
-                ),
-                if (badge != null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                        color: badgeColor.withValues(alpha: .1),
-                        borderRadius: BorderRadius.circular(8)),
-                    child: Text(badge,
-                        style: TextStyle(
-                            fontSize: 9,
-                            color: badgeColor,
-                            fontWeight: FontWeight.w800)),
-                  ),
-                const Icon(Icons.chevron_left_rounded, color: AsoudColors.muted),
-              ]),
+  @override
+  Widget build(BuildContext context) {
+    final visual = requestIconFor(item.iconKey);
+    final subtitle = item.shortTitle?.isNotEmpty == true
+        ? item.shortTitle!
+        : item.description?.isNotEmpty == true
+            ? item.description!
+            : item.code;
+    final (badge, badgeColor) = item.status == WorkflowDefinitionStatus.active
+        ? (null, AsoudColors.success)
+        : item.isLocked
+            ? ('نیازمند تکمیل', AsoudColors.warning)
+            : ('غیرفعال', AsoudColors.muted);
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(children: [
+            AsoudIconBox(icon: visual.icon, color: visual.color, size: 44),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(item.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.w900)),
+                  const SizedBox(height: 3),
+                  Text(subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 11, color: AsoudColors.muted)),
+                ],
+              ),
             ),
-          ),
-        );
-      }
-    }
+            if (badge != null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                    color: badgeColor.withValues(alpha: .1),
+                    borderRadius: BorderRadius.circular(8)),
+                child: Text(badge,
+                    style: TextStyle(
+                        fontSize: 9,
+                        color: badgeColor,
+                        fontWeight: FontWeight.w800)),
+              ),
+            const Icon(Icons.chevron_left_rounded, color: AsoudColors.muted),
+          ]),
+        ),
+      ),
+    );
+  }
+}

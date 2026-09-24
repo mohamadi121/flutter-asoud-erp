@@ -101,7 +101,7 @@ class _BuilderViewState extends State<_BuilderView> {
           );
         },
       );
-    }
+}
 
 class RequestStepIndicator extends StatelessWidget {
   const RequestStepIndicator({required this.step, super.key});
