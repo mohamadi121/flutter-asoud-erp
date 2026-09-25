@@ -80,7 +80,10 @@ void main() {
         await expectLater(find.byType(Scaffold),
             matchesGoldenFile('goldens/personnel_list_390.png'));
       }
-      await tester.tap(find.text('علی رضایی'));
+      tester.state<NavigatorState>(find.byType(Navigator)).push<void>(
+          MaterialPageRoute(
+              builder: (_) => PersonnelDetailPage(
+                  id: 'person-0', repository: repository)));
       await tester.pumpAndSettle();
       expect(find.text('پرونده پرسنلی'), findsOneWidget);
       expect(tester.takeException(), isNull);

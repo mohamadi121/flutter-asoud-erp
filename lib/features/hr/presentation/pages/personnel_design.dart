@@ -199,9 +199,9 @@ class _PersonnelList extends StatelessWidget {
                             await Navigator.push(
                                 context,
                                 MaterialPageRoute<void>(
-                                    builder: (_) => PersonnelDetailPage(
-                                        id: '${person['id']}',
-                                        repository: cubit.repository)));
+                                    builder: (_) => PersonnelFilePage(
+                                        profileId: '${person['id']}',
+                                        personnel: cubit.repository)));
                             if (context.mounted) await cubit.load();
                           }),
                   ])),

@@ -4,7 +4,13 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/network/frappe_client.dart';
+import '../../../../core/network/api_exception.dart';
+import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/jalali_date.dart';
 import '../../../../core/widgets/asoud_form.dart';
+import '../../../../core/widgets/asoud_ui.dart';
+import '../../domain/personnel_file.dart';
+import '../../data/personnel_file_repository.dart';
 import '../../domain/personnel_record.dart';
 import '../../data/personnel_repository.dart';
 import '../cubit/personnel_cubit.dart';
@@ -15,6 +21,8 @@ import '../../../parties/presentation/pages/personnel_roles_page.dart';
 import 'hr_home_page.dart';
 part 'personnel_design.dart';
 part 'personnel_forms.dart';
+part 'personnel_file_page.dart';
+part 'personnel_file_sections.dart';
 
 class PersonnelPage extends StatelessWidget {
   const PersonnelPage({required this.company, this.repository, super.key});
@@ -57,6 +65,12 @@ const _personal = {
   'birth_date': 'تاریخ تولد',
   'employee_gender': 'جنسیت',
   'father_name': 'نام پدر',
+  'marital_status': 'وضعیت تأهل',
+  'blood_group': 'گروه خونی',
+  'company_email': 'ایمیل سازمانی',
+  'emergency_contact_name': 'نام تماس اضطراری',
+  'emergency_phone': 'تلفن اضطراری',
+  'emergency_relation': 'نسبت تماس اضطراری',
   'mobile': 'موبایل',
   'phone': 'تلفن',
   'email': 'ایمیل',
@@ -69,7 +83,12 @@ const _organization = {
   'job_title': 'سمت',
   'department': 'واحد سازمانی',
   'date_of_joining': 'تاریخ استخدام',
-  'employment_type': 'نوع همکاری'
+  'employment_type': 'نوع همکاری',
+  'branch': 'شعبه',
+  'reports_to': 'مدیر مستقیم',
+  'final_confirmation_date': 'پایان دوره آزمایشی',
+  'contract_end_date': 'پایان قرارداد',
+  'notice_number_of_days': 'مهلت اعلام (روز)',
 };
 const _benefits = {
   'base_salary': 'حقوق پایه',
@@ -238,7 +257,9 @@ class _PersonnelDetailState extends State<PersonnelDetailPage> {
 
   late Future<Map<String, dynamic>> future =
       widget.repository.detail(widget.id);
-  void reload() => setState(() { future = widget.repository.detail(widget.id); });
+  void reload() => setState(() {
+        future = widget.repository.detail(widget.id);
+      });
   @override
   Widget build(BuildContext context) => Directionality(
       textDirection: TextDirection.rtl,
@@ -290,26 +311,26 @@ class _PersonnelDetailState extends State<PersonnelDetailPage> {
                       await Navigator.push<bool>(
                           context,
                           MaterialPageRoute<bool>(
-                                builder: (_) => title == 'اطلاعات پرسنلی'
+                              builder: (_) => title == 'اطلاعات پرسنلی'
                                   ? _PersonnelInfoPage(
-                                    profile: profile,
-                                    revision: '${data['revision']}',
-                                    canEdit: canEdit,
-                                    repository: widget.repository)
-                                  : title.startsWith('ویرایش')
-                                  ? _ProfileEditor(
-                                      title: title,
-                                      labels: labels,
                                       profile: profile,
                                       revision: '${data['revision']}',
-                                      repository: widget.repository)
-                                  : _ProfileFields(
-                                      title: title,
-                                      labels: labels,
-                                      profile: profile,
                                       canEdit: canEdit,
-                                      revision: '${data['revision']}',
-                                      repository: widget.repository)));
+                                      repository: widget.repository)
+                                  : title.startsWith('ویرایش')
+                                      ? _ProfileEditor(
+                                          title: title,
+                                          labels: labels,
+                                          profile: profile,
+                                          revision: '${data['revision']}',
+                                          repository: widget.repository)
+                                      : _ProfileFields(
+                                          title: title,
+                                          labels: labels,
+                                          profile: profile,
+                                          canEdit: canEdit,
+                                          revision: '${data['revision']}',
+                                          repository: widget.repository)));
                       if (mounted) reload();
                     },
                     onRecord: (record) async {
