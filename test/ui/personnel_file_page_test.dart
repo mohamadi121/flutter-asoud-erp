@@ -236,6 +236,50 @@ class _Files extends Fake implements PersonnelFileRepository {
 
 class _Personnel extends Fake implements PersonnelRepository {}
 
+class _FailingFiles extends Fake implements PersonnelFileRepository {
+  _FailingFiles(this.error);
+  final Object error;
+  int reads = 0;
+  @override
+  Future<PersonnelFile> file(String profileId) async {
+    reads++;
+    throw error;
+  }
+}
+
+class _LegacyPersonnel extends Fake implements PersonnelRepository {
+  _LegacyPersonnel({this.fail = false});
+  final bool fail;
+  int details = 0;
+  @override
+  bool get localDemo => false;
+  @override
+  Future<Map<String, dynamic>> detail(String id) async {
+    details++;
+    if (fail) throw StateError('no local copy');
+    return {
+      'profile': {
+        'id': id,
+        'display_name': 'سارا کریمی',
+        'employee_code': 'HR-EMP-00077',
+        'job_title': 'حسابدار',
+        'department': 'مالی',
+        'date_of_joining': '2021-03-01',
+      },
+      'records': [
+        {
+          'name': 'DOC-1',
+          'kind': 'document',
+          'title': 'کارت ملی',
+          'record_date': '2026-01-10'
+        },
+      ],
+      'can_edit': true,
+      'revision': 'r1',
+    };
+  }
+}
+
 Widget _app(Widget page) => MaterialApp(
     theme: AsoudTheme.light,
     home: Directionality(textDirection: TextDirection.rtl, child: page));
@@ -537,5 +581,76 @@ void main() {
     }
     final code = find.text('HR-EMP-00042').first;
     expect(Directionality.of(tester.element(code)), TextDirection.ltr);
+  });
+
+  const offlineNotice =
+      'اطلاعات ذخیره‌شده روی گوشی؛ برای نمایش کامل پرونده به سرور متصل شوید.';
+  Future<void> startFailing(
+      WidgetTester tester, _FailingFiles files, _LegacyPersonnel personnel,
+      {String id = 'HR-EMP-00077'}) async {
+    await tester.pumpWidget(_app(PersonnelFilePage(
+        profileId: id, repository: files, personnel: personnel)));
+    await tester.pumpAndSettle();
+  }
+
+  for (final error in [
+    const ApiException(
+        kind: ApiFailureKind.network,
+        message: 'ارتباط با سرور برقرار نشد. اتصال شبکه را بررسی کنید.'),
+    const ApiException(
+        kind: ApiFailureKind.validation, statusCode: 404, message: 'missing'),
+  ]) {
+    testWidgets('unreachable file API falls back to local data: ${error.kind}',
+        (tester) async {
+      final personnel = _LegacyPersonnel();
+      await startFailing(tester, _FailingFiles(error), personnel);
+      expect(personnel.details, 1);
+      expect(find.text('سارا کریمی'), findsOneWidget);
+      expect(find.text(offlineNotice), findsOneWidget);
+      await _tab(tester, 'مدارک');
+      expect(find.text('کارت ملی'), findsOneWidget);
+      await _tap(tester, 'عملیات بیشتر');
+      expect(find.text('افزودن قرارداد'), findsNothing);
+      expect(find.text('ثبت ارتقا یا تغییر سمت'), findsNothing);
+      expect(find.text('مدارک و سوابق'), findsOneWidget);
+    });
+  }
+
+  testWidgets('forbidden file API keeps its error and skips the fallback',
+      (tester) async {
+    final personnel = _LegacyPersonnel();
+    await startFailing(
+        tester,
+        _FailingFiles(const ApiException(
+            kind: ApiFailureKind.forbidden,
+            message: 'اجازه انجام این عملیات را ندارید.')),
+        personnel);
+    expect(personnel.details, 0);
+    expect(find.text('اجازه انجام این عملیات را ندارید.'), findsOneWidget);
+    expect(find.text(offlineNotice), findsNothing);
+  });
+
+  testWidgets('local profiles fall back even on a server rejection',
+      (tester) async {
+    final personnel = _LegacyPersonnel();
+    await startFailing(
+        tester,
+        _FailingFiles(const ApiException(
+            kind: ApiFailureKind.validation, message: 'نامعتبر')),
+        personnel,
+        id: 'LOCAL-person');
+    expect(personnel.details, 1);
+    expect(find.text('سارا کریمی'), findsOneWidget);
+    expect(find.text(offlineNotice), findsOneWidget);
+  });
+
+  testWidgets('a failed fallback shows the original error', (tester) async {
+    await startFailing(
+        tester,
+        _FailingFiles(const ApiException(
+            kind: ApiFailureKind.network, message: 'ارتباط برقرار نشد')),
+        _LegacyPersonnel(fail: true));
+    expect(find.text('ارتباط برقرار نشد'), findsOneWidget);
+    expect(find.text('تلاش دوباره'), findsOneWidget);
   });
 }
