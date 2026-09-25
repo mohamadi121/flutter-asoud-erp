@@ -10,9 +10,9 @@ import '../../../base_setup/presentation/pages/roles_setup_page.dart';
 import '../../../hr/presentation/pages/hr_home_page.dart';
 import '../../../hr/presentation/pages/organization_page.dart';
 import '../../../office_setup/presentation/pages/offices_page.dart';
-import '../../../parties/presentation/pages/party_management_page.dart';
 import '../../../request_types/presentation/pages/request_types_page.dart';
 import '../../../workflows/presentation/pages/generic_request_page.dart';
+import '../../../workflows/presentation/pages/workflow_form_page.dart';
 import '../../../workflows/presentation/pages/workflow_notifications_page.dart';
 import '../../../workflows/presentation/pages/workflow_tasks_page.dart';
 
@@ -235,11 +235,10 @@ class _SettingsDashboardContentState extends State<SettingsDashboardContent> {
                                     officeName: company,
                                     offlinePreview: widget.offlinePreview))
                                 : null),
-                        _ActionCard('اشخاص و شرکت‌ها', Icons.people_outline,
+                        _ActionCard('گردش کار', Icons.alt_route_rounded,
                             AsoudColors.success,
                             onTap: hasOffice
-                                ? () => _open(PartyManagementPage(
-                                    company: company, createWhenEmpty: true))
+                                ? () => _open(const WorkflowFormPage())
                                 : null),
                         _ActionCard('منابع انسانی', Icons.badge_outlined,
                             AsoudColors.warning,
