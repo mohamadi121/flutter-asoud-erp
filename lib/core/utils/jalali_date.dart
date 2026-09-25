@@ -76,3 +76,19 @@ String formatJalaliLong(DateTime value) {
   return '${persianWeekday(value)} ${toPersianDigits(date.day)} '
       '${date.monthName} ${toPersianDigits(date.year)}';
 }
+
+String formatJalaliIso(String iso) {
+  final date = DateTime.tryParse(iso);
+  if (date == null) return '';
+  return toPersianDigits(JalaliDate.fromDateTime(date).format());
+}
+
+String formatJalaliDateTimeIso(String iso) {
+  final date = DateTime.tryParse(iso);
+  if (date == null) return '';
+  final formatted = toPersianDigits(JalaliDate.fromDateTime(date).format());
+  if (!RegExp(r'[Tt ]\d{2}').hasMatch(iso)) return formatted;
+  final time = '${date.hour.toString().padLeft(2, '0')}:'
+      '${date.minute.toString().padLeft(2, '0')}';
+  return '$formatted - ${toPersianDigits(time)}';
+}
