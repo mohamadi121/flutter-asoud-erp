@@ -744,4 +744,3 @@ PersonnelFile personnelFileFromLegacy(Map<String, dynamic> detail,
     ],
   });
 }
-

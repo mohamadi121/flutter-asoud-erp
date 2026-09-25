@@ -48,7 +48,8 @@ Map<String, dynamic> _legacy() => {
         for (final day in [2, 6, 1, 4, 3, 5])
           {
             'name': 'R$day',
-            'kind': day == 2 ? 'document' : (day == 3 ? 'history' : 'evaluation'),
+            'kind':
+                day == 2 ? 'document' : (day == 3 ? 'history' : 'evaluation'),
             'title': 'سابقه $day',
             'record_date': '2026-09-0$day',
           },
@@ -178,18 +179,26 @@ void main() {
   });
 
   test('salary legacy requires editing permission and a nonempty amount', () {
-    expect(personnelFileFromLegacy({..._legacy(), 'can_edit': false}).salary.legacy,
+    expect(
+        personnelFileFromLegacy({..._legacy(), 'can_edit': false})
+            .salary
+            .legacy,
         isNull);
-    expect(personnelFileFromLegacy({
-      'can_edit': true,
-      'profile': {'base_salary': '', 'net_salary': null}
-    }).salary.legacy, isNull);
+    expect(
+        personnelFileFromLegacy({
+          'can_edit': true,
+          'profile': {'base_salary': '', 'net_salary': null}
+        }).salary.legacy,
+        isNull);
   });
 
   test('service length handles month ends, missing and future dates', () {
-    PersonnelFile convert(String date, DateTime today) => personnelFileFromLegacy(
-        {'profile': {'date_of_joining': date}}, today: today);
-    final length = convert('2024-01-31', DateTime(2024, 3, 1)).header.serviceLength!;
+    PersonnelFile convert(String date, DateTime today) =>
+        personnelFileFromLegacy({
+          'profile': {'date_of_joining': date}
+        }, today: today);
+    final length =
+        convert('2024-01-31', DateTime(2024, 3, 1)).header.serviceLength!;
     expect([length.years, length.months, length.days], [0, 1, 1]);
     expect(convert('invalid', DateTime(2026)).header.serviceLength, isNull);
     expect(convert('2027-01-01', DateTime(2026)).header.serviceLength, isNull);
@@ -198,12 +207,21 @@ void main() {
   test('only offline failures and missing endpoints allow legacy fallback', () {
     expect(canUseLegacyPersonnelFile(TimeoutException('timeout')), isTrue);
     for (final kind in ApiFailureKind.values) {
-      expect(canUseLegacyPersonnelFile(ApiException(kind: kind, message: 'error')),
-          [ApiFailureKind.network, ApiFailureKind.timeout, ApiFailureKind.server]
-              .contains(kind), reason: kind.name);
+      expect(
+          canUseLegacyPersonnelFile(ApiException(kind: kind, message: 'error')),
+          [
+            ApiFailureKind.network,
+            ApiFailureKind.timeout,
+            ApiFailureKind.server
+          ].contains(kind),
+          reason: kind.name);
     }
-    expect(canUseLegacyPersonnelFile(const ApiException(
-        kind: ApiFailureKind.protocol, statusCode: 404, message: 'missing')), isTrue);
+    expect(
+        canUseLegacyPersonnelFile(const ApiException(
+            kind: ApiFailureKind.protocol,
+            statusCode: 404,
+            message: 'missing')),
+        isTrue);
     expect(canUseLegacyPersonnelFile(StateError('failed')), isFalse);
   });
 }
