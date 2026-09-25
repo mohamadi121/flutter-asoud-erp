@@ -268,6 +268,73 @@ Future<void> _start(WidgetTester tester, _Files repo,
 }
 
 void main() {
+  testWidgets('Latin and numeric file values use LTR direction',
+      (tester) async {
+    await _start(tester, _Files(), initialTab: 1);
+    expect(Directionality.of(tester.element(find.text('HR-EMP-00042'))),
+        TextDirection.ltr);
+    await _tap(tester, 'اطلاعات فردی');
+    for (final value in [
+      'O+',
+      '0012345678',
+      '09121234567',
+      'employee@example.com'
+    ]) {
+      await tester.ensureVisible(find.text(value).first);
+      expect(Directionality.of(tester.element(find.text(value).first)),
+          TextDirection.ltr);
+    }
+    expect(
+        Directionality.of(tester.element(find.text('حسن'))), TextDirection.rtl);
+  });
+
+  testWidgets('bottom actions stay one line at 320 pixels', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(320, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await _start(tester, _Files());
+    for (final label in ['ویرایش اطلاعات', 'عملیات بیشتر']) {
+      expect(tester.getSize(find.text(label)).height, lessThanOrEqualTo(24));
+      final button = find.ancestor(
+          of: find.text(label),
+          matching: find.byWidgetPredicate((w) => w is ButtonStyleButton));
+      expect(tester.getSize(button).height, 48);
+    }
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('document filters share one horizontal scrolling row',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(320, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await _start(tester, _Files(), initialTab: 2);
+    final chips = find.byType(ChoiceChip);
+    final top = tester.getTopLeft(chips.first).dy;
+    for (final chip in chips.evaluate()) {
+      expect(tester.getTopLeft(find.byWidget(chip.widget)).dy, top);
+    }
+    expect(
+        find.ancestor(
+            of: chips.first,
+            matching: find.byWidgetPredicate((w) =>
+                w is SingleChildScrollView &&
+                w.scrollDirection == Axis.horizontal)),
+        findsOneWidget);
+    expect(tester.widget<ChoiceChip>(chips.first).selectedColor, isNotNull);
+  });
+
+  testWidgets('activity cards are compact with single line details',
+      (tester) async {
+    await _start(tester, _Files());
+    await tester.ensureVisible(find.text('فعالیت 1'));
+    final card =
+        find.ancestor(of: find.text('فعالیت 1'), matching: find.byType(Card));
+    expect(tester.getSize(card).height, lessThanOrEqualTo(72));
+    final details =
+        find.descendant(of: card, matching: find.textContaining('تغییر سمت'));
+    expect(tester.widget<Text>(details).maxLines, 1);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('HR overview uses employee code, Jalali dates and summary cards',
       (tester) async {
     final repo = _Files();
@@ -458,5 +525,17 @@ void main() {
     });
     expect(result, isTrue);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Persian values that start with a digit stay right-to-left',
+      (tester) async {
+    await _start(tester, _Files());
+    for (final text in ['۶ سال و ۸ ماه', '۲ مورد نیازمند اقدام']) {
+      final value = find.text(text).first;
+      expect(Directionality.of(tester.element(value)), TextDirection.rtl,
+          reason: text);
+    }
+    final code = find.text('HR-EMP-00042').first;
+    expect(Directionality.of(tester.element(code)), TextDirection.ltr);
   });
 }

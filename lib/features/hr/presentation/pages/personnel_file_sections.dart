@@ -75,8 +75,8 @@ class _FileRows extends StatelessWidget {
                         const SizedBox(width: 12),
                         Expanded(
                             flex: 3,
-                            child: Text(_fileValue(entry.value),
-                                textAlign: TextAlign.end,
+                            child: _fileValueText(entry.value,
+                                textAlign: TextAlign.left,
                                 style: const TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700))),

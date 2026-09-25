@@ -2,6 +2,20 @@ part of 'personnel_page.dart';
 
 String _fileValue(String? value) =>
     value == null || value.trim().isEmpty ? '—' : value;
+
+/// Latin/ASCII-number values (O+, emails, codes) are laid out LTR; anything
+/// with Persian/Arabic script, including Persian digits, stays RTL.
+bool _isLtrValue(String value) =>
+    !RegExp(r'\p{Script=Arabic}', unicode: true).hasMatch(value) &&
+    RegExp(r'[A-Za-z0-9]').hasMatch(value);
+
+Widget _fileValueText(String value, {TextStyle? style, TextAlign? textAlign}) {
+  final ltr = _isLtrValue(value);
+  return Directionality(
+      textDirection: ltr ? TextDirection.ltr : TextDirection.rtl,
+      child: Text(_fileValue(value), style: style, textAlign: textAlign));
+}
+
 String _fileDate(String value) => _fileValue(formatJalaliIso(value));
 String _fileError(Object error) => switch (error) {
       ApiException() => error.message,
@@ -284,13 +298,20 @@ class _PersonnelFilePageState extends State<PersonnelFilePage>
       ]);
   Widget documents(PersonnelFile value) =>
       Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Wrap(spacing: 6, runSpacing: 4, children: [
-          for (final key in ['', ...personnelDocumentCategories])
-            ChoiceChip(
-                label: Text(key.isEmpty ? 'همه' : documentCategoryLabel(key)),
-                selected: category == key,
-                onSelected: (_) => setState(() => category = key)),
-        ]),
+        SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(children: [
+              for (final key in ['', ...personnelDocumentCategories])
+                Padding(
+                    padding: const EdgeInsetsDirectional.only(end: 6),
+                    child: ChoiceChip(
+                        label: Text(
+                            key.isEmpty ? 'همه' : documentCategoryLabel(key)),
+                        selected: category == key,
+                        selectedColor:
+                            AsoudColors.primary.withValues(alpha: .15),
+                        onSelected: (_) => setState(() => category = key))),
+            ])),
         const SizedBox(height: 12),
         if (!value.documents
             .any((doc) => category.isEmpty || doc.category == category))
@@ -322,11 +343,31 @@ class _PersonnelFilePageState extends State<PersonnelFilePage>
         appBar:
             AsoudHeader(title: widget.mine ? 'اطلاعات من' : 'پرونده پرسنلی'),
         bottomNavigationBar: !loading && error == null && canEdit
-            ? AsoudBottomActions(
-                primaryLabel: 'ویرایش اطلاعات',
-                onPrimary: edit,
-                secondaryLabel: 'عملیات بیشتر',
-                onSecondary: more)
+            ? SafeArea(
+                child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: SizedBox(
+                        height: 48,
+                        child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Expanded(
+                                  flex: 3,
+                                  child: FilledButton(
+                                      onPressed: edit,
+                                      child: const Text('ویرایش اطلاعات',
+                                          maxLines: 1))),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                  flex: 2,
+                                  child: OutlinedButton(
+                                      style: OutlinedButton.styleFrom(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 8)),
+                                      onPressed: more,
+                                      child: const Text('عملیات بیشتر',
+                                          maxLines: 1))),
+                            ]))))
             : null,
         body: loading
             ? const Center(child: CircularProgressIndicator())
@@ -375,19 +416,16 @@ class _PersonnelFilePageState extends State<PersonnelFilePage>
 }
 
 class _FileChip extends StatelessWidget {
-  const _FileChip(this.label,
-      {this.color = AsoudColors.muted, this.ltr = false});
+  const _FileChip(this.label, {this.color = AsoudColors.muted});
   final String label;
   final Color color;
-  final bool ltr;
   @override
   Widget build(BuildContext context) => Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
           color: color.withValues(alpha: .09),
           borderRadius: BorderRadius.circular(12)),
-      child: Text(_fileValue(label),
-          textDirection: ltr ? TextDirection.ltr : TextDirection.rtl,
+      child: _fileValueText(label,
           style: TextStyle(
               color: color, fontSize: 10, fontWeight: FontWeight.w700)));
 }
@@ -434,7 +472,7 @@ class _FileHeader extends StatelessWidget {
           _FileChip(header.isActive ? 'فعال' : 'غیرفعال',
               color: header.isActive ? AsoudColors.success : AsoudColors.muted),
           _FileChip(header.employeeCode ?? 'در انتظار ثبت',
-              ltr: header.employeeCode != null, color: AsoudColors.primary),
+              color: AsoudColors.primary),
         ]),
         const SizedBox(height: 6),
         Wrap(spacing: 6, runSpacing: 4, children: [
@@ -463,7 +501,7 @@ class _FileSummary extends StatelessWidget {
         Text(label,
             style: const TextStyle(fontSize: 10, color: AsoudColors.muted)),
         const SizedBox(height: 4),
-        Text(value,
+        _fileValueText(value,
             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
       ]));
 }
@@ -472,16 +510,39 @@ class _FileActivity extends StatelessWidget {
   const _FileActivity({required this.activity});
   final ActivityItem activity;
   @override
-  Widget build(BuildContext context) => ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: const Icon(Icons.history, color: AsoudColors.primary),
-      title: Text(activity.title,
-          style: const TextStyle(fontWeight: FontWeight.w800)),
-      subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(_fileDetails(activity.details)),
-        Text(_fileValue(formatJalaliDateTimeIso(activity.date))),
-        Text('توسط ${_fileValue(activity.by)}'),
-      ]));
+  Widget build(BuildContext context) => Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Row(children: [
+            Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                    color: AsoudColors.primary.withValues(alpha: .09),
+                    borderRadius: BorderRadius.circular(8)),
+                child: const Icon(Icons.history,
+                    size: 18, color: AsoudColors.primary)),
+            const SizedBox(width: 10),
+            Expanded(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                  Text(activity.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.w800)),
+                  Text(
+                      '${_fileDetails(activity.details)} · '
+                      '${_fileValue(formatJalaliDateTimeIso(activity.date))} · '
+                      'توسط ${_fileValue(activity.by)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 11, color: AsoudColors.muted)),
+                ])),
+          ])));
 }
 
 class _FileHistory extends StatelessWidget {
