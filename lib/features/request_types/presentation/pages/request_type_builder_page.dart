@@ -7,11 +7,11 @@ import '../../../workflows/domain/entities/workflow_definition.dart';
 import '../../../workflows/domain/repositories/workflow_repository.dart';
 import '../cubit/request_type_builder_cubit.dart';
 import '../widgets/request_access_step.dart';
+import '../widgets/request_form_preview_step.dart';
 import '../widgets/request_form_step.dart';
 import '../widgets/request_info_step.dart';
-import '../widgets/request_workflow_step.dart';
 
-/// Four-step builder: general info, request form, workflow and access.
+/// Four-step builder: general info, request form, preview and access.
 class RequestTypeBuilderPage extends StatelessWidget {
   const RequestTypeBuilderPage({this.company, this.existing, super.key});
   final String? company;
@@ -80,7 +80,7 @@ class _BuilderViewState extends State<_BuilderView> {
                       : switch (state.step) {
                           0 => RequestInfoStep(formKey: infoForm),
                           1 => const RequestFormStep(),
-                          2 => const RequestWorkflowStep(),
+                          2 => const RequestFormPreviewStep(),
                           _ => const RequestAccessStep(),
                         },
                 ),
@@ -107,7 +107,7 @@ class RequestStepIndicator extends StatelessWidget {
   const RequestStepIndicator({required this.step, super.key});
   final int step;
 
-  static const labels = ['اطلاعات کلی', 'فرم درخواست', 'گردش کار', 'دسترسی'];
+  static const labels = ['اطلاعات کلی', 'فرم درخواست', 'پیش‌نمایش', 'دسترسی'];
 
   @override
   Widget build(BuildContext context) => Padding(

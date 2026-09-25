@@ -1,6 +1,6 @@
 part of 'request_type_builder_cubit.dart';
 
-/// Steps: 0 general info, 1 request form, 2 workflow, 3 access.
+/// Steps: 0 general info, 1 request form, 2 preview, 3 access.
 class RequestTypeBuilderState extends Equatable {
   const RequestTypeBuilderState({
     this.step = 0,

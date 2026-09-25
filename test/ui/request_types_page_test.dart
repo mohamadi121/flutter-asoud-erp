@@ -82,6 +82,8 @@ void main() {
       expect(find.text('اختیاری'), findsOneWidget);
 
       await tapText(tester, 'ادامه');
+      expect(find.text('پیش‌نمایش فرم درخواست'), findsOneWidget);
+      expect(find.text('نوع خرید'), findsOneWidget);
       expect(find.text('گردش کار درخواست'), findsOneWidget);
       expect(find.text('تکمیل فرم درخواست'), findsOneWidget);
       await tapText(tester, 'ادامه');

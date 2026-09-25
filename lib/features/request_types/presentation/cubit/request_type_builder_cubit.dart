@@ -152,15 +152,6 @@ class RequestTypeBuilderCubit extends Cubit<RequestTypeBuilderState> {
     });
   }
 
-  /// Step 3: the workflow itself is edited in the designer.
-  Future<void> refreshWorkflow() async {
-    final definition = state.definition;
-    if (definition == null) return;
-    await _run('دریافت گردش کار ممکن نشد.', () async {
-      emit(state.copyWith(design: await repository.getDesign(definition.id)));
-    });
-  }
-
   void continueToAccess() => emit(state.copyWith(step: 3, clearMessage: true));
 
   /// Step 4: who may submit, then the requested status.
