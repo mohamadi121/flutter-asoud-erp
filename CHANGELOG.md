@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.21.0+35
+
+- Personnel file («پرونده پرسنلی») redesigned: compact header with the real employee code, summary
+  cards (unit, manager, employment type, start date, current contract, document status), recent
+  activity with clear titles, and Jalali dates everywhere.
+- Personnel information sections: personal (with emergency contact and education), organizational
+  (with direct manager), employment, contracts (with signed copy), salary and benefits, attendance and
+  leave.
+- Documents with category, number, expiry and validity status; history timeline (joining,
+  promotions, contracts, salary changes).
+- HR can add contracts, record promotions, and edit marital status, blood group, emergency contact,
+  branch, direct manager, probation and contract dates.
+- Employee panel: users who are only employees now land on their own home (greeting, date, quick
+  actions, announcements) with خانه · کارتابل · درخواست‌ها · مکاتبات · بیشتر, «اطلاعات من», and
+  check-in/out.
+- Requires backend 0.11.0.
+
 ## 0.20.0+34
 
 - Settings dashboard matches the design: compact status and quick-action cards, header with
