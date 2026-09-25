@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.20.0+34
+
+- Settings dashboard matches the design: compact status and quick-action cards, header with
+  office selector, logo and notifications.
+- Dates on the settings dashboard are Jalali (e.g. «پنجشنبه ۲ مهر ۱۴۰۵»), from a shared helper.
+- «انواع درخواست» opens a request types list and a four-step builder: general info (name,
+  short title, description, category, icon, status, visibility), request form (base fields,
+  custom fields with ordering, field editor with technical name, default value, help text,
+  required and options), workflow, and access roles.
+- New request form field types: multi choice, user, department and item table (item, quantity,
+  unit), with search pickers backed by ERPNext; builder default values are applied.
+- Requires backend 0.10.0.
+
 ## 0.19.0+32
 
 - Added per-stage deadlines, reminder timing, escalation roles, and optional reassignment.
