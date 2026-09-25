@@ -118,6 +118,7 @@ class _PersonnelFilePageState extends State<PersonnelFilePage>
   PersonnelFile? file;
   String? error;
   bool loading = true;
+  bool legacy = false;
   String category = '';
   int request = 0;
   bool get canEdit => !widget.mine && file?.canEdit == true;
@@ -143,6 +144,27 @@ class _PersonnelFilePageState extends State<PersonnelFilePage>
     super.dispose();
   }
 
+  /// Falls back to the older detail payload when the file API is unreachable,
+  /// missing on the server, or the profile exists only on this device.
+  Future<(PersonnelFile, bool)> _load() async {
+    if (widget.mine) return (await repository.myFile(), false);
+    final id = widget.profileId!;
+    try {
+      return (await repository.file(id), false);
+    } catch (error, stack) {
+      if (!canUseLegacyPersonnelFile(error) &&
+          !isLocalPersonnelId(id) &&
+          !personnel.localDemo) {
+        rethrow;
+      }
+      try {
+        return (personnelFileFromLegacy(await personnel.detail(id)), true);
+      } catch (_) {
+        Error.throwWithStackTrace(error, stack);
+      }
+    }
+  }
+
   Future<void> reload() async {
     final current = ++request;
     setState(() {
@@ -150,10 +172,13 @@ class _PersonnelFilePageState extends State<PersonnelFilePage>
       error = null;
     });
     try {
-      final value = widget.mine
-          ? await repository.myFile()
-          : await repository.file(widget.profileId!);
-      if (mounted && current == request) setState(() => file = value);
+      final (value, fallback) = await _load();
+      if (mounted && current == request) {
+        setState(() {
+          file = value;
+          legacy = fallback;
+        });
+      }
     } catch (e) {
       if (mounted && current == request) setState(() => error = _fileError(e));
     } finally {
@@ -181,9 +206,10 @@ class _PersonnelFilePageState extends State<PersonnelFilePage>
                 'ثبت ارتقا یا تغییر سمت',
                 'مدارک و سوابق'
               ].indexed)
-                ListTile(
-                    title: Text(title),
-                    onTap: () => Navigator.pop(context, index)),
+                if (!legacy || index == 2)
+                  ListTile(
+                      title: Text(title),
+                      onTap: () => Navigator.pop(context, index)),
             ]))));
     if (!mounted || choice == null || !canEdit) return;
     switch (choice) {
@@ -291,7 +317,7 @@ class _PersonnelFilePageState extends State<PersonnelFilePage>
               onTap: () => open(_FileSectionPage(
                   section: section.$1,
                   file: value,
-                  canEdit: canEdit,
+                  canEdit: canEdit && !legacy,
                   mine: widget.mine,
                   repository: repository,
                   personnel: personnel))),
@@ -388,6 +414,19 @@ class _PersonnelFilePageState extends State<PersonnelFilePage>
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         child: _FileHeader(
                             header: file!.header, personnel: personnel)),
+                    if (legacy)
+                      Container(
+                          width: double.infinity,
+                          margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                              color: AsoudColors.warning.withValues(alpha: .1),
+                              borderRadius: BorderRadius.circular(10)),
+                          child: const Text(
+                              'اطلاعات ذخیره‌شده روی گوشی؛ برای نمایش کامل پرونده به سرور متصل شوید.',
+                              style: TextStyle(
+                                  fontSize: 11, color: AsoudColors.warning))),
                     TabBar(
                         controller: tabs,
                         isScrollable: true,

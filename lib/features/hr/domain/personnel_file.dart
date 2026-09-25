@@ -1,3 +1,7 @@
+import 'dart:async';
+
+import '../../../core/network/api_exception.dart';
+import '../../../core/offline/offline_failure.dart';
 import '../../../core/utils/jalali_date.dart';
 
 Map<String, dynamic> _object(Object? value) =>
@@ -596,3 +600,148 @@ class Announcement {
 
   final String name, title, summary, date, expiresOn;
 }
+
+/// Offline, unreachable or missing-endpoint failures, where the older
+/// personnel detail (cache, local profiles, demo) can stand in for the file.
+bool canUseLegacyPersonnelFile(Object error) =>
+    error is TimeoutException ||
+    isRetryableOfflineFailure(error) ||
+    (error is ApiException && error.statusCode == 404);
+
+bool isLocalPersonnelId(String id) =>
+    id.startsWith('LOCAL-') || id.startsWith('personnel-import-');
+
+const _legacyBenefits = [
+  'base_salary',
+  'housing_allowance',
+  'transport_allowance',
+  'other_allowances',
+  'deductions',
+  'net_salary',
+];
+
+DateTime _addMonths(DateTime date, int months) {
+  final month = date.month - 1 + months;
+  final year = date.year + month ~/ 12;
+  final lastDay = DateTime(year, month % 12 + 2, 0).day;
+  return DateTime(year, month % 12 + 1, date.day.clamp(1, lastDay));
+}
+
+Map<String, int>? _legacyServiceLength(String joining, DateTime today) {
+  final start = DateTime.tryParse(joining);
+  if (start == null) return null;
+  final end = DateTime(today.year, today.month, today.day);
+  if (start.isAfter(end)) return null;
+  var months = (end.year - start.year) * 12 + end.month - start.month;
+  if (_addMonths(start, months).isAfter(end)) months--;
+  final days = end.difference(_addMonths(start, months)).inDays;
+  return {'years': months ~/ 12, 'months': months % 12, 'days': days};
+}
+
+/// Builds a personnel file from the older `get_personnel` detail payload.
+PersonnelFile personnelFileFromLegacy(Map<String, dynamic> detail,
+    {DateTime? today}) {
+  final profile = _object(detail['profile']);
+  String value(String key) => _string(profile[key]);
+  final id = value('id');
+  final code = value('employee_code');
+  final status = _bool(profile['disabled']) ? 'Left' : 'Active';
+  final service =
+      _legacyServiceLength(value('date_of_joining'), today ?? DateTime.now());
+  final records = [
+    for (final row
+        in detail['records'] is List ? detail['records'] as List : [])
+      _object(row)
+  ];
+  final newest = [...records]..sort(
+      (a, b) => _string(b['record_date']).compareTo(_string(a['record_date'])));
+  final canEdit = _bool(detail['can_edit']);
+  final legacy = {
+    for (final key in _legacyBenefits)
+      if (value(key).isNotEmpty) key: value(key)
+  };
+  return PersonnelFile.fromJson({
+    'profile_id': id,
+    'can_edit': canEdit,
+    'revision': _string(detail['revision']),
+    'header': {
+      'name': value('display_name'),
+      'employee_code': code.isEmpty || isLocalPersonnelId(code) ? null : code,
+      'designation': value('job_title'),
+      'department': value('department'),
+      'department_name': value('department'),
+      'status': status,
+      'photo_record': profile['photo_record'],
+      'employment_type': value('employment_type'),
+      'date_of_joining': value('date_of_joining'),
+      'service_length': service,
+    },
+    'personal': {
+      for (final key in [
+        'national_id',
+        'father_name',
+        'birth_date',
+        'employee_gender',
+        'marital_status',
+        'blood_group',
+        'mobile',
+        'phone',
+        'email',
+        'company_email',
+        'address_line',
+        'province',
+        'city',
+        'postal_code',
+      ])
+        key: value(key),
+      'emergency': {
+        'name': value('emergency_contact_name'),
+        'phone': value('emergency_phone'),
+        'relation': value('emergency_relation'),
+      },
+    },
+    'organization': {
+      'department': value('department'),
+      'department_name': value('department'),
+      'designation': value('job_title'),
+      'branch': value('branch'),
+    },
+    'employment': {
+      'employment_type': value('employment_type'),
+      'date_of_joining': value('date_of_joining'),
+      'status': status,
+      'service_length': service,
+      'final_confirmation_date': value('final_confirmation_date'),
+      'contract_end_date': value('contract_end_date'),
+      'notice_number_of_days': int.tryParse(value('notice_number_of_days')),
+    },
+    'salary': {
+      if (canEdit && legacy.isNotEmpty) 'legacy': legacy,
+    },
+    'documents': [
+      for (final row in records)
+        if (row['kind'] == 'document')
+          {
+            'id': row['name'],
+            'title': row['title'],
+            'issue_date': row['record_date'],
+            'status': 'no_expiry',
+            'category': '',
+          },
+    ],
+    'history': [
+      for (final row in records)
+        if (row['kind'] == 'history')
+          {
+            'kind': 'internal',
+            'title': row['title'],
+            'date': row['record_date']
+          },
+    ],
+    'activity': [
+      for (final row in newest.take(5))
+        {'title': row['title'], 'date': row['record_date']},
+    ],
+  });
+}
+
