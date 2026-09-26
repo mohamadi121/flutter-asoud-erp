@@ -1,5 +1,61 @@
 # Changelog
 
+## 0.23.0+37
+
+- Offline preview (no server): document templates, stage exit routes and requests are saved on the
+  phone, so the new screens can be tried now. Request types come from the workflows designed on the
+  phone plus a sample «درخواست خرید (نمونه آفلاین)»; items, users and departments use sample data.
+  A submitted request gets a local number (LOCAL-…), a details page and print/PDF. Nothing saved in
+  the preview is sent to a server.
+
+## 0.22.0+36
+
+- Request flow from the home «ثبت درخواست»: pick the request type, a redesigned form (request info,
+  item table, attachments), a success page with the request summary, and request details with a
+  three-dot menu: edit before approval, print, PDF export, view workflow, cancel. Print and PDF are
+  generated in the app with a QR code.
+- «ایجاد سند» (home) opens document templates: custom and ready templates and a four-step wizard
+  (base info, fields, mapping each field to a fixed, request, user, company or system value,
+  settings).
+- Stage settings per type: «وظیفه کاربر» (stage form, responsible role or org unit, all members or
+  one person), «تأیید / رد» (role picker with «مدیر مستقیم», decisions, exit route per decision) and
+  «اقدام خودکار» (create a document from a template, change status, send a notification; success
+  and error routes).
+- Settings: «اشخاص و شرکت‌ها» became «گردش کار» and opens the workflow form, then the designer.
+- Request type builder: step 3 now previews the built form instead of the workflow summary.
+- Personnel file opens from data saved on the phone when the server is unreachable or older.
+- Requires backend 0.12.0.
+
+## 0.21.0+35
+
+- Personnel file («پرونده پرسنلی») redesigned: compact header with the real employee code, summary
+  cards (unit, manager, employment type, start date, current contract, document status), recent
+  activity with clear titles, and Jalali dates everywhere.
+- Personnel information sections: personal (with emergency contact and education), organizational
+  (with direct manager), employment, contracts (with signed copy), salary and benefits, attendance and
+  leave.
+- Documents with category, number, expiry and validity status; history timeline (joining,
+  promotions, contracts, salary changes).
+- HR can add contracts, record promotions, and edit marital status, blood group, emergency contact,
+  branch, direct manager, probation and contract dates.
+- Employee panel: users who are only employees now land on their own home (greeting, date, quick
+  actions, announcements) with خانه · کارتابل · درخواست‌ها · مکاتبات · بیشتر, «اطلاعات من», and
+  check-in/out.
+- Requires backend 0.11.0.
+
+## 0.20.0+34
+
+- Settings dashboard matches the design: compact status and quick-action cards, header with
+  office selector, logo and notifications.
+- Dates on the settings dashboard are Jalali (e.g. «پنجشنبه ۲ مهر ۱۴۰۵»), from a shared helper.
+- «انواع درخواست» opens a request types list and a four-step builder: general info (name,
+  short title, description, category, icon, status, visibility), request form (base fields,
+  custom fields with ordering, field editor with technical name, default value, help text,
+  required and options), workflow, and access roles.
+- New request form field types: multi choice, user, department and item table (item, quantity,
+  unit), with search pickers backed by ERPNext; builder default values are applied.
+- Requires backend 0.10.0.
+
 ## 0.19.0+32
 
 - Added per-stage deadlines, reminder timing, escalation roles, and optional reassignment.

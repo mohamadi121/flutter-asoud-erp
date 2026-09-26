@@ -209,6 +209,11 @@ class FrappeWorkflowRepository implements WorkflowRepository {
     );
   }
 
+  String? _optionalText(Object? value) {
+    final text = value?.toString() ?? '';
+    return text.isEmpty ? null : text;
+  }
+
   List<WorkflowTargetOption> _parseTargets(dynamic raw,
       {required String labelKey}) {
     if (raw is! List) return const [];
@@ -221,6 +226,9 @@ class FrappeWorkflowRepository implements WorkflowRepository {
             label: item[labelKey]?.toString() ?? item['name']?.toString() ?? '',
             department: item['department']?.toString(),
             company: item['company']?.toString(),
+            parent: _optionalText(item['parent_department']),
+            isGroup: item['is_group'] == 1 || item['is_group'] == true,
+            designation: _optionalText(item['designation']),
           );
         })
         .where((item) => item.id.isNotEmpty)
@@ -253,6 +261,42 @@ class FrappeWorkflowRepository implements WorkflowRepository {
       },
     );
     if (data is! Map) throw StateError('Invalid workflow draft response');
+    return _parse(data);
+  }
+
+  @override
+  Future<WorkflowDefinition> saveRequestTypeInfo({
+    required String definition,
+    required RequestTypeInfo info,
+  }) async {
+    final data = await _call(
+      'asoud_erp.api.v1.workflow.update_request_type_info',
+      data: {
+        'name': definition,
+        'workflow_title': info.title,
+        'short_title': info.shortTitle,
+        'process_description': info.description,
+        'request_category': info.category,
+        'icon_key': info.iconKey,
+        'color_hex': info.colorHex,
+        'show_in_request_list': info.showInList ? 1 : 0,
+        'allow_user_submission': info.userSubmittable ? 1 : 0,
+      },
+    );
+    if (data is! Map) throw StateError('Invalid request type response');
+    return _parse(data);
+  }
+
+  @override
+  Future<WorkflowDefinition> setWorkflowStatus({
+    required String definition,
+    required WorkflowDefinitionStatus status,
+  }) async {
+    final data = await _call(
+      'asoud_erp.api.v1.workflow.set_workflow_status',
+      data: {'name': definition, 'status': _statusValue(status)},
+    );
+    if (data is! Map) throw StateError('Invalid workflow status response');
     return _parse(data);
   }
 
@@ -300,6 +344,12 @@ class FrappeWorkflowRepository implements WorkflowRepository {
           : const [],
       iconKey: item['icon_key']?.toString(),
       colorHex: item['color_hex']?.toString(),
+      shortTitle: item['short_title']?.toString(),
+      category: item['request_category']?.toString(),
+      showInList: item['show_in_request_list'] != 0 &&
+          item['show_in_request_list'] != false,
+      userSubmittable: item['allow_user_submission'] != 0 &&
+          item['allow_user_submission'] != false,
     );
   }
 

@@ -184,8 +184,9 @@ class AsoudFormPage extends StatelessWidget {
       this.saving = false,
       this.error,
       this.subtitle = 'تکمیل اطلاعات',
+      this.saveLabel = 'ذخیره',
       super.key});
-  final String title, subtitle;
+  final String title, subtitle, saveLabel;
   final GlobalKey<FormState> formKey;
   final List<Widget> children;
   final VoidCallback onSave;
@@ -214,7 +215,7 @@ class AsoudFormPage extends StatelessWidget {
                                         fontSize: 11))),
                         ]))),
             bottomNavigationBar: AsoudBottomActions(
-              primaryLabel: saving ? 'در حال ذخیره...' : 'ذخیره',
+              primaryLabel: saving ? 'در حال ذخیره...' : saveLabel,
               onPrimary: saving ? null : onSave,
               secondaryLabel: 'انصراف',
               onSecondary: saving ? null : () => Navigator.pop(context),

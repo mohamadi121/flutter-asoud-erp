@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/network/frappe_client.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../accounting/presentation/pages/accounting_home_page.dart';
+import '../../../employee/domain/employee_mode.dart';
+import '../../../employee/presentation/pages/employee_shell.dart';
 import '../../../base_setup/presentation/pages/base_accounting_setup_page.dart';
 import '../../../office_setup/domain/entities/office.dart';
 import '../../../office_setup/domain/repositories/office_repository.dart';
@@ -12,7 +15,7 @@ import '../../../office_setup/presentation/pages/offices_page.dart';
 import '../../../workflows/presentation/pages/workflow_list_page.dart';
 import '../../../workflows/presentation/pages/workflow_tasks_page.dart';
 import '../../../workflows/presentation/pages/generic_request_page.dart';
-import '../../../hr/presentation/pages/hr_home_page.dart';
+import '../../../workflows/presentation/pages/document_templates_page.dart';
 import 'first_office_card.dart';
 import 'settings_dashboard_content.dart';
 
@@ -27,11 +30,27 @@ class DashboardLandingPage extends StatefulWidget {
 
 class _DashboardLandingPageState extends State<DashboardLandingPage> {
   late Future<Office?> _office;
+  late final Future<String?> _employeeCompany = _loadEmployeeCompany();
 
   @override
   void initState() {
     super.initState();
     _office = _loadOffice();
+  }
+
+  /// The company of a user who is only an employee, or null for everyone else.
+  /// Any failure keeps the office dashboard.
+  Future<String?> _loadEmployeeCompany() async {
+    if (widget.offlinePreview) return null;
+    try {
+      final client = context.read<FrappeApiClient>();
+      if (!client.isAuthenticated) return null;
+      final user =
+          await client.getCurrentUser().timeout(const Duration(seconds: 8));
+      return isEmployeeOnly(user) ? user.company : null;
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<Office?> _loadOffice() => context
@@ -44,7 +63,20 @@ class _DashboardLandingPageState extends State<DashboardLandingPage> {
       );
 
   @override
-  Widget build(BuildContext context) => FutureBuilder<Office?>(
+  Widget build(BuildContext context) => FutureBuilder<String?>(
+      future: _employeeCompany,
+      builder: (context, employee) {
+        if (employee.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+              body: Center(child: CircularProgressIndicator()));
+        }
+        if (employee.data != null) {
+          return EmployeeShell(company: employee.data!);
+        }
+        return _officeDashboard();
+      });
+
+  Widget _officeDashboard() => FutureBuilder<Office?>(
         future: _office,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -149,10 +181,10 @@ class _DashboardPageState extends State<DashboardPage> {
                               ),
                             ),
                           ),
-                          onHr: () => Navigator.of(context).push(
+                          onDocuments: () => Navigator.of(context).push(
                             MaterialPageRoute<void>(
-                              builder: (_) =>
-                                  HrHomePage(company: officeName ?? ''),
+                              builder: (_) => DocumentTemplatesPage(
+                                  company: officeName ?? ''),
                             ),
                           ),
                         ),
@@ -570,8 +602,8 @@ class _QuickActions extends StatelessWidget {
   const _QuickActions(
       {required this.onAccounting,
       required this.onPurchaseRequest,
-      required this.onHr});
-  final VoidCallback onAccounting, onPurchaseRequest, onHr;
+      required this.onDocuments});
+  final VoidCallback onAccounting, onPurchaseRequest, onDocuments;
   @override
   Widget build(BuildContext context) {
     final items = <(String, String, IconData, Color, VoidCallback?)>[
@@ -603,7 +635,13 @@ class _QuickActions extends StatelessWidget {
         AsoudColors.purple,
         onAccounting
       ),
-      ('منابع انسانی', 'HR', Icons.badge_outlined, AsoudColors.danger, onHr),
+      (
+        'ایجاد سند',
+        'Document',
+        Icons.post_add_rounded,
+        AsoudColors.danger,
+        onDocuments
+      ),
       (
         'طرف حساب‌ها',
         'Customer/Supplier',

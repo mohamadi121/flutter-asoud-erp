@@ -1,12 +1,28 @@
 part of 'personnel_page.dart';
 
+const _extendedProfileFields = {
+  'marital_status',
+  'blood_group',
+  'company_email',
+  'emergency_contact_name',
+  'emergency_phone',
+  'emergency_relation',
+  'branch',
+  'reports_to',
+  'final_confirmation_date',
+  'contract_end_date',
+  'notice_number_of_days',
+};
+
 const _profileGroups = {
   'اطلاعات اصلی': [
     'display_name',
     'national_id',
     'birth_date',
     'employee_gender',
-    'father_name'
+    'father_name',
+    'marital_status',
+    'blood_group'
   ],
   'حقوق و مزایا': [
     'base_salary',
@@ -16,16 +32,32 @@ const _profileGroups = {
     'deductions',
     'net_salary'
   ],
-  'راه‌های ارتباطی': ['mobile', 'phone', 'email'],
+  'راه‌های ارتباطی': ['mobile', 'phone', 'email', 'company_email'],
+  'تماس اضطراری': [
+    'emergency_contact_name',
+    'emergency_phone',
+    'emergency_relation'
+  ],
   'آدرس و موقعیت': ['province', 'city', 'address_line', 'postal_code'],
   'اطلاعات سازمانی': [
     'job_title',
     'department',
     'date_of_joining',
-    'employment_type'
+    'employment_type',
+    'branch',
+    'reports_to',
+    'final_confirmation_date',
+    'contract_end_date',
+    'notice_number_of_days',
   ],
 };
 const _genderOptions = {'Male': 'مرد', 'Female': 'زن', 'Other': 'سایر'};
+const _maritalOptions = {
+  'Single': 'مجرد',
+  'Married': 'متأهل',
+  'Divorced': 'مطلقه',
+  'Widowed': 'همسر فوت‌شده'
+};
 const _recordLabels = {
   'title': 'عنوان',
   'date': 'تاریخ',
@@ -837,6 +869,9 @@ class _ProfileFieldsState extends State<_ProfileFields> {
   late bool canEdit = widget.canEdit;
   bool loading = false;
   String? error;
+  bool visibleField(String key) =>
+      widget.labels.containsKey(key) &&
+      (!_extendedProfileFields.contains(key) || profile.containsKey(key));
   Future<void> edit() async {
     final saved = await Navigator.push<bool>(
         context,
@@ -895,10 +930,9 @@ class _ProfileFieldsState extends State<_ProfileFields> {
             if (error != null)
               Text(error!, style: const TextStyle(color: Colors.red)),
             for (final group in _profileGroups.entries)
-              if (group.value.any(widget.labels.containsKey))
+              if (group.value.any(visibleField))
                 _HrInfoCard(title: group.key, values: {
-                  for (final key
-                      in group.value.where(widget.labels.containsKey))
+                  for (final key in group.value.where(visibleField))
                     widget.labels[key]!: key == 'employee_gender'
                         ? (_genderOptions[profile[key]] ??
                             _valueOf(profile, key))
@@ -962,7 +996,7 @@ class _ProfileEditorState extends State<_ProfileEditor> {
   void initState() {
     super.initState();
     if (!widget.repository.localDemo &&
-        ['department', 'job_title', 'employment_type']
+        ['department', 'job_title', 'employment_type', 'branch', 'reports_to']
             .any(widget.labels.containsKey)) {
       loadOptions();
     }
@@ -1006,7 +1040,13 @@ class _ProfileEditorState extends State<_ProfileEditor> {
     try {
       await widget.repository.update(
           '${widget.profile['id']}',
-          {for (final e in fields.entries) e.key: e.value.text.trim()},
+          {
+            for (final e in fields.entries)
+              if (!_extendedProfileFields.contains(e.key) ||
+                  widget.profile.containsKey(e.key) ||
+                  e.value.text.trim().isNotEmpty)
+                e.key: e.value.text.trim(),
+          },
           widget.revision);
       if (mounted) Navigator.pop(context, true);
     } catch (_) {
@@ -1023,16 +1063,16 @@ class _ProfileEditorState extends State<_ProfileEditor> {
   Widget field(String key) {
     final label = widget.labels[key]!;
     if (!widget.repository.localDemo &&
-        ['department', 'job_title', 'employment_type'].contains(key)) {
+        ['department', 'job_title', 'employment_type', 'branch', 'reports_to']
+            .contains(key)) {
       final current = fields[key]!.text;
       return AsoudFormDropdown(
           controller: fields[key]!,
           label: label,
           enabled: !saving && !loadingOptions,
           options: {
-            for (final value in linkOptions[key] as List? ?? [])
-              '$value': '$value',
             if (current.isNotEmpty) current: current,
+            ..._personnelLinkOptions(linkOptions, key),
           });
     }
     if (financialPersonnelFields.contains(key)) {
@@ -1059,6 +1099,48 @@ class _ProfileEditorState extends State<_ProfileEditor> {
           enabled: !saving,
           options: _genderOptions);
     }
+    if (key == 'marital_status' || key == 'blood_group') {
+      return AsoudFormDropdown(
+          controller: fields[key]!,
+          label: label,
+          enabled: !saving,
+          options: key == 'marital_status'
+              ? _maritalOptions
+              : {
+                  for (final group in [
+                    'A+',
+                    'A-',
+                    'B+',
+                    'B-',
+                    'AB+',
+                    'AB-',
+                    'O+',
+                    'O-'
+                  ])
+                    group: group,
+                });
+    }
+    if (key == 'branch' || key == 'reports_to') {
+      return AsoudFormDropdown(
+          controller: fields[key]!,
+          label: label,
+          enabled: !saving,
+          options: _personnelLinkOptions(linkOptions, key));
+    }
+    if (key == 'notice_number_of_days') {
+      return AsoudFormField(
+          controller: fields[key]!,
+          label: label,
+          enabled: !saving,
+          keyboardType: TextInputType.number,
+          validator: (value) {
+            if (value == null || value.trim().isEmpty) return null;
+            final days = int.tryParse(value.trim());
+            return days == null || days < 0
+                ? 'تعداد روز معتبر و غیرمنفی وارد کنید.'
+                : null;
+          });
+    }
     if (key == 'employment_type') {
       return AsoudFormDropdown(
           controller: fields[key]!,
@@ -1071,7 +1153,7 @@ class _ProfileEditorState extends State<_ProfileEditor> {
             'کارآموز': 'کارآموز'
           });
     }
-    if (key == 'birth_date' || key == 'date_of_joining') {
+    if (key.endsWith('_date') || key == 'date_of_joining') {
       return AsoudFormDateField(
           controller: fields[key]!, label: label, enabled: !saving);
     }
@@ -1080,9 +1162,9 @@ class _ProfileEditorState extends State<_ProfileEditor> {
         label: label,
         enabled: !saving,
         lines: key == 'address_line' ? 3 : 1,
-        keyboardType: ['mobile', 'phone'].contains(key)
+        keyboardType: ['mobile', 'phone', 'emergency_phone'].contains(key)
             ? TextInputType.phone
-            : key == 'email'
+            : key == 'email' || key == 'company_email'
                 ? TextInputType.emailAddress
                 : null,
         validator: key == 'display_name'
@@ -1489,7 +1571,12 @@ class _RecordForm extends StatefulWidget {
 class _RecordFormState extends State<_RecordForm> {
   final formKey = GlobalKey<FormState>();
   late final fields = {
-    for (final key in _recordLabels.keys)
+    for (final key in [
+      ..._recordLabels.keys,
+      'document_category',
+      'document_number',
+      'expiry_date'
+    ])
       key: TextEditingController(
           text:
               '${widget.initial?[key] ?? (key == 'date' ? DateTime.now().toIso8601String().substring(0, 10) : '')}')
@@ -1560,6 +1647,14 @@ class _RecordFormState extends State<_RecordForm> {
         if (!widget.repository.localDemo)
           'appraisal_cycle': fields['appraisal_cycle']!.text,
       },
+      if (widget.kind == 'document')
+        for (final key in [
+          'document_category',
+          'document_number',
+          'expiry_date'
+        ])
+          if (fields[key]!.text.trim().isNotEmpty)
+            key: fields[key]!.text.trim(),
       if (file?.bytes != null) ...{
         'file': base64Encode(file!.bytes!),
         'filename': file!.name
@@ -1577,6 +1672,13 @@ class _RecordFormState extends State<_RecordForm> {
     }
     if (!formKey.currentState!.validate()) {
       setState(() => error = 'فیلدهای مشخص‌شده در بخش‌های فرم را بررسی کنید.');
+      return;
+    }
+    if (widget.kind == 'document' &&
+        fields['expiry_date']!.text.trim().isNotEmpty &&
+        DateTime.parse(fields['expiry_date']!.text.trim())
+            .isBefore(DateTime.parse(fields['date']!.text.trim()))) {
+      setState(() => error = 'تاریخ انقضا نباید پیش از تاریخ مدرک باشد.');
       return;
     }
     setState(() {
@@ -1664,6 +1766,25 @@ class _RecordFormState extends State<_RecordForm> {
                   const SizedBox(width: 8),
                   Expanded(child: time('end'))
                 ]),
+              ]),
+            if (widget.kind == 'document')
+              AsoudFormSection(title: 'اطلاعات مدرک', children: [
+                AsoudFormDropdown(
+                    controller: fields['document_category']!,
+                    label: 'نوع مدرک',
+                    enabled: !saving,
+                    options: {
+                      for (final category in personnelDocumentCategories)
+                        category: documentCategoryLabel(category),
+                    }),
+                AsoudFormField(
+                    controller: fields['document_number']!,
+                    label: 'شماره مدرک',
+                    enabled: !saving),
+                AsoudFormDateField(
+                    controller: fields['expiry_date']!,
+                    label: 'تاریخ انقضا',
+                    enabled: !saving),
               ]),
             if (widget.kind == 'evaluation')
               AsoudFormSection(title: 'نتیجه ارزیابی', children: [

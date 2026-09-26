@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/jalali_date.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../domain/entities/workflow_definition.dart';
 import '../../domain/repositories/workflow_repository.dart';
@@ -371,8 +372,9 @@ class _WorkflowCard extends StatelessWidget {
     if (item.isLocked) {
       return item.pendingReason ?? 'پیش‌نیازهای این فرایند کامل نشده است';
     }
-    final date =
-        item.modified == null ? 'ثبت نشده' : _jalaliDate(item.modified!);
+    final date = item.modified == null
+        ? 'ثبت نشده'
+        : JalaliDate.fromDateTime(item.modified!).format();
     return '${item.stepsCount} مرحله • آخرین ویرایش: $date';
   }
 
@@ -522,31 +524,3 @@ String _orderLabel(String value) => switch (value) {
       'code asc' => 'کد',
       _ => 'جدیدترین',
     };
-
-String _jalaliDate(DateTime value) {
-  var gy = value.year;
-  final gm = value.month;
-  final gd = value.day;
-  var jy = gy > 1600 ? 979 : 0;
-  gy -= gy > 1600 ? 1600 : 621;
-  final gy2 = gm > 2 ? gy + 1 : gy;
-  const monthDays = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
-  var days = 365 * gy +
-      ((gy2 + 3) ~/ 4) -
-      ((gy2 + 99) ~/ 100) +
-      ((gy2 + 399) ~/ 400) -
-      80 +
-      gd +
-      monthDays[gm - 1];
-  jy += 33 * (days ~/ 12053);
-  days %= 12053;
-  jy += 4 * (days ~/ 1461);
-  days %= 1461;
-  if (days > 365) {
-    jy += (days - 1) ~/ 365;
-    days = (days - 1) % 365;
-  }
-  final jm = days < 186 ? 1 + days ~/ 31 : 7 + (days - 186) ~/ 30;
-  final jd = 1 + (days < 186 ? days % 31 : (days - 186) % 30);
-  return '$jy/${jm.toString().padLeft(2, '0')}/${jd.toString().padLeft(2, '0')}';
-}
