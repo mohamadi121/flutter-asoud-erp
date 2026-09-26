@@ -7,6 +7,7 @@ import '../../domain/entities/workflow_definition.dart';
 import '../../domain/repositories/workflow_repository.dart';
 import '../cubit/workflow_designer_cubit.dart';
 import '../widgets/workflow_graph_canvas.dart';
+import 'stage_settings_page.dart';
 import 'workflow_stage_settings_page.dart';
 
 class WorkflowDesignerPage extends StatelessWidget {
@@ -98,6 +99,22 @@ class _DesignerView extends StatelessWidget {
           value: context.read<WorkflowDesignerCubit>(),
           child: StartSettingsPage(
               stage: stage, roles: options?.roles ?? const []),
+        ),
+      ));
+      return;
+    }
+    final design = context.read<WorkflowDesignerCubit>().state.design;
+    if (design != null &&
+        const {
+          WorkflowStageType.userTask,
+          WorkflowStageType.approval,
+          WorkflowStageType.systemAction,
+        }.contains(stage.type)) {
+      await Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => BlocProvider.value(
+          value: context.read<WorkflowDesignerCubit>(),
+          child:
+              StageSettingsPage(stage: stage, design: design, options: options),
         ),
       ));
       return;
