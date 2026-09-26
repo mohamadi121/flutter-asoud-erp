@@ -15,7 +15,7 @@ void main() {
       {'name': 'two', 'workflow_title': 'Second', 'fields': [{'key': 'confirm', 'label': 'Confirm', 'type': 'Checkbox', 'required': true}]},
     ]);
     Map<String, dynamic>? saved;
-    when(() => repo.create(any(), any())).thenAnswer((call) async { saved = Map.from(call.positionalArguments.first as Map); });
+    when(() => repo.create(any(), any())).thenAnswer((call) async { saved = Map.from(call.positionalArguments.first as Map); return null; });
     await tester.pumpWidget(MaterialApp(theme: AsoudTheme.light, home: GenericRequestPage(repository: repo)));
     await tester.pumpAndSettle();
     final page = tester.widget<AsoudFormPage>(find.byType(AsoudFormPage));

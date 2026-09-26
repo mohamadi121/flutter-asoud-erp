@@ -68,6 +68,7 @@ class FrappeWorkflowTaskRepository implements WorkflowTaskRepository {
                 comment: activity['comment']?.toString() ?? '',
                 createdOn:
                     DateTime.tryParse(activity['created_on']?.toString() ?? ''),
+                stageTitle: activity['stage_title']?.toString() ?? '',
               );
             }).toList(growable: false)
           : const [],

@@ -96,7 +96,11 @@ class GenericRequestRepository {
       }) as List)
           .map((row) => Map<String, dynamic>.from(row as Map))
           .toList();
-  Future<void> create(Map<String, dynamic> data, String requestId) async {
+
+  /// Queues the request and syncs it; returns the server's request when it
+  /// was accepted now, or null while it waits on this device.
+  Future<Map<String, dynamic>?> create(
+      Map<String, dynamic> data, String requestId) async {
     await identify();
     final payload = {...data, 'company': company, 'request_id': requestId};
     final id = key(requestId);
@@ -114,6 +118,28 @@ class GenericRequestRepository {
           payload: {'scope': _scope, 'data': payload});
     }
     await sync();
+    final row = await store.get(id);
+    final result = row?.payload['result'];
+    return row?.status == LocalSyncStatus.synced && result is Map
+        ? Map<String, dynamic>.from(result)
+        : null;
+  }
+
+  /// Edits a request until it has been reviewed (server enforced).
+  Future<Map<String, dynamic>> update(
+      String name, String subject, Map<String, dynamic> values) async {
+    await identify();
+    final result = await remote(
+        'update_request', {'name': name, 'subject': subject, 'values': values});
+    return Map<String, dynamic>.from(result as Map);
+  }
+
+  /// Withdraws a request that is still in progress.
+  Future<Map<String, dynamic>> cancel(String name, {String reason = ''}) async {
+    await identify();
+    final result =
+        await remote('cancel_request', {'name': name, 'reason': reason});
+    return Map<String, dynamic>.from(result as Map);
   }
 
   Future<void> sync({bool retry = false}) =>

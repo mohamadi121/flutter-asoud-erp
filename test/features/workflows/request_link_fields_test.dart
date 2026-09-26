@@ -97,6 +97,7 @@ void main() {
     Map<String, dynamic>? saved;
     when(() => repo.create(any(), any())).thenAnswer((call) async {
       saved = Map.from(call.positionalArguments.first as Map);
+      return null;
     });
     await _openForm(tester, repo);
 

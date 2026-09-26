@@ -3,12 +3,17 @@ import 'dart:async';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/network/frappe_client.dart';
+import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/jalali_date.dart';
 import '../../../../core/widgets/asoud_form.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../data/generic_request_repository.dart';
+import '../../../request_types/domain/request_type_catalog.dart';
 import '../../domain/entities/workflow_definition.dart';
 import '../widgets/request_link_fields.dart';
+import 'request_flow_pages.dart';
 
 class GenericRequestsPage extends StatefulWidget {
   const GenericRequestsPage(
@@ -99,17 +104,28 @@ class _GenericRequestsPageState extends State<GenericRequestsPage> {
                               child: const Text('تلاش مجدد برای همگام‌سازی')),
                         for (final row in snapshot.data!)
                           Card(
+                              margin: const EdgeInsets.only(bottom: 8),
                               child: ListTile(
-                                  title: Text('${row['subject']}'),
-                                  subtitle: Text('${row['status']}'),
-                                  trailing: const Icon(Icons.chevron_left),
-                                  onTap: () => Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                          builder: (_) =>
-                                              GenericRequestDetailPage(
-                                                  name: '${row['name']}',
-                                                  repository: repository))))),
+                                  title: Text('${row['subject']}',
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w800)),
+                                  subtitle: Text([
+                                    '${row['request_type'] ?? ''}',
+                                    if ('${row['creation'] ?? ''}'.isNotEmpty)
+                                      formatJalaliIso('${row['creation']}'),
+                                  ]
+                                      .where((part) => part.isNotEmpty)
+                                      .join(' · ')),
+                                  trailing: RequestStatusChip(row),
+                                  onTap: () async {
+                                    await Navigator.push(
+                                        context,
+                                        MaterialPageRoute<void>(
+                                            builder: (_) => RequestDetailPage(
+                                                name: '${row['name']}',
+                                                repository: repository)));
+                                    await reload();
+                                  })),
                         if (snapshot.data!.isEmpty)
                           const Padding(
                               padding: EdgeInsets.all(24),
@@ -120,19 +136,28 @@ class _GenericRequestsPageState extends State<GenericRequestsPage> {
             icon: const Icon(Icons.add),
             label: const Text('درخواست جدید'),
             onPressed: () async {
+              final type = await pickRequestType(context, repository);
+              if (type == null || !context.mounted) return;
               final saved = await Navigator.push<bool>(
                   context,
                   MaterialPageRoute(
-                      builder: (_) =>
-                          GenericRequestPage(repository: repository)));
+                      builder: (_) => GenericRequestPage(
+                          repository: repository, definition: type)));
               if (saved == true && mounted) await reload();
             }),
       ));
 }
 
 class GenericRequestPage extends StatefulWidget {
-  const GenericRequestPage({required this.repository, super.key});
+  const GenericRequestPage(
+      {required this.repository, this.definition, this.existing, super.key});
   final GenericRequestRepository repository;
+
+  /// The request type chosen beforehand; without it the form offers a choice.
+  final Map<String, dynamic>? definition;
+
+  /// A submitted request to edit before it is reviewed.
+  final Map<String, dynamic>? existing;
   @override
   State<GenericRequestPage> createState() => _GenericRequestPageState();
 }
@@ -153,6 +178,45 @@ class _GenericRequestPageState extends State<GenericRequestPage> {
   String? error;
   bool saving = false;
   final requestId = GenericRequestRepository.requestId();
+  bool get editing => widget.existing != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final definition = widget.definition;
+    if (definition != null) select(definition);
+    final existing = widget.existing;
+    if (existing != null) {
+      subject.text = '${existing['subject'] ?? ''}';
+      values
+        ..clear()
+        ..addAll(Map<String, dynamic>.from(existing['values'] as Map? ?? {}));
+    }
+  }
+
+  /// Switches to a request type and applies its field defaults.
+  void select(Map<String, dynamic> row) {
+    selected = row;
+    for (final controller in fields.values) {
+      controller.clear();
+    }
+    values.clear();
+    for (final field in row['fields'] as List? ?? const []) {
+      if (field['type'] == 'Checkbox') {
+        values[field['key']] = false;
+      }
+      // Defaults set in the request type builder.
+      final initial = '${field['default_value'] ?? ''}';
+      if (initial.isEmpty) continue;
+      if (field['type'] == 'Multi Choice') {
+        values[field['key']] = [initial];
+      } else {
+        values[field['key']] = initial;
+        fields[field['key']]?.text = initial;
+      }
+    }
+  }
+
   @override
   void dispose() {
     for (final c in [
@@ -169,7 +233,28 @@ class _GenericRequestPageState extends State<GenericRequestPage> {
     super.dispose();
   }
 
+  Future<void> save() async {
+    if (saving || !formKey.currentState!.validate()) return;
+    setState(() {
+      saving = true;
+      error = null;
+    });
+    try {
+      await widget.repository
+          .update('${widget.existing!['name']}', subject.text.trim(), values);
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      if (mounted) {
+        setState(() =>
+            error = e is ApiException ? e.message : 'ذخیره تغییرات انجام نشد.');
+      }
+    } finally {
+      if (mounted) setState(() => saving = false);
+    }
+  }
+
   Future<void> submit() async {
+    if (editing) return save();
     if (saving || !formKey.currentState!.validate() || selected == null) return;
     final payload = <String, dynamic>{
       'workflow_definition': selected!['name'],
@@ -201,8 +286,21 @@ class _GenericRequestPageState extends State<GenericRequestPage> {
       error = null;
     });
     try {
-      await widget.repository.create(payload, requestId);
-      if (mounted) Navigator.pop(context, true);
+      final result = await widget.repository.create(payload, requestId);
+      if (!mounted) return;
+      await Navigator.pushReplacement(
+          context,
+          MaterialPageRoute<void>(
+              builder: (_) => RequestSubmittedPage(
+                  request: result ??
+                      {
+                        ...payload,
+                        'name': '',
+                        'pending_sync': true,
+                      },
+                  repository: widget.repository,
+                  typeTitle: '${selected!['workflow_title']}')),
+          result: true);
     } catch (_) {
       if (mounted) {
         setState(() => error =
@@ -355,31 +453,117 @@ class _GenericRequestPageState extends State<GenericRequestPage> {
         });
   }
 
+  List<Map> get _fieldDefs =>
+      [for (final raw in selected?['fields'] as List? ?? const []) raw as Map];
+
+  /// A section card; item tables carry their own title, so [title] may be empty.
+  Widget _card(String title, List<Widget> children) => Card(
+        margin: AsoudFormStyle.sectionMargin,
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            if (title.isNotEmpty) ...[
+              Text(title, style: AsoudFormStyle.sectionTitle),
+              const SizedBox(height: 12),
+            ],
+            ...children,
+          ]),
+        ),
+      );
+
+  Widget _banner(Map<String, dynamic> type) {
+    final icon = requestIconFor('${type['icon_key']}');
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+          color: icon.color.withValues(alpha: .07),
+          borderRadius: BorderRadius.circular(14)),
+      child: Row(children: [
+        AsoudIconBox(icon: icon.icon, color: icon.color, size: 48),
+        const SizedBox(width: 12),
+        Expanded(
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('فرم ${type['workflow_title']}',
+                style:
+                    const TextStyle(fontSize: 15, fontWeight: FontWeight.w900)),
+            Text(
+                editing
+                    ? 'تا پیش از بررسی می‌توانید درخواست را اصلاح کنید.'
+                    : 'لطفاً موارد را تکمیل و ثبت کنید.',
+                style: const TextStyle(fontSize: 11, color: AsoudColors.muted)),
+          ]),
+        ),
+      ]),
+    );
+  }
+
+  Widget _dropzone() => InkWell(
+        onTap: saving ? null : pickFiles,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+              color: AsoudColors.primary.withValues(alpha: .04),
+              border:
+                  Border.all(color: AsoudColors.primary.withValues(alpha: .35)),
+              borderRadius: BorderRadius.circular(14)),
+          child: const Column(children: [
+            AsoudIconBox(
+                icon: Icons.attach_file_rounded,
+                color: AsoudColors.primary,
+                size: 44),
+            SizedBox(height: 8),
+            Text('فایل یا فایل‌ها را انتخاب کنید',
+                style: TextStyle(fontWeight: FontWeight.w800)),
+            SizedBox(height: 4),
+            Text('فرمت‌های مجاز: PDF، JPG، PNG، XLSX، DOCX',
+                style: TextStyle(fontSize: 11, color: AsoudColors.muted)),
+            Text('حداکثر حجم هر فایل: ۱۰ مگابایت',
+                style: TextStyle(fontSize: 11, color: AsoudColors.muted)),
+          ]),
+        ),
+      );
+
   @override
   Widget build(BuildContext context) => FutureBuilder<
           List<Map<String, dynamic>>>(
       future: options,
-      builder: (context, snapshot) => AsoudFormPage(
-            title: 'ثبت درخواست جدید',
-            subtitle: 'ثبت و پیگیری',
-            formKey: formKey,
-            saving: saving,
-            error: error,
-            onSave: submit,
-            children: [
-              if (snapshot.hasError)
-                TextButton(
-                    onPressed: () =>
-                        setState(() => options = widget.repository.options()),
-                    child:
-                        const Text('دریافت انواع درخواست ناموفق؛ تلاش دوباره')),
-              if (!snapshot.hasData && !snapshot.hasError)
-                const LinearProgressIndicator(),
-              AsoudFormSection(title: 'اطلاعات اصلی', children: [
+      builder: (context, snapshot) {
+        final type = selected;
+        final chooseType = widget.definition == null;
+        final all = _fieldDefs;
+        return AsoudFormPage(
+          title:
+              type == null ? 'ثبت درخواست جدید' : '${type['workflow_title']}',
+          subtitle: editing
+              ? 'ویرایش درخواست'
+              : '${type?['short_title'] ?? ''}'.isEmpty
+                  ? 'ثبت و پیگیری'
+                  : '${type!['short_title']}',
+          formKey: formKey,
+          saving: saving,
+          error: error,
+          onSave: submit,
+          saveLabel: editing ? 'ذخیره تغییرات' : 'ثبت درخواست',
+          children: [
+            if (chooseType && snapshot.hasError)
+              TextButton(
+                  onPressed: () =>
+                      setState(() => options = widget.repository.options()),
+                  child:
+                      const Text('دریافت انواع درخواست ناموفق؛ تلاش دوباره')),
+            if (chooseType && !snapshot.hasData && !snapshot.hasError)
+              const LinearProgressIndicator(),
+            if (type != null) _banner(type),
+            _card('اطلاعات درخواست', [
+              if (chooseType) ...[
                 DropdownButtonFormField<String>(
                     decoration:
                         const InputDecoration(labelText: 'نوع درخواست *'),
-                    initialValue: selected?['name'] as String?,
+                    initialValue: type?['name'] as String?,
                     items: [
                       for (final row in snapshot.data ?? [])
                         DropdownMenuItem(
@@ -390,68 +574,44 @@ class _GenericRequestPageState extends State<GenericRequestPage> {
                         value == null ? 'نوع درخواست را انتخاب کنید.' : null,
                     onChanged: saving
                         ? null
-                        : (value) => setState(() {
-                              selected = snapshot.data!
-                                  .firstWhere((row) => row['name'] == value);
-                              for (final controller in fields.values) {
-                                controller.clear();
-                              }
-                              values.clear();
-                              for (final field in selected!['fields'] as List) {
-                                if (field['type'] == 'Checkbox') {
-                                  values[field['key']] = false;
-                                }
-                                // Defaults set in the request type builder.
-                                final initial =
-                                    '${field['default_value'] ?? ''}';
-                                if (initial.isEmpty) continue;
-                                if (field['type'] == 'Multi Choice') {
-                                  values[field['key']] = [initial];
-                                } else {
-                                  values[field['key']] = initial;
-                                  fields[field['key']]?.text = initial;
-                                }
-                              }
-                            })),
+                        : (value) => setState(() => select(snapshot.data!
+                            .firstWhere((row) => row['name'] == value)))),
                 if (snapshot.hasData && snapshot.data!.isEmpty)
                   const Text(
                       'گردش‌کار عمومی آماده‌ای برای این دفتر تعریف نشده است.'),
-                AsoudFormField(
-                    controller: subject,
-                    label: 'عنوان درخواست *',
-                    enabled: !saving,
-                    validator: (value) => (value?.trim().length ?? 0) < 3 ||
-                            (value?.length ?? 0) > 140
-                        ? 'عنوان ۳ تا ۱۴۰ نویسه باشد.'
-                        : null),
-                AsoudFormDropdown(
-                    controller: priority,
-                    label: 'اولویت',
-                    enabled: !saving,
-                    options: const {
-                      'Low': 'پایین',
-                      'Normal': 'متوسط',
-                      'High': 'بالا',
-                      'Urgent': 'فوری'
-                    }),
-                AsoudFormField(
-                    controller: project,
-                    label: 'شناسه پروژه',
-                    enabled: !saving),
-                AsoudFormField(
-                    controller: department,
-                    label: 'شناسه واحد سازمانی',
-                    enabled: !saving),
-                AsoudFormDateField(
-                    controller: requiredBy,
-                    label: 'تاریخ نیاز',
-                    enabled: !saving),
-              ]),
-              AsoudFormSection(title: 'پیوست‌ها', children: [
+                const SizedBox(height: 12),
+              ],
+              AsoudFormField(
+                  controller: subject,
+                  label: 'عنوان درخواست *',
+                  enabled: !saving,
+                  validator: (value) => (value?.trim().length ?? 0) < 3 ||
+                          (value?.length ?? 0) > 140
+                      ? 'عنوان ۳ تا ۱۴۰ نویسه باشد.'
+                      : null),
+              for (final raw in all)
+                if (raw['type'] != 'Item Table' && raw['type'] != 'Attachment')
+                  Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: dynamicField(raw)),
+            ]),
+            for (final raw in all)
+              if (raw['type'] == 'Item Table') _card('', [dynamicField(raw)]),
+            if (!editing)
+              _card('پیوست‌ها', [
+                _dropzone(),
                 for (final file in attachments)
                   ListTile(
-                      title: Text(file['filename']!),
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.insert_drive_file_outlined,
+                          color: AsoudColors.warning),
+                      title: Text(file['filename']!,
+                          style: const TextStyle(fontSize: 12)),
+                      subtitle: Text(
+                          '${toPersianDigits((base64Decode(file['content_base64']!).length / 1024).ceil())} کیلوبایت',
+                          style: const TextStyle(fontSize: 10)),
                       trailing: IconButton(
+                          tooltip: 'حذف فایل',
                           icon: const Icon(Icons.close),
                           onPressed: saving
                               ? null
@@ -461,95 +621,48 @@ class _GenericRequestPageState extends State<GenericRequestPage> {
                                         'attachment:${file['filename']}');
                                     attachments.remove(file);
                                   }))),
-                TextButton.icon(
-                    onPressed: saving ? null : pickFiles,
-                    icon: const Icon(Icons.attach_file),
-                    label: const Text('افزودن فایل خصوصی')),
+                for (final raw in all)
+                  if (raw['type'] == 'Attachment')
+                    Padding(
+                        padding: const EdgeInsets.only(top: 12),
+                        child: dynamicField(raw)),
               ]),
-              if (selected != null)
-                AsoudFormSection(title: 'اطلاعات درخواست', children: [
-                  for (final raw in selected!['fields'] as List? ?? [])
-                    dynamicField(raw as Map)
-                ]),
-            ],
-          ));
-}
-
-class GenericRequestDetailPage extends StatefulWidget {
-  const GenericRequestDetailPage(
-      {required this.name, required this.repository, super.key});
-  final String name;
-  final GenericRequestRepository repository;
-  @override
-  State<GenericRequestDetailPage> createState() =>
-      _GenericRequestDetailPageState();
-}
-
-class _GenericRequestDetailPageState extends State<GenericRequestDetailPage> {
-  late Future<Map<String, dynamic>> future =
-      widget.repository.detail(widget.name);
-  Future<void> download(Map file) async {
-    try {
-      final result = file['content_base64'] != null
-          ? file
-          : await widget.repository
-              .read('get_attachment', {'name': file['name']}) as Map;
-      await FilePicker.platform.saveFile(
-          fileName: '${result['filename']}',
-          bytes: base64Decode('${result['content_base64']}'));
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('دریافت فایل ممکن نشد.')));
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) => Scaffold(
-      appBar: const AsoudHeader(
-          title: 'جزئیات درخواست', subtitle: 'وضعیت ثبت و اجرا'),
-      body: FutureBuilder<Map<String, dynamic>>(
-          future: future,
-          builder: (context, snapshot) {
-            if (snapshot.hasError) {
-              return Center(
-                  child: TextButton(
-                      onPressed: () => setState(() {
-                            future = widget.repository.detail(widget.name);
-                          }),
-                      child: const Text('دریافت ناموفق؛ تلاش دوباره')));
-            }
-            if (!snapshot.hasData) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            final data = snapshot.data!;
-            return ListView(padding: const EdgeInsets.all(16), children: [
-              ListTile(
-                  title: Text('${data['subject']}'),
-                  subtitle: Text('${data['status']}')),
-              if (data['pending_sync'] == true)
-                const Text(
-                    'اطلاعات روی دستگاه محفوظ است؛ اجرای گردش‌کار پس از تأیید سرور انجام می‌شود.'),
-              if (data['error'] != null)
-                const Text(
-                    'سرور درخواست را نپذیرفته است؛ مقادیر و مجوزهای درخواست نیازمند بررسی‌اند.'),
-              for (final entry in {
-                'اولویت': data['priority'],
-                'تاریخ نیاز': data['required_by'],
-                'پروژه': data['project'],
-                'واحد': data['department'],
-                'گردش‌کار': data['workflow_instance'],
-                ...Map<String, dynamic>.from(data['values'] as Map? ?? {})
-              }.entries)
-                ListTile(
-                    title: Text(entry.key),
-                    subtitle: Text(formatRequestValue(entry.value))),
-              for (final file in data['attachments'] as List? ?? [])
-                ListTile(
-                    title: Text('${file['filename']}'),
-                    trailing: const Icon(Icons.download),
-                    onTap: () => download(file as Map)),
-            ]);
-          }));
+            Card(
+              margin: AsoudFormStyle.sectionMargin,
+              child: ExpansionTile(
+                initiallyExpanded: false,
+                maintainState: true,
+                tilePadding: const EdgeInsets.symmetric(horizontal: 12),
+                childrenPadding: AsoudFormStyle.sectionPadding,
+                title: const Text('اطلاعات تکمیلی (اختیاری)',
+                    style: AsoudFormStyle.sectionTitle),
+                children: [
+                  AsoudFormDropdown(
+                      controller: priority,
+                      label: 'اولویت',
+                      enabled: !saving && !editing,
+                      options: const {
+                        'Low': 'پایین',
+                        'Normal': 'متوسط',
+                        'High': 'بالا',
+                        'Urgent': 'فوری'
+                      }),
+                  AsoudFormField(
+                      controller: project,
+                      label: 'شناسه پروژه',
+                      enabled: !saving && !editing),
+                  AsoudFormField(
+                      controller: department,
+                      label: 'شناسه واحد سازمانی',
+                      enabled: !saving && !editing),
+                  AsoudFormDateField(
+                      controller: requiredBy,
+                      label: 'تاریخ نیاز',
+                      enabled: !saving && !editing),
+                ],
+              ),
+            ),
+          ],
+        );
+      });
 }

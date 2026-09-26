@@ -45,11 +45,12 @@ class WorkflowTaskActivity extends Equatable {
     required this.action,
     this.comment = '',
     this.createdOn,
+    this.stageTitle = '',
   });
-  final String actor, action, comment;
+  final String actor, action, comment, stageTitle;
   final DateTime? createdOn;
   @override
-  List<Object?> get props => [actor, action, comment, createdOn];
+  List<Object?> get props => [actor, action, comment, createdOn, stageTitle];
 }
 
 class WorkflowTaskDataValue extends Equatable {
