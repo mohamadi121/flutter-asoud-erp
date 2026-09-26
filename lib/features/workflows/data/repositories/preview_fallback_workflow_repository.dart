@@ -52,6 +52,12 @@ class PreviewFallbackWorkflowRepository
           'target_doctype': design.workflow.targetDoctype,
           'company': design.workflow.company,
           'description': design.workflow.description,
+          'icon_key': design.workflow.iconKey,
+          'color_hex': design.workflow.colorHex,
+          'short_title': design.workflow.shortTitle,
+          'category': design.workflow.category,
+          'show_in_list': design.workflow.showInList,
+          'user_submittable': design.workflow.userSubmittable,
         },
         'stages': design.stages
             .map((stage) => {
@@ -126,6 +132,12 @@ class PreviewFallbackWorkflowRepository
         company: workflow['company']?.toString(),
         description: workflow['description']?.toString(),
         pendingReason: 'ذخیره محلی؛ در انتظار همگام‌سازی با ASOUD ERP',
+        iconKey: workflow['icon_key']?.toString(),
+        colorHex: workflow['color_hex']?.toString(),
+        shortTitle: workflow['short_title']?.toString(),
+        category: workflow['category']?.toString(),
+        showInList: workflow['show_in_list'] != false,
+        userSubmittable: workflow['user_submittable'] != false,
       ),
       stages: stages,
       transitions: transitions,
@@ -262,6 +274,60 @@ class PreviewFallbackWorkflowRepository
               .toList();
         },
         probe: true,
+      );
+
+  @override
+  Future<WorkflowDefinition> saveRequestTypeInfo({
+    required String definition,
+    required RequestTypeInfo info,
+  }) =>
+      _remoteOrPreview(
+        () => _remote.saveRequestTypeInfo(definition: definition, info: info),
+        () {
+          final design = _designs[definition] ?? _sampleDesign(definition);
+          final old = design.workflow;
+          final workflow = WorkflowDefinition(
+            id: old.id,
+            code: old.code,
+            title: info.title,
+            targetDoctype: old.targetDoctype,
+            status: old.status,
+            isLocked: old.isLocked,
+            version: old.version,
+            stepsCount: old.stepsCount,
+            modified: DateTime.now(),
+            company: old.company,
+            description: info.description,
+            moduleKey: old.moduleKey,
+            creationMode: old.creationMode,
+            frappeWorkflow: old.frappeWorkflow,
+            pendingReason: old.pendingReason,
+            missingRequirements: old.missingRequirements,
+            iconKey: info.iconKey,
+            colorHex: info.colorHex,
+            shortTitle: info.shortTitle,
+            category: info.category,
+            showInList: info.showInList,
+            userSubmittable: info.userSubmittable,
+          );
+          _remember(
+              definition,
+              WorkflowDesign(
+                  workflow: workflow,
+                  stages: design.stages,
+                  transitions: design.transitions));
+          return workflow;
+        },
+      );
+
+  @override
+  Future<WorkflowDefinition> setWorkflowStatus({
+    required String definition,
+    required WorkflowDefinitionStatus status,
+  }) =>
+      _remoteOrPreview(
+        () => _remote.setWorkflowStatus(definition: definition, status: status),
+        () => throw StateError('تغییر وضعیت در پیش‌نمایش آفلاین ممکن نیست.'),
       );
 
   @override
@@ -648,7 +714,67 @@ class PreviewFallbackWorkflowRepository
           return updated;
         },
       );
+
+  /// The offline counterpart of `workflow.save_stage_routes`: sets a stage's
+  /// exits by decision on the local design (an empty target removes one).
+  Future<WorkflowDesign> saveStageRoutesLocally({
+    required String definition,
+    required String stage,
+    required Map<String, String> routes,
+  }) async {
+    await _loadLocal();
+    final design = _designs[definition] ?? _sampleDesign(definition);
+    final source = design.stages.firstWhere((item) => item.id == stage);
+    final main = switch (source.type) {
+      WorkflowStageType.approval => 'Approve',
+      WorkflowStageType.systemAction => 'Success',
+      _ => 'Complete',
+    };
+    String actionOf(WorkflowTransition edge) {
+      final action = edge.condition['action']?.toString() ?? '';
+      if (action.isNotEmpty) return action;
+      return _routeLabels.entries
+              .where((entry) => entry.value == edge.label)
+              .map((entry) => entry.key)
+              .firstOrNull ??
+          '';
+    }
+
+    final transitions = [
+      for (final edge in design.transitions)
+        if (edge.fromStage != stage ||
+            !routes.keys.any((action) =>
+                actionOf(edge) == action ||
+                (action == main && actionOf(edge).isEmpty)))
+          edge,
+    ];
+    for (final entry in routes.entries) {
+      if (entry.value.isEmpty) continue;
+      transitions.add(WorkflowTransition(
+        id: '$definition-EDGE-$stage-${entry.key}',
+        fromStage: stage,
+        toStage: entry.value,
+        label: _routeLabels[entry.key],
+        condition: {'action': entry.key},
+      ));
+    }
+    final updated = WorkflowDesign(
+        workflow: design.workflow,
+        stages: design.stages,
+        transitions: transitions);
+    _remember(definition, updated);
+    return updated;
+  }
 }
+
+const _routeLabels = {
+  'Approve': 'تأیید',
+  'Reject': 'رد',
+  'Return': 'بازگشت برای اصلاح',
+  'Complete': 'ادامه',
+  'Success': 'موفقیت',
+  'Error': 'خطا',
+};
 
 String _stageTitle(WorkflowStageType type) => switch (type) {
       WorkflowStageType.start => 'شروع',

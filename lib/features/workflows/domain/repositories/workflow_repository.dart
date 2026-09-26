@@ -71,6 +71,19 @@ abstract interface class WorkflowRepository {
     required Map<String, dynamic> config,
   });
 
+  /// Saves the request-type metadata of [definition] (title, icon, category,
+  /// visibility).
+  Future<WorkflowDefinition> saveRequestTypeInfo({
+    required String definition,
+    required RequestTypeInfo info,
+  });
+
+  /// Throws when the server refuses, e.g. activation before readiness.
+  Future<WorkflowDefinition> setWorkflowStatus({
+    required String definition,
+    required WorkflowDefinitionStatus status,
+  });
+
   Future<List<WorkflowDefinition>> getWorkflows({
     String? search,
     WorkflowDefinitionStatus? status,
