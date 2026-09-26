@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.23.0+37
+
+- Offline preview (no server): document templates, stage exit routes and requests are saved on the
+  phone, so the new screens can be tried now. Request types come from the workflows designed on the
+  phone plus a sample «درخواست خرید (نمونه آفلاین)»; items, users and departments use sample data.
+  A submitted request gets a local number (LOCAL-…), a details page and print/PDF. Nothing saved in
+  the preview is sent to a server.
+
 ## 0.22.0+36
 
 - Request flow from the home «ثبت درخواست»: pick the request type, a redesigned form (request info,
