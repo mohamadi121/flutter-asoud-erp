@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.22.0+36
+
+- Request flow from the home «ثبت درخواست»: pick the request type, a redesigned form (request info,
+  item table, attachments), a success page with the request summary, and request details with a
+  three-dot menu: edit before approval, print, PDF export, view workflow, cancel. Print and PDF are
+  generated in the app with a QR code.
+- «ایجاد سند» (home) opens document templates: custom and ready templates and a four-step wizard
+  (base info, fields, mapping each field to a fixed, request, user, company or system value,
+  settings).
+- Stage settings per type: «وظیفه کاربر» (stage form, responsible role or org unit, all members or
+  one person), «تأیید / رد» (role picker with «مدیر مستقیم», decisions, exit route per decision) and
+  «اقدام خودکار» (create a document from a template, change status, send a notification; success
+  and error routes).
+- Settings: «اشخاص و شرکت‌ها» became «گردش کار» and opens the workflow form, then the designer.
+- Request type builder: step 3 now previews the built form instead of the workflow summary.
+- Personnel file opens from data saved on the phone when the server is unreachable or older.
+- Requires backend 0.12.0.
+
 ## 0.21.0+35
 
 - Personnel file («پرونده پرسنلی») redesigned: compact header with the real employee code, summary
