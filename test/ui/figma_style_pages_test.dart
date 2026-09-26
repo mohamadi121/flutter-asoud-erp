@@ -1,4 +1,5 @@
 import 'package:asoud_erp/core/theme/asoud_theme.dart';
+import 'package:asoud_erp/core/network/frappe_client.dart';
 import 'package:asoud_erp/features/accounting/presentation/pages/account_form_page.dart';
 import 'package:asoud_erp/features/accounting/presentation/pages/accounting_home_page.dart';
 import 'package:asoud_erp/features/accounting/presentation/pages/chart_of_accounts_page.dart';
@@ -12,13 +13,19 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:asoud_erp/features/office_setup/domain/repositories/office_repository.dart';
 
 import '../helpers/fake_office_repository.dart';
+import '../helpers/fake_role_client.dart';
 
 Widget _app(Widget page) => RepositoryProvider<OfficeRepository>.value(
       value: FakeOfficeRepository(),
       child: MaterialApp(
         locale: const Locale('fa'),
         theme: AsoudTheme.light,
-        home: Directionality(textDirection: TextDirection.rtl, child: page),
+        home: Directionality(
+            textDirection: TextDirection.rtl,
+            child: page is RolesSetupPage
+                ? RepositoryProvider<FrappeApiClient>.value(
+                    value: FakeRoleClient(), child: page)
+                : page),
       ),
     );
 
@@ -69,7 +76,7 @@ void main() {
 
   final pages = <String, Widget>{
     'تنظیمات پایه': const BaseAccountingSetupPage(),
-    'نقش‌های اولیه': const RolesSetupPage(),
+    'مدیریت نقش‌ها': const RolesSetupPage(),
     'خانه حسابداری': const AccountingHomePage(),
     'سرفصل حساب‌ها': const ChartOfAccountsPage(),
     'فرم حساب': const AccountFormPage(),
@@ -78,10 +85,15 @@ void main() {
     testWidgets('${entry.key} در اندازه مرجع بدون خطای چیدمان باز می‌شود',
         (tester) async {
       await tester.binding.setSurfaceSize(const Size(390, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
       await tester.pumpWidget(_app(entry.value));
       await tester.pumpAndSettle();
+      if (entry.value is RolesSetupPage) {
+        expect(find.text('نقش‌ها'), findsOneWidget);
+        expect(find.textContaining('هنوز دسته یا نقشی ثبت نشده است'),
+            findsOneWidget);
+      }
       expect(tester.takeException(), isNull);
-      await tester.binding.setSurfaceSize(null);
     });
   }
 }
