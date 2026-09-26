@@ -120,6 +120,9 @@ class WorkflowTargetOption extends Equatable {
     required this.label,
     this.department,
     this.company,
+    this.parent,
+    this.isGroup = false,
+    this.designation,
   });
 
   final String id;
@@ -127,8 +130,16 @@ class WorkflowTargetOption extends Equatable {
   final String? department;
   final String? company;
 
+  /// Departments: the parent department and whether it groups others.
+  final String? parent;
+  final bool isGroup;
+
+  /// Employees: their designation, shown under the name.
+  final String? designation;
+
   @override
-  List<Object?> get props => [id, label, department, company];
+  List<Object?> get props =>
+      [id, label, department, company, parent, isGroup, designation];
 }
 
 class WorkflowModuleOption extends Equatable {

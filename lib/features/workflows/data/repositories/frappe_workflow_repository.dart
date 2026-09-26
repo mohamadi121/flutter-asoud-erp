@@ -209,6 +209,11 @@ class FrappeWorkflowRepository implements WorkflowRepository {
     );
   }
 
+  String? _optionalText(Object? value) {
+    final text = value?.toString() ?? '';
+    return text.isEmpty ? null : text;
+  }
+
   List<WorkflowTargetOption> _parseTargets(dynamic raw,
       {required String labelKey}) {
     if (raw is! List) return const [];
@@ -221,6 +226,9 @@ class FrappeWorkflowRepository implements WorkflowRepository {
             label: item[labelKey]?.toString() ?? item['name']?.toString() ?? '',
             department: item['department']?.toString(),
             company: item['company']?.toString(),
+            parent: _optionalText(item['parent_department']),
+            isGroup: item['is_group'] == 1 || item['is_group'] == true,
+            designation: _optionalText(item['designation']),
           );
         })
         .where((item) => item.id.isNotEmpty)
