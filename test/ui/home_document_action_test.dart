@@ -7,6 +7,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class _Client extends Fake implements FrappeApiClient {
+  @override
+  bool get isAuthenticated => true;
   final methods = <String>[];
   @override
   Future<dynamic> callAsoudMethod(String method,

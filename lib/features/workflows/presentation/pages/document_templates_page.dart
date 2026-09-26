@@ -126,6 +126,18 @@ class _DocumentTemplatesPageState extends State<DocumentTemplatesPage> {
                             'کدام سند ERPNext و با چه مقادیری ساخته شود.'))),
                 icon: const Icon(Icons.help_outline_rounded))),
         body: Column(children: [
+          if (repository.isLocal)
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                  color: AsoudColors.warning.withValues(alpha: .1),
+                  borderRadius: BorderRadius.circular(10)),
+              child: const Text(
+                  'حالت آفلاین؛ الگوها فقط روی این گوشی ذخیره می‌شوند.',
+                  style: TextStyle(fontSize: 11)),
+            ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
             child: AsoudSegmentedControl<String>(

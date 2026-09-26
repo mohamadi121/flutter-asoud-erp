@@ -260,4 +260,35 @@ void main() {
             .single['qty'],
         2);
   });
+
+  testWidgets('a request saved on the phone shows its local number and prints',
+      (tester) async {
+    final repo = _Repo();
+    final local = {
+      ..._request(),
+      'name': 'generic-request:local',
+      'local_number': 'LOCAL-12345',
+      'pending_sync': true,
+      'local_preview': true,
+      'request_type': null,
+    };
+    when(() => repo.detail('generic-request:local'))
+        .thenAnswer((_) async => local);
+    when(() => repo.options()).thenAnswer((_) async => [_type]);
+    await tester.pumpWidget(_app(RequestSubmittedPage(
+        request: local, repository: repo, typeTitle: 'درخواست خرید')));
+    await tester.pumpAndSettle();
+    expect(find.text('درخواست شما روی گوشی ذخیره شد'), findsOneWidget);
+    expect(find.textContaining('LOCAL-12345'), findsWidgets);
+    await _tap(tester, find.text('مشاهده جزئیات درخواست'));
+    expect(find.text('LOCAL-12345'), findsOneWidget);
+    expect(find.text('ذخیره روی گوشی'), findsOneWidget);
+    expect(find.text('درخواست خرید'), findsOneWidget); // title from the type
+    await _tap(tester, find.byTooltip('عملیات'));
+    expect(find.text('چاپ درخواست'), findsOneWidget);
+    expect(find.text('خروجی PDF'), findsOneWidget);
+    expect(find.text('ویرایش (قبل از تأیید)'), findsNothing);
+    expect(find.text('لغو درخواست'), findsNothing);
+    expect(find.text('مشاهده گردش کار'), findsNothing);
+  });
 }

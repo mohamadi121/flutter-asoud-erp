@@ -21,6 +21,9 @@ import 'workflow_instance_detail_page.dart';
 
 /// Label and color of a request's status for chips and print.
 (String, Color) requestStatus(Map<String, dynamic> data) {
+  if (data['local_preview'] == true) {
+    return ('ذخیره روی گوشی', AsoudColors.primary);
+  }
   if (data['pending_sync'] == true) {
     return ('در انتظار همگام‌سازی', AsoudColors.primary);
   }
@@ -136,10 +139,17 @@ class RequestSubmittedPage extends StatelessWidget {
 
   bool get pending => request['pending_sync'] == true;
 
+  /// Saved in the offline preview: kept on this device, never sent.
+  bool get local => request['local_preview'] == true;
+
   @override
   Widget build(BuildContext context) {
     final values = Map<String, dynamic>.from(request['values'] as Map? ?? {});
-    final number = pending ? '—' : '${request['name']}';
+    final number = local
+        ? '${request['local_number'] ?? ''}'
+        : pending
+            ? '—'
+            : '${request['name']}';
     final rows = {
       'شماره درخواست': number,
       'عنوان': '${request['subject'] ?? ''}',
@@ -179,14 +189,16 @@ class RequestSubmittedPage extends StatelessWidget {
                       fontSize: 17, fontWeight: FontWeight.w900)),
               const SizedBox(height: 8),
               Text(
-                  pending
-                      ? 'پس از اتصال به سرور ارسال و برای بررسی به مدیر مرتبط فرستاده می‌شود.'
-                      : '$typeTitle با شماره $number ثبت و برای بررسی به مدیر مرتبط ارسال شد.',
+                  local
+                      ? 'این درخواست با شماره $number فقط روی گوشی (پیش‌نمایش آفلاین) ذخیره شد و به سرور ارسال نمی‌شود.'
+                      : pending
+                          ? 'پس از اتصال به سرور ارسال و برای بررسی به مدیر مرتبط فرستاده می‌شود.'
+                          : '$typeTitle با شماره $number ثبت و برای بررسی به مدیر مرتبط ارسال شد.',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                       fontSize: 12, height: 1.7, color: AsoudColors.muted)),
               const SizedBox(height: 18),
-              if (!pending)
+              if (!pending || local)
                 FilledButton.icon(
                   style: FilledButton.styleFrom(
                       minimumSize: const Size.fromHeight(48)),
@@ -221,7 +233,7 @@ class RequestSubmittedPage extends StatelessWidget {
               for (final entry in rows.entries)
                 _InfoRow(entry.key, entry.value),
               _InfoRowWidget('وضعیت', RequestStatusChip(request)),
-              if (!pending)
+              if (!pending || local)
                 TextButton.icon(
                     onPressed: details,
                     icon: const Icon(Icons.visibility_outlined),
@@ -354,11 +366,27 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
   void _message(String text) =>
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
 
+  bool get local => data?['local_preview'] == true;
+
+  String get number => local
+      ? '${data!['local_number'] ?? ''}'
+      : data!['pending_sync'] == true
+          ? '—'
+          : '${data!['name']}';
+
+  String get typeTitle =>
+      '${data?['request_type'] ?? definition?['workflow_title'] ?? 'درخواست'}';
+
   Future<Uint8List> _pdf() => buildRequestPdf(
-      request: data!,
-      activities: activities,
-      labels: labels,
-      statusLabel: requestStatus(data!).$1);
+          request: {
+            ...data!,
+            'name': number,
+            'request_type': typeTitle,
+            if (local) 'requester_name': 'کاربر پیش‌نمایش',
+          },
+          activities: activities,
+          labels: labels,
+          statusLabel: requestStatus(data!).$1);
 
   Future<void> menu(String action) async {
     switch (action) {
@@ -378,13 +406,11 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
         await Navigator.push(
             context,
             MaterialPageRoute<void>(
-                builder: (_) => RequestPrintPage(
-                    title: '${data!['request_type'] ?? 'درخواست'}',
-                    document: _pdf)));
+                builder: (_) =>
+                    RequestPrintPage(title: typeTitle, document: _pdf)));
       case 'pdf':
         try {
-          await Printing.sharePdf(
-              bytes: await _pdf(), filename: '${data!['name']}.pdf');
+          await Printing.sharePdf(bytes: await _pdf(), filename: '$number.pdf');
         } catch (_) {
           _message('ساخت فایل PDF ممکن نشد.');
         }
@@ -430,7 +456,7 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
     return Scaffold(
       appBar: AsoudHeader(
         title: 'جزئیات درخواست',
-        action: value == null || value['pending_sync'] == true
+        action: value == null
             ? null
             : PopupMenuButton<String>(
                 tooltip: 'عملیات',
@@ -453,7 +479,8 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
                       child: ListTile(
                           leading: Icon(Icons.picture_as_pdf_outlined),
                           title: Text('خروجی PDF'))),
-                  if ('${value['workflow_instance'] ?? ''}'.isNotEmpty)
+                  if ('${value['workflow_instance'] ?? ''}'.isNotEmpty &&
+                      value['pending_sync'] != true)
                     const PopupMenuItem(
                         value: 'workflow',
                         child: ListTile(
@@ -514,16 +541,16 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
         padding: const EdgeInsets.all(16),
         children: [
           if (value['pending_sync'] == true)
-            const Padding(
-              padding: EdgeInsets.only(bottom: 8),
-              child: Text(
-                  'اطلاعات روی دستگاه محفوظ است؛ اجرای گردش‌کار پس از تأیید سرور انجام می‌شود.'),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(local
+                  ? 'این درخواست فقط روی گوشی ذخیره شده است (پیش‌نمایش آفلاین) و به سرور ارسال نمی‌شود.'
+                  : 'اطلاعات روی دستگاه محفوظ است؛ اجرای گردش‌کار پس از تأیید سرور انجام می‌شود.'),
             ),
           _card([
             Row(children: [
               Expanded(
-                  child: Text(
-                      value['pending_sync'] == true ? '—' : '${value['name']}',
+                  child: Text(number,
                       style: const TextStyle(
                           fontSize: 15, fontWeight: FontWeight.w900))),
               RequestStatusChip(value),
@@ -533,11 +560,12 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
                 style:
                     const TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
             const Divider(height: 20),
-            _InfoRow('درخواست‌کننده', '${value['requester_name'] ?? ''}'),
+            _InfoRow('درخواست‌کننده',
+                '${value['requester_name'] ?? (local ? 'کاربر پیش‌نمایش' : '')}'),
             _InfoRow('واحد', '${value['department'] ?? ''}'),
             _InfoRow('تاریخ ثبت',
                 formatJalaliDateTimeIso('${value['creation'] ?? ''}')),
-            _InfoRow('نوع درخواست', '${value['request_type'] ?? ''}'),
+            _InfoRow('نوع درخواست', typeTitle),
             for (final entry in plain.entries) _InfoRow(entry.key, entry.value),
           ]),
           if (items.isNotEmpty)

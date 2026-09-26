@@ -34,6 +34,7 @@ void main() {
     client = _Client();
     calls = [];
     repository = WorkflowAutomationRepository(client);
+    when(() => client.isAuthenticated).thenReturn(true);
     when(() => client.callAsoudMethod(any(), data: any(named: 'data')))
         .thenAnswer((invocation) async {
       final method = invocation.positionalArguments.first as String;

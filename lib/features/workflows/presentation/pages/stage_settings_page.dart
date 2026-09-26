@@ -5,6 +5,7 @@ import '../../../../core/network/api_exception.dart';
 import '../../../../core/network/frappe_client.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/widgets/asoud_ui.dart';
+import '../../data/repositories/preview_fallback_workflow_repository.dart';
 import '../../data/workflow_automation_repository.dart';
 import '../../domain/entities/workflow_definition.dart';
 import '../cubit/workflow_designer_cubit.dart';
@@ -342,10 +343,18 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
     };
     try {
       if (changed.isNotEmpty) {
-        await automation.saveStageRoutes(
-            definition: widget.design.workflow.id,
-            stage: widget.stage.id,
-            routes: changed);
+        final local = cubit.repository;
+        if (automation.isLocal && local is PreviewFallbackWorkflowRepository) {
+          await local.saveStageRoutesLocally(
+              definition: widget.design.workflow.id,
+              stage: widget.stage.id,
+              routes: changed);
+        } else {
+          await automation.saveStageRoutes(
+              definition: widget.design.workflow.id,
+              stage: widget.stage.id,
+              routes: changed);
+        }
         await cubit.load();
       }
       if (mounted) Navigator.pop(context);
@@ -910,8 +919,9 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
   List<Widget> _createDocument() {
     final template = document.template;
     Future<void> edit() async {
-      final value = company;
-      if (value == null || value.isEmpty) {
+      // The offline preview keeps templates on the device, without a company.
+      final value = company ?? (automation.isLocal ? '' : null);
+      if (value == null || (value.isEmpty && !automation.isLocal)) {
         return _message('شرکت این گردش کار مشخص نیست.');
       }
       final result = await Navigator.push<CreateDocumentConfig>(

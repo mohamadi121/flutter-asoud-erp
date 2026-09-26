@@ -94,6 +94,8 @@ const _template = DocumentTemplate(
     description: 'ثبت سند هزینه');
 
 class _Automation extends Fake implements WorkflowAutomationRepository {
+  @override
+  bool get isLocal => false;
   final routes = <Map<String, String>>[];
   @override
   Future<void> saveStageRoutes(

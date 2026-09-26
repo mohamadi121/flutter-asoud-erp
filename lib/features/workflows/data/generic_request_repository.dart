@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
+import '../../../core/config/app_config.dart';
 import '../../../core/network/frappe_client.dart';
 import '../../../core/offline/local_database_store.dart';
 import '../../../core/offline/local_record.dart';
 import '../../../core/offline/offline_failure.dart';
+import 'offline_preview_data.dart';
 
 /// Durable, user/server/company-scoped requests. Authorization failures never
 /// fall back to cache and failed mutations are retained for explicit retry.
@@ -32,6 +34,10 @@ class GenericRequestRepository {
     _owner = null;
   }
 
+  /// The offline preview (no session): request types, masters and submitted
+  /// requests live on this device only and are never sent to a server.
+  bool get isLocal => AppConfig.offlineDemoMode && !client.isAuthenticated;
+
   bool offline(Object error) =>
       error is TimeoutException || isRetryableOfflineFailure(error);
   Future<void> identify() async {
@@ -39,6 +45,10 @@ class GenericRequestRepository {
       _owner = null;
       _epoch++;
     });
+    if (isLocal) {
+      _owner = 'offline-preview';
+      return;
+    }
     final epoch = _epoch;
     final user = await client.getCurrentUser();
     if (!client.isAuthenticated || epoch != _epoch) {
@@ -79,8 +89,9 @@ class GenericRequestRepository {
     }
   }
 
-  Future<List<Map<String, dynamic>>> options() async =>
-      (await read('request_options', {'company': company}) as List)
+  Future<List<Map<String, dynamic>>> options() async => isLocal
+      ? offlineRequestTypes()
+      : (await read('request_options', {'company': company}) as List)
           .map((row) => Map<String, dynamic>.from(row as Map))
           .toList();
 
@@ -88,17 +99,20 @@ class GenericRequestRepository {
   /// `Department`, `Item`, or `UOM` with [itemCode]), from the ERPNext masters.
   Future<List<Map<String, dynamic>>> fieldOptions(String fieldType,
           {String txt = '', String? itemCode}) async =>
-      (await read('request_field_options', {
-        'company': company,
-        'field_type': fieldType,
-        'txt': txt,
-        if (itemCode != null) 'item_code': itemCode,
-      }) as List)
-          .map((row) => Map<String, dynamic>.from(row as Map))
-          .toList();
+      isLocal
+          ? offlineFieldOptions(fieldType, txt: txt, itemCode: itemCode)
+          : (await read('request_field_options', {
+              'company': company,
+              'field_type': fieldType,
+              'txt': txt,
+              if (itemCode != null) 'item_code': itemCode,
+            }) as List)
+              .map((row) => Map<String, dynamic>.from(row as Map))
+              .toList();
 
   /// Queues the request and syncs it; returns the server's request when it
-  /// was accepted now, or null while it waits on this device.
+  /// was accepted now, or null while it waits on this device. In the offline
+  /// preview it returns the local request, which never syncs.
   Future<Map<String, dynamic>?> create(
       Map<String, dynamic> data, String requestId) async {
     await identify();
@@ -114,9 +128,11 @@ class GenericRequestRepository {
       await store.save(
           id: id,
           entityType: 'generic_request_outbox',
-          status: LocalSyncStatus.pendingSync,
+          status:
+              isLocal ? LocalSyncStatus.localOnly : LocalSyncStatus.pendingSync,
           payload: {'scope': _scope, 'data': payload});
     }
+    if (isLocal) return detail(id);
     await sync();
     final row = await store.get(id);
     final result = row?.payload['result'];
@@ -150,6 +166,7 @@ class GenericRequestRepository {
     for (final row in await pending()) {
       if (epoch != _epoch || !client.isAuthenticated) return;
       if (row.status == LocalSyncStatus.syncFailed && !retry) continue;
+      if (row.status == LocalSyncStatus.localOnly) continue;
       try {
         final result = await remote('create_request',
             Map<String, dynamic>.from(row.payload['data'] as Map));
@@ -173,21 +190,26 @@ class GenericRequestRepository {
   }
 
   Future<List<Map<String, dynamic>>> list() async {
-    await sync();
-    List<Map<String, dynamic>> rows;
-    try {
-      rows = (await read('list_my_requests', {'company': company}) as List)
-          .map((r) => Map<String, dynamic>.from(r as Map))
-          .toList();
-    } catch (error) {
-      if (!offline(error)) rethrow;
-      rows = [];
+    List<Map<String, dynamic>> rows = [];
+    if (isLocal) {
+      await identify();
+    } else {
+      await sync();
+      try {
+        rows = (await read('list_my_requests', {'company': company}) as List)
+            .map((r) => Map<String, dynamic>.from(r as Map))
+            .toList();
+      } catch (error) {
+        if (!offline(error)) rethrow;
+      }
     }
     for (final item in await store.list(entityType: 'generic_request_outbox')) {
       if (item.payload['scope'] != _scope) continue;
       if (item.status == LocalSyncStatus.synced) {
         final result = Map<String, dynamic>.from(item.payload['result'] as Map);
-        if (!rows.any((row) => row['name'] == result['name'])) rows.insert(0, result);
+        if (!rows.any((row) => row['name'] == result['name'])) {
+          rows.insert(0, result);
+        }
         continue;
       }
       final data = item.payload['data'] as Map;
@@ -199,6 +221,8 @@ class GenericRequestRepository {
             ? 'نیازمند بررسی'
             : 'در انتظار همگام‌سازی',
         'pending_sync': true,
+        'local_preview': item.status == LocalSyncStatus.localOnly,
+        'creation': item.createdAt.toIso8601String(),
         'error': item.lastError
       });
     }
@@ -217,7 +241,11 @@ class GenericRequestRepository {
         'name': name,
         'status': item.status.name,
         'error': item.lastError,
-        'pending_sync': true
+        'pending_sync': true,
+        'local_preview': item.status == LocalSyncStatus.localOnly,
+        'creation': item.createdAt.toIso8601String(),
+        'local_number':
+            'LOCAL-${item.createdAt.millisecondsSinceEpoch.toString().substring(7)}',
       };
     }
     return Map<String, dynamic>.from(

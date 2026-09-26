@@ -714,7 +714,67 @@ class PreviewFallbackWorkflowRepository
           return updated;
         },
       );
+
+  /// The offline counterpart of `workflow.save_stage_routes`: sets a stage's
+  /// exits by decision on the local design (an empty target removes one).
+  Future<WorkflowDesign> saveStageRoutesLocally({
+    required String definition,
+    required String stage,
+    required Map<String, String> routes,
+  }) async {
+    await _loadLocal();
+    final design = _designs[definition] ?? _sampleDesign(definition);
+    final source = design.stages.firstWhere((item) => item.id == stage);
+    final main = switch (source.type) {
+      WorkflowStageType.approval => 'Approve',
+      WorkflowStageType.systemAction => 'Success',
+      _ => 'Complete',
+    };
+    String actionOf(WorkflowTransition edge) {
+      final action = edge.condition['action']?.toString() ?? '';
+      if (action.isNotEmpty) return action;
+      return _routeLabels.entries
+              .where((entry) => entry.value == edge.label)
+              .map((entry) => entry.key)
+              .firstOrNull ??
+          '';
+    }
+
+    final transitions = [
+      for (final edge in design.transitions)
+        if (edge.fromStage != stage ||
+            !routes.keys.any((action) =>
+                actionOf(edge) == action ||
+                (action == main && actionOf(edge).isEmpty)))
+          edge,
+    ];
+    for (final entry in routes.entries) {
+      if (entry.value.isEmpty) continue;
+      transitions.add(WorkflowTransition(
+        id: '$definition-EDGE-$stage-${entry.key}',
+        fromStage: stage,
+        toStage: entry.value,
+        label: _routeLabels[entry.key],
+        condition: {'action': entry.key},
+      ));
+    }
+    final updated = WorkflowDesign(
+        workflow: design.workflow,
+        stages: design.stages,
+        transitions: transitions);
+    _remember(definition, updated);
+    return updated;
+  }
 }
+
+const _routeLabels = {
+  'Approve': 'تأیید',
+  'Reject': 'رد',
+  'Return': 'بازگشت برای اصلاح',
+  'Complete': 'ادامه',
+  'Success': 'موفقیت',
+  'Error': 'خطا',
+};
 
 String _stageTitle(WorkflowStageType type) => switch (type) {
       WorkflowStageType.start => 'شروع',

@@ -60,6 +60,8 @@ const _ready = DocumentTemplate(
     mapping: {'posting_date': ValueSource(source: 'system', value: 'today')});
 
 class _Repo extends Fake implements WorkflowAutomationRepository {
+  @override
+  bool get isLocal => false;
   final kinds = <String>[];
   DocumentTemplate? saved;
   String? savedWorkflow;
