@@ -22,6 +22,10 @@ class OrgPosition {
 }
 
 void validateOrganization(List<OrgPosition> rows) {
+  if (rows.length > 500) {
+    throw const FormatException(
+        'ساختار سازمانی حداکثر می‌تواند ۵۰۰ جایگاه داشته باشد.');
+  }
   final codes = <String, OrgPosition>{};
   final employees = <String>{};
   for (final row in rows) {

@@ -208,23 +208,14 @@ class _SettingsDashboardContentState extends State<SettingsDashboardContent> {
                         _ActionCard('دفترها', Icons.business_outlined,
                             AsoudColors.purple,
                             onTap: () => _open(const OfficesPage())),
-                        _ActionCard('نقش‌ها و دسترسی‌ها', Icons.shield_outlined,
-                            AsoudColors.success,
-                            note: 'تنظیمات اولیه',
-                            onTap: hasOffice
-                                ? () => _open(RolesSetupPage(
-                                    officeName: company,
-                                    offlinePreview: widget.offlinePreview))
-                                : null),
                         const _ActionCard('گزارش‌های سیستم', Icons.bar_chart,
                             AsoudColors.primary),
-                        _ActionCard('تنظیمات پایه', Icons.settings_outlined,
+                        _ActionCard('مدیریت نقش‌ها', Icons.shield_outlined,
                             AsoudColors.primary,
-                            onTap: hasOffice
-                                ? () => _open(BaseAccountingSetupPage(
-                                    officeName: company,
-                                    offlinePreview: widget.offlinePreview))
-                                : null),
+                            note: 'الگو و ایجاد دستی',
+                            onTap: () => _open(RolesSetupPage(
+                                officeName: company,
+                                offlinePreview: widget.offlinePreview))),
                         _ActionCard('اشخاص و شرکت‌ها', Icons.people_outline,
                             AsoudColors.success,
                             onTap: hasOffice

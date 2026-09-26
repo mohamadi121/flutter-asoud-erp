@@ -196,9 +196,9 @@ class AccountingBaseSetupPage extends StatelessWidget {
               _SetupTile(
                 icon: Icons.manage_accounts_rounded,
                 color: AsoudColors.purple,
-                title: 'نقش‌های اولیه',
+                title: 'مدیریت نقش‌ها',
                 subtitle: 'دسترسی‌های مدیر، حسابدار و کاربران',
-                status: 'در انتظار تکمیل',
+                status: 'الگوی آماده یا ایجاد دستی',
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
                     builder: (_) => RolesSetupPage(

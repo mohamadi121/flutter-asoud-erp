@@ -1,0 +1,305 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../core/network/frappe_client.dart';
+import '../../../core/theme/asoud_colors.dart';
+import '../../../core/widgets/asoud_ui.dart';
+import '../data/role_repository.dart';
+import '../domain/role_catalog.dart';
+import 'role_cubit.dart';
+
+part 'role_form_page.dart';
+part 'role_templates_page.dart';
+
+class RolesPage extends StatelessWidget {
+  const RolesPage({super.key});
+  @override
+  Widget build(BuildContext context) => BlocProvider(
+        create: (_) =>
+            RoleCubit(RoleRepository(context.read<FrappeApiClient>()))..load(),
+        child: const Directionality(
+            textDirection: TextDirection.rtl, child: _RolesView()),
+      );
+}
+
+Future<T?> _roleRoute<T>(BuildContext context, Widget page) {
+  final cubit = context.read<RoleCubit>();
+  return Navigator.of(context).push<T>(MaterialPageRoute(
+      builder: (_) => BlocProvider.value(
+          value: cubit,
+          child:
+              Directionality(textDirection: TextDirection.rtl, child: page))));
+}
+
+(IconData, Color) _roleStyle(String style) => switch (style) {
+      'managers' => (Icons.groups_rounded, AsoudColors.purple),
+      'finance' => (Icons.account_balance_rounded, AsoudColors.success),
+      'sales' => (Icons.shopping_cart_rounded, AsoudColors.warning),
+      'stock' => (Icons.inventory_2_outlined, AsoudColors.purple),
+      'hr' => (Icons.people_alt_rounded, const Color(0xFFEC407A)),
+      'purchase' => (Icons.local_shipping_outlined, const Color(0xFF00897B)),
+      'employee' => (Icons.badge_outlined, AsoudColors.primary),
+      _ => (Icons.settings_rounded, const Color(0xFF039BE5)),
+    };
+
+class _RolesView extends StatefulWidget {
+  const _RolesView();
+  @override
+  State<_RolesView> createState() => _RolesViewState();
+}
+
+class _RolesViewState extends State<_RolesView> {
+  String _query = '';
+  String? _selected;
+  final Set<String> _expanded = {};
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AsoudHeader(
+            title: 'نقش‌ها',
+            subtitle: 'مدیریت نقش‌ها و دسترسی‌های سامانه',
+            action: IconButton(
+                tooltip: 'بازخوانی',
+                onPressed: context.read<RoleCubit>().load,
+                icon: const Icon(Icons.refresh_rounded))),
+        body: SafeArea(
+            child: BlocBuilder<RoleCubit, RoleState>(builder: (context, state) {
+          final enabled = state.loaded && !state.loading && !state.saving;
+          return ListView(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+              children: [
+                const _RoleStatus(),
+                FilledButton.icon(
+                    onPressed: !enabled
+                        ? null
+                        : () async {
+                            if (state.catalog.categories.isEmpty) {
+                              final created = await _roleRoute<bool>(
+                                  context, const _CategoryForm());
+                              if (created == true && context.mounted) {
+                                final latest = context.read<RoleCubit>().state;
+                                if (latest.loaded &&
+                                    latest.catalog.categories.isNotEmpty) {
+                                  _roleRoute<bool>(
+                                      context,
+                                      _RoleForm(
+                                          category: latest
+                                              .catalog.categories.last.code));
+                                }
+                              }
+                            } else {
+                              _roleRoute<bool>(context, const _RoleForm());
+                            }
+                          },
+                    icon: const Icon(Icons.add),
+                    label: const Text('ایجاد نقش')),
+                const SizedBox(height: 10),
+                Row(children: [
+                  Expanded(
+                      child: OutlinedButton.icon(
+                          onPressed: enabled
+                              ? () => _roleRoute<bool>(
+                                  context, const _RoleTemplates())
+                              : null,
+                          icon: const Icon(Icons.auto_awesome_outlined),
+                          label: const Text('الگوهای موجود'))),
+                  const SizedBox(width: 10),
+                  Expanded(
+                      child: OutlinedButton.icon(
+                          onPressed: enabled
+                              ? () => _roleRoute<bool>(
+                                  context, const _CategoryForm())
+                              : null,
+                          icon: const Icon(Icons.create_new_folder_outlined),
+                          label: const Text('ایجاد دسته'))),
+                ]),
+                const SizedBox(height: 12),
+                TextField(
+                    onChanged: (value) => setState(() => _query = value.trim()),
+                    decoration: const InputDecoration(
+                        hintText: 'جست‌وجو در نقش‌ها…',
+                        prefixIcon: Icon(Icons.search))),
+                const SizedBox(height: 14),
+                if (state.loaded && state.catalog.categories.isEmpty)
+                  const _RoleHint(
+                      'هنوز دسته یا نقشی ثبت نشده است؛ از الگوهای آماده استفاده کنید یا ابتدا یک دسته بسازید.'),
+                for (final category in state.catalog.categories)
+                  if (_query.isEmpty ||
+                      category.title.contains(_query) ||
+                      state.catalog.roles.any((role) =>
+                          role.category == category.code &&
+                          (role.title.contains(_query) ||
+                              role.code
+                                  .toLowerCase()
+                                  .contains(_query.toLowerCase()))))
+                    _category(category, state, enabled),
+                const SizedBox(height: 14),
+                const _RoleHint(
+                    'نقش‌ها در سطح سامانه تعریف می‌شوند. تخصیص به کاربر و محدودیت دفتر/پرسنل جداگانه انجام می‌شود. تغییر دسترسی فقط با پاسخ موفق سرور ثبت می‌شود.'),
+              ]);
+        })),
+      );
+
+  Widget _category(RoleCategory category, RoleState state, bool enabled) {
+    final style = _roleStyle(category.style);
+    final all = state.catalog.roles
+        .where((role) => role.category == category.code)
+        .toList();
+    final visible = all
+        .where((role) =>
+            _query.isEmpty ||
+            category.title.contains(_query) ||
+            role.title.contains(_query) ||
+            role.code.toLowerCase().contains(_query.toLowerCase()))
+        .toList();
+    final open = _expanded.contains(category.code) || _query.isNotEmpty;
+    return Card(
+        clipBehavior: Clip.antiAlias,
+        child: Column(children: [
+          ListTile(
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            leading: AsoudIconBox(icon: style.$1, color: style.$2, size: 44),
+            title: Text(category.title,
+                style: const TextStyle(fontWeight: FontWeight.w800)),
+            subtitle: Text('${all.length} نقش'),
+            trailing: Icon(open ? Icons.expand_less : Icons.chevron_left),
+            onTap: () => setState(() {
+              if (!_expanded.add(category.code)) {
+                _expanded.remove(category.code);
+              }
+            }),
+          ),
+          if (open) ...[
+            for (final role in visible)
+              Padding(
+                padding: const EdgeInsetsDirectional.only(start: 24, end: 12),
+                child: ListTile(
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  tileColor: _selected == role.code
+                      ? AsoudColors.primary.withValues(alpha: .07)
+                      : null,
+                  title: Text(role.title),
+                  subtitle: Text(
+                      '${role.code}${role.enabled ? '' : ' · غیرفعال'}',
+                      style: const TextStyle(fontSize: 11)),
+                  trailing: PopupMenuButton<String>(
+                    enabled: enabled,
+                    tooltip: 'عملیات نقش',
+                    icon: const Icon(Icons.more_vert),
+                    itemBuilder: (_) => [
+                      const PopupMenuItem(
+                          value: 'edit', child: Text('ویرایش نقش')),
+                      PopupMenuItem(
+                          value: 'status',
+                          child: Text(role.enabled
+                              ? 'غیرفعال‌کردن نقش'
+                              : 'فعال‌کردن نقش')),
+                    ],
+                    onSelected: (action) {
+                      if (action == 'edit') {
+                        setState(() => _selected = role.code);
+                        _roleRoute<bool>(context, _RoleForm(role: role));
+                      } else {
+                        _changeStatus(role);
+                      }
+                    },
+                  ),
+                  onTap: !enabled
+                      ? null
+                      : () {
+                          setState(() => _selected = role.code);
+                          _roleRoute<bool>(context, _RoleForm(role: role));
+                        },
+                ),
+              ),
+            TextButton.icon(
+                onPressed: enabled
+                    ? () => _roleRoute<bool>(
+                        context, _RoleForm(category: category.code))
+                    : null,
+                icon: const Icon(Icons.add),
+                label: const Text('افزودن نقش به این دسته')),
+          ],
+        ]));
+  }
+
+  Future<void> _changeStatus(ManagedRole role) async {
+    if (role.enabled && role.assignedUsers > 0) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+              'پیش از غیرفعال‌سازی، تخصیص این نقش به کاربران را تغییر دهید.')));
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+              title: Text(role.enabled ? 'غیرفعال‌کردن نقش' : 'فعال‌کردن نقش'),
+              content: Text(
+                  'وضعیت نقش «${role.title}» تغییر کند؟ دسترسی‌های تعریف‌شده تغییر نمی‌کنند.'),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(dialogContext, false),
+                    child: const Text('انصراف')),
+                FilledButton(
+                    onPressed: () => Navigator.pop(dialogContext, true),
+                    child: const Text('تأیید')),
+              ],
+            ));
+    if (confirmed != true || !mounted) return;
+    await context.read<RoleCubit>().save(ManagedRole(
+          code: role.code,
+          title: role.title,
+          category: role.category,
+          parent: role.parent,
+          description: role.description,
+          enabled: !role.enabled,
+          baseRoles: role.baseRoles,
+          modified: role.modified,
+          profileModified: role.profileModified,
+          assignedUsers: role.assignedUsers,
+        ));
+  }
+}
+
+class _RoleHint extends StatelessWidget {
+  const _RoleHint(this.text, {this.error = false});
+  final String text;
+  final bool error;
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+            color: (error ? AsoudColors.warning : AsoudColors.primary)
+                .withValues(alpha: .06),
+            borderRadius: BorderRadius.circular(14)),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Icon(error ? Icons.error_outline : Icons.info_outline,
+              color: error ? AsoudColors.warning : AsoudColors.primary),
+          const SizedBox(width: 10),
+          Expanded(
+              child: Text(text,
+                  style: const TextStyle(fontSize: 11, height: 1.7))),
+        ]),
+      );
+}
+
+class _RoleStatus extends StatelessWidget {
+  const _RoleStatus();
+  @override
+  Widget build(BuildContext context) => BlocBuilder<RoleCubit, RoleState>(
+      builder: (context, state) => Column(children: [
+            if (state.loading || state.saving)
+              const Padding(
+                  padding: EdgeInsets.only(bottom: 12),
+                  child: LinearProgressIndicator()),
+            if (state.error != null) ...[
+              _RoleHint(state.error!, error: true),
+              TextButton(
+                  onPressed: state.loading || state.saving
+                      ? null
+                      : context.read<RoleCubit>().load,
+                  child: const Text('بازخوانی از سرور')),
+            ],
+          ]));
+}
