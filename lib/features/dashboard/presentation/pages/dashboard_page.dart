@@ -15,7 +15,7 @@ import '../../../office_setup/presentation/pages/offices_page.dart';
 import '../../../workflows/presentation/pages/workflow_list_page.dart';
 import '../../../workflows/presentation/pages/workflow_tasks_page.dart';
 import '../../../workflows/presentation/pages/generic_request_page.dart';
-import '../../../hr/presentation/pages/hr_home_page.dart';
+import '../../../workflows/presentation/pages/document_templates_page.dart';
 import 'first_office_card.dart';
 import 'settings_dashboard_content.dart';
 
@@ -181,10 +181,10 @@ class _DashboardPageState extends State<DashboardPage> {
                               ),
                             ),
                           ),
-                          onHr: () => Navigator.of(context).push(
+                          onDocuments: () => Navigator.of(context).push(
                             MaterialPageRoute<void>(
-                              builder: (_) =>
-                                  HrHomePage(company: officeName ?? ''),
+                              builder: (_) => DocumentTemplatesPage(
+                                  company: officeName ?? ''),
                             ),
                           ),
                         ),
@@ -602,8 +602,8 @@ class _QuickActions extends StatelessWidget {
   const _QuickActions(
       {required this.onAccounting,
       required this.onPurchaseRequest,
-      required this.onHr});
-  final VoidCallback onAccounting, onPurchaseRequest, onHr;
+      required this.onDocuments});
+  final VoidCallback onAccounting, onPurchaseRequest, onDocuments;
   @override
   Widget build(BuildContext context) {
     final items = <(String, String, IconData, Color, VoidCallback?)>[
@@ -635,7 +635,13 @@ class _QuickActions extends StatelessWidget {
         AsoudColors.purple,
         onAccounting
       ),
-      ('منابع انسانی', 'HR', Icons.badge_outlined, AsoudColors.danger, onHr),
+      (
+        'ایجاد سند',
+        'Document',
+        Icons.post_add_rounded,
+        AsoudColors.danger,
+        onDocuments
+      ),
       (
         'طرف حساب‌ها',
         'Customer/Supplier',
