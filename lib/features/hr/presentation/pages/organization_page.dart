@@ -345,8 +345,9 @@ class _OrganizationStatus extends StatelessWidget {
                     child: const Text('نگه‌داشتن پیش‌نویس برای ذخیره')),
               ],
             ));
-    if (choice != null && context.mounted)
+    if (choice != null && context.mounted) {
       await cubit.resolve(useServer: choice);
+    }
   }
 }
 
@@ -503,12 +504,14 @@ class _OrganizationPreview extends StatelessWidget {
                   ? null
                   : () async {
                       final cubit = context.read<OrganizationCubit>();
-                      if (template && cubit.state.snapshot.rows.isNotEmpty)
+                      if (template && cubit.state.snapshot.rows.isNotEmpty) {
                         return;
+                      }
                       final saved = await cubit
                           .save([...cubit.state.snapshot.rows, ...additions]);
-                      if (saved && context.mounted)
+                      if (saved && context.mounted) {
                         Navigator.pop(context, true);
+                      }
                     },
               secondaryLabel: 'انصراف',
               onSecondary: state.busy ? null : () => Navigator.pop(context),

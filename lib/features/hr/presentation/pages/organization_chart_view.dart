@@ -387,8 +387,9 @@ class _OrganizationMenu extends StatelessWidget {
     while (changed) {
       changed = false;
       for (final row in rows) {
-        if (blocked.contains(row.parent) && blocked.add(row.code))
+        if (blocked.contains(row.parent) && blocked.add(row.code)) {
           changed = true;
+        }
       }
     }
     final parent = await showDialog<String>(

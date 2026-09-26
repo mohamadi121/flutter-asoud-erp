@@ -42,8 +42,9 @@ class OrganizationCubit extends Cubit<OrganizationState> {
     emit(OrganizationState(snapshot: state.snapshot, busy: true));
     try {
       final result = await repository.load(company);
-      if (!isClosed && epoch == _epoch)
+      if (!isClosed && epoch == _epoch) {
         emit(OrganizationState(snapshot: result));
+      }
     } catch (e) {
       if (!isClosed && epoch == _epoch) {
         emit(OrganizationState(
@@ -98,19 +99,23 @@ class OrganizationCubit extends Cubit<OrganizationState> {
     if (state.busy ||
         isClosed ||
         state.sessionChanged ||
-        state.snapshot.server == null) return;
+        state.snapshot.server == null) {
+      return;
+    }
     final epoch = _epoch;
     emit(OrganizationState(snapshot: state.snapshot, busy: true));
     try {
       final result = await repository.resolve(company, state.snapshot,
           useServer: useServer);
-      if (!isClosed && epoch == _epoch)
+      if (!isClosed && epoch == _epoch) {
         emit(OrganizationState(snapshot: result));
+      }
     } catch (e) {
-      if (!isClosed && epoch == _epoch)
+      if (!isClosed && epoch == _epoch) {
         emit(OrganizationState(
             snapshot: state.snapshot,
             error: e is ApiException ? e.message : 'انتخاب نسخه انجام نشد.'));
+      }
     }
   }
 }

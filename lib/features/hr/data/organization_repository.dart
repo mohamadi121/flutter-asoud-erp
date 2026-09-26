@@ -126,9 +126,10 @@ class OrganizationRepository {
     } catch (e) {
       _check(epoch);
       if (e is! TimeoutException && !isRetryableOfflineFailure(e)) rethrow;
-      if (draft != null)
+      if (draft != null) {
         return decode(draft.payload, true,
             rejected: draft.status == LocalSyncStatus.syncFailed);
+      }
       return cached == null
           ? const OrganizationSnapshot([], 0, false)
           : decode(cached.payload, false);
