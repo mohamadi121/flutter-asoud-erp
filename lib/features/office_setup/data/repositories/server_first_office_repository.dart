@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/offline/local_database_store.dart';
 import '../../../../core/offline/local_record.dart';
 import '../../../../core/offline/offline_failure.dart';
@@ -7,10 +8,12 @@ import '../../domain/entities/office.dart';
 import '../../domain/repositories/office_repository.dart';
 import '../models/office_model.dart';
 
-class ServerFirstOfficeRepository implements OfficeRepository {
+class ServerFirstOfficeRepository
+    implements OfficeRepository, LocalPreviewOfficeRepository {
   ServerFirstOfficeRepository(
     this._remote, {
     LocalRecordStore? local,
+    this.localPreview,
     this.defaultOfficeTimeout = const Duration(seconds: 4),
   }) : _local = local ?? LocalDatabaseStore.instance;
 
@@ -20,23 +23,49 @@ class ServerFirstOfficeRepository implements OfficeRepository {
   final OfficeRepository _remote;
   final LocalRecordStore _local;
   final Duration defaultOfficeTimeout;
+  final bool Function()? localPreview;
+  @override
+  bool get isLocalPreview => localPreview?.call() ?? false;
+  String get _preferenceId =>
+      '${isLocalPreview ? 'preview:' : ''}$_defaultOfficeId';
 
   @override
-  Future<Office> createOffice(Office office) => _write(
-        office,
-        () => _remote.createOffice(office),
-      );
+  Future<Office> createOffice(Office office) async {
+    if (isLocalPreview && await _local.get(_id(office.name)) != null) {
+      throw const ApiException(
+          kind: ApiFailureKind.conflict,
+          message:
+              'دفتری با این نام روی دستگاه وجود دارد؛ آن را ویرایش کنید یا نام دیگری بنویسید.');
+    }
+    return _write(
+      office,
+      () => _remote.createOffice(office),
+    );
+  }
 
   @override
-  Future<Office> updateOffice(String id, Office office) => _write(
-        office,
-        () => _remote.updateOffice(id, office),
-      );
+  Future<Office> updateOffice(String id, Office office) async {
+    // Company names also scope local personnel; do not orphan their records.
+    if (isLocalPreview && id != office.name) {
+      throw const ApiException(
+          kind: ApiFailureKind.validation,
+          message:
+              'تغییر نام دفتر محلی فعلاً مجاز نیست؛ اطلاعات دیگر قابل ویرایش است.');
+    }
+    return _write(
+      office,
+      () => _remote.updateOffice(id, office),
+    );
+  }
 
   Future<Office> _write(
     Office draft,
     Future<Office> Function() writeRemote,
   ) async {
+    if (isLocalPreview) {
+      await _save(draft, LocalSyncStatus.localOnly);
+      return draft;
+    }
     try {
       final saved = await writeRemote();
       await _save(saved, LocalSyncStatus.synced);
@@ -50,6 +79,7 @@ class ServerFirstOfficeRepository implements OfficeRepository {
 
   @override
   Future<List<Office>> listOffices() async {
+    if (isLocalPreview) return _localOffices();
     try {
       final remote = await _remote.listOffices();
       for (final office in remote) {
@@ -64,6 +94,9 @@ class ServerFirstOfficeRepository implements OfficeRepository {
 
   @override
   Future<Office?> getDefaultOffice() async {
+    if (isLocalPreview) {
+      return await _localDefaultOffice() ?? (await _localOffices()).firstOrNull;
+    }
     try {
       final office =
           await _remote.getDefaultOffice().timeout(defaultOfficeTimeout);
@@ -82,6 +115,11 @@ class ServerFirstOfficeRepository implements OfficeRepository {
 
   @override
   Future<Office> setDefaultOffice(Office office) async {
+    if (isLocalPreview) {
+      await _save(office, LocalSyncStatus.localOnly);
+      await _saveDefaultName(office.name, status: LocalSyncStatus.localOnly);
+      return office;
+    }
     await _saveDefaultName(office.name);
     try {
       final saved = await _remote.setDefaultOffice(office);
@@ -98,14 +136,14 @@ class ServerFirstOfficeRepository implements OfficeRepository {
   Future<void> _saveDefaultName(String name,
           {LocalSyncStatus status = LocalSyncStatus.pendingSync}) =>
       _local.save(
-        id: _defaultOfficeId,
+        id: _preferenceId,
         entityType: _preferenceEntityType,
         payload: {'company': name},
         status: status,
       );
 
   Future<Office?> _localDefaultOffice() async {
-    final preference = await _local.get(_defaultOfficeId);
+    final preference = await _local.get(_preferenceId);
     final name = preference?.payload['company']?.toString();
     if (name == null || name.isEmpty) return null;
     final offices = await _localOffices();
@@ -132,6 +170,11 @@ class ServerFirstOfficeRepository implements OfficeRepository {
   Future<List<Office>> _localOffices() async => (await _local.list(
         entityType: _entityType,
       ))
+          .where((record) =>
+              localPreview == null ||
+              (isLocalPreview
+                  ? record.status == LocalSyncStatus.localOnly
+                  : record.status != LocalSyncStatus.localOnly))
           .map((record) => OfficeModel.fromSetup(record.payload))
           .toList(growable: false);
 
@@ -145,7 +188,8 @@ class ServerFirstOfficeRepository implements OfficeRepository {
     return merged.values.toList(growable: false);
   }
 
-  String _id(String name) => 'office:${Uri.encodeComponent(name.trim())}';
+  String _id(String name) =>
+      '${isLocalPreview ? 'preview:' : ''}office:${Uri.encodeComponent(name.trim())}';
 
   Map<String, dynamic> _toPayload(Office office) => {
         'company': office.name,

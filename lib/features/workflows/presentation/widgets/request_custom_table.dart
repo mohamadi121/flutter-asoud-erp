@@ -53,7 +53,7 @@ class _RequestCustomTableState extends State<RequestCustomTable> {
           }
         }
         if (column.type == 'Date' && asoudDateValidator(text) != null) {
-          return '$prefixتاریخ معتبر با قالب YYYY-MM-DD وارد کنید.';
+          return '$prefixتاریخ معتبر را از تقویم شمسی انتخاب کنید.';
         }
         if (column.type == 'Choice' && !column.options.contains(text)) {
           return '$prefixیکی از گزینه‌های موجود را انتخاب کنید.';
@@ -86,7 +86,16 @@ class _RequestCustomTableState extends State<RequestCustomTable> {
     final decoration = InputDecoration(
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-        hintText: column.type == 'Date' ? 'YYYY-MM-DD' : null);
+        hintText: null);
+    if (column.type == 'Date') {
+      return AsoudFormDateValue(
+          key: ValueKey('${ids[index]}:${column.key}'),
+          value: value,
+          label: column.label,
+          required: column.required && !widget.preview,
+          enabled: widget.enabled && !widget.preview,
+          onChanged: changed);
+    }
     if (column.type == 'Attachment' && widget.uploadAttachment != null) {
       return OutlinedButton.icon(
           onPressed: !widget.enabled || widget.preview

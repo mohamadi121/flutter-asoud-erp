@@ -47,18 +47,22 @@ class RequestFormStep extends StatelessWidget {
           return ReorderableListView.builder(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
             buildDefaultDragHandles: false,
-            header: _BaseFieldsHeader(state: state),
+            header: Column(children: [
+              _AddFieldButton(onPressed: add),
+              const SizedBox(height: 12),
+              _BaseFieldsHeader(state: state),
+            ]),
             footer: fields.isEmpty
-                ? _EmptyFields(onAdd: add)
-                : Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: _AddFieldButton(onPressed: add)),
+                ? const _EmptyFields()
+                : const SizedBox(height: 8),
             itemCount: fields.length,
             onReorderItem: (from, to) {
               if (state.saving) return;
               final updated = [...fields];
               updated.insert(to, updated.removeAt(from));
-              context.read<RequestTypeBuilderCubit>().setFields(updated);
+              context
+                  .read<RequestTypeBuilderCubit>()
+                  .setFields(updated, reorderLayout: true);
             },
             itemBuilder: (context, index) => _FieldRow(
               key: ValueKey(fields[index].key),
@@ -194,8 +198,7 @@ class _BaseTile extends StatelessWidget {
 }
 
 class _EmptyFields extends StatelessWidget {
-  const _EmptyFields({this.onAdd});
-  final VoidCallback? onAdd;
+  const _EmptyFields();
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.all(20),
@@ -214,7 +217,8 @@ class _EmptyFields extends StatelessWidget {
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 11, color: AsoudColors.muted)),
           const SizedBox(height: 16),
-          _AddFieldButton(onPressed: onAdd),
+          const Text('از دکمهٔ بالای صفحه استفاده کنید.',
+              style: TextStyle(fontSize: 11, color: AsoudColors.muted)),
         ]),
       );
 }

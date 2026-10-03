@@ -4,11 +4,13 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/widgets/asoud_ui.dart';
+import '../../../../core/widgets/asoud_form.dart';
 import '../../domain/entities/workflow_definition.dart';
 import '../../domain/entities/workflow_task.dart';
 import '../../domain/repositories/workflow_task_repository.dart';
 import '../cubit/workflow_task_detail_cubit.dart';
 import '../widgets/request_custom_table.dart';
+import '../widgets/request_link_fields.dart';
 
 class WorkflowTaskDetailPage extends StatelessWidget {
   const WorkflowTaskDetailPage({required this.task, super.key});
@@ -436,15 +438,35 @@ class _DynamicField extends StatelessWidget {
           onChanged: (rows) => cubit.setValue(field.key, rows));
     }
     if (field.type == 'Checkbox') {
-      return CheckboxListTile(
-        value: value == true,
-        title: Text(label),
-        onChanged:
-            enabled ? (next) => cubit.setValue(field.key, next == true) : null,
-      );
+      return RequestBooleanField(
+          label: label,
+          initialValue: value is bool ? value : null,
+          required: field.required,
+          enabled: enabled,
+          onChanged: (next) => cubit.setValue(field.key, next));
+    }
+    if (field.type == 'Date') {
+      return AsoudFormDateValue(
+          key: ValueKey(field.key),
+          value: value?.toString() ?? '',
+          label: label,
+          enabled: enabled,
+          required: field.required,
+          onChanged: (next) => cubit.setValue(field.key, next));
+    }
+    if (field.type == 'Multi Choice') {
+      return RequestMultiChoiceField(
+          key: ValueKey(field.key),
+          label: label,
+          options: field.options,
+          required: field.required,
+          enabled: enabled,
+          initialValue: (value as List?)?.cast<String>(),
+          onChanged: (next) => cubit.setValue(field.key, next));
     }
     if (field.type == 'Choice') {
       return DropdownButtonFormField<String>(
+        isExpanded: true,
         initialValue: field.options.contains(value) ? value?.toString() : null,
         decoration: InputDecoration(labelText: label),
         disabledHint: Text(value?.toString() ?? ''),

@@ -4,12 +4,52 @@ import '../../../../core/offline/offline_failure.dart';
 import '../../domain/entities/party_profile.dart';
 import '../../domain/repositories/party_repository.dart';
 
-class ServerFirstPartyRepository implements PartyRepository {
-  ServerFirstPartyRepository(this._remote, {LocalRecordStore? local})
+class ServerFirstPartyRepository
+    implements PartyRepository, LocalPersonnelSuggestions {
+  ServerFirstPartyRepository(this._remote,
+      {LocalRecordStore? local, this.localPreview})
       : _local = local ?? LocalDatabaseStore.instance;
 
   final PartyRepository _remote;
   final LocalRecordStore _local;
+  final bool Function()? localPreview;
+  bool get _isPreview => localPreview?.call() ?? false;
+  @override
+  bool get supportsLocalSuggestions => _isPreview;
+
+  @override
+  Future<void> suggestLocalPersonnel(String company) async {
+    if (!_isPreview || company.trim().isEmpty) {
+      throw StateError(
+          'برای پیشنهاد محلی، ابتدا دفتر حالت نمونه را انتخاب کنید.');
+    }
+    const titles = ['حسابدار', 'کارشناس منابع انسانی', 'کارشناس فروش'];
+    final existing = await _localProfiles();
+    for (var index = 0; index < titles.length; index++) {
+      if (!_isPreview) {
+        throw StateError('حالت کار تغییر کرد؛ دوباره تلاش کنید.');
+      }
+      final id = 'LOCAL-SAMPLE-${Uri.encodeComponent(company)}-${index + 1}';
+      final marker =
+          'پرسنل پیشنهادی نمونه ${index + 1}؛ اطلاعات غیرواقعی و قابل ویرایش.';
+      if (existing.any((person) =>
+          person.id == id ||
+          (person.company == company && person.description == marker))) {
+        continue;
+      }
+      await _saveProfile(
+          PartyProfile(
+            id: id,
+            company: company,
+            kind: PartyKind.individual,
+            displayName: 'پرسنل نمونه ${index + 1}',
+            roles: const {PartyRole.employee},
+            jobTitle: titles[index],
+            description: marker,
+          ),
+          LocalSyncStatus.localOnly);
+    }
+  }
 
   @override
   Future<List<PartyProfile>> list({
@@ -17,6 +57,9 @@ class ServerFirstPartyRepository implements PartyRepository {
     PartyRole? role,
     String? search,
   }) async {
+    if (_isPreview) {
+      return _filter(await _localProfiles(), company, role, search);
+    }
     try {
       final remote =
           await _remote.list(company: company, role: role, search: search);
@@ -44,6 +87,30 @@ class ServerFirstPartyRepository implements PartyRepository {
           : 'LOCAL-${DateTime.now().microsecondsSinceEpoch}',
       detailGroups: detailGroups,
     );
+    if (_isPreview) {
+      final details = <FloatingDetail>[];
+      // Validate every group before allocating any local codes.
+      for (final group in detailGroups) {
+        await _nextLocalCode(group);
+      }
+      for (final group in detailGroups) {
+        details.add(await createDetail(
+            title: draft.displayName,
+            type: switch (
+                primaryRole ?? draft.roles.firstOrNull ?? PartyRole.other) {
+              PartyRole.customer => 'Customer',
+              PartyRole.supplier => 'Supplier',
+              PartyRole.employee => 'Employee',
+              PartyRole.shareholder => 'Shareholder',
+              PartyRole.other => 'Other',
+            },
+            detailGroup: group,
+            profileId: draft.id!));
+      }
+      final saved = _copyProfile(draft, floatingDetails: details);
+      await _saveProfile(saved, LocalSyncStatus.localOnly);
+      return saved;
+    }
     try {
       final saved = await _remote.save(
         profile,
@@ -61,25 +128,33 @@ class ServerFirstPartyRepository implements PartyRepository {
 
   @override
   Future<String> previewNextCode(String detailGroup) async {
+    if (_isPreview) return _nextLocalCode(detailGroup);
     try {
       return await _remote.previewNextCode(detailGroup);
     } catch (error) {
       if (!isRetryableOfflineFailure(error)) rethrow;
-      final groups = await _local.list(entityType: 'detail_group');
-      final group = groups
-          .where((r) =>
-              r.payload['id'] == detailGroup ||
-              (r.payload['id'] == '' && r.payload['code'] == detailGroup))
-          .firstOrNull;
-      final startCode = group?.payload['code']?.toString();
-      final start = int.tryParse(startCode ?? '');
-      if (start == null || group?.payload['disabled'] == true) rethrow;
-      final details = await _localDetails(detailGroup: detailGroup);
-      final codes =
-          details.map((item) => int.tryParse(item.code)).whereType<int>();
-      final last = codes.fold(start - 1, (a, b) => a > b ? a : b);
-      return (last + 1).toString().padLeft(startCode!.length, '0');
+      return _nextLocalCode(detailGroup);
     }
+  }
+
+  Future<String> _nextLocalCode(String detailGroup) async {
+    final groups =
+        (await _local.list(entityType: 'detail_group')).where(_visibleRecord);
+    final group = groups
+        .where((r) =>
+            r.payload['id'] == detailGroup ||
+            (r.payload['id'] == '' && r.payload['code'] == detailGroup))
+        .firstOrNull;
+    final startCode = group?.payload['code']?.toString();
+    final start = int.tryParse(startCode ?? '');
+    if (start == null || group?.payload['disabled'] == true) {
+      throw StateError('گروه تفصیلی فعال با کد عددی انتخاب کنید.');
+    }
+    final details = await _localDetails(detailGroup: detailGroup);
+    final codes =
+        details.map((item) => int.tryParse(item.code)).whereType<int>();
+    final last = codes.fold(start - 1, (a, b) => a > b ? a : b);
+    return (last + 1).toString().padLeft(startCode!.length, '0');
   }
 
   @override
@@ -87,6 +162,9 @@ class ServerFirstPartyRepository implements PartyRepository {
     String? detailGroup,
     String? search,
   }) async {
+    if (_isPreview) {
+      return _filterDetails(await _localDetails(), detailGroup, search);
+    }
     try {
       final remote = await _remote.listDetails(
         detailGroup: detailGroup,
@@ -113,6 +191,33 @@ class ServerFirstPartyRepository implements PartyRepository {
     required String detailGroup,
     required String profileId,
   }) async {
+    if (_isPreview) {
+      final existing = (await _localDetails(detailGroup: detailGroup))
+          .where((item) => item.linkedDocument == profileId)
+          .firstOrNull;
+      if (existing != null) {
+        final updated = FloatingDetail(
+            id: existing.id,
+            code: existing.code,
+            title: title,
+            type: type,
+            groupId: existing.groupId,
+            groupTitle: existing.groupTitle,
+            linkedDocument: profileId);
+        await _saveDetail(updated, LocalSyncStatus.localOnly);
+        return updated;
+      }
+      final code = await _nextLocalCode(detailGroup);
+      final draft = FloatingDetail(
+          id: 'LOCAL-PREVIEW-$detailGroup-$code',
+          code: code,
+          title: title,
+          type: type,
+          groupId: detailGroup,
+          linkedDocument: profileId);
+      await _saveDetail(draft, LocalSyncStatus.localOnly);
+      return draft;
+    }
     try {
       final saved = await _remote.createDetail(
         title: title,
@@ -140,6 +245,10 @@ class ServerFirstPartyRepository implements PartyRepository {
 
   @override
   Future<void> disableParty(String id) async {
+    if (_isPreview) {
+      await _setPartyDisabled(id, LocalSyncStatus.localOnly);
+      return;
+    }
     try {
       await _remote.disableParty(id);
       await _setPartyDisabled(id, LocalSyncStatus.synced);
@@ -153,6 +262,10 @@ class ServerFirstPartyRepository implements PartyRepository {
   @override
   Future<void> linkDetail(
       {required String detailId, required String profileId}) async {
+    if (_isPreview) {
+      await _setDetailLink(detailId, profileId, LocalSyncStatus.localOnly);
+      return;
+    }
     try {
       await _remote.linkDetail(detailId: detailId, profileId: profileId);
       await _setDetailLink(detailId, profileId, LocalSyncStatus.synced);
@@ -198,14 +311,22 @@ class ServerFirstPartyRepository implements PartyRepository {
 
   Future<List<PartyProfile>> _localProfiles() async =>
       (await _local.list(entityType: 'party_profile'))
+          .where(_visibleRecord)
           .map((record) => _profileFromMap(record.payload))
           .toList(growable: false);
 
   Future<List<FloatingDetail>> _localDetails({String? detailGroup}) async =>
       (await _local.list(entityType: 'floating_detail'))
+          .where(_visibleRecord)
           .map((record) => _detailFromMap(record.payload))
           .where((item) => detailGroup == null || item.groupId == detailGroup)
           .toList(growable: false);
+
+  bool _visibleRecord(LocalRecord record) =>
+      localPreview == null ||
+      (_isPreview
+          ? record.status == LocalSyncStatus.localOnly
+          : record.status != LocalSyncStatus.localOnly);
 
   Future<void> _setPartyDisabled(String id, LocalSyncStatus status) async {
     final profile =
@@ -356,6 +477,7 @@ class ServerFirstPartyRepository implements PartyRepository {
         'opening_balance': value.openingBalance,
         'balance_type': value.balanceType,
         'detail_groups': value.detailGroups.toList(),
+        'floating_details': value.floatingDetails.map(_detailToMap).toList(),
         'employee_roles': value.employeeRoles.toList(),
         'disabled': value.disabled,
       };
@@ -411,6 +533,10 @@ class ServerFirstPartyRepository implements PartyRepository {
         detailGroups: (value['detail_groups'] as List? ?? const [])
             .map((e) => e.toString())
             .toSet(),
+        floatingDetails: (value['floating_details'] as List? ?? const [])
+            .whereType<Map>()
+            .map((item) => _detailFromMap(Map<String, dynamic>.from(item)))
+            .toList(),
         employeeRoles: (value['employee_roles'] as List? ?? const [])
             .map((e) => e.toString())
             .toSet(),
@@ -418,7 +544,10 @@ class ServerFirstPartyRepository implements PartyRepository {
       );
 
   PartyProfile _copyProfile(PartyProfile value,
-          {String? id, Set<String>? detailGroups, bool? disabled}) =>
+          {String? id,
+          Set<String>? detailGroups,
+          List<FloatingDetail>? floatingDetails,
+          bool? disabled}) =>
       PartyProfile(
         id: id ?? value.id,
         company: value.company,
@@ -466,7 +595,7 @@ class ServerFirstPartyRepository implements PartyRepository {
         balanceType: value.balanceType,
         employeeRoles: value.employeeRoles,
         detailGroups: detailGroups ?? value.detailGroups,
-        floatingDetails: value.floatingDetails,
+        floatingDetails: floatingDetails ?? value.floatingDetails,
         disabled: disabled ?? value.disabled,
       );
 }

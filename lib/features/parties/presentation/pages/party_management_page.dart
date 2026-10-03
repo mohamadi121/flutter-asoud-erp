@@ -95,6 +95,11 @@ class _PartyManagementViewState extends State<_PartyManagementView> {
         body: SafeArea(
             child: BlocConsumer<PartiesCubit, PartiesState>(
           listener: (context, state) {
+            if (state.message != null &&
+                state.status == PartiesStatus.offlineSaved) {
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(SnackBar(content: Text(state.message!)));
+            }
             if (initialLoadHandled ||
                 ![
                   PartiesStatus.success,
@@ -117,6 +122,36 @@ class _PartyManagementViewState extends State<_PartyManagementView> {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 10, 16, 90),
               children: [
+                TextButton.icon(
+                    onPressed: state.status == PartiesStatus.loading ||
+                            state.status == PartiesStatus.saving
+                        ? null
+                        : () async {
+                            final confirmed = await showDialog<bool>(
+                                context: context,
+                                builder: (dialogContext) => AlertDialog(
+                                        title: const Text('پیشنهاد سه پرسنل'),
+                                        content: const Text(
+                                            'سه شخص با برچسب نمونه ایجاد می‌شود؛ اطلاعات هویتی و بانکی ساختگی وارد نمی‌شود. ادامه می‌دهید؟'),
+                                        actions: [
+                                          TextButton(
+                                              onPressed: () => Navigator.pop(
+                                                  dialogContext, false),
+                                              child: const Text('انصراف')),
+                                          FilledButton(
+                                              onPressed: () => Navigator.pop(
+                                                  dialogContext, true),
+                                              child: const Text(
+                                                  'ایجاد پیشنهادها')),
+                                        ]));
+                            if (confirmed == true && context.mounted) {
+                              await context
+                                  .read<PartiesCubit>()
+                                  .suggestPersonnel(role: role);
+                            }
+                          },
+                    icon: const Icon(Icons.auto_awesome_outlined),
+                    label: const Text('پیشنهاد ۳ پرسنل نمونه')),
                 TextField(
                   decoration: const InputDecoration(
                       hintText: 'جست‌وجوی نام، کد یا شماره تماس',

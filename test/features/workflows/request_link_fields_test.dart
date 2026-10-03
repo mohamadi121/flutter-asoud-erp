@@ -198,10 +198,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.widgetWithText(TextFormField, 'گزینه‌ها (هر گزینه در یک خط)'),
         findsOneWidget);
-    await tester.ensureVisible(find.text('تنظیمات بیشتر'));
+    await tester.ensureVisible(find.text('مقدار پیش‌فرض (اختیاری)'));
     await tester.pumpAndSettle();
-    expect(find.text('تنظیمات بیشتر').hitTestable(), findsOneWidget);
-    await tester.tap(find.text('تنظیمات بیشتر'));
+    expect(find.text('مقدار پیش‌فرض (اختیاری)').hitTestable(), findsOneWidget);
+    await tester.tap(find.text('مقدار پیش‌فرض (اختیاری)'));
     await tester.pumpAndSettle();
     expect(find.text('مقدار پیش‌فرض (اختیاری)'), findsOneWidget);
     for (final type in ['User', 'Department', 'Item Table']) {
@@ -209,11 +209,8 @@ void main() {
           theme: AsoudTheme.light,
           home: RequestFieldEditorPage(key: ValueKey(type), type: type)));
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('تنظیمات بیشتر'));
-      await tester.pumpAndSettle();
-      expect(find.text('تنظیمات بیشتر').hitTestable(), findsOneWidget);
-      await tester.tap(find.text('تنظیمات بیشتر'));
-      await tester.pumpAndSettle();
+      expect(find.text('تنظیمات بیشتر'), findsNothing);
+      expect(find.text('نام فنی (اختیاری)'), findsNothing);
       expect(find.text('مقدار پیش‌فرض (اختیاری)'), findsNothing, reason: type);
       expect(find.widgetWithText(TextFormField, 'گزینه‌ها (هر گزینه در یک خط)'),
           findsNothing,

@@ -1,9 +1,10 @@
 part of 'roles_page.dart';
 
 class _RoleForm extends StatefulWidget {
-  const _RoleForm({this.role, this.category});
+  const _RoleForm({this.role, this.category, this.parent});
   final ManagedRole? role;
   final String? category;
+  final String? parent;
   @override
   State<_RoleForm> createState() => _RoleFormState();
 }
@@ -22,7 +23,7 @@ class _RoleFormState extends State<_RoleForm> {
     _code = TextEditingController(text: widget.role?.code ?? '');
     _description = TextEditingController(text: widget.role?.description ?? '');
     _category = widget.role?.category ?? widget.category ?? '';
-    _parent = widget.role?.parent ?? '';
+    _parent = widget.role?.parent ?? widget.parent ?? '';
     _enabled = widget.role?.enabled ?? true;
   }
 
@@ -285,6 +286,7 @@ class _RoleFormState extends State<_RoleForm> {
           baseRoles: _baseline?.baseRoles ?? const [],
           modified: _baseline?.modified,
           profileModified: _baseline?.profileModified,
+          assignedUsers: _baseline?.assignedUsers ?? 0,
         ));
     if (saved && mounted) Navigator.pop(context, true);
   }

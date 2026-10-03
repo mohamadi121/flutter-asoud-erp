@@ -80,7 +80,8 @@ class RoleCubit extends Cubit<RoleState> {
       if (!isClosed && epoch == _epoch) {
         emit(RoleState(
             catalog: repository.localCatalog,
-            loaded: !(e is ApiException && (e.isUnauthorized || e.kind == ApiFailureKind.forbidden)),
+            loaded: !(e is ApiException &&
+                (e.isUnauthorized || e.kind == ApiFailureKind.forbidden)),
             error: roleFailure(e)));
       }
       return false;
@@ -105,5 +106,7 @@ class RoleCubit extends Cubit<RoleState> {
   Future<bool> applyTemplates(List<String> codes) =>
       _mutate(() => repository.applyTemplates(codes));
   Future<bool> synchronize() => _mutate(repository.synchronize);
+  Future<bool> importRoles(List<ManagedRole> roles) =>
+      _mutate(() => repository.importRoles(roles));
   Future<bool> discardDrafts() => _mutate(repository.discardDrafts);
 }

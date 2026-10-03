@@ -3,6 +3,7 @@ import 'package:equatable/equatable.dart';
 
 import '../../../../core/network/api_exception.dart';
 import '../../domain/request_templates.dart';
+import '../../domain/request_form_layout.dart';
 import '../../../workflows/domain/entities/workflow_definition.dart';
 import '../../../workflows/domain/repositories/workflow_repository.dart';
 
@@ -26,14 +27,13 @@ class RequestTypeBuilderCubit extends Cubit<RequestTypeBuilderState> {
             fields: existing == null && template != null
                 ? List.of(template.fields)
                 : const [],
-            active: template == null));
+            active: false));
   final WorkflowRepository repository;
   final String? company;
 
   Future<void> load() async {
     final existing = state.definition;
     if (existing != null) await _loadExisting(existing);
-    await loadRoles();
   }
 
   Future<void> loadRoles() async {
@@ -71,6 +71,12 @@ class RequestTypeBuilderCubit extends Cubit<RequestTypeBuilderState> {
             .whereType<Map>()
             .map(WorkflowFormFieldDefinition.fromMap)
             .toList(),
+        layout: normalizeRequestLayout(
+            ((form?.config['form_fields'] as List?) ?? const [])
+                .whereType<Map>()
+                .map(WorkflowFormFieldDefinition.fromMap)
+                .toList(),
+            form?.config['form_layout'] as List? ?? const []),
         initiatorRoles:
             ((start?.config['initiator_roles'] as List?) ?? const [])
                 .map((role) => role.toString())
@@ -87,8 +93,47 @@ class RequestTypeBuilderCubit extends Cubit<RequestTypeBuilderState> {
 
   void setActive(bool value) => emit(state.copyWith(active: value));
 
-  void setFields(List<WorkflowFormFieldDefinition> fields) =>
-      emit(state.copyWith(fields: fields));
+  void setFields(List<WorkflowFormFieldDefinition> fields,
+      {bool reorderLayout = false}) {
+    var placements = normalizeRequestLayout(
+        fields, state.layout.map((item) => item.toMap()));
+    if (reorderLayout) {
+      final byKey = {
+        for (final placement in placements) placement.key: placement
+      };
+      var index = 0;
+      placements = [
+        for (final placement in placements)
+          requestBaseLayout.containsKey(placement.key)
+              ? placement
+              : byKey[fields[index++].key]!,
+      ];
+    }
+    emit(state.copyWith(fields: fields, layout: placements));
+  }
+
+  List<RequestFieldPlacement> get layout => normalizeRequestLayout(
+      state.fields, state.layout.map((item) => item.toMap()));
+
+  void moveField(String source, String target) {
+    if (state.saving || source == target) return;
+    final items = layout;
+    final from = items.indexWhere((item) => item.key == source);
+    final to = items.indexWhere((item) => item.key == target);
+    if (from < 0 || to < 0) return;
+    items.insert(to, items.removeAt(from));
+    emit(state.copyWith(layout: items));
+  }
+
+  void resizeField(String key) {
+    if (state.saving) return;
+    emit(state.copyWith(layout: [
+      for (final item in layout)
+        item.key == key
+            ? RequestFieldPlacement(key, fullWidth: !item.fullWidth)
+            : item,
+    ]));
+  }
 
   void setInitiatorRoles(List<String> roles) =>
       emit(state.copyWith(initiatorRoles: roles));
@@ -158,6 +203,7 @@ class RequestTypeBuilderCubit extends Cubit<RequestTypeBuilderState> {
           'activity_type': config['activity_type'] ?? 'Data Entry',
           'assignment_type': config['assignment_type'] ?? 'Initiator',
           'form_fields': state.fields.map((field) => field.toMap()).toList(),
+          'form_layout': layout.map((item) => item.toMap()).toList(),
         },
       );
       emit(state.copyWith(design: design, step: 2));
@@ -165,6 +211,24 @@ class RequestTypeBuilderCubit extends Cubit<RequestTypeBuilderState> {
   }
 
   void continueToAccess() => emit(state.copyWith(step: 3, clearMessage: true));
+
+  /// Save presentation without changing initiator roles or granting access.
+  Future<void> finish() async {
+    final definition = state.definition;
+    final form = state.design == null ? null : _formStage(state.design!);
+    if (definition == null || form == null) return;
+    await _run('ذخیره چیدمان ممکن نشد.', () async {
+      final design = await repository.saveStageSettings(
+          definition: definition.id,
+          stage: form.id,
+          config: {
+            ...form.config,
+            'form_fields': state.fields.map((field) => field.toMap()).toList(),
+            'form_layout': layout.map((item) => item.toMap()).toList(),
+          });
+      emit(state.copyWith(design: design, completed: true));
+    });
+  }
 
   /// Step 4: who may submit, then the requested status.
   Future<void> saveAccess() async {

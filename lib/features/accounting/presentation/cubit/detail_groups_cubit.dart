@@ -50,25 +50,30 @@ class DetailGroupsCubit extends Cubit<DetailGroupsState> {
   }
 
   Future<void> seedDefaults() async {
+    if (isClosed || state.status == DetailGroupsStatus.loading) return;
     emit(const DetailGroupsState(status: DetailGroupsStatus.loading));
     try {
       final groups = await _repository.seedDefaults();
+      if (isClosed) return;
       emit(DetailGroupsState(
           status: DetailGroupsStatus.success, groups: groups));
     } catch (error) {
       if (isRetryableOfflineFailure(error)) {
         final groups = await _repository.getGroups();
+        if (isClosed) return;
         emit(DetailGroupsState(
           status: DetailGroupsStatus.offlineSaved,
           groups: groups,
-          message: 'درخواست ایجاد گروه‌های پیشنهادی روی گوشی ذخیره شد.',
+          message: 'گروه‌های پیشنهادی روی گوشی ذخیره شدند.',
         ));
         return;
       }
-      emit(const DetailGroupsState(
-        status: DetailGroupsStatus.failure,
-        message: 'ایجاد گروه‌های پیشنهادی در ASOUD ERP انجام نشد.',
-      ));
+      if (!isClosed) {
+        emit(const DetailGroupsState(
+          status: DetailGroupsStatus.failure,
+          message: 'ایجاد گروه‌های پیشنهادی در ASOUD ERP انجام نشد.',
+        ));
+      }
     }
   }
 
@@ -77,7 +82,11 @@ class DetailGroupsCubit extends Cubit<DetailGroupsState> {
     code = code.trim().split('').map((character) {
       final persian = '۰۱۲۳۴۵۶۷۸۹'.indexOf(character);
       final arabic = '٠١٢٣٤٥٦٧٨٩'.indexOf(character);
-      return persian >= 0 ? '$persian' : arabic >= 0 ? '$arabic' : character;
+      return persian >= 0
+          ? '$persian'
+          : arabic >= 0
+              ? '$arabic'
+              : character;
     }).join();
     if (!RegExp(r'^\d{3,12}$').hasMatch(code.trim()) ||
         title.trim().length < 2) {

@@ -7,6 +7,7 @@ import '../../../core/network/frappe_client.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/network/asoud_api_response.dart';
 import '../domain/role_catalog.dart';
+import '../domain/bundled_role_catalog.dart';
 
 class _RemoteRoleRepository {
   const _RemoteRoleRepository(this.client);
@@ -181,7 +182,12 @@ class RoleRepository {
 
   RoleCatalog _view() {
     final raw = Map<String, dynamic>.from(
-        _data['catalog'] as Map? ?? _encode(const RoleCatalog()));
+        _data['catalog'] as Map? ?? _encode(bundledRoleCatalog));
+    if (offline && (raw['templates'] as List).isEmpty) {
+      final bundled = _encode(bundledRoleCatalog);
+      raw['templates'] = bundled['templates'];
+      raw['template_categories'] = bundled['template_categories'];
+    }
     final categories = (raw['categories'] as List)
         .map((e) => Map<String, dynamic>.from(e as Map))
         .toList();
@@ -190,6 +196,32 @@ class RoleRepository {
         .toList();
     for (final draft in _drafts) {
       final values = Map<String, dynamic>.from(draft['values'] as Map);
+      if (draft['kind'] == 'template') {
+        final template = bundledRoleCatalog.templates
+            .where((item) => item.code == values['code'])
+            .firstOrNull;
+        if (template != null &&
+            !roles.any((row) => row['code'] == template.code)) {
+          final category = bundledRoleCatalog.templateCategories
+              .firstWhere((item) => item.code == template.category);
+          if (!categories.any((row) => row['code'] == category.code)) {
+            categories.add({
+              'code': category.code,
+              'title': category.title,
+              'style': category.style
+            });
+          }
+          roles.add({
+            ...ManagedRole(
+                    code: template.code,
+                    title: template.title,
+                    category: template.category,
+                    baseRoles: template.baseRoles)
+                .toJson(),
+            'enabled': true
+          });
+        }
+      }
       final rows = draft['kind'] == 'category'
           ? categories
           : draft['kind'] == 'role'
@@ -199,19 +231,30 @@ class RoleRepository {
       rows.removeWhere((e) => e['code'] == values['code']);
       rows.add(values);
     }
-    return RoleCatalog.fromJson(
-        {...raw, 'categories': categories, 'roles': roles});
+    final templates = (raw['templates'] as List)
+        .map((row) => {
+              ...Map<String, dynamic>.from(row as Map),
+              'exists': roles.any((role) => role['code'] == row['code']),
+            })
+        .toList();
+    return RoleCatalog.fromJson({
+      ...raw,
+      'categories': categories,
+      'roles': roles,
+      'templates': templates
+    });
   }
 
   RoleCatalog get localCatalog => _view();
-  bool isDraft(String code) => _drafts.any(
-      (draft) => draft['kind'] == 'role' && draft['code'] == code);
+  bool isDraft(String code) => _drafts.any((draft) =>
+      (draft['kind'] == 'role' || draft['kind'] == 'template') &&
+      draft['code'] == code);
 
   Future<void> _remember(
       String field, Map<String, dynamic> values, int epoch) async {
     _check(epoch);
     final catalog = Map<String, dynamic>.from(
-        _data['catalog'] as Map? ?? _encode(const RoleCatalog()));
+        _data['catalog'] as Map? ?? _encode(bundledRoleCatalog));
     final rows = List<dynamic>.of(catalog[field] as List)
       ..removeWhere((row) => row['code'] == values['code'])
       ..add(values);
@@ -303,6 +346,9 @@ class RoleRepository {
   Future<RoleCategory> createCategory(
       String code, String title, String style) async {
     await _identify(draftOnly: offline);
+    if (_view().categories.any((category) => category.code == code)) {
+      throw const FormatException('کد دسته تکراری است.');
+    }
     final epoch = _epoch;
     if (!offline && _drafts.isEmpty) {
       try {
@@ -339,7 +385,28 @@ class RoleRepository {
     }
     _check(epoch);
     for (final code in codes) {
-      await _queue('template', code, {'code': code});
+      final catalog = _view();
+      if (catalog.roles.any((role) => role.code == code)) continue;
+      final template =
+          catalog.templates.where((item) => item.code == code).firstOrNull;
+      if (template == null || !template.available) {
+        throw const FormatException('الگوی نقش معتبر نیست.');
+      }
+      final category = catalog.templateCategories
+          .firstWhere((item) => item.code == template.category);
+      if (!catalog.categories.any((item) => item.code == category.code)) {
+        await _queue('category', category.code, {
+          'code': category.code,
+          'title': category.title,
+          'style': category.style
+        });
+      }
+      final role = ManagedRole(
+          code: template.code,
+          title: template.title,
+          category: template.category,
+          baseRoles: template.baseRoles);
+      await _queue('role', code, {...role.toJson(), 'enabled': true});
     }
   }
 
@@ -410,6 +477,66 @@ class RoleRepository {
       await _persist(epoch);
     }
     offline = false;
+  }
+
+  /// Import is staged atomically on this device; server sync remains explicit.
+  Future<void> importRoles(List<ManagedRole> roles) async {
+    await _identify(draftOnly: true);
+    final epoch = _epoch;
+    validateImport(roles);
+    final previous = _data;
+    _data = {
+      ..._data,
+      'drafts': [
+        ..._drafts,
+        for (final role in roles)
+          {
+            'kind': 'role',
+            'code': role.code,
+            'values': {...role.toJson(), 'enabled': role.enabled}
+          }
+      ]
+    };
+    try {
+      await _persist(epoch);
+    } catch (_) {
+      if (_epoch == epoch) _data = previous;
+      rethrow;
+    }
+  }
+
+  void validateImport(List<ManagedRole> roles) {
+    if (roles.isEmpty || roles.length > 500) {
+      throw const FormatException('فایل باید بین ۱ تا ۵۰۰ نقش داشته باشد.');
+    }
+    final catalog = _view();
+    final graph = {for (final role in catalog.roles) role.code: role.parent};
+    final categories = catalog.categories.map((item) => item.code).toSet();
+    final pattern = RegExp(r'^[A-Z][A-Z0-9_-]{1,39}$');
+    for (final role in roles) {
+      if (!pattern.hasMatch(role.code) || graph.containsKey(role.code)) {
+        throw FormatException('کد نامعتبر یا تکراری: ${role.code}');
+      }
+      if (role.title.isEmpty ||
+          role.title.length > 140 ||
+          role.description.length > 2000 ||
+          !categories.contains(role.category) ||
+          role.baseRoles.isNotEmpty) {
+        throw FormatException(
+            'نام یا دسته نامعتبر برای نقش ${role.code}؛ دسته را ابتدا ایجاد کنید.');
+      }
+      graph[role.code] = role.parent;
+    }
+    for (final role in roles) {
+      final seen = <String>{};
+      var current = role.code;
+      while (current.isNotEmpty) {
+        if (!graph.containsKey(current) || !seen.add(current)) {
+          throw FormatException('والد نامعتبر یا ارتباط حلقوی: ${role.code}');
+        }
+        current = graph[current]!;
+      }
+    }
   }
 
   Future<List<RolePermissionRow>> preview(List<String> roles) =>

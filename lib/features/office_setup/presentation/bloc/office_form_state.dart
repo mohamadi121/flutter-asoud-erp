@@ -36,9 +36,11 @@ class OfficeFormState extends Equatable {
     this.errors = const {},
     this.message,
     this.createdOffice,
+    this.suggestionRevision = 0,
   });
 
   final OfficeType officeType;
+  final int suggestionRevision;
   final String officeName, ownerFullName, registrationNumber, nationalId;
   final String activityType, companyType, parentOffice, phone, email, website;
   final String province, city, address, postalCode, fiscalYear, chartTemplate;
@@ -74,6 +76,7 @@ class OfficeFormState extends Equatable {
       logoBytes != null;
 
   OfficeFormState copyWith({
+    int? suggestionRevision,
     OfficeType? officeType,
     String? officeName,
     String? ownerFullName,
@@ -103,6 +106,7 @@ class OfficeFormState extends Equatable {
     Office? createdOffice,
   }) =>
       OfficeFormState(
+        suggestionRevision: suggestionRevision ?? this.suggestionRevision,
         officeType: officeType ?? this.officeType,
         officeName: officeName ?? this.officeName,
         ownerFullName: ownerFullName ?? this.ownerFullName,
@@ -133,6 +137,7 @@ class OfficeFormState extends Equatable {
 
   @override
   List<Object?> get props => [
+        suggestionRevision,
         officeType,
         officeName,
         ownerFullName,

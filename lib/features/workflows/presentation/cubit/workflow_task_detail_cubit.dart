@@ -57,7 +57,7 @@ class WorkflowTaskDetailCubit extends Cubit<WorkflowTaskDetailState> {
     if (detail == null) return 'فرم مرحله دریافت نشده است.';
     for (final field in detail.fields.where((field) => field.required)) {
       final value = state.values[field.key];
-      if (value == null || value == '' || value == false) {
+      if (value == null || value == '' || (value is List && value.isEmpty)) {
         return 'فیلد «${field.label}» الزامی است.';
       }
     }

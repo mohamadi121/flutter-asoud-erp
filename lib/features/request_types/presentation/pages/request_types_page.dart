@@ -158,60 +158,47 @@ class _RequestTypeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final visual = requestIconFor(item.iconKey);
-    final subtitle = item.shortTitle?.isNotEmpty == true
-        ? item.shortTitle!
-        : item.description?.isNotEmpty == true
-            ? item.description!
-            : item.code;
-    final (badge, badgeColor) = item.status == WorkflowDefinitionStatus.active
-        ? (null, AsoudColors.success)
-        : item.isLocked
-            ? ('نیازمند تکمیل', AsoudColors.warning)
-            : ('غیرفعال', AsoudColors.muted);
     return Card(
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 8),
       child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(children: [
-            AsoudIconBox(icon: visual.icon, color: visual.color, size: 44),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(item.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          fontSize: 13, fontWeight: FontWeight.w900)),
-                  const SizedBox(height: 3),
-                  Text(subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          fontSize: 11, color: AsoudColors.muted)),
-                ],
-              ),
-            ),
-            if (badge != null)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                    color: badgeColor.withValues(alpha: .1),
-                    borderRadius: BorderRadius.circular(8)),
-                child: Text(badge,
-                    style: TextStyle(
-                        fontSize: 9,
-                        color: badgeColor,
-                        fontWeight: FontWeight.w800)),
-              ),
-            const Icon(Icons.chevron_left_rounded, color: AsoudColors.muted),
-          ]),
-        ),
-      ),
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+              child: Row(children: [
+                PopupMenuButton<String>(
+                    tooltip: 'عملیات درخواست',
+                    onSelected: (_) => onTap(),
+                    itemBuilder: (_) => const [
+                          PopupMenuItem(
+                              value: 'edit', child: Text('ویرایش نوع درخواست')),
+                        ]),
+                Expanded(
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                      Text(item.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w800)),
+                      const SizedBox(height: 3),
+                      Text(
+                          item.shortTitle?.isNotEmpty == true
+                              ? item.shortTitle!
+                              : item.code,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 11, color: visual.color)),
+                      const SizedBox(height: 3),
+                      Text(
+                          'نسخه ${item.version} · ${item.stepsCount} مرحله${item.status == WorkflowDefinitionStatus.active ? '' : ' · پیش‌نویس / غیرفعال'}',
+                          style: const TextStyle(
+                              fontSize: 10, color: AsoudColors.muted)),
+                    ])),
+                const SizedBox(width: 12),
+                AsoudIconBox(icon: visual.icon, color: visual.color, size: 42),
+              ]))),
     );
   }
 }

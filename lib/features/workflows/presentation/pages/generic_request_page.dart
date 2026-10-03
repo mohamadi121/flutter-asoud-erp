@@ -203,14 +203,13 @@ class _GenericRequestPageState extends State<GenericRequestPage> {
     }
     values.clear();
     for (final field in row['fields'] as List? ?? const []) {
-      if (field['type'] == 'Checkbox') {
-        values[field['key']] = false;
-      }
       // Defaults set in the request type builder.
       final initial = '${field['default_value'] ?? ''}';
       if (initial.isEmpty) continue;
       if (field['type'] == 'Multi Choice') {
         values[field['key']] = [initial];
+      } else if (field['type'] == 'Checkbox') {
+        values[field['key']] = initial == 'true' || initial == '1';
       } else {
         values[field['key']] = initial;
         fields[field['key']]?.text = initial;
@@ -364,29 +363,45 @@ class _GenericRequestPageState extends State<GenericRequestPage> {
             ? 'این فیلد الزامی است.'
             : null;
     if (field.type == 'Checkbox') {
-      return SwitchListTile(
-          title: Text(field.label),
-          value: values[field.key] == true,
-          onChanged: saving
-              ? null
-              : (value) => setState(() => values[field.key] = value));
+      return RequestBooleanField(
+          key: ValueKey('${selected!['name']}:${field.key}'),
+          label: field.label,
+          required: field.required,
+          enabled: !saving,
+          initialValue:
+              values[field.key] is bool ? values[field.key] as bool : null,
+          onChanged: (value) => values[field.key] = value);
     }
     if (field.type == 'Choice' || field.type == 'Attachment') {
+      final choices = (field.type == 'Choice'
+              ? field.options
+              : [
+                  for (final file in attachments)
+                    'attachment:${file['filename']}',
+                  if (editing)
+                    for (final file
+                        in (widget.existing!['attachments'] as List? ?? [])
+                            .whereType<Map>())
+                      if (file['file_url'] is String)
+                        file['file_url'] as String,
+                ])
+          .toSet()
+          .toList();
       return DropdownButtonFormField<String>(
           key: ValueKey(
-              '${selected!['name']}:${field.key}:${attachments.length}'),
-          initialValue: values[field.key] as String?,
+              '${selected!['name']}:${field.key}:${choices.join('|')}'),
+          initialValue: choices.contains(values[field.key])
+              ? values[field.key] as String
+              : null,
+          isExpanded: true,
           decoration: InputDecoration(labelText: field.label),
           validator: validate,
           items: [
-            for (final option in field.type == 'Choice'
-                ? field.options
-                : attachments
-                    .map((file) => 'attachment:${file['filename']}')
-                    .toList())
+            for (final option in choices)
               DropdownMenuItem(
                   value: option,
-                  child: Text(option.replaceFirst('attachment:', '')))
+                  child: Text(option.replaceFirst('attachment:', ''),
+                      overflow: TextOverflow.ellipsis))
           ],
           onChanged: saving
               ? null
@@ -410,6 +425,7 @@ class _GenericRequestPageState extends State<GenericRequestPage> {
           required: field.required,
           enabled: !saving,
           loader: (txt) => widget.repository.fieldOptions(field.type, txt: txt),
+          initialValue: values[field.key] as String?,
           onChanged: (value) => values[field.key] = value);
     }
     if (field.type == 'Table') {
@@ -439,6 +455,11 @@ class _GenericRequestPageState extends State<GenericRequestPage> {
           required: field.required,
           enabled: !saving,
           items: (txt) => widget.repository.fieldOptions('Item', txt: txt),
+          initialValue: (values[field.key] as List?)
+                  ?.whereType<Map>()
+                  .map((row) => Map<String, dynamic>.from(row))
+                  .toList() ??
+              const [],
           uoms: (itemCode) =>
               widget.repository.fieldOptions('UOM', itemCode: itemCode),
           onChanged: (rows) => values[field.key] = rows);
@@ -648,6 +669,10 @@ class _GenericRequestPageState extends State<GenericRequestPage> {
                         padding: const EdgeInsets.only(top: 12),
                         child: dynamicField(raw)),
               ]),
+            if (editing)
+              for (final raw in all)
+                if (raw['type'] == 'Attachment')
+                  _card('فایل پیوست', [dynamicField(raw)]),
             Card(
               margin: AsoudFormStyle.sectionMargin,
               child: ExpansionTile(

@@ -259,32 +259,22 @@ class _RequestFieldEditorPageState extends State<RequestFieldEditorPage> {
                             fontSize: 11,
                             color: AsoudColors.muted,
                             height: 1.7))),
-              ExpansionTile(
-                tilePadding: EdgeInsets.zero,
-                title: const Text('تنظیمات بیشتر',
-                    style:
-                        TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-                children: [
-                  AsoudFormField(
-                      controller: technicalKey,
-                      label: 'نام فنی (اختیاری)',
-                      hint: 'purchase_type',
-                      enabled: initial == null,
-                      validator: _validateKey),
-                  if (hasDefault)
-                    AsoudFormField(
-                        controller: defaultValue,
-                        label: 'مقدار پیش‌فرض (اختیاری)',
-                        hint: selectedType == 'Date' ? 'YYYY-MM-DD' : null,
-                        validator: _validateDefault),
-                  SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('نمایش در لیست',
-                          style: TextStyle(fontSize: 12)),
-                      value: showInList,
-                      onChanged: (value) => setState(() => showInList = value)),
-                ],
-              ),
+              if (hasDefault)
+                ExpansionTile(
+                    tilePadding: EdgeInsets.zero,
+                    title: const Text('مقدار پیش‌فرض (اختیاری)',
+                        style: TextStyle(
+                            fontSize: 12, fontWeight: FontWeight.w700)),
+                    children: [
+                      if (selectedType == 'Date')
+                        AsoudFormDateField(
+                            controller: defaultValue, label: 'تاریخ پیش‌فرض')
+                      else
+                        AsoudFormField(
+                            controller: defaultValue,
+                            label: 'مقدار پیش‌فرض',
+                            validator: _validateDefault),
+                    ]),
               SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   title: const Text('تکمیل این فیلد الزامی است',

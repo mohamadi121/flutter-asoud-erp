@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../theme/asoud_colors.dart';
 import 'asoud_ui.dart';
+import '../utils/jalali_date.dart';
+import 'asoud_jalali_picker.dart';
 
 /// Canonical form contract, extracted unchanged from PartyFormPage.
 /// Keep all create/edit forms on these components; see docs/form-style.md.
@@ -126,12 +128,13 @@ String? asoudDateValidator(String? value, {bool required = false}) {
   if (!RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(text) ||
       date == null ||
       date.toIso8601String().substring(0, 10) != text) {
-    return 'تاریخ معتبر به شکل YYYY-MM-DD وارد کنید.';
+    return 'تاریخ معتبر را از تقویم شمسی انتخاب کنید.';
   }
   return null;
 }
 
-class AsoudFormDateField extends StatelessWidget {
+/// Displays and picks Jalali dates; callers retain canonical ISO values for APIs.
+class AsoudFormDateField extends StatefulWidget {
   const AsoudFormDateField(
       {required this.controller,
       required this.label,
@@ -142,37 +145,138 @@ class AsoudFormDateField extends StatelessWidget {
   final String label;
   final bool required, enabled;
   @override
+  State<AsoudFormDateField> createState() => _AsoudFormDateFieldState();
+}
+
+class _AsoudFormDateFieldState extends State<AsoudFormDateField> {
+  final _display = TextEditingController();
+  bool _changing = false;
+  @override
+  void initState() {
+    super.initState();
+    _read();
+    widget.controller.addListener(_read);
+    _display.addListener(_write);
+  }
+
+  @override
+  void didUpdateWidget(covariant AsoudFormDateField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_read);
+      widget.controller.addListener(_read);
+      _read();
+    }
+  }
+
+  void _read() {
+    if (_changing) return;
+    _changing = true;
+    final raw = widget.controller.text;
+    _display.text = raw.isEmpty
+        ? ''
+        : (asoudDateValidator(raw) == null ? formatJalaliIso(raw) : raw);
+    _changing = false;
+  }
+
+  void _write() {
+    if (_changing) return;
+    _changing = true;
+    final text = _display.text.trim();
+    final parsed = parseJalaliDate(text);
+    widget.controller.text = text.isEmpty
+        ? ''
+        : parsed?.toIso8601String().substring(0, 10) ?? 'invalid:$text';
+    _changing = false;
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_read);
+    _display.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pick() async {
+    final value = await showAsoudJalaliPicker(context,
+        initialDate: DateTime.tryParse(widget.controller.text),
+        title: widget.label);
+    if (!mounted || value == null) return;
+    widget.controller.text = value.toIso8601String().substring(0, 10);
+  }
+
+  @override
   Widget build(BuildContext context) => AsoudFormField(
-        controller: controller,
-        label: label,
-        enabled: enabled,
+        controller: _display,
+        label: widget.label,
+        enabled: widget.enabled,
         keyboardType: TextInputType.datetime,
-        hint: 'YYYY-MM-DD',
-        validator: (v) => asoudDateValidator(v, required: required),
+        hint: '۱۴۰۵/۰۷/۱۱',
+        validator: (value) {
+          if ((value ?? '').trim().isEmpty) {
+            return widget.required ? 'این فیلد الزامی است.' : null;
+          }
+          return parseJalaliDate(value!) == null
+              ? 'تاریخ شمسی معتبر به شکل سال/ماه/روز وارد کنید.'
+              : null;
+        },
         suffixIcon: IconButton(
-            tooltip: 'انتخاب تاریخ',
-            icon: const Icon(Icons.calendar_month_outlined),
-            onPressed: !enabled
-                ? null
-                : () async {
-                    final first = DateTime(1900), last = DateTime(2100, 12, 31);
-                    final parsed =
-                        DateTime.tryParse(controller.text) ?? DateTime.now();
-                    final value = await showDatePicker(
-                        context: context,
-                        initialDate:
-                            parsed.isBefore(first) || parsed.isAfter(last)
-                                ? DateTime.now()
-                                : parsed,
-                        firstDate: first,
-                        lastDate: last,
-                        helpText: label);
-                    if (value != null) {
-                      controller.text =
-                          value.toIso8601String().substring(0, 10);
-                    }
-                  }),
+            tooltip: 'انتخاب تاریخ شمسی',
+            onPressed: widget.enabled ? _pick : null,
+            icon: const Icon(Icons.calendar_month_outlined)),
       );
+}
+
+class AsoudFormDateValue extends StatefulWidget {
+  const AsoudFormDateValue(
+      {required this.label,
+      required this.value,
+      required this.onChanged,
+      this.enabled = true,
+      this.required = false,
+      super.key});
+  final String label, value;
+  final ValueChanged<String> onChanged;
+  final bool enabled, required;
+  @override
+  State<AsoudFormDateValue> createState() => _AsoudFormDateValueState();
+}
+
+class _AsoudFormDateValueState extends State<AsoudFormDateValue> {
+  late final controller = TextEditingController(text: widget.value);
+  bool _updating = false;
+  @override
+  void initState() {
+    super.initState();
+    controller.addListener(_changed);
+  }
+
+  void _changed() {
+    if (!_updating) widget.onChanged(controller.text);
+  }
+
+  @override
+  void didUpdateWidget(covariant AsoudFormDateValue oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.value != oldWidget.value && controller.text != widget.value) {
+      _updating = true;
+      controller.text = widget.value;
+      _updating = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AsoudFormDateField(
+      controller: controller,
+      label: widget.label,
+      enabled: widget.enabled,
+      required: widget.required);
 }
 
 class AsoudFormPage extends StatelessWidget {

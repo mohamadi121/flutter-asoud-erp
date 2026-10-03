@@ -35,6 +35,67 @@ class PartiesCubit extends Cubit<PartiesState> {
 
   int _loadVersion = 0;
 
+  Future<void> suggestPersonnel({PartyRole? role}) async {
+    if (isClosed ||
+        state.status == PartiesStatus.saving ||
+        state.status == PartiesStatus.loading) {
+      return;
+    }
+    if (company == null || company!.trim().isEmpty) {
+      emit(PartiesState(
+          status: PartiesStatus.failure,
+          items: state.items,
+          message:
+              'ابتدا دفتر را انتخاب کنید تا پرسنل نمونه به همان دفتر متصل شوند.'));
+      return;
+    }
+    ++_loadVersion;
+    emit(PartiesState(status: PartiesStatus.saving, items: state.items));
+    try {
+      final Object suggestions = repository;
+      if (suggestions is LocalPersonnelSuggestions &&
+          suggestions.supportsLocalSuggestions) {
+        await suggestions.suggestLocalPersonnel(company!);
+        final items = await repository.list(company: company, role: role);
+        if (!isClosed) {
+          emit(PartiesState(
+              status: PartiesStatus.offlineSaved,
+              items: items,
+              message:
+                  'سه پرسنل نمونه روی دستگاه ذخیره شدند؛ اجرای دوباره، آن‌ها را تکرار نمی‌کند.'));
+        }
+        return;
+      }
+      final existing =
+          await repository.list(company: company, role: PartyRole.employee);
+      const titles = ['حسابدار', 'کارشناس منابع انسانی', 'کارشناس فروش'];
+      for (var index = 0; index < titles.length; index++) {
+        final marker =
+            'پرسنل پیشنهادی نمونه ${index + 1}؛ اطلاعات غیرواقعی و قابل ویرایش.';
+        if (existing.any((item) => item.description == marker)) continue;
+        await repository.save(
+            PartyProfile(
+              company: company,
+              kind: PartyKind.individual,
+              displayName: 'پرسنل نمونه ${index + 1}',
+              roles: const {PartyRole.employee},
+              jobTitle: titles[index],
+              description: marker,
+            ),
+            primaryRole: PartyRole.employee);
+      }
+      if (!isClosed) await load(role: role);
+    } catch (_) {
+      if (!isClosed) {
+        emit(PartiesState(
+            status: PartiesStatus.failure,
+            items: state.items,
+            message:
+                'ایجاد پیشنهادها کامل نشد؛ موارد ذخیره‌شده حفظ شده‌اند. بازخوانی و دوباره تلاش کنید.'));
+      }
+    }
+  }
+
   Future<void> load({PartyRole? role, String? search}) async {
     if (isClosed) return;
     final version = ++_loadVersion;

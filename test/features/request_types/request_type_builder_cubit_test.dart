@@ -23,12 +23,13 @@ WorkflowStage _formStage(WorkflowDesign design) {
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  test('builds a request type through all four steps', () async {
+  test('builds and persists a three-step form without changing access',
+      () async {
     final repository = PreviewFallbackWorkflowRepository(_OfflineRemote());
     final cubit =
         RequestTypeBuilderCubit(repository: repository, company: 'دفتر نمونه');
     await cubit.load();
-    expect(cubit.state.roles, contains('کارشناس'));
+    expect(cubit.state.roles, isEmpty);
 
     cubit.updateInfo(const RequestTypeInfo(
         title: 'درخواست خرید',
@@ -66,19 +67,15 @@ void main() {
     design = await repository.getDesign(definition.id);
     expect(design.stages, hasLength(2));
 
-    cubit.continueToAccess();
-    expect(cubit.state.step, 3);
-    await cubit.saveAccess();
-    expect(cubit.state.message, 'حداقل یک نقش مجاز انتخاب کنید.');
-    expect(cubit.state.completed, isFalse);
-
-    cubit.setInitiatorRoles(['کارشناس']);
-    await cubit.saveAccess();
+    final previousAccess = design.stages.first.config['initiator_roles'];
+    cubit.moveField('purchase_type', 'base:number');
+    cubit.resizeField('purchase_type');
+    await cubit.finish();
     expect(cubit.state.completed, isTrue);
-    // Activation needs the server; the saved type stays inactive.
-    expect(cubit.state.message, contains('فعال‌سازی'));
     design = await repository.getDesign(definition.id);
-    expect(design.stages.first.config['initiator_roles'], ['کارشناس']);
+    expect(design.stages.first.config['initiator_roles'], previousAccess);
+    expect((_formStage(design).config['form_layout'] as List).first,
+        {'key': 'purchase_type', 'span': 2});
 
     final edit = RequestTypeBuilderCubit(
         repository: repository, existing: design.workflow);
@@ -86,7 +83,8 @@ void main() {
     expect(edit.state.info.title, 'درخواست خرید');
     expect(edit.state.info.shortTitle, 'خرید کالا و خدمات');
     expect(edit.state.fields.single.options, ['کالا', 'خدمت']);
-    expect(edit.state.initiatorRoles, ['کارشناس']);
+    expect(edit.layout.first.key, 'purchase_type');
+    expect(edit.layout.first.fullWidth, isTrue);
     expect(edit.state.active, isFalse);
   });
 

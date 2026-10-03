@@ -17,6 +17,7 @@ import '../cubit/personnel_cubit.dart';
 
 import '../../../parties/domain/entities/party_profile.dart';
 import '../../../parties/presentation/pages/party_form_page.dart';
+import '../../../parties/presentation/pages/party_management_page.dart';
 import '../../../parties/presentation/pages/personnel_roles_page.dart';
 import 'hr_home_page.dart';
 part 'personnel_design.dart';

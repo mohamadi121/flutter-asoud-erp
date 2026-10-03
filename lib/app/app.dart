@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../core/network/frappe_client.dart';
+import '../core/config/app_config.dart';
 import '../core/network/session_vault.dart';
 import '../core/offline/local_database_store.dart';
 import '../core/offline/local_record.dart';
@@ -56,6 +57,9 @@ class _AsoudErpAppState extends State<AsoudErpApp> {
   late final OfflineSyncService syncService =
       OfflineSyncService(client, afterSync: _syncPersonnel);
 
+  bool get _localPreview =>
+      AppConfig.offlineDemoMode && !client.isAuthenticated;
+
   Future<void> _syncPersonnel() async {
     if (!client.isAuthenticated) return;
     final owner = (await client.getCurrentUser()).userId;
@@ -90,7 +94,8 @@ class _AsoudErpAppState extends State<AsoudErpApp> {
             value: FrappeAuthRepository(client),
           ),
           RepositoryProvider<OfficeRepository>.value(
-            value: ServerFirstOfficeRepository(FrappeOfficeRepository(client)),
+            value: ServerFirstOfficeRepository(FrappeOfficeRepository(client),
+                localPreview: () => _localPreview),
           ),
           RepositoryProvider<ChartOfAccountsRepository>.value(
             value: ServerFirstChartOfAccountsRepository(
@@ -100,6 +105,7 @@ class _AsoudErpAppState extends State<AsoudErpApp> {
           RepositoryProvider<DetailGroupRepository>.value(
             value: ServerFirstDetailGroupRepository(
               FrappeDetailGroupRepository(client),
+              localPreview: () => _localPreview,
             ),
           ),
           RepositoryProvider<BaseSetupRepository>.value(
@@ -108,7 +114,8 @@ class _AsoudErpAppState extends State<AsoudErpApp> {
             ),
           ),
           RepositoryProvider<PartyRepository>.value(
-            value: ServerFirstPartyRepository(FrappePartyRepository(client)),
+            value: ServerFirstPartyRepository(FrappePartyRepository(client),
+                localPreview: () => _localPreview),
           ),
           RepositoryProvider<WorkflowRepository>.value(
             value: PreviewFallbackWorkflowRepository(

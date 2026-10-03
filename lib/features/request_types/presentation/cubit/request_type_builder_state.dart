@@ -1,12 +1,13 @@
 part of 'request_type_builder_cubit.dart';
 
-/// Steps: 0 general info, 1 request form, 2 preview, 3 access.
+/// Steps: general info, fields, layout preview.
 class RequestTypeBuilderState extends Equatable {
   const RequestTypeBuilderState({
     this.step = 0,
     this.info = const RequestTypeInfo(title: ''),
     this.active = true,
     this.fields = const [],
+    this.layout = const [],
     this.definition,
     this.design,
     this.roles = const [],
@@ -21,6 +22,7 @@ class RequestTypeBuilderState extends Equatable {
   final RequestTypeInfo info;
   final bool active;
   final List<WorkflowFormFieldDefinition> fields;
+  final List<RequestFieldPlacement> layout;
   final WorkflowDefinition? definition;
   final WorkflowDesign? design;
   final List<String> roles, initiatorRoles;
@@ -34,6 +36,7 @@ class RequestTypeBuilderState extends Equatable {
     RequestTypeInfo? info,
     bool? active,
     List<WorkflowFormFieldDefinition>? fields,
+    List<RequestFieldPlacement>? layout,
     WorkflowDefinition? definition,
     WorkflowDesign? design,
     List<String>? roles,
@@ -49,6 +52,7 @@ class RequestTypeBuilderState extends Equatable {
         info: info ?? this.info,
         active: active ?? this.active,
         fields: fields ?? this.fields,
+        layout: layout ?? this.layout,
         definition: definition ?? this.definition,
         design: design ?? this.design,
         roles: roles ?? this.roles,
@@ -65,6 +69,7 @@ class RequestTypeBuilderState extends Equatable {
         info,
         active,
         fields,
+        layout,
         definition,
         design,
         roles,

@@ -49,7 +49,7 @@ void main() {
   });
 
   for (final width in [320.0, 390.0]) {
-    testWidgets('builds a request type in four steps at $width',
+    testWidgets('builds a request type in three steps at $width',
         (tester) async {
       await tester.binding.setSurfaceSize(Size(width, 800));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -94,7 +94,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.enterText(options, 'کالا\nخدمت');
       await tapText(tester, 'ثبت فیلد');
-      await tester.scrollUntilVisible(find.text('نوع خرید'), -180,
+      await tester.scrollUntilVisible(find.text('نوع خرید'), 180,
           scrollable: formScrollable);
       await tester.pumpAndSettle();
       expect(find.text('نوع خرید'), findsOneWidget);
@@ -115,9 +115,7 @@ void main() {
           dropdown.items!.map((item) => item.value).toList(), ['کالا', 'خدمت']);
       expect(choice.validator!(null), isNull,
           reason: 'فیلد بدون فعال‌کردن گزینه الزامی باید اختیاری بماند.');
-      await tapText(tester, 'ادامه');
-      expect(find.text('دسترسی ثبت درخواست'), findsOneWidget);
-      await tapText(tester, 'کارشناس');
+      expect(find.text('دسترسی ثبت درخواست'), findsNothing);
       await tapText(tester, 'ذخیره و پایان');
 
       expect(find.byType(RequestTypesPage), findsOneWidget);

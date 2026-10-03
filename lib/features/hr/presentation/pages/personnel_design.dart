@@ -94,6 +94,25 @@ class _PersonnelList extends StatelessWidget {
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
                   children: [
+                    if (state.canEdit)
+                      Align(
+                          alignment: AlignmentDirectional.centerEnd,
+                          child: TextButton.icon(
+                              icon: const Icon(Icons.auto_awesome_outlined),
+                              label: const Text('مدیریت و پیشنهاد پرسنل نمونه'),
+                              onPressed: state.loading
+                                  ? null
+                                  : () async {
+                                      await Navigator.push<void>(
+                                          context,
+                                          MaterialPageRoute(
+                                              builder: (_) =>
+                                                  PartyManagementPage(
+                                                      company: cubit.company,
+                                                      initialRole:
+                                                          PartyRole.employee)));
+                                      if (context.mounted) await cubit.load();
+                                    })),
                     Row(children: [
                       IconButton(
                           tooltip: 'فیلتر واحد',

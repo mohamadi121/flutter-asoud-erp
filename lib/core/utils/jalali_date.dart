@@ -70,6 +70,46 @@ String toPersianDigits(Object value) => value
     .toString()
     .replaceAllMapped(RegExp('[0-9]'), (m) => '۰۱۲۳۴۵۶۷۸۹'[int.parse(m[0]!)]);
 
+String toLatinDigits(String value) => value.split('').map((character) {
+      final persian = '۰۱۲۳۴۵۶۷۸۹'.indexOf(character);
+      final arabic = '٠١٢٣٤٥٦٧٨٩'.indexOf(character);
+      return persian >= 0
+          ? '$persian'
+          : arabic >= 0
+              ? '$arabic'
+              : character;
+    }).join();
+
+/// Invert the existing calendar conversion, checking the exact date round trip.
+/// UTC day arithmetic avoids daylight-saving gaps at local midnight.
+DateTime? parseJalaliDate(String value) {
+  final match = RegExp(r'^(\d{4})[/\-](\d{1,2})[/\-](\d{1,2})$')
+      .firstMatch(toLatinDigits(value.trim()));
+  if (match == null) return null;
+  final year = int.parse(match[1]!),
+      month = int.parse(match[2]!),
+      day = int.parse(match[3]!);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  final target = year * 10000 + month * 100 + day;
+  const dayMillis = Duration.millisecondsPerDay;
+  var low = DateTime.utc(1600).millisecondsSinceEpoch ~/ dayMillis;
+  var high = DateTime.utc(2400, 12, 31).millisecondsSinceEpoch ~/ dayMillis;
+  while (low <= high) {
+    final middle = (low + high) >> 1;
+    final date =
+        DateTime.fromMillisecondsSinceEpoch(middle * dayMillis, isUtc: true);
+    final jalali = JalaliDate.fromDateTime(date);
+    final key = jalali.year * 10000 + jalali.month * 100 + jalali.day;
+    if (key == target) return DateTime(date.year, date.month, date.day);
+    if (key < target) {
+      low = middle + 1;
+    } else {
+      high = middle - 1;
+    }
+  }
+  return null;
+}
+
 /// `پنجشنبه ۲ مهر ۱۴۰۵`
 String formatJalaliLong(DateTime value) {
   final date = JalaliDate.fromDateTime(value);

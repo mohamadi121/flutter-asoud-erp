@@ -1,5 +1,10 @@
 import '../entities/party_profile.dart';
 
+abstract interface class LocalPersonnelSuggestions {
+  bool get supportsLocalSuggestions;
+  Future<void> suggestLocalPersonnel(String company);
+}
+
 abstract interface class PartyRepository {
   Future<List<PartyProfile>> list(
       {String? company, PartyRole? role, String? search});

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:excel/excel.dart' hide Border;
+import 'package:file_picker/file_picker.dart';
 import '../../../core/network/frappe_client.dart';
 import '../../../core/theme/asoud_colors.dart';
 import '../../../core/widgets/asoud_ui.dart';
@@ -9,6 +11,8 @@ import 'role_cubit.dart';
 
 part 'role_form_page.dart';
 part 'role_templates_page.dart';
+part 'role_setup_page.dart';
+part 'role_excel_page.dart';
 
 class RolesPage extends StatelessWidget {
   const RolesPage({super.key});
@@ -18,7 +22,7 @@ class RolesPage extends StatelessWidget {
             RoleCubit(RoleRepository(context.read<FrappeApiClient>()))..load(),
         child: const Directionality(
             textDirection: TextDirection.rtl,
-            child: _RoleSessionGuard(child: _RolesView())),
+            child: _RoleSessionGuard(child: _RoleSetupView())),
       );
 }
 
@@ -72,7 +76,7 @@ class _RolesViewState extends State<_RolesView> {
   Widget build(BuildContext context) => Scaffold(
         appBar: AsoudHeader(
             title: 'نقش‌ها',
-            subtitle: 'مدیریت نقش‌ها و دسترسی‌های سامانه',
+            subtitle: 'نمای درختی نقش‌ها',
             action: IconButton(
                 tooltip: 'بازخوانی',
                 onPressed: context.read<RoleCubit>().load,
@@ -149,8 +153,6 @@ class _RolesViewState extends State<_RolesView> {
                                   .contains(_query.toLowerCase()))))
                     _category(category, state, enabled),
                 const SizedBox(height: 14),
-                const _RoleHint(
-                    'نقش‌ها در سطح سامانه تعریف می‌شوند. ذخیره آفلاین فقط پیش‌نویس روی گوشی است؛ هیچ دسترسی واقعی تا تأیید سرور تغییر نمی‌کند. تخصیص به کاربر و محدودیت دفتر/پرسنل جداگانه انجام می‌شود.'),
               ]);
         })),
       );
@@ -186,49 +188,8 @@ class _RolesViewState extends State<_RolesView> {
             }),
           ),
           if (open) ...[
-            for (final role in visible)
-              Padding(
-                padding: const EdgeInsetsDirectional.only(start: 24, end: 12),
-                child: ListTile(
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                  tileColor: _selected == role.code
-                      ? AsoudColors.primary.withValues(alpha: .07)
-                      : null,
-                  title: Text(role.title),
-                  subtitle: Text(
-                      '${role.code}${context.read<RoleCubit>().repository.isDraft(role.code) ? ' · پیش‌نویس گوشی' : ''}${role.enabled ? '' : ' · غیرفعال'}',
-                      style: const TextStyle(fontSize: 11)),
-                  trailing: PopupMenuButton<String>(
-                    enabled: enabled,
-                    tooltip: 'عملیات نقش',
-                    icon: const Icon(Icons.more_vert),
-                    itemBuilder: (_) => [
-                      const PopupMenuItem(
-                          value: 'edit', child: Text('ویرایش نقش')),
-                      PopupMenuItem(
-                          value: 'status',
-                          child: Text(role.enabled
-                              ? 'غیرفعال‌کردن نقش'
-                              : 'فعال‌کردن نقش')),
-                    ],
-                    onSelected: (action) {
-                      if (action == 'edit') {
-                        setState(() => _selected = role.code);
-                        _roleRoute<bool>(context, _RoleForm(role: role));
-                      } else {
-                        _changeStatus(role);
-                      }
-                    },
-                  ),
-                  onTap: !enabled
-                      ? null
-                      : () {
-                          setState(() => _selected = role.code);
-                          _roleRoute<bool>(context, _RoleForm(role: role));
-                        },
-                ),
-              ),
+            for (final node in _tree(visible))
+              _roleRow(node.$1, node.$2, enabled, visible),
             TextButton.icon(
                 onPressed: enabled
                     ? () => _roleRoute<bool>(
@@ -238,6 +199,101 @@ class _RolesViewState extends State<_RolesView> {
                 label: const Text('افزودن نقش به این دسته')),
           ],
         ]));
+  }
+
+  List<(ManagedRole, int)> _tree(List<ManagedRole> roles) {
+    final result = <(ManagedRole, int)>[];
+    final visited = <String>{};
+    final codes = roles.map((role) => role.code).toSet();
+    final sorted = [...roles]..sort((a, b) => a.code.compareTo(b.code));
+    void visit(ManagedRole role, int depth) {
+      if (!visited.add(role.code)) return;
+      result.add((role, depth));
+      final children = sorted.where((item) => item.parent == role.code);
+      if (_expanded.contains('role:${role.code}') || _query.isNotEmpty) {
+        for (final child in children) {
+          visit(child, depth + 1);
+        }
+      } else {
+        // Hidden descendants must not be rendered again as orphan roots.
+        void mark(String parent) {
+          for (final child in sorted.where((item) => item.parent == parent)) {
+            if (visited.add(child.code)) mark(child.code);
+          }
+        }
+
+        mark(role.code);
+      }
+    }
+
+    for (final role in sorted.where((role) => !codes.contains(role.parent))) {
+      visit(role, 0);
+    }
+    // Defensive recovery for malformed cached cycles; every row remains editable.
+    for (final role in sorted) {
+      if (!visited.contains(role.code)) visit(role, 0);
+    }
+    return result;
+  }
+
+  Widget _roleRow(
+      ManagedRole role, int depth, bool enabled, List<ManagedRole> roles) {
+    final hasChildren = roles.any((item) => item.parent == role.code);
+    return Padding(
+        padding: EdgeInsetsDirectional.only(
+            start: 12 + (depth.clamp(0, 6) * 12).toDouble(), end: 4),
+        child: ListTile(
+          dense: true,
+          selected: _selected == role.code,
+          leading: Icon(
+              hasChildren ? Icons.folder_outlined : Icons.badge_outlined,
+              color: AsoudColors.primary),
+          title: Text(role.title),
+          subtitle: Text(
+              '${role.code}${context.read<RoleCubit>().repository.isDraft(role.code) ? ' · محلی' : ''}${role.enabled ? '' : ' · غیرفعال'}',
+              style: const TextStyle(fontSize: 12)),
+          trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+            if (hasChildren)
+              Icon(_expanded.contains('role:${role.code}')
+                  ? Icons.expand_less
+                  : Icons.expand_more),
+            PopupMenuButton<String>(
+                enabled: enabled,
+                tooltip: 'عملیات نقش',
+                itemBuilder: (_) => [
+                      const PopupMenuItem(
+                          value: 'child', child: Text('افزودن زیرمجموعه')),
+                      const PopupMenuItem(
+                          value: 'edit', child: Text('ویرایش نقش')),
+                      PopupMenuItem(
+                          value: 'status',
+                          child: Text(role.enabled
+                              ? 'غیرفعال‌کردن نقش'
+                              : 'فعال‌کردن نقش')),
+                    ],
+                onSelected: (action) {
+                  if (action == 'child') {
+                    _roleRoute<bool>(context,
+                        _RoleForm(category: role.category, parent: role.code));
+                  } else if (action == 'edit') {
+                    _roleRoute<bool>(context, _RoleForm(role: role));
+                  } else {
+                    _changeStatus(role);
+                  }
+                }),
+          ]),
+          onTap: () {
+            setState(() {
+              _selected = role.code;
+              if (!_expanded.add('role:${role.code}')) {
+                _expanded.remove('role:${role.code}');
+              }
+            });
+            if (!hasChildren && enabled) {
+              _roleRoute<bool>(context, _RoleForm(role: role));
+            }
+          },
+        ));
   }
 
   Future<void> _changeStatus(ManagedRole role) async {
@@ -307,10 +363,9 @@ class _RoleStatus extends StatelessWidget {
       builder: (context, state) => Column(children: [
             if (context.read<RoleCubit>().repository.offline)
               const _RoleHint(
-                  'حالت آفلاین: ایجاد دسته و نقش روی گوشی ذخیره می‌شود. برای ارسال پیش‌نویس‌ها پس از اتصال، دکمه ارسال به سرور را بزنید.'),
+                  'ذخیره روی گوشی؛ اعمال دسترسی فقط با تأیید سرور.'),
             if (context.read<RoleCubit>().repository.isPreview)
-              const _RoleHint(
-                  'بدون ورود: اطلاعات فقط در فضای محلی این گوشی نگه‌داری می‌شود و خودکار به حساب کاربری دیگری منتقل نمی‌شود.'),
+              const _RoleHint('فضای محلی بدون ورود؛ مستقل از حساب کاربران.'),
             if (context.read<RoleCubit>().repository.pendingCount > 0) ...[
               _RoleHint(
                   '${context.read<RoleCubit>().repository.pendingCount} پیش‌نویس روی گوشی؛ هنوز روی سرور تأیید نشده است.'),

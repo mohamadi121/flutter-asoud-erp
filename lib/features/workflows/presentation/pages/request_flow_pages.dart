@@ -15,6 +15,8 @@ import '../../data/generic_request_repository.dart';
 import '../../domain/entities/workflow_task.dart';
 import '../../domain/repositories/workflow_task_repository.dart';
 import '../widgets/request_link_fields.dart';
+import '../widgets/request_custom_table.dart';
+import '../../domain/entities/workflow_definition.dart';
 import '../widgets/request_print.dart';
 import 'generic_request_page.dart';
 import 'workflow_instance_detail_page.dart';
@@ -527,13 +529,23 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
 
   Widget _body(Map<String, dynamic> value) {
     final values = Map<String, dynamic>.from(value['values'] as Map? ?? {});
+    final fieldDefinitions = {
+      for (final field
+          in (definition?['fields'] as List? ?? []).whereType<Map>())
+        '${field['key']}': WorkflowFormFieldDefinition.fromMap(field),
+    };
     final items = requestItemRows(values);
     final plain = {
       for (final entry in values.entries)
         if (!(entry.value is List &&
             (entry.value as List).isNotEmpty &&
             (entry.value as List).first is Map))
-          labels[entry.key] ?? entry.key: formatRequestValue(entry.value),
+          labels[entry.key] ?? entry.key:
+              fieldDefinitions[entry.key]?.type == 'Date' &&
+                      entry.value is String &&
+                      entry.value != ''
+                  ? formatJalaliIso(entry.value as String)
+                  : formatRequestValue(entry.value),
     };
     final attachments = value['attachments'] as List? ?? const [];
     return ListView(
@@ -596,6 +608,23 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
                     ]),
                 ],
               ),
+            ]),
+          for (final field in fieldDefinitions.values
+              .where((field) => field.type == 'Table'))
+            _card([
+              RequestCustomTable(
+                  field: field,
+                  enabled: false,
+                  initialValue: (values[field.key] as List?)
+                          ?.whereType<Map>()
+                          .map((row) => Map<String, dynamic>.from(row))
+                          .toList() ??
+                      [],
+                  attachments: [
+                    for (final file in attachments.whereType<Map>())
+                      if (file['file_url'] is String) file['file_url'] as String
+                  ],
+                  onChanged: (_) {})
             ]),
           if (attachments.isNotEmpty)
             _card([

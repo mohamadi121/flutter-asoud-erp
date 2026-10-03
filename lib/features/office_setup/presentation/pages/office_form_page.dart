@@ -106,6 +106,18 @@ class _OfficeFormViewState extends State<_OfficeFormView> {
                     ScrollViewKeyboardDismissBehavior.onDrag,
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
                 children: [
+                  if (!widget.editing)
+                    Align(
+                        alignment: AlignmentDirectional.centerEnd,
+                        child: TextButton.icon(
+                            onPressed:
+                                state.status == OfficeFormStatus.submitting
+                                    ? null
+                                    : () => context
+                                        .read<OfficeFormBloc>()
+                                        .add(const OfficeSuggestionRequested()),
+                            icon: const Icon(Icons.auto_awesome_outlined),
+                            label: const Text('پیشنهاد اطلاعات نمونه'))),
                   _TypeSelector(value: state.officeType),
                   const SizedBox(height: 10),
                   _BaseSection(state: state),
@@ -509,7 +521,8 @@ Widget _field(BuildContext context, String key, String label, String value,
         int maxLines = 1,
         int? maxLength}) =>
     TextFormField(
-      key: ValueKey('office-$key'),
+      key: ValueKey(
+          'office-$key-${context.watch<OfficeFormBloc>().state.suggestionRevision}'),
       initialValue: value,
       maxLines: maxLines,
       maxLength: maxLength,

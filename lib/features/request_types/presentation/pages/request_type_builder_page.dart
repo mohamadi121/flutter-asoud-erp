@@ -7,12 +7,11 @@ import '../../../workflows/domain/entities/workflow_definition.dart';
 import '../../../workflows/domain/repositories/workflow_repository.dart';
 import '../cubit/request_type_builder_cubit.dart';
 import '../../domain/request_templates.dart';
-import '../widgets/request_access_step.dart';
 import '../widgets/request_form_preview_step.dart';
 import '../widgets/request_form_step.dart';
 import '../widgets/request_info_step.dart';
 
-/// Four-step builder: general info, request form, preview and access.
+/// Three-step builder; access remains in workflow/security administration.
 class RequestTypeBuilderPage extends StatelessWidget {
   const RequestTypeBuilderPage(
       {this.company, this.existing, this.template, super.key});
@@ -48,9 +47,9 @@ class _BuilderViewState extends State<_BuilderView> {
       case 1:
         cubit.saveForm();
       case 2:
-        cubit.continueToAccess();
+        cubit.finish();
       default:
-        cubit.saveAccess();
+        return;
     }
   }
 
@@ -85,7 +84,7 @@ class _BuilderViewState extends State<_BuilderView> {
                           0 => RequestInfoStep(formKey: infoForm),
                           1 => const RequestFormStep(),
                           2 => const RequestFormPreviewStep(),
-                          _ => const RequestAccessStep(),
+                          _ => const RequestFormPreviewStep(),
                         },
                 ),
               ]),
@@ -94,7 +93,7 @@ class _BuilderViewState extends State<_BuilderView> {
                 child: AsoudBottomActions(
                   primaryLabel: state.saving
                       ? 'در حال ذخیره...'
-                      : state.step == 3
+                      : state.step == 2
                           ? 'ذخیره و پایان'
                           : 'ادامه',
                   onPrimary: state.saving || state.loading
@@ -114,7 +113,7 @@ class RequestStepIndicator extends StatelessWidget {
   const RequestStepIndicator({required this.step, super.key});
   final int step;
 
-  static const labels = ['اطلاعات کلی', 'فرم درخواست', 'پیش‌نمایش', 'دسترسی'];
+  static const labels = ['اطلاعات کلی', 'فرم درخواست', 'پیش‌نمایش'];
 
   @override
   Widget build(BuildContext context) => Padding(

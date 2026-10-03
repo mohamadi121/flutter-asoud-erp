@@ -32,3 +32,7 @@ final class OfficeLogoChanged extends OfficeFormEvent {
 final class OfficeFormSubmitted extends OfficeFormEvent {
   const OfficeFormSubmitted();
 }
+
+final class OfficeSuggestionRequested extends OfficeFormEvent {
+  const OfficeSuggestionRequested();
+}

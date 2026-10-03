@@ -54,6 +54,30 @@ class OfficeFormBloc extends Bloc<OfficeFormEvent, OfficeFormState> {
         ? state.copyWith(clearLogo: true)
         : state.copyWith(logoName: event.name, logoBytes: event.bytes)));
     on<OfficeFormSubmitted>(_submit);
+    on<OfficeSuggestionRequested>((event, emit) {
+      if (_originalOffice != null ||
+          state.status == OfficeFormStatus.submitting) {
+        return;
+      }
+      emit(state.copyWith(
+        suggestionRevision: state.suggestionRevision + 1,
+        officeName: state.officeName.trim().isEmpty
+            ? (state.officeType == OfficeType.legal
+                ? 'شرکت نمونه آسود'
+                : 'دفتر حقیقی نمونه آسود')
+            : null,
+        ownerFullName: state.ownerFullName.trim().isEmpty &&
+                state.officeType != OfficeType.legal
+            ? 'مالک نمونه'
+            : null,
+        description: state.description.trim().isEmpty
+            ? 'اطلاعات نمونه و قابل ویرایش؛ پیش از استفاده واقعی تکمیل شود.'
+            : null,
+        errors: const {},
+        message:
+            'اطلاعات نمونه فقط در فرم قرار گرفت؛ برای نگهداری، دکمه ذخیره را بزنید.',
+      ));
+    });
   }
 
   final OfficeRepository _repository;
@@ -132,10 +156,17 @@ class OfficeFormBloc extends Bloc<OfficeFormEvent, OfficeFormState> {
       final office = _originalOffice == null
           ? await _repository.createOffice(draft)
           : await _repository.updateOffice(_originalOffice.name, draft);
+      final Object repository = _repository;
+      final local = repository is LocalPreviewOfficeRepository &&
+          repository.isLocalPreview;
       emit(state.copyWith(
-          status: OfficeFormStatus.success,
+          status: local
+              ? OfficeFormStatus.offlinePreview
+              : OfficeFormStatus.success,
           createdOffice: office,
-          message: 'دفتر کار با موفقیت ایجاد شد.'));
+          message: local
+              ? 'دفتر روی همین دستگاه ذخیره شد؛ هنوز روی سرور ثبت نشده است.'
+              : 'دفتر کار با موفقیت ذخیره شد.'));
     } on ApiException catch (error) {
       if (allowOfflinePreview && isRetryableOfflineFailure(error)) {
         emit(state.copyWith(

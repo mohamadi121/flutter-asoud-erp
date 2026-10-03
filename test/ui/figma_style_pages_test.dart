@@ -89,9 +89,9 @@ void main() {
       await tester.pumpWidget(_app(entry.value));
       await tester.pumpAndSettle();
       if (entry.value is RolesSetupPage) {
-        expect(find.text('نقش‌ها'), findsOneWidget);
-        expect(find.textContaining('هنوز دسته یا نقشی ثبت نشده است'),
-            findsOneWidget);
+        expect(find.text('مدیریت نقش‌ها'), findsOneWidget);
+        expect(find.text('مشاهده و تکمیل نقش‌ها'), findsOneWidget);
+        expect(find.text('ورود از اکسل'), findsOneWidget);
       }
       expect(tester.takeException(), isNull);
     });

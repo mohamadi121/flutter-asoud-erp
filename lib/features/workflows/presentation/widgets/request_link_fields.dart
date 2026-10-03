@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/jalali_date.dart';
 
 /// Loads choices (`{value, label, ...}`) for a search text, from
 /// `workflow_request.request_field_options`.
@@ -10,6 +11,36 @@ typedef RequestOptionsLoader = Future<List<Map<String, dynamic>>> Function(
     String txt);
 
 const _requiredMessage = 'این فیلد الزامی است.';
+
+class RequestBooleanField extends FormField<bool> {
+  RequestBooleanField(
+      {required String label,
+      required ValueChanged<bool?> onChanged,
+      bool? initialValue,
+      bool required = false,
+      bool enabled = true,
+      super.key})
+      : super(
+            initialValue: initialValue,
+            validator: (value) =>
+                required && value == null ? _requiredMessage : null,
+            builder: (state) => DropdownButtonFormField<bool>(
+                  initialValue: state.value,
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                      labelText: label, errorText: state.errorText),
+                  items: const [
+                    DropdownMenuItem(value: true, child: Text('بله')),
+                    DropdownMenuItem(value: false, child: Text('خیر')),
+                  ],
+                  onChanged: enabled
+                      ? (value) {
+                          state.didChange(value);
+                          onChanged(value);
+                        }
+                      : null,
+                ));
+}
 
 String _label(Map row) => '${row['label'] ?? row['value']}';
 
@@ -25,9 +56,15 @@ class RequestMultiChoiceField extends FormField<List<String>> {
     super.key,
   }) : super(
           initialValue: initialValue ?? const [],
-          validator: (value) => required && (value == null || value.isEmpty)
-              ? _requiredMessage
-              : null,
+          validator: (value) {
+            if (required && (value == null || value.isEmpty)) {
+              return _requiredMessage;
+            }
+            if (value != null && value.any((item) => !options.contains(item))) {
+              return 'گزینه‌ها تغییر کرده‌اند؛ انتخاب را اصلاح کنید.';
+            }
+            return null;
+          },
           builder: (state) => InputDecorator(
             decoration: InputDecoration(
                 labelText: label,
@@ -61,8 +98,10 @@ class RequestLinkField extends FormField<String> {
     required ValueChanged<String?> onChanged,
     bool required = false,
     bool enabled = true,
+    String? initialValue,
     super.key,
   }) : super(
+          initialValue: initialValue,
           validator: (value) => required && (value == null || value.isEmpty)
               ? _requiredMessage
               : null,
@@ -99,7 +138,7 @@ class _LinkFieldViewState extends State<_LinkFieldView> {
   Future<void> _pick() async {
     final row = await showRequestOptionPicker(context,
         title: widget.label, loader: widget.loader);
-    if (row == null) return;
+    if (row == null || !mounted) return;
     setState(() => display = _label(row));
     widget.state.didChange('${row['value']}');
     widget.onChanged('${row['value']}');
@@ -242,25 +281,37 @@ class RequestItemTableField extends FormField<List<Map<String, dynamic>>> {
     required ValueChanged<List<Map<String, dynamic>>> onChanged,
     bool required = false,
     bool enabled = true,
+    List<Map<String, dynamic>> initialValue = const [],
     super.key,
   }) : super(
-          initialValue: const [],
+          initialValue: initialValue,
           validator: (rows) {
             if (required && (rows == null || rows.isEmpty)) {
               return 'حداقل یک ردیف کالا لازم است.';
             }
-            if (rows != null && rows.any((row) => (row['qty'] as num) <= 0)) {
+            if (rows != null &&
+                rows.any((row) {
+                  final qty = num.tryParse('${row['qty']}');
+                  return qty == null || !qty.isFinite || qty <= 0;
+                })) {
               return 'مقدار هر ردیف باید بیشتر از صفر باشد.';
             }
             return null;
           },
-          builder: (state) => _ItemTableView(
-              state: state,
-              label: label,
-              items: items,
-              uoms: uoms,
-              enabled: enabled,
-              onChanged: onChanged),
+          builder: (state) => LayoutBuilder(
+              builder: (context, constraints) => SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: SizedBox(
+                      width: constraints.maxWidth < 340
+                          ? 340
+                          : constraints.maxWidth,
+                      child: _ItemTableView(
+                          state: state,
+                          label: label,
+                          items: items,
+                          uoms: uoms,
+                          enabled: enabled,
+                          onChanged: onChanged)))),
         );
 }
 
@@ -285,10 +336,15 @@ class _ItemTableView extends StatefulWidget {
 }
 
 class _ItemTableViewState extends State<_ItemTableView> {
-  final rows = <Map<String, dynamic>>[];
-  final names = <String>[];
-  final ids = <int>[];
-  var nextId = 0;
+  late final rows = [
+    for (final row in widget.state.value ?? <Map<String, dynamic>>[])
+      Map<String, dynamic>.from(row)
+  ];
+  late final names = [
+    for (final row in rows) '${row['item_name'] ?? row['item_code']}'
+  ];
+  late final ids = List.generate(rows.length, (index) => index);
+  late var nextId = rows.length;
   final unitLists = <String, Future<List<Map<String, dynamic>>>>{};
 
   void _publish() {
@@ -298,9 +354,10 @@ class _ItemTableViewState extends State<_ItemTableView> {
   }
 
   Future<void> _add() async {
+    if (rows.length >= 100) return;
     final row = await showRequestOptionPicker(context,
         title: 'انتخاب کالا', loader: widget.items);
-    if (row == null) return;
+    if (row == null || !mounted) return;
     setState(() {
       rows.add(
           {'item_code': '${row['value']}', 'qty': 1, 'uom': row['stock_uom']});
@@ -321,7 +378,7 @@ class _ItemTableViewState extends State<_ItemTableView> {
           children: [
             for (var index = 0; index < rows.length; index++) _row(index),
             OutlinedButton.icon(
-              onPressed: widget.enabled ? _add : null,
+              onPressed: widget.enabled && rows.length < 100 ? _add : null,
               icon: const Icon(Icons.add_rounded),
               label: const Text('افزودن کالا'),
             ),
@@ -334,6 +391,7 @@ class _ItemTableViewState extends State<_ItemTableView> {
     final code = row['item_code'] as String;
     final units = unitLists.putIfAbsent(code, () => widget.uoms(code));
     return Card(
+      key: ValueKey(ids[index]),
       margin: const EdgeInsets.only(bottom: 8),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(10, 6, 4, 6),
@@ -359,7 +417,7 @@ class _ItemTableViewState extends State<_ItemTableView> {
               decoration:
                   const InputDecoration(isDense: true, labelText: 'مقدار'),
               onChanged: (text) {
-                row['qty'] = num.tryParse(text.trim()) ?? 0;
+                row['qty'] = num.tryParse(toLatinDigits(text.trim())) ?? 0;
                 _publish();
               },
             ),
@@ -370,11 +428,11 @@ class _ItemTableViewState extends State<_ItemTableView> {
             child: FutureBuilder<List<Map<String, dynamic>>>(
               future: units,
               builder: (context, snapshot) {
-                final choices = [
+                final choices = <String>{
                   for (final unit
                       in snapshot.data ?? const <Map<String, dynamic>>[])
                     '${unit['value']}'
-                ];
+                }.toList();
                 if (row['uom'] != null && !choices.contains(row['uom'])) {
                   choices.insert(0, '${row['uom']}');
                 }

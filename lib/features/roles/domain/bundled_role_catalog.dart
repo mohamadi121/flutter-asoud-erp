@@ -1,0 +1,107 @@
+import 'role_catalog.dart';
+
+// Offline definitions only. Effective permissions require authorized server sync.
+const bundledRoleCatalog = RoleCatalog(
+  templateCategories: [
+    RoleCategory(code: 'SYSTEM', title: 'مدیریت سیستم', style: 'system'),
+    RoleCategory(code: 'FINANCE', title: 'مالی و حسابداری', style: 'finance'),
+    RoleCategory(code: 'SALES', title: 'فروش و بازاریابی', style: 'sales'),
+    RoleCategory(code: 'STOCK', title: 'انبار و کالا', style: 'stock'),
+    RoleCategory(code: 'PURCHASE', title: 'خرید و تدارکات', style: 'purchase'),
+    RoleCategory(code: 'HR', title: 'منابع انسانی', style: 'hr'),
+    RoleCategory(code: 'EMPLOYEE', title: 'پرسنل', style: 'employee'),
+  ],
+  templates: [
+    AccessRoleTemplate(
+        code: 'SYSTEM_ADMIN',
+        title: 'مدیر سیستم',
+        category: 'SYSTEM',
+        baseRoles: ['System Manager'],
+        available: true,
+        exists: false),
+    AccessRoleTemplate(
+        code: 'FINANCE_MANAGER',
+        title: 'مدیر مالی',
+        category: 'FINANCE',
+        baseRoles: ['Accounts Manager'],
+        available: true,
+        exists: false),
+    AccessRoleTemplate(
+        code: 'ACCOUNTANT',
+        title: 'حسابدار',
+        category: 'FINANCE',
+        baseRoles: ['Accounts User'],
+        available: true,
+        exists: false),
+    AccessRoleTemplate(
+        code: 'SALES_MANAGER',
+        title: 'مدیر فروش',
+        category: 'SALES',
+        baseRoles: ['Sales Manager'],
+        available: true,
+        exists: false),
+    AccessRoleTemplate(
+        code: 'SALES_USER',
+        title: 'کارشناس فروش',
+        category: 'SALES',
+        baseRoles: ['Sales User'],
+        available: true,
+        exists: false),
+    AccessRoleTemplate(
+        code: 'PURCHASE_MANAGER',
+        title: 'مدیر خرید',
+        category: 'PURCHASE',
+        baseRoles: ['Purchase Manager'],
+        available: true,
+        exists: false),
+    AccessRoleTemplate(
+        code: 'PURCHASE_USER',
+        title: 'کارشناس خرید',
+        category: 'PURCHASE',
+        baseRoles: ['Purchase User'],
+        available: true,
+        exists: false),
+    AccessRoleTemplate(
+        code: 'STOCK_MANAGER',
+        title: 'مدیر انبار',
+        category: 'STOCK',
+        baseRoles: ['Stock Manager'],
+        available: true,
+        exists: false),
+    AccessRoleTemplate(
+        code: 'STOCK_USER',
+        title: 'انباردار',
+        category: 'STOCK',
+        baseRoles: ['Stock User'],
+        available: true,
+        exists: false),
+    AccessRoleTemplate(
+        code: 'HR_MANAGER',
+        title: 'مدیر منابع انسانی',
+        category: 'HR',
+        baseRoles: ['HR Manager'],
+        available: true,
+        exists: false),
+    AccessRoleTemplate(
+        code: 'HR_USER',
+        title: 'کارشناس منابع انسانی',
+        category: 'HR',
+        baseRoles: ['HR User'],
+        available: true,
+        exists: false),
+    AccessRoleTemplate(
+        code: 'PAYROLL_MANAGER',
+        title: 'مسئول حقوق و دستمزد',
+        category: 'FINANCE',
+        baseRoles: ['Payroll Manager'],
+        available: true,
+        exists: false),
+    AccessRoleTemplate(
+        code: 'EMPLOYEE',
+        title: 'پرسنل',
+        category: 'EMPLOYEE',
+        baseRoles: ['Employee'],
+        available: true,
+        exists: false),
+  ],
+);

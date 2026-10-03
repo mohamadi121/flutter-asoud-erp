@@ -43,7 +43,7 @@ void main() {
       await tester.tap(find.text('مدیریت نقش‌ها'));
       await tester.pumpAndSettle();
       expect(find.byType(RolesPage), findsOneWidget);
-      expect(find.text('نقش‌ها'), findsOneWidget);
+      expect(find.text('مشاهده و تکمیل نقش‌ها'), findsOneWidget);
       expect(client.methods, ['asoud_erp.api.v1.role_management.catalog']);
       expect(tester.takeException(), isNull);
       await tester.tap(find.byIcon(Icons.chevron_right_rounded).first);
