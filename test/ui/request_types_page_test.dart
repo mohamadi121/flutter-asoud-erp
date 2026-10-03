@@ -105,10 +105,14 @@ void main() {
       await tapText(tester, 'ادامه');
       expect(find.text('پیش‌نمایش فرم درخواست'), findsOneWidget);
       expect(find.text('نوع خرید'), findsOneWidget);
-      final choice = tester.widget<DropdownButtonFormField<String>>(
-          find.widgetWithText(DropdownButtonFormField<String>, 'نوع خرید'));
+      final choiceFinder =
+          find.widgetWithText(DropdownButtonFormField<String>, 'نوع خرید');
+      final choice =
+          tester.widget<DropdownButtonFormField<String>>(choiceFinder);
+      final dropdown = tester.widget<DropdownButton<String>>(find.descendant(
+          of: choiceFinder, matching: find.byType(DropdownButton<String>)));
       expect(
-          choice.items!.map((item) => item.value).toList(), ['کالا', 'خدمت']);
+          dropdown.items!.map((item) => item.value).toList(), ['کالا', 'خدمت']);
       expect(choice.validator!(null), isNull,
           reason: 'فیلد بدون فعال‌کردن گزینه الزامی باید اختیاری بماند.');
       await tapText(tester, 'ادامه');
