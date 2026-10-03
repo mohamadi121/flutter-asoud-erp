@@ -16,12 +16,11 @@ class RequestBooleanField extends FormField<bool> {
   RequestBooleanField(
       {required String label,
       required ValueChanged<bool?> onChanged,
-      bool? initialValue,
+      super.initialValue,
       bool required = false,
       bool enabled = true,
       super.key})
       : super(
-            initialValue: initialValue,
             validator: (value) =>
                 required && value == null ? _requiredMessage : null,
             builder: (state) => DropdownButtonFormField<bool>(
@@ -98,10 +97,9 @@ class RequestLinkField extends FormField<String> {
     required ValueChanged<String?> onChanged,
     bool required = false,
     bool enabled = true,
-    String? initialValue,
+    super.initialValue,
     super.key,
   }) : super(
-          initialValue: initialValue,
           validator: (value) => required && (value == null || value.isEmpty)
               ? _requiredMessage
               : null,
