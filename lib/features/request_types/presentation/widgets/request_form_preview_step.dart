@@ -154,74 +154,78 @@ class _RequestFormPreviewStepState extends State<RequestFormPreviewStep> {
                                           crossAxisAlignment:
                                               CrossAxisAlignment.stretch,
                                           children: [
-                                            Row(children: [
-                                              LongPressDraggable<String>(
-                                                  data: item.key,
-                                                  maxSimultaneousDrags:
-                                                      state.saving ? 0 : 1,
-                                                  feedback: Material(
-                                                      elevation: 4,
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              10),
-                                                      child: Padding(
-                                                          padding:
-                                                              const EdgeInsets.all(
+                                            Wrap(
+                                                alignment:
+                                                    WrapAlignment.spaceBetween,
+                                                crossAxisAlignment:
+                                                    WrapCrossAlignment.center,
+                                                children: [
+                                                  LongPressDraggable<String>(
+                                                      data: item.key,
+                                                      maxSimultaneousDrags:
+                                                          state.saving ? 0 : 1,
+                                                      feedback: Material(
+                                                          elevation: 4,
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                  10),
+                                                          child: Padding(
+                                                              padding: const EdgeInsets.all(
                                                                   16),
-                                                          child: Text(requestBaseLayout[item.key] ??
-                                                              state.fields
-                                                                  .firstWhere((f) =>
-                                                                      f.key ==
-                                                                      item.key)
-                                                                  .label))),
-                                                  child: const Padding(
-                                                      padding:
-                                                          EdgeInsets.all(8),
-                                                      child: Icon(Icons.drag_indicator, size: 20, color: AsoudColors.muted))),
-                                              const Spacer(),
-                                              if (!requestBaseLayout
-                                                  .containsKey(item.key))
-                                                IconButton(
-                                                    tooltip: 'ویرایش فیلد',
-                                                    constraints:
-                                                        const BoxConstraints
-                                                            .tightFor(
-                                                            width: 28,
-                                                            height: 32),
-                                                    padding: EdgeInsets.zero,
-                                                    onPressed: state.saving
-                                                        ? null
-                                                        : () => _edit(state
-                                                            .fields
-                                                            .firstWhere(
-                                                                (field) =>
+                                                              child: Text(requestBaseLayout[item.key] ??
+                                                                  state.fields
+                                                                      .firstWhere((f) =>
+                                                                          f.key ==
+                                                                          item
+                                                                              .key)
+                                                                      .label))),
+                                                      child: const Padding(
+                                                          padding: EdgeInsets.all(8),
+                                                          child: Icon(Icons.drag_indicator, size: 20, color: AsoudColors.muted))),
+                                                  if (!requestBaseLayout
+                                                      .containsKey(item.key))
+                                                    IconButton(
+                                                        tooltip: 'ویرایش فیلد',
+                                                        constraints:
+                                                            const BoxConstraints
+                                                                .tightFor(
+                                                                width: 28,
+                                                                height: 32),
+                                                        padding:
+                                                            EdgeInsets.zero,
+                                                        onPressed: state.saving
+                                                            ? null
+                                                            : () => _edit(state
+                                                                .fields
+                                                                .firstWhere((field) =>
                                                                     field.key ==
                                                                     item.key)),
-                                                    icon: const Icon(
-                                                        Icons.edit_outlined,
-                                                        size: 16)),
-                                              IconButton(
-                                                  constraints:
-                                                      const BoxConstraints
-                                                          .tightFor(
-                                                          width: 28,
-                                                          height: 32),
-                                                  padding: EdgeInsets.zero,
-                                                  tooltip: item.fullWidth
-                                                      ? 'نیم‌عرض'
-                                                      : 'تمام‌عرض',
-                                                  onPressed: state.saving
-                                                      ? null
-                                                      : () => cubit.resizeField(
-                                                          item.key),
-                                                  icon: Icon(
-                                                      item.fullWidth
-                                                          ? Icons
-                                                              .view_column_outlined
-                                                          : Icons
-                                                              .width_full_outlined,
-                                                      size: 18)),
-                                            ]),
+                                                        icon: const Icon(
+                                                            Icons.edit_outlined,
+                                                            size: 16)),
+                                                  IconButton(
+                                                      constraints:
+                                                          const BoxConstraints
+                                                              .tightFor(
+                                                              width: 28,
+                                                              height: 32),
+                                                      padding: EdgeInsets.zero,
+                                                      tooltip: item.fullWidth
+                                                          ? 'نیم‌عرض'
+                                                          : 'تمام‌عرض',
+                                                      onPressed: state.saving
+                                                          ? null
+                                                          : () =>
+                                                              cubit.resizeField(
+                                                                  item.key),
+                                                      icon: Icon(
+                                                          item.fullWidth
+                                                              ? Icons
+                                                                  .view_column_outlined
+                                                              : Icons
+                                                                  .width_full_outlined,
+                                                          size: 18)),
+                                                ]),
                                             if (requestBaseLayout.containsKey(item.key))
                                               TextFormField(
                                                   key: ValueKey(

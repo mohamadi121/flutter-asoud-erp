@@ -2,6 +2,7 @@ import 'package:asoud_erp/core/theme/asoud_theme.dart';
 import 'package:asoud_erp/core/utils/jalali_date.dart';
 import 'package:asoud_erp/core/widgets/asoud_form.dart';
 import 'package:asoud_erp/features/request_types/domain/request_type_catalog.dart';
+import 'package:asoud_erp/features/request_types/domain/request_form_layout.dart';
 import 'package:asoud_erp/features/request_types/presentation/cubit/request_type_builder_cubit.dart';
 import 'package:asoud_erp/features/request_types/presentation/widgets/request_form_preview_step.dart';
 import 'package:asoud_erp/features/workflows/domain/entities/workflow_definition.dart';
@@ -104,14 +105,15 @@ void main() {
       expect(find.text('پیش‌نمایش فرم درخواست'), findsOneWidget);
       expect(
           find.text(
-              'فرم ثبت درخواست برای کاربران به این شکل نمایش داده می‌شود. این پیش‌نمایش ذخیره نمی‌شود.'),
+              'با کشیدن دستگیره، فیلدها را بالا، پایین، چپ و راست جابه‌جا کنید. اندازه و ترتیب ذخیره می‌شود؛ مقادیر آزمایشی ذخیره نمی‌شوند.'),
           findsOneWidget);
       expect(find.text(_info.title), findsOneWidget);
       expect(find.text(_info.shortTitle), findsOneWidget);
       expect(find.byIcon(requestIconFor(_info.iconKey).icon), findsOneWidget);
-      expect(find.text('اطلاعات پایه'), findsOneWidget);
-      expect(find.text('اطلاعات اختصاصی'), findsOneWidget);
-      for (final label in requestBaseFields) {
+      expect(find.text('افزودن فیلد جدید'), findsOneWidget);
+      expect(find.byType(LongPressDraggable<String>),
+          findsNWidgets(requestBaseLayout.length + _fields.length));
+      for (final label in requestBaseLayout.values) {
         final input = find.widgetWithText(TextFormField, label);
         expect(input, findsOneWidget);
         expect(tester.widget<TextFormField>(input).enabled, isFalse);
@@ -129,7 +131,7 @@ void main() {
       expect(find.text('توضیحات نمونه'), findsOneWidget);
       expect(find.text('2'), findsOneWidget);
       expect(find.text('100'), findsOneWidget);
-      expect(find.text('2026-09-25'), findsOneWidget);
+      expect(find.text(formatJalaliIso('2026-09-25')), findsOneWidget);
       expect(
           tester
               .widget<TextField>(find.descendant(
@@ -161,7 +163,7 @@ void main() {
               .widget<OutlinedButton>(
                   find.widgetWithText(OutlinedButton, 'انتخاب فایل'))
               .onPressed,
-          isNull);
+          isNotNull);
 
       await _validate(tester);
       expect(find.text('این فیلد الزامی است.'), findsOneWidget);
@@ -177,12 +179,15 @@ void main() {
     });
   }
 
-  testWidgets('shows the empty form message', (tester) async {
+  testWidgets('shows movable base fields when no custom fields exist',
+      (tester) async {
     await _pumpPreview(tester, fields: const []);
-    expect(
-        find.text(
-            'فیلد اختصاصی تعریف نشده است؛ فقط فیلدهای پایه نمایش داده می‌شوند.'),
-        findsOneWidget);
+    expect(find.text('افزودن فیلد جدید'), findsOneWidget);
+    for (final label in requestBaseLayout.values) {
+      expect(find.widgetWithText(TextFormField, label), findsOneWidget);
+    }
+    expect(find.byType(LongPressDraggable<String>),
+        findsNWidgets(requestBaseLayout.length));
     await _validate(tester);
     expect(find.text('فرم معتبر است.'), findsOneWidget);
     expect(tester.takeException(), isNull);

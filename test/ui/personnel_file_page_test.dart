@@ -1,5 +1,6 @@
 import 'package:asoud_erp/core/network/api_exception.dart';
 import 'package:asoud_erp/core/theme/asoud_theme.dart';
+import 'package:asoud_erp/core/utils/jalali_date.dart';
 import 'package:asoud_erp/features/hr/data/personnel_file_repository.dart';
 import 'package:asoud_erp/features/hr/data/personnel_repository.dart';
 import 'package:asoud_erp/features/hr/domain/personnel_file.dart';
@@ -547,13 +548,13 @@ void main() {
                 })))));
     await _tap(tester, 'باز کردن');
     await _tap(tester, 'اطلاعات قرارداد');
-    await tester.enterText(
-        find.widgetWithText(TextFormField, 'تاریخ شروع *'), '2026-01-01');
+    await tester.enterText(find.widgetWithText(TextFormField, 'تاریخ شروع *'),
+        formatJalaliIso('2026-01-01'));
     await _tap(tester, 'ذخیره');
     expect(repo.saved, isNull);
     expect(find.text('شرح قرارداد الزامی است.'), findsOneWidget);
-    await tester.enterText(
-        find.widgetWithText(TextFormField, 'تاریخ پایان'), '2026-12-31');
+    await tester.enterText(find.widgetWithText(TextFormField, 'تاریخ پایان'),
+        formatJalaliIso('2026-12-31'));
     await tester.enterText(
         find.widgetWithText(TextFormField, 'شرح قرارداد *'), 'شرح همکاری');
     await _tap(tester, 'امضا شده');
