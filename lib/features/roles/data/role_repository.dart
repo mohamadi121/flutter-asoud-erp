@@ -99,10 +99,11 @@ class RoleRepository {
   }
 
   void _check(int epoch) {
-    if (_epoch != epoch)
+    if (_epoch != epoch) {
       throw const ApiException(
           kind: ApiFailureKind.unauthenticated,
           message: 'نشست تغییر کرده؛ صفحه را دوباره باز کنید.');
+    }
   }
 
   Future<void> _identify({bool draftOnly = false}) async {
@@ -133,12 +134,13 @@ class RoleRepository {
 
   Future<void> _persist(int epoch) async {
     _check(epoch);
-    if (local != null)
+    if (local != null) {
       await local!.save(
           id: _key!,
           entityType: 'role_drafts',
           payload: _data,
           status: LocalSyncStatus.localOnly);
+    }
     _check(epoch);
     pendingCount = _drafts.length;
   }
@@ -419,11 +421,12 @@ class RoleRepository {
     // Require a successful authorized read before abandoning the working draft.
     final catalog = await remote.load();
     _check(epoch);
-    if (local != null)
+    if (local != null) {
       await local!.save(
           id: '$_key:archive:${DateTime.now().microsecondsSinceEpoch}',
           entityType: 'role_draft_archive',
           payload: _data);
+    }
     _check(epoch);
     _data = {'catalog': _encode(catalog), 'drafts': []};
     offline = false;
