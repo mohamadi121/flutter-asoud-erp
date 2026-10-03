@@ -277,6 +277,7 @@ class WorkflowFormFieldDefinition extends Equatable {
     this.defaultValue = '',
     this.helpText = '',
     this.showInList = false,
+    this.columns = const [],
   });
 
   factory WorkflowFormFieldDefinition.fromMap(Map<dynamic, dynamic> map) =>
@@ -293,6 +294,12 @@ class WorkflowFormFieldDefinition extends Equatable {
         defaultValue: map['default_value']?.toString() ?? '',
         helpText: map['help_text']?.toString() ?? '',
         showInList: map['show_in_list'] == true || map['show_in_list'] == 1,
+        columns: map['columns'] is List
+            ? (map['columns'] as List)
+                .whereType<Map>()
+                .map(WorkflowFormFieldDefinition.fromMap)
+                .toList(growable: false)
+            : const [],
       );
 
   final String key, label, type;
@@ -300,6 +307,7 @@ class WorkflowFormFieldDefinition extends Equatable {
   final List<String> options;
   final String defaultValue, helpText;
   final bool showInList;
+  final List<WorkflowFormFieldDefinition> columns;
 
   Map<String, dynamic> toMap() => {
         'key': key,
@@ -310,6 +318,8 @@ class WorkflowFormFieldDefinition extends Equatable {
         if (defaultValue.isNotEmpty) 'default_value': defaultValue,
         if (helpText.isNotEmpty) 'help_text': helpText,
         if (showInList) 'show_in_list': true,
+        if (type == 'Table')
+          'columns': columns.map((column) => column.toMap()).toList(),
       };
 
   WorkflowFormFieldDefinition copyWith({
@@ -321,6 +331,7 @@ class WorkflowFormFieldDefinition extends Equatable {
     String? defaultValue,
     String? helpText,
     bool? showInList,
+    List<WorkflowFormFieldDefinition>? columns,
   }) =>
       WorkflowFormFieldDefinition(
         key: key ?? this.key,
@@ -331,6 +342,7 @@ class WorkflowFormFieldDefinition extends Equatable {
         defaultValue: defaultValue ?? this.defaultValue,
         helpText: helpText ?? this.helpText,
         showInList: showInList ?? this.showInList,
+        columns: columns ?? this.columns,
       );
 
   @override
@@ -343,5 +355,6 @@ class WorkflowFormFieldDefinition extends Equatable {
         defaultValue,
         helpText,
         showInList,
+        columns,
       ];
 }

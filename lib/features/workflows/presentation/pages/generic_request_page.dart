@@ -13,6 +13,7 @@ import '../../data/generic_request_repository.dart';
 import '../../../request_types/domain/request_type_catalog.dart';
 import '../../domain/entities/workflow_definition.dart';
 import '../widgets/request_link_fields.dart';
+import '../widgets/request_custom_table.dart';
 import 'request_flow_pages.dart';
 
 class GenericRequestsPage extends StatefulWidget {
@@ -410,6 +411,26 @@ class _GenericRequestPageState extends State<GenericRequestPage> {
           enabled: !saving,
           loader: (txt) => widget.repository.fieldOptions(field.type, txt: txt),
           onChanged: (value) => values[field.key] = value);
+    }
+    if (field.type == 'Table') {
+      return RequestCustomTable(
+          key: key,
+          field: field,
+          enabled: !saving,
+          initialValue: (values[field.key] as List?)
+                  ?.whereType<Map>()
+                  .map((row) => Map<String, dynamic>.from(row))
+                  .toList() ??
+              const [],
+          attachments: [
+            for (final file in attachments) 'attachment:${file['filename']}',
+            if (editing)
+              for (final file
+                  in (widget.existing!['attachments'] as List? ?? const [])
+                      .whereType<Map>())
+                if (file['file_url'] is String) file['file_url'] as String,
+          ],
+          onChanged: (rows) => values[field.key] = rows);
     }
     if (field.type == 'Item Table') {
       return RequestItemTableField(

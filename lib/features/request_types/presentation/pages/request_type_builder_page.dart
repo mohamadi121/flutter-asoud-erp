@@ -89,17 +89,20 @@ class _BuilderViewState extends State<_BuilderView> {
                         },
                 ),
               ]),
-              bottomNavigationBar: AsoudBottomActions(
-                primaryLabel: state.saving
-                    ? 'در حال ذخیره...'
-                    : state.step == 3
-                        ? 'ذخیره و پایان'
-                        : 'ادامه',
-                onPrimary: state.saving || state.loading
-                    ? null
-                    : () => _primary(cubit, state.step),
-                secondaryLabel: state.step > 0 ? 'بازگشت' : null,
-                onSecondary: state.saving ? null : cubit.back,
+              bottomNavigationBar: Directionality(
+                textDirection: TextDirection.ltr,
+                child: AsoudBottomActions(
+                  primaryLabel: state.saving
+                      ? 'در حال ذخیره...'
+                      : state.step == 3
+                          ? 'ذخیره و پایان'
+                          : 'ادامه',
+                  onPrimary: state.saving || state.loading
+                      ? null
+                      : () => _primary(cubit, state.step),
+                  secondaryLabel: state.step > 0 ? 'بازگشت' : null,
+                  onSecondary: state.saving ? null : cubit.back,
+                ),
               ),
             ),
           );

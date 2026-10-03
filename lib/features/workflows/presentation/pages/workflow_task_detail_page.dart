@@ -8,6 +8,7 @@ import '../../domain/entities/workflow_definition.dart';
 import '../../domain/entities/workflow_task.dart';
 import '../../domain/repositories/workflow_task_repository.dart';
 import '../cubit/workflow_task_detail_cubit.dart';
+import '../widgets/request_custom_table.dart';
 
 class WorkflowTaskDetailPage extends StatelessWidget {
   const WorkflowTaskDetailPage({required this.task, super.key});
@@ -404,6 +405,36 @@ class _DynamicField extends StatelessWidget {
     final value = context.select(
         (WorkflowTaskDetailCubit cubit) => cubit.state.values[field.key]);
     final label = '${field.label}${field.required ? ' *' : ''}';
+    if (field.type == 'Table') {
+      final rows = (value as List?)
+              ?.whereType<Map>()
+              .map((row) => Map<String, dynamic>.from(row))
+              .toList() ??
+          const <Map<String, dynamic>>[];
+      return RequestCustomTable(
+          key: ValueKey(field.key),
+          field: field,
+          enabled: enabled,
+          initialValue: rows,
+          attachments: [
+            for (final row in rows)
+              for (final column in field.columns)
+                if (column.type == 'Attachment' && row[column.key] is String)
+                  row[column.key] as String,
+          ],
+          uploadAttachment: () async {
+            final file = await openFile(acceptedTypeGroups: const [
+              XTypeGroup(
+                  label: 'اسناد مجاز',
+                  extensions: ['pdf', 'png', 'jpg', 'jpeg', 'xlsx', 'docx']),
+            ]);
+            if (file == null || !context.mounted) return null;
+            final bytes = await file.readAsBytes();
+            if (!context.mounted || cubit.isClosed) return null;
+            return cubit.uploadTableAttachment(file.name, bytes);
+          },
+          onChanged: (rows) => cubit.setValue(field.key, rows));
+    }
     if (field.type == 'Checkbox') {
       return CheckboxListTile(
         value: value == true,

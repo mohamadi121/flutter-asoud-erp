@@ -67,6 +67,7 @@ const requestFieldTypes = [
   RequestFieldType('User', 'کاربر', Icons.person_outline_rounded),
   RequestFieldType('Department', 'واحد سازمانی', Icons.groups_outlined),
   RequestFieldType('Item Table', 'جدول اقلام', Icons.table_chart_outlined),
+  RequestFieldType('Table', 'جدول قابل‌تعریف', Icons.grid_on_outlined),
 ];
 
 /// Types whose value is an ERPNext record or a table; the server keeps no
@@ -77,6 +78,16 @@ const requestFieldTypesWithoutDefault = {
   'User',
   'Department',
   'Item Table',
+  'Table',
+};
+
+const requestTableColumnTypes = {
+  'Short Text',
+  'Number',
+  'Currency',
+  'Date',
+  'Choice',
+  'Attachment',
 };
 
 RequestFieldType requestFieldTypeFor(String type) =>

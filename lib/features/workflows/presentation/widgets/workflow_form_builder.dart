@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
 import '../../domain/entities/workflow_definition.dart';
+import '../../../request_types/presentation/pages/request_field_editor_page.dart';
 
 class WorkflowFormBuilder extends StatelessWidget {
   const WorkflowFormBuilder({
@@ -73,6 +74,24 @@ class WorkflowFormBuilder extends StatelessWidget {
   }
 
   Future<void> _edit(BuildContext context, int? index) async {
+    if (index != null && fields[index].type == 'Table') {
+      final result =
+          await Navigator.of(context).push<WorkflowFormFieldDefinition>(
+        MaterialPageRoute(
+            builder: (_) => RequestFieldEditorPage(
+                  type: 'Table',
+                  initial: fields[index],
+                  takenKeys: {
+                    for (var i = 0; i < fields.length; i++)
+                      if (i != index) fields[i].key
+                  },
+                )),
+      );
+      if (result != null && context.mounted) {
+        onChanged([...fields]..[index] = result);
+      }
+      return;
+    }
     final result = await showModalBottomSheet<WorkflowFormFieldDefinition>(
       context: context,
       isScrollControlled: true,
@@ -284,6 +303,7 @@ class _FieldEditorState extends State<_FieldEditor> {
 }
 
 String _typeLabel(String type) => switch (type) {
+      'Table' => 'جدول قابل‌تعریف',
       'Short Text' => 'متن کوتاه',
       'Long Text' => 'متن بلند',
       'Number' => 'عدد',

@@ -103,6 +103,28 @@ class WorkflowTaskDetailCubit extends Cubit<WorkflowTaskDetailState> {
     }
   }
 
+  Future<String?> uploadTableAttachment(
+      String filename, List<int> bytes) async {
+    emit(WorkflowTaskDetailState(
+        status: WorkflowTaskDetailStatus.saving,
+        detail: state.detail,
+        values: state.values,
+        offline: state.offline));
+    try {
+      final url = await _repository.uploadAttachment(
+          task: task, filename: filename, bytes: bytes);
+      emit(WorkflowTaskDetailState(
+          status: WorkflowTaskDetailStatus.ready,
+          detail: state.detail,
+          values: state.values,
+          offline: state.offline));
+      return url;
+    } catch (error) {
+      _failure(error);
+      return null;
+    }
+  }
+
   Future<bool> submit(String action, {String? comment}) async {
     final error = validate();
     if ({'Complete', 'Approve'}.contains(action) && error != null) {

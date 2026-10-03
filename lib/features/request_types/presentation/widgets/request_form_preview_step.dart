@@ -7,6 +7,7 @@ import '../../../../core/widgets/asoud_form.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../workflows/domain/entities/workflow_definition.dart';
 import '../../../workflows/presentation/widgets/request_link_fields.dart';
+import '../../../workflows/presentation/widgets/request_custom_table.dart';
 import '../../domain/request_type_catalog.dart';
 import '../cubit/request_type_builder_cubit.dart';
 
@@ -229,6 +230,8 @@ class _PreviewFieldState extends State<_PreviewField> {
             items: _emptyOptions,
             uoms: _emptyOptions,
             onChanged: (_) {});
+      case 'Table':
+        return RequestCustomTable(field: field, onChanged: (_) {});
       default:
         final numeric = field.type == 'Number' || field.type == 'Currency';
         return TextFormField(
