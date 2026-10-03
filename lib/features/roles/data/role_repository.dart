@@ -68,7 +68,7 @@ class RoleRepository {
   RoleRepository(this.client, {LocalRecordStore? local})
       : local = local ??
             (client is FrappeClient ? LocalDatabaseStore.instance : null),
-        remote = _RemoteRoleRepository(client) {
+        _remote = _RemoteRoleRepository(client) {
     if (client is FrappeClient) {
       _session = client.authenticationChanges.listen((_) {
         _epoch++;
@@ -81,7 +81,7 @@ class RoleRepository {
   }
   final FrappeApiClient client;
   final LocalRecordStore? local;
-  final _RemoteRoleRepository remote;
+  final _RemoteRoleRepository _remote;
   StreamSubscription<bool>? _session;
   int _epoch = 0;
   String? _key;
@@ -231,7 +231,7 @@ class RoleRepository {
       if (client is FrappeClient && !client.isAuthenticated) {
         offline = true;
       } else {
-        final catalog = await remote.load();
+        final catalog = await _remote.load();
         _check(epoch);
         _data['catalog'] = _encode(catalog);
         offline = false;
@@ -275,7 +275,7 @@ class RoleRepository {
     final epoch = _epoch;
     if (!offline && _drafts.isEmpty) {
       try {
-        final saved = await remote.save(role);
+        final saved = await _remote.save(role);
         await _remember(
             'roles',
             {
@@ -306,7 +306,7 @@ class RoleRepository {
     final epoch = _epoch;
     if (!offline && _drafts.isEmpty) {
       try {
-        final saved = await remote.createCategory(code, title, style);
+        final saved = await _remote.createCategory(code, title, style);
         await _remember(
             'categories',
             {'code': saved.code, 'title': saved.title, 'style': saved.style},
@@ -329,7 +329,7 @@ class RoleRepository {
     final epoch = _epoch;
     if (!offline && _drafts.isEmpty) {
       try {
-        await remote.applyTemplates(codes);
+        await _remote.applyTemplates(codes);
         return;
       } catch (e) {
         _check(epoch);
@@ -371,13 +371,13 @@ class RoleRepository {
     }
     for (final draft in ordered) {
       _check(epoch);
-      final catalog = await remote.load();
+      final catalog = await _remote.load();
       _check(epoch);
       final values = Map<String, dynamic>.from(draft['values'] as Map);
       if (draft['kind'] == 'category') {
         final found = catalog.categories.where((e) => e.code == draft['code']);
         if (found.isEmpty) {
-          await remote.createCategory(values['code'] as String,
+          await _remote.createCategory(values['code'] as String,
               values['title'] as String, values['style'] as String);
         } else if (found.first.title != values['title'] ||
             found.first.style != values['style']) {
@@ -385,7 +385,7 @@ class RoleRepository {
               'کد دسته روی سرور متفاوت است؛ پیش‌نویس را اصلاح کنید.');
         }
       } else if (draft['kind'] == 'template') {
-        await remote.applyTemplates([draft['code'] as String]);
+        await _remote.applyTemplates([draft['code'] as String]);
       } else {
         final role = ManagedRole.fromJson(values);
         final found = catalog.roles.where((e) => e.code == role.code);
@@ -397,10 +397,10 @@ class RoleRepository {
             other.enabled == role.enabled &&
             other.baseRoles.length == role.baseRoles.length &&
             other.baseRoles.toSet().containsAll(role.baseRoles);
-        if (found.isEmpty || !same(found.first)) await remote.save(role);
+        if (found.isEmpty || !same(found.first)) await _remote.save(role);
       }
       _check(epoch);
-      final confirmed = await remote.load();
+      final confirmed = await _remote.load();
       _check(epoch);
       _data['catalog'] = _encode(confirmed);
       _data['drafts'] = _drafts
@@ -413,13 +413,13 @@ class RoleRepository {
   }
 
   Future<List<RolePermissionRow>> preview(List<String> roles) =>
-      remote.preview(roles);
+      _remote.preview(roles);
 
   Future<void> discardDrafts() async {
     await _identify();
     final epoch = _epoch;
     // Require a successful authorized read before abandoning the working draft.
-    final catalog = await remote.load();
+    final catalog = await _remote.load();
     _check(epoch);
     if (local != null) {
       await local!.save(

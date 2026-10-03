@@ -98,8 +98,9 @@ class _RequestFieldEditorPageState extends State<RequestFieldEditorPage> {
       if (number == null || !number.isFinite) return 'عدد معتبر وارد کنید.';
     }
     if (selectedType == 'Date') return asoudDateValidator(text);
-    if (isChoice && !optionValues.contains(text))
+    if (isChoice && !optionValues.contains(text)) {
       return 'یکی از گزینه‌ها را وارد کنید.';
+    }
     return null;
   }
 

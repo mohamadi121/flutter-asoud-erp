@@ -44,26 +44,26 @@ class _RequestCustomTableState extends State<RequestCustomTable> {
       for (final column in widget.field.columns) {
         final text = rows[i][column.key]?.toString().trim() ?? '';
         final prefix = 'ردیف ${i + 1}، ${column.label}: ';
-        if (column.required && text.isEmpty) return '${prefix}الزامی است.';
+        if (column.required && text.isEmpty) return '$prefixالزامی است.';
         if (text.isEmpty) continue;
         if (column.type == 'Number' || column.type == 'Currency') {
           final number = num.tryParse(text);
           if (number == null || !number.isFinite) {
-            return '${prefix}عدد معتبر وارد کنید.';
+            return '$prefixعدد معتبر وارد کنید.';
           }
         }
         if (column.type == 'Date' && asoudDateValidator(text) != null) {
-          return '${prefix}تاریخ معتبر با قالب YYYY-MM-DD وارد کنید.';
+          return '$prefixتاریخ معتبر با قالب YYYY-MM-DD وارد کنید.';
         }
         if (column.type == 'Choice' && !column.options.contains(text)) {
-          return '${prefix}یکی از گزینه‌های موجود را انتخاب کنید.';
+          return '$prefixیکی از گزینه‌های موجود را انتخاب کنید.';
         }
         if (column.type == 'Attachment' &&
             !widget.attachments.contains(text) &&
             !uploaded.contains(text)) {
-          return '${prefix}یک فایل از پیوست‌های درخواست انتخاب کنید.';
+          return '$prefixیک فایل از پیوست‌های درخواست انتخاب کنید.';
         }
-        if (text.length > 10000) return '${prefix}متن بیش از حد طولانی است.';
+        if (text.length > 10000) return '$prefixمتن بیش از حد طولانی است.';
       }
     }
     return null;
