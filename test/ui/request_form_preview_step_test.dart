@@ -121,8 +121,12 @@ void main() {
       expect(find.text('خودکار'), findsOneWidget);
       expect(find.text('کاربر جاری'), findsOneWidget);
       expect(find.text('در انتظار'), findsOneWidget);
-      expect(find.text(formatJalaliIso(DateTime.now().toIso8601String())),
-          findsOneWidget);
+      final registrationDate = find.descendant(
+          of: find.widgetWithText(TextFormField, 'تاریخ ثبت'),
+          matching: find.byType(EditableText));
+      expect(registrationDate, findsOneWidget);
+      expect(tester.widget<EditableText>(registrationDate).controller.text,
+          formatJalaliIso(DateTime.now().toIso8601String()));
       for (final field in _fields) {
         expect(find.text('${field.label}${field.required ? ' *' : ''}'),
             findsOneWidget);
@@ -131,7 +135,12 @@ void main() {
       expect(find.text('توضیحات نمونه'), findsOneWidget);
       expect(find.text('2'), findsOneWidget);
       expect(find.text('100'), findsOneWidget);
-      expect(find.text(formatJalaliIso('2026-09-25')), findsOneWidget);
+      final requestedDate = find.descendant(
+          of: find.byType(AsoudFormDateField),
+          matching: find.byType(EditableText));
+      expect(requestedDate, findsOneWidget);
+      expect(tester.widget<EditableText>(requestedDate).controller.text,
+          formatJalaliIso('2026-09-25'));
       expect(
           tester
               .widget<TextField>(find.descendant(
