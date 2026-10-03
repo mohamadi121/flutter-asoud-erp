@@ -24,6 +24,8 @@ Widget app(Widget page) => RepositoryProvider<WorkflowRepository>.value(
 
 Future<void> tapText(WidgetTester tester, String text) async {
   await tester.ensureVisible(find.text(text).last);
+  await tester.pumpAndSettle();
+  expect(find.text(text).last.hitTestable(), findsOneWidget);
   await tester.tap(find.text(text).last);
   await tester.pumpAndSettle();
 }
@@ -68,22 +70,47 @@ void main() {
       expect(find.text('ساخت فرم درخواست'), findsOneWidget);
       expect(find.text('شماره درخواست'), findsOneWidget);
 
+      final formScrollable = find
+          .descendant(
+              of: find.byType(ReorderableListView),
+              matching: find.byType(Scrollable))
+          .first;
+      await tester.scrollUntilVisible(find.text('افزودن فیلد جدید'), 180,
+          scrollable: formScrollable);
+      await tester.pumpAndSettle();
       await tapText(tester, 'افزودن فیلد جدید');
       await tapText(tester, 'انتخابی');
-      expect(find.text('افزودن فیلد'), findsOneWidget);
+      expect(find.text('افزودن فیلد جدید'), findsOneWidget);
       await tester.enterText(
           find.widgetWithText(TextFormField, 'عنوان فیلد *'), 'نوع خرید');
-      await tester.enterText(find.widgetWithText(TextField, 'گزینه 1'), 'کالا');
-      await tapText(tester, 'ذخیره');
+      final options =
+          find.widgetWithText(TextFormField, 'گزینه‌ها (هر گزینه در یک خط)');
+      await tester.ensureVisible(options);
+      await tester.pumpAndSettle();
+      await tester.enterText(options, 'کالا');
+      await tapText(tester, 'ثبت فیلد');
       expect(find.text('حداقل دو گزینه غیرتکراری وارد کنید.'), findsOneWidget);
-      await tester.enterText(find.widgetWithText(TextField, 'گزینه 2'), 'خدمت');
-      await tapText(tester, 'ذخیره');
+      await tester.ensureVisible(options);
+      await tester.pumpAndSettle();
+      await tester.enterText(options, 'کالا\nخدمت');
+      await tapText(tester, 'ثبت فیلد');
+      await tester.scrollUntilVisible(find.text('نوع خرید'), -180,
+          scrollable: formScrollable);
+      await tester.pumpAndSettle();
       expect(find.text('نوع خرید'), findsOneWidget);
-      expect(find.text('اختیاری'), findsOneWidget);
+      expect(find.text('فیلدهای اختصاصی فرم درخواست'), findsOneWidget);
+      expect(find.byTooltip('ویرایش فیلد'), findsOneWidget);
+      expect(find.byTooltip('حذف فیلد'), findsOneWidget);
 
       await tapText(tester, 'ادامه');
       expect(find.text('پیش‌نمایش فرم درخواست'), findsOneWidget);
       expect(find.text('نوع خرید'), findsOneWidget);
+      final choice = tester.widget<DropdownButtonFormField<String>>(
+          find.widgetWithText(DropdownButtonFormField<String>, 'نوع خرید'));
+      expect(
+          choice.items!.map((item) => item.value).toList(), ['کالا', 'خدمت']);
+      expect(choice.validator!(null), isNull,
+          reason: 'فیلد بدون فعال‌کردن گزینه الزامی باید اختیاری بماند.');
       await tapText(tester, 'ادامه');
       expect(find.text('دسترسی ثبت درخواست'), findsOneWidget);
       await tapText(tester, 'کارشناس');

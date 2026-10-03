@@ -183,14 +183,30 @@ void main() {
 
     await tester.pumpWidget(MaterialApp(
         theme: AsoudTheme.light,
-        home: const RequestFieldEditorPage(type: 'Multi Choice')));
-    expect(find.text('گزینه‌ها'), findsOneWidget);
+        home: const RequestFieldEditorPage(
+            key: ValueKey('Multi Choice'), type: 'Multi Choice')));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(TextFormField, 'گزینه‌ها (هر گزینه در یک خط)'),
+        findsOneWidget);
+    await tester.ensureVisible(find.text('تنظیمات بیشتر'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('تنظیمات بیشتر'));
+    await tester.pumpAndSettle();
     expect(find.text('مقدار پیش‌فرض (اختیاری)'), findsOneWidget);
     for (final type in ['User', 'Department', 'Item Table']) {
       await tester.pumpWidget(MaterialApp(
-          theme: AsoudTheme.light, home: RequestFieldEditorPage(type: type)));
+          theme: AsoudTheme.light,
+          home: RequestFieldEditorPage(key: ValueKey(type), type: type)));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('تنظیمات بیشتر'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('تنظیمات بیشتر'));
+      await tester.pumpAndSettle();
       expect(find.text('مقدار پیش‌فرض (اختیاری)'), findsNothing, reason: type);
-      expect(find.text('گزینه‌ها'), findsNothing, reason: type);
+      expect(find.widgetWithText(TextFormField, 'گزینه‌ها (هر گزینه در یک خط)'),
+          findsNothing,
+          reason: type);
     }
+    expect(tester.takeException(), isNull);
   });
 }
