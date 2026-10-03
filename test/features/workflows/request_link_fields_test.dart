@@ -181,6 +181,16 @@ void main() {
     }
     expect(find.text('به‌زودی'), findsNothing);
 
+    // Close the modal route before replacing MaterialApp.home. Reusing the
+    // navigator would otherwise leave its modal barrier over the editor.
+    final multiChoice = find.widgetWithText(ListTile, 'چندانتخابی');
+    await tester.ensureVisible(multiChoice);
+    await tester.pumpAndSettle();
+    expect(multiChoice.hitTestable(), findsOneWidget);
+    await tester.tap(multiChoice);
+    await tester.pumpAndSettle();
+    expect(find.byType(BottomSheet), findsNothing);
+
     await tester.pumpWidget(MaterialApp(
         theme: AsoudTheme.light,
         home: const RequestFieldEditorPage(
@@ -190,6 +200,7 @@ void main() {
         findsOneWidget);
     await tester.ensureVisible(find.text('تنظیمات بیشتر'));
     await tester.pumpAndSettle();
+    expect(find.text('تنظیمات بیشتر').hitTestable(), findsOneWidget);
     await tester.tap(find.text('تنظیمات بیشتر'));
     await tester.pumpAndSettle();
     expect(find.text('مقدار پیش‌فرض (اختیاری)'), findsOneWidget);
@@ -200,6 +211,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.ensureVisible(find.text('تنظیمات بیشتر'));
       await tester.pumpAndSettle();
+      expect(find.text('تنظیمات بیشتر').hitTestable(), findsOneWidget);
       await tester.tap(find.text('تنظیمات بیشتر'));
       await tester.pumpAndSettle();
       expect(find.text('مقدار پیش‌فرض (اختیاری)'), findsNothing, reason: type);
