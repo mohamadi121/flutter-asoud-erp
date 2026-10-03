@@ -152,7 +152,8 @@ void main() {
         final input = tester.widget<TextField>(find.descendant(
             of: find.widgetWithText(TextFormField, label),
             matching: find.byType(TextField)));
-        expect(input.keyboardType, TextInputType.number);
+        expect(input.keyboardType,
+            const TextInputType.numberWithOptions(decimal: true, signed: true));
       }
       expect(find.byType(AsoudFormDateField), findsOneWidget);
       final choice = tester.widget<DropdownButtonFormField<String>>(
