@@ -6,6 +6,7 @@ import '../../../../core/widgets/asoud_ui.dart';
 import '../../../workflows/domain/entities/workflow_definition.dart';
 import '../../../workflows/domain/repositories/workflow_repository.dart';
 import '../cubit/request_type_builder_cubit.dart';
+import '../../domain/request_templates.dart';
 import '../widgets/request_access_step.dart';
 import '../widgets/request_form_preview_step.dart';
 import '../widgets/request_form_step.dart';
@@ -13,16 +14,19 @@ import '../widgets/request_info_step.dart';
 
 /// Four-step builder: general info, request form, preview and access.
 class RequestTypeBuilderPage extends StatelessWidget {
-  const RequestTypeBuilderPage({this.company, this.existing, super.key});
+  const RequestTypeBuilderPage(
+      {this.company, this.existing, this.template, super.key});
   final String? company;
   final WorkflowDefinition? existing;
+  final RequestTemplate? template;
 
   @override
   Widget build(BuildContext context) => BlocProvider(
         create: (_) => RequestTypeBuilderCubit(
             repository: context.read<WorkflowRepository>(),
             company: company,
-            existing: existing)
+            existing: existing,
+            template: template)
           ..load(),
         child: const _BuilderView(),
       );

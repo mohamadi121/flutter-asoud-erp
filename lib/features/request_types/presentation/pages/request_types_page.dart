@@ -6,6 +6,7 @@ import '../../../../core/widgets/asoud_ui.dart';
 import '../../../workflows/domain/entities/workflow_definition.dart';
 import '../../../workflows/domain/repositories/workflow_repository.dart';
 import '../../domain/request_type_catalog.dart';
+import '../../domain/request_templates.dart';
 import '../cubit/request_type_builder_cubit.dart';
 import 'request_type_builder_page.dart';
 
@@ -39,6 +40,44 @@ class _RequestTypesPageState extends State<RequestTypesPage> {
     if (saved == true && mounted) _reload();
   }
 
+  Future<void> _templates() async {
+    final template = await showModalBottomSheet<RequestTemplate>(
+        context: context,
+        isScrollControlled: true,
+        builder: (context) => Directionality(
+            textDirection: TextDirection.rtl,
+            child: SafeArea(
+                child: SizedBox(
+                    height: MediaQuery.sizeOf(context).height * .7,
+                    child:
+                        ListView(padding: const EdgeInsets.all(16), children: [
+                      const Text('درخواست‌های آماده',
+                          style: TextStyle(
+                              fontSize: 19, fontWeight: FontWeight.w800)),
+                      const SizedBox(height: 12),
+                      const Text(
+                          'یک الگو انتخاب کنید؛ تمام فیلدها قابل ویرایش‌اند. قبل از استفاده باید نقش‌های مجاز و گردش تأیید را تکمیل کنید. انتخاب الگو چیزی ثبت نمی‌کند.'),
+                      for (final item in requestTemplates)
+                        Card(
+                            child: ListTile(
+                          leading: AsoudIconBox(
+                              icon: requestIconFor(item.info.iconKey).icon,
+                              color: requestIconFor(item.info.iconKey).color),
+                          title: Text(item.info.title),
+                          subtitle: Text(item.fields
+                              .map((field) => field.label)
+                              .join('، ')),
+                          trailing: const Icon(Icons.chevron_left),
+                          onTap: () => Navigator.pop(context, item),
+                        )),
+                    ])))));
+    if (template == null || !mounted) return;
+    final saved = await Navigator.of(context).push<bool>(MaterialPageRoute(
+        builder: (_) => RequestTypeBuilderPage(
+            company: widget.company, template: template)));
+    if (saved == true && mounted) _reload();
+  }
+
   @override
   Widget build(BuildContext context) => Directionality(
         textDirection: TextDirection.rtl,
@@ -47,6 +86,14 @@ class _RequestTypesPageState extends State<RequestTypesPage> {
               title: 'انواع درخواست',
               subtitle: 'تعریف فرم، گردش کار و دسترسی هر درخواست'),
           body: Column(children: [
+            Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                child: SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                        onPressed: _templates,
+                        icon: const Icon(Icons.auto_awesome_outlined),
+                        label: const Text('استفاده از درخواست آماده')))),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
               child: TextField(

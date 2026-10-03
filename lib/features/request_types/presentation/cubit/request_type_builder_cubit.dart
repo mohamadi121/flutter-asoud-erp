@@ -2,6 +2,7 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
 import '../../../../core/network/api_exception.dart';
+import '../../domain/request_templates.dart';
 import '../../../workflows/domain/entities/workflow_definition.dart';
 import '../../../workflows/domain/repositories/workflow_repository.dart';
 
@@ -13,8 +14,19 @@ const requestTargetDoctype = 'ASOUD Workflow Request';
 /// user task after Start holds the request form.
 class RequestTypeBuilderCubit extends Cubit<RequestTypeBuilderState> {
   RequestTypeBuilderCubit(
-      {required this.repository, this.company, WorkflowDefinition? existing})
-      : super(RequestTypeBuilderState(definition: existing));
+      {required this.repository,
+      this.company,
+      WorkflowDefinition? existing,
+      RequestTemplate? template})
+      : super(RequestTypeBuilderState(
+            definition: existing,
+            info: existing == null && template != null
+                ? template.info
+                : const RequestTypeInfo(title: ''),
+            fields: existing == null && template != null
+                ? List.of(template.fields)
+                : const [],
+            active: template == null));
   final WorkflowRepository repository;
   final String? company;
 

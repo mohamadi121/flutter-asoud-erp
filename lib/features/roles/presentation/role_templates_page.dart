@@ -103,6 +103,8 @@ class _RoleTemplatesState extends State<_RoleTemplates> {
               const _RoleHint(
                   'این الگوها از نقش‌های واقعی نصب‌شده ERPNext/HRMS استفاده می‌کنند. نقش‌های موجود بازنویسی نمی‌شوند. نقش مدیر سیستم دسترسی بسیار گسترده دارد.'),
               const SizedBox(height: 14),
+              if (state.catalog.templates.isEmpty)
+                const _RoleHint('الگوی نقش هنوز از سرور دریافت نشده است. در حالت آفلاین می‌توانید دسته و نقش دستی بسازید؛ فهرست الگوها بعد از اتصال قابل دریافت است.'),
               for (final category in state.catalog.templateCategories)
                 if (state.catalog.templates
                     .any((template) => template.category == category.code)) ...[

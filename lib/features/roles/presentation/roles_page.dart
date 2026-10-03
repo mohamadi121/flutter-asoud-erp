@@ -17,7 +17,8 @@ class RolesPage extends StatelessWidget {
         create: (_) =>
             RoleCubit(RoleRepository(context.read<FrappeApiClient>()))..load(),
         child: const Directionality(
-            textDirection: TextDirection.rtl, child: _RolesView()),
+            textDirection: TextDirection.rtl,
+            child: _RoleSessionGuard(child: _RolesView())),
       );
 }
 
@@ -26,8 +27,23 @@ Future<T?> _roleRoute<T>(BuildContext context, Widget page) {
   return Navigator.of(context).push<T>(MaterialPageRoute(
       builder: (_) => BlocProvider.value(
           value: cubit,
-          child:
-              Directionality(textDirection: TextDirection.rtl, child: page))));
+          child: Directionality(
+              textDirection: TextDirection.rtl,
+              child: _RoleSessionGuard(child: page)))));
+}
+
+class _RoleSessionGuard extends StatelessWidget {
+  const _RoleSessionGuard({required this.child});
+  final Widget child;
+  @override
+  Widget build(BuildContext context) => BlocConsumer<RoleCubit, RoleState>(
+      listenWhen: (before, after) => !before.sessionEnded && after.sessionEnded,
+      listener: (context, state) =>
+          Navigator.of(context).popUntil((route) => route.isFirst),
+      builder: (context, state) => state.sessionEnded
+          ? const Scaffold(
+              body: Center(child: Text('نشست تغییر کرده؛ دوباره وارد شوید.')))
+          : child);
 }
 
 (IconData, Color) _roleStyle(String style) => switch (style) {
@@ -134,7 +150,7 @@ class _RolesViewState extends State<_RolesView> {
                     _category(category, state, enabled),
                 const SizedBox(height: 14),
                 const _RoleHint(
-                    'نقش‌ها در سطح سامانه تعریف می‌شوند. تخصیص به کاربر و محدودیت دفتر/پرسنل جداگانه انجام می‌شود. تغییر دسترسی فقط با پاسخ موفق سرور ثبت می‌شود.'),
+                    'نقش‌ها در سطح سامانه تعریف می‌شوند. ذخیره آفلاین فقط پیش‌نویس روی گوشی است؛ هیچ دسترسی واقعی تا تأیید سرور تغییر نمی‌کند. تخصیص به کاربر و محدودیت دفتر/پرسنل جداگانه انجام می‌شود.'),
               ]);
         })),
       );
@@ -181,7 +197,7 @@ class _RolesViewState extends State<_RolesView> {
                       : null,
                   title: Text(role.title),
                   subtitle: Text(
-                      '${role.code}${role.enabled ? '' : ' · غیرفعال'}',
+                      '${role.code}${context.read<RoleCubit>().repository.isDraft(role.code) ? ' · پیش‌نویس گوشی' : ''}${role.enabled ? '' : ' · غیرفعال'}',
                       style: const TextStyle(fontSize: 11)),
                   trailing: PopupMenuButton<String>(
                     enabled: enabled,
@@ -289,6 +305,28 @@ class _RoleStatus extends StatelessWidget {
   @override
   Widget build(BuildContext context) => BlocBuilder<RoleCubit, RoleState>(
       builder: (context, state) => Column(children: [
+            if (context.read<RoleCubit>().repository.offline)
+              const _RoleHint(
+                  'حالت آفلاین: ایجاد دسته و نقش روی گوشی ذخیره می‌شود. برای ارسال پیش‌نویس‌ها پس از اتصال، دکمه ارسال به سرور را بزنید.'),
+            if (context.read<RoleCubit>().repository.isPreview)
+              const _RoleHint(
+                  'بدون ورود: اطلاعات فقط در فضای محلی این گوشی نگه‌داری می‌شود و خودکار به حساب کاربری دیگری منتقل نمی‌شود.'),
+            if (context.read<RoleCubit>().repository.pendingCount > 0) ...[
+              _RoleHint(
+                  '${context.read<RoleCubit>().repository.pendingCount} پیش‌نویس روی گوشی؛ هنوز روی سرور تأیید نشده است.'),
+              Wrap(children: [
+                TextButton(
+                    onPressed: state.loading || state.saving
+                        ? null
+                        : context.read<RoleCubit>().synchronize,
+                    child: const Text('ارسال پیش‌نویس‌ها به سرور')),
+                TextButton(
+                    onPressed: state.loading || state.saving
+                        ? null
+                        : () => _discard(context),
+                    child: const Text('کنارگذاشتن پیش‌نویس و دریافت سرور')),
+              ]),
+            ],
             if (state.loading || state.saving)
               const Padding(
                   padding: EdgeInsets.only(bottom: 12),
@@ -302,4 +340,23 @@ class _RoleStatus extends StatelessWidget {
                   child: const Text('بازخوانی از سرور')),
             ],
           ]));
+
+  Future<void> _discard(BuildContext context) async {
+    final cubit = context.read<RoleCubit>();
+    final confirm = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+                title: const Text('بازگشت به اطلاعات سرور'),
+                content: const Text(
+                    'همه پیش‌نویس‌های این حساب بایگانی می‌شوند و از فهرست کار خارج می‌شوند. فقط پس از دریافت موفق سرور انجام می‌شود. ادامه می‌دهید؟'),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('انصراف')),
+                  FilledButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text('تأیید')),
+                ]));
+    if (confirm == true && context.mounted) await cubit.discardDrafts();
+  }
 }
