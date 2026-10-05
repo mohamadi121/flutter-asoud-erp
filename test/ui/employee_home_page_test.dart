@@ -6,7 +6,7 @@ import 'package:asoud_erp/features/employee/presentation/pages/employee_shell.da
 import 'package:asoud_erp/features/employee/presentation/pages/my_attendance_page.dart';
 import 'package:asoud_erp/features/hr/data/personnel_file_repository.dart';
 import 'package:asoud_erp/features/hr/domain/personnel_file.dart';
-import 'package:asoud_erp/features/hr/presentation/pages/personnel_page.dart';
+import 'package:asoud_erp/features/employee/presentation/pages/my_info_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -104,29 +104,29 @@ void main() {
       }
       expect(find.text('۳'), findsOneWidget); // unread notifications badge
       expect(find.text('۲'), findsOneWidget); // open requests badge
-      await tester.ensureVisible(find.text('جلسه عمومی'));
-      expect(find.text('جلسه عمومی'), findsOneWidget);
+      expect(find.text('مشاهده همه'), findsOneWidget);
+      expect(find.text('اعلانی برای نمایش وجود ندارد.'), findsOneWidget);
       await tester.tap(find.text('درخواست‌ها'));
       expect(opened, [2]);
       await tester.tap(find.text('اطلاعات من'));
       await tester.pumpAndSettle();
-      expect(find.byType(PersonnelFilePage), findsOneWidget);
+      expect(find.byType(MyInfoPage), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   }
 
-  testWidgets('shell shows the five destinations and the more tab',
+  testWidgets('shell shows the four destinations and the more tab',
       (tester) async {
     await tester.pumpWidget(_app(EmployeeShell(
         company: 'Tabaan', files: _Files(), selfService: _SelfService())));
     await tester.pumpAndSettle();
-    for (final label in ['خانه', 'کارتابل', 'درخواست‌ها', 'مکاتبات', 'بیشتر']) {
+    for (final label in ['خانه', 'درخواست‌ها', 'مکاتبات', 'بیشتر']) {
       expect(find.widgetWithText(NavigationDestination, label), findsOneWidget,
           reason: label);
     }
     await tester.tap(find.widgetWithText(NavigationDestination, 'بیشتر'));
     await tester.pumpAndSettle();
-    for (final label in ['اطلاعات من', 'مدارک من', 'اطلاعیه‌ها']) {
+    for (final label in ['کارتابل', 'اطلاعات من', 'مدارک من', 'اطلاعیه‌ها']) {
       expect(find.text(label), findsOneWidget, reason: label);
     }
     await tester.tap(find.text('حضور و غیاب'));
