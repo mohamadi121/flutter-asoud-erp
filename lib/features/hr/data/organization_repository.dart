@@ -123,7 +123,7 @@ class OrganizationRepository {
   bool _offlineFailure(Object e) =>
       e is TimeoutException ||
       isRetryableOfflineFailure(e) ||
-      e.runtimeType.toString() == 'QueuedOfflineException';
+      isQueuedOffline(e);
 
   /// Marks staged queue rows for an already-applied chart as synced so the
   /// automatic replay does not send the same rows a second time. Matching on

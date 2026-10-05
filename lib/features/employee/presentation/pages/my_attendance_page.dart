@@ -41,7 +41,7 @@ class _MyAttendancePageState extends State<MyAttendancePage> {
   bool _offlineTolerable(Object error) =>
       error is TimeoutException ||
       isRetryableOfflineFailure(error) ||
-      error.runtimeType.toString() == 'QueuedOfflineException';
+      isQueuedOffline(error);
 
   Future<({List<Map<String, dynamic>> days, List<Map<String, dynamic>> logs})>
       _load() async {

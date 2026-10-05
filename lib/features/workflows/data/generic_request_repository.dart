@@ -43,7 +43,7 @@ class GenericRequestRepository {
   bool offline(Object error) =>
       error is TimeoutException ||
       isRetryableOfflineFailure(error) ||
-      error.runtimeType.toString() == 'QueuedOfflineException';
+      isQueuedOffline(error);
   Future<void> identify() async {
     _session ??= client.authenticationChanges.listen((_) {
       _owner = null;

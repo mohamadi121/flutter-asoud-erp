@@ -274,7 +274,7 @@ class RoleRepository {
   bool _unreachable(Object e) =>
       e is TimeoutException ||
       isRetryableOfflineFailure(e) ||
-      e.runtimeType.toString() == 'QueuedOfflineException';
+      isQueuedOffline(e);
 
   Future<RoleCatalog> load() async {
     final epoch = _epoch;

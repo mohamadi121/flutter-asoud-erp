@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../../core/network/frappe_client.dart';
+import '../../../core/offline/offline_failure.dart';
 import '../../../core/offline/offline_mutation_store.dart';
 import '../domain/purchase_request.dart';
 import '../domain/purchase_request_repository.dart';
@@ -25,7 +26,7 @@ class FrappePurchaseRequestRepository implements PurchaseRequestRepository {
             ApiFailureKind.timeout,
             ApiFailureKind.server
           }.contains(error.kind)) ||
-      error.runtimeType.toString() == 'QueuedOfflineException';
+      isQueuedOffline(error);
 
   Future<List<Map<String, dynamic>>?> _pendingCreatePayloads() async {
     try {

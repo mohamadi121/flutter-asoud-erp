@@ -17,7 +17,7 @@ class SelfServiceRepository {
   bool _queued(Object error) =>
       error is TimeoutException ||
       isRetryableOfflineFailure(error) ||
-      error.runtimeType.toString() == 'QueuedOfflineException';
+      isQueuedOffline(error);
 
   Future<CheckinResult> checkin(String logType) async {
     try {
