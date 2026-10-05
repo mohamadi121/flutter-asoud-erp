@@ -18,6 +18,7 @@ import '../../../workflows/presentation/pages/generic_request_page.dart';
 import '../../../workflows/presentation/pages/document_templates_page.dart';
 import 'first_office_card.dart';
 import 'settings_dashboard_content.dart';
+import '../../../auth/presentation/pages/login_page.dart';
 
 class DashboardLandingPage extends StatefulWidget {
   const DashboardLandingPage({this.offlinePreview = false, super.key});
@@ -136,6 +137,10 @@ class _DashboardPageState extends State<DashboardPage> {
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                     children: [
+                      if (offlinePreview) ...[
+                        const OrganizationLoginBanner(),
+                        const SizedBox(height: 10),
+                      ],
                       if (!hasOffice && !loadError)
                         FirstOfficeCard(onCreated: onOfficeCreated)
                       else if (!hasOffice)
@@ -419,6 +424,48 @@ class _Header extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 10),
               ),
             ),
+        ]),
+      );
+}
+
+class OrganizationLoginBanner extends StatelessWidget {
+  const OrganizationLoginBanner({super.key});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(13),
+        decoration: BoxDecoration(
+          color: AsoudColors.primary.withValues(alpha: .07),
+          border: Border.all(
+              color: AsoudColors.primary.withValues(alpha: .4), width: 1.2),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child:
+            Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          const Row(children: [
+            AsoudIconBox(
+                icon: Icons.business_rounded,
+                color: AsoudColors.primary,
+                size: 34),
+            SizedBox(width: 10),
+            Expanded(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                  Text('نسخه نمایشی آفلاین',
+                      style:
+                          TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
+                  Text('داده‌های شما فقط روی همین گوشی است.',
+                      style: TextStyle(fontSize: 9, color: AsoudColors.muted)),
+                ])),
+          ]),
+          const SizedBox(height: 10),
+          FilledButton(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const LoginPage()),
+            ),
+            child: const Text('ورود به حساب سازمانی'),
+          ),
         ]),
       );
 }

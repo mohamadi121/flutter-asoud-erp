@@ -2,9 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/network/frappe_client.dart';
+import '../../../../core/offline/local_database_store.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/jalali_date.dart';
 import '../../../../core/widgets/asoud_ui.dart';
+import '../../../auth/data/unsent_offline_count.dart';
+import '../../../auth/domain/repositories/auth_repository.dart';
+import '../../../auth/presentation/pages/login_page.dart';
 import '../../../base_setup/presentation/pages/base_accounting_setup_page.dart';
 import '../../../base_setup/presentation/pages/roles_setup_page.dart';
 import '../../../hr/presentation/pages/hr_home_page.dart';
@@ -19,9 +23,15 @@ import '../../../workflows/presentation/pages/workflow_tasks_page.dart';
 /// Administrative entry points. Unavailable telemetry is never presented as live.
 class SettingsDashboardContent extends StatefulWidget {
   const SettingsDashboardContent(
-      {this.company, this.offlinePreview = false, super.key});
+      {this.company,
+      this.offlinePreview = false,
+      this.offlineStore,
+      super.key});
   final String? company;
   final bool offlinePreview;
+
+  /// Injected for tests; defaults to the on-device offline store.
+  final LocalRecordStore? offlineStore;
 
   @override
   State<SettingsDashboardContent> createState() =>
@@ -50,6 +60,41 @@ class _SettingsDashboardContentState extends State<SettingsDashboardContent> {
 
   void _open(Widget page) =>
       Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
+
+  void _openLogin() => _open(const LoginPage());
+
+  /// Signs out without deleting queued rows: they are owner-scoped and
+  /// replay when the same user signs in again.
+  Future<void> _confirmLogout() async {
+    final unsent = await countUnsentOfflineRows(store: widget.offlineStore);
+    if (!mounted) return;
+    final leave = await showDialog<bool>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: const Text('خروج از حساب'),
+        content: Text(unsent > 0
+            ? '${toPersianDigits(unsent)} مورد هنوز به سرور ارسال نشده؛ با خروج، این موارد تا ورود دوباره همین کاربر ارسال نمی‌شوند'
+            : 'از حساب سازمانی خارج می‌شوید؟'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialog).pop(false),
+            child: const Text('انصراف'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialog).pop(true),
+            child: const Text('خروج'),
+          ),
+        ],
+      ),
+    );
+    if (leave != true || !mounted) return;
+    await context.read<AuthRepository>().signOut();
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute<void>(builder: (_) => const LoginPage()),
+      (_) => false,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -249,6 +294,28 @@ class _SettingsDashboardContentState extends State<SettingsDashboardContent> {
                                 : null),
                       ],
                     )),
+            const SizedBox(height: 18),
+            const Text('حساب کاربری',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 10),
+            if (widget.offlinePreview)
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: _openLogin,
+                  icon: const Icon(Icons.business_rounded),
+                  label: const Text('ورود به حساب سازمانی'),
+                ),
+              )
+            else
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _confirmLogout,
+                  icon: const Icon(Icons.logout_rounded),
+                  label: const Text('خروج از حساب'),
+                ),
+              ),
           ]),
         ));
   }
