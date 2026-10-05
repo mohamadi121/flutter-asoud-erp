@@ -3,6 +3,7 @@ import '../../../../core/offline/local_record.dart';
 import '../../../../core/offline/offline_failure.dart';
 import '../../domain/entities/party_profile.dart';
 import '../../domain/repositories/party_repository.dart';
+import '../demo/party_demo_data.dart';
 
 class ServerFirstPartyRepository
     implements PartyRepository, LocalPersonnelSuggestions {
@@ -58,7 +59,11 @@ class ServerFirstPartyRepository
     String? search,
   }) async {
     if (_isPreview) {
-      return _filter(await _localProfiles(), company, role, search);
+      final local = await _localProfiles();
+      // Fresh preview: demo customers and suppliers so the party screens
+      // can be tried. Never persisted; any saved party replaces them.
+      final rows = local.isEmpty ? demoParties() : local;
+      return _filter(rows, company, role, search);
     }
     try {
       final remote =
