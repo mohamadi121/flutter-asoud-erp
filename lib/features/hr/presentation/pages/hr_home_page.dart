@@ -89,9 +89,9 @@ class _HrHome extends StatelessWidget {
                         }
                         _push(
                             context,
-                            PersonnelDetailPage(
-                                id: data.employee.partyProfile,
-                                repository: PersonnelRepository(
+                            PersonnelFilePage(
+                                profileId: data.employee.partyProfile,
+                                personnel: PersonnelRepository(
                                     context.read<FrappeApiClient>())));
                       }),
                   _Action(

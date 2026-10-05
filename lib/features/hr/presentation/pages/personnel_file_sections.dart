@@ -116,7 +116,18 @@ class _FileSectionPageState extends State<_FileSectionPage> {
     try {
       final value = widget.mine
           ? await widget.repository.myFile()
-          : await widget.repository.file(file.profileId);
+          : await (() async {
+              try {
+                return await widget.repository.file(file.profileId);
+              } catch (e) {
+                if (!canUseLegacyPersonnelFile(e) &&
+                    !isLocalPersonnelId(file.profileId)) {
+                  rethrow;
+                }
+                return personnelFileFromLegacy(
+                    await widget.personnel.detail(file.profileId));
+              }
+            })();
       if (mounted) setState(() => file = value);
     } catch (e) {
       if (mounted) setState(() => error = _fileError(e));
@@ -132,6 +143,62 @@ class _FileSectionPageState extends State<_FileSectionPage> {
             builder: (_) => ContractFormPage(
                 profileId: file.profileId, repository: widget.repository)));
     if (mounted) await reload();
+  }
+
+  Future<void> editSection() async {
+    try {
+      if (widget.section == 'اطلاعات فردی') {
+        final parties = await context
+            .read<PartyRepository>()
+            .list(company: file.header.company);
+        final person = parties.where((p) => p.id == file.profileId).firstOrNull;
+        if (person == null) {
+          throw StateError('اطلاعات شخص در فهرست اشخاص یافت نشد.');
+        }
+        if (!mounted) return;
+        await Navigator.push<bool>(
+            context,
+            MaterialPageRoute(
+                builder: (_) => PartyFormPage(
+                    initialRole: PartyRole.employee,
+                    profile: person,
+                    company: person.company,
+                    pageTitle: 'ویرایش اطلاعات شخص')));
+      } else {
+        final data = await widget.personnel.detail(file.profileId);
+        if (!mounted || data['can_edit'] != true) return;
+        final profile = Map<String, dynamic>.from(data['profile'] as Map);
+        final labels = widget.section == 'حقوق و مزایا'
+            ? _benefits
+            : {
+                for (final entry in _organization.entries)
+                  if (widget.section == 'اطلاعات سازمانی'
+                      ? ['job_title', 'department', 'branch', 'reports_to']
+                          .contains(entry.key)
+                      : !['job_title', 'department', 'branch', 'reports_to']
+                          .contains(entry.key))
+                    entry.key: entry.value,
+              };
+        // Every field this section owns must reach the editor, even when the
+        // payload has never carried it, otherwise an unset employment date or
+        // notice period could never be filled in.
+        for (final key in labels.keys) {
+          profile.putIfAbsent(key, () => '');
+        }
+        await Navigator.push<bool>(
+            context,
+            MaterialPageRoute(
+                builder: (_) => _ProfileEditor(
+                    title: widget.section,
+                    labels: labels,
+                    profile: profile,
+                    revision: '${data['revision']}',
+                    repository: widget.personnel)));
+      }
+      if (mounted) await reload();
+    } catch (e) {
+      if (mounted) setState(() => error = _fileError(e));
+    }
   }
 
   List<Widget> personal() {
@@ -357,6 +424,21 @@ class _FileSectionPageState extends State<_FileSectionPage> {
                   onPressed: loading ? null : addContract)
               : null,
           children: [
+            if (canEdit &&
+                [
+                  'اطلاعات فردی',
+                  'اطلاعات سازمانی',
+                  'اطلاعات استخدامی',
+                  'حقوق و مزایا'
+                ].contains(widget.section))
+              OutlinedButton.icon(
+                  onPressed: loading ? null : editSection,
+                  icon: const Icon(Icons.edit_outlined),
+                  label: Text(widget.section == 'اطلاعات فردی'
+                      ? 'ویرایش اطلاعات شخص'
+                      : widget.section == 'حقوق و مزایا'
+                          ? 'ثبت و ویرایش حقوق و مزایا'
+                          : 'ویرایش اطلاعات')),
             if (loading) const LinearProgressIndicator(),
             if (error != null) ...[
               Text(error!),

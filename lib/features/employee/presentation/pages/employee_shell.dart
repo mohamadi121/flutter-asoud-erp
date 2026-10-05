@@ -104,7 +104,7 @@ class _MoreTab extends StatelessWidget {
         'مدارک من',
         Icons.folder_outlined,
         AsoudColors.danger,
-        () => push(PersonnelFilePage.mine(repository: files, initialTab: 2))
+        () => push(PersonnelFilePage.mine(repository: files, initialTab: 3))
       ),
       (
         'حضور و غیاب',

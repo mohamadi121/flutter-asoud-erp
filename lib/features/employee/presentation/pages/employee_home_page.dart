@@ -126,7 +126,7 @@ class _EmployeeHomePageState extends State<EmployeeHomePage> {
                       _Action(
                           'مدارک', Icons.folder_outlined, AsoudColors.danger,
                           onTap: () => _push(PersonnelFilePage.mine(
-                              repository: files, initialTab: 2))),
+                              repository: files, initialTab: 3))),
                     ]),
                     const SizedBox(height: 18),
                     Row(children: [
