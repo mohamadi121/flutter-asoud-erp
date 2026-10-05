@@ -69,10 +69,10 @@ const _recordLabels = {
 };
 
 /// `all` is the combined list; a kind the app can create is named by
-/// [_sections], and anything else the server sends falls back to its own value
-/// rather than crashing the list.
+/// [personnelRecordKindLabel], and anything else the server sends falls back
+/// to its own value rather than crashing the list.
 String _recordTitle(String kind) =>
-    kind == 'all' ? 'سوابق و فعالیت‌ها' : _sections[kind] ?? kind;
+    kind == 'all' ? 'سوابق و فعالیت‌ها' : personnelRecordKindLabel(kind);
 IconData _recordIcon(String kind) => switch (kind) {
       'attendance' => Icons.event_available_outlined,
       'evaluation' => Icons.star_border_rounded,
@@ -546,13 +546,13 @@ class _RecordsPageState extends State<_RecordsPage> {
                 const ListTile(
                     title: Text('نوع سابقه جدید',
                         style: TextStyle(fontWeight: FontWeight.w900))),
-                for (final e in _sections.entries)
+                for (final kind in personnelRecordKinds)
                   ListTile(
                       leading:
-                          Icon(_recordIcon(e.key), color: _recordColor(e.key)),
-                      title: Text(e.value),
+                          Icon(_recordIcon(kind), color: _recordColor(kind)),
+                      title: Text(personnelRecordKindLabel(kind)),
                       trailing: const Icon(Icons.chevron_left_rounded),
-                      onTap: () => Navigator.pop(ctx, e.key)),
+                      onTap: () => Navigator.pop(ctx, kind)),
               ]))));
     }
     if (kind == null || !mounted) return;
@@ -607,8 +607,11 @@ class _RecordsPageState extends State<_RecordsPage> {
                         SingleChildScrollView(
                             scrollDirection: Axis.horizontal,
                             child: Row(children: [
-                              for (final e
-                                  in {'all': 'همه', ..._sections}.entries)
+                              for (final e in {
+                                'all': 'همه',
+                                for (final kind in personnelRecordKinds)
+                                  kind: personnelRecordKindLabel(kind)
+                              }.entries)
                                 Padding(
                                     padding: const EdgeInsets.only(left: 6),
                                     child: ChoiceChip(
