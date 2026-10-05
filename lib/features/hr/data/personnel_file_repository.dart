@@ -1,17 +1,26 @@
 import 'dart:async';
 import 'dart:convert';
 
+import '../../../core/config/app_config.dart';
 import '../../../core/network/frappe_client.dart';
 import '../../../core/offline/local_database_store.dart';
 import '../../../core/offline/offline_failure.dart';
 import '../domain/personnel_file.dart';
+import 'demo/hr_demo_data.dart';
 
 class PersonnelFileRepository {
-  PersonnelFileRepository(this.client, {LocalRecordStore? store})
-      : store = store ?? LocalDatabaseStore.instance;
+  PersonnelFileRepository(this.client,
+      {LocalRecordStore? store, HrDemoData? demoData})
+      : store = store ?? LocalDatabaseStore.instance,
+        demoData = demoData ?? HrDemoData.at(DateTime.now());
 
   final FrappeApiClient client;
   final LocalRecordStore store;
+  final HrDemoData demoData;
+
+  /// Sample files are only served while nobody is signed in. A real session
+  /// always reads the server, never the preview.
+  bool get _preview => AppConfig.offlineDemoMode && !client.isAuthenticated;
 
   String get _server => client is FrappeClient
       ? (client as FrappeClient).serverIdentity
@@ -63,25 +72,46 @@ class PersonnelFileRepository {
     }
   }
 
-  Future<PersonnelFile> file(String profileId) async =>
-      PersonnelFile.fromJson(Map<String, dynamic>.from(
-          await _read('get_personnel_file', {'name': profileId}) as Map));
+  Future<PersonnelFile> file(String profileId) async {
+    if (_preview && demoData.isSeeded(profileId)) {
+      return PersonnelFile.fromJson(demoData.file(profileId));
+    }
+    return PersonnelFile.fromJson(Map<String, dynamic>.from(
+        await _read('get_personnel_file', {'name': profileId}) as Map));
+  }
 
-  Future<PersonnelFile> myFile() async =>
-      PersonnelFile.fromJson(Map<String, dynamic>.from(
-          await _read('get_my_personnel_file', {}) as Map));
+  Future<PersonnelFile> myFile() async {
+    if (_preview) {
+      return PersonnelFile.fromJson(
+          demoData.file(hrDemoSelfEmployeeCode, selfView: true));
+    }
+    return PersonnelFile.fromJson(Map<String, dynamic>.from(
+        await _read('get_my_personnel_file', {}) as Map));
+  }
 
-  Future<EmployeeHome> myHome() async => EmployeeHome.fromJson(
-      Map<String, dynamic>.from(await _read('get_my_home', {}) as Map));
+  Future<EmployeeHome> myHome() async {
+    if (_preview) return EmployeeHome.fromJson(demoData.home());
+    return EmployeeHome.fromJson(
+        Map<String, dynamic>.from(await _read('get_my_home', {}) as Map));
+  }
 
-  Future<List<Announcement>> announcements() async =>
-      (await _read('list_announcements', {}) as List)
+  Future<List<Announcement>> announcements() async {
+    if (_preview) {
+      return (demoData.announcements() as List)
           .map((row) =>
               Announcement.fromJson(Map<String, dynamic>.from(row as Map)))
           .toList();
+    }
+    return (await _read('list_announcements', {}) as List)
+        .map((row) =>
+            Announcement.fromJson(Map<String, dynamic>.from(row as Map)))
+        .toList();
+  }
 
   Future<({String filename, String contentBase64})> contractFile(
       String contract) async {
+    final sample = _preview ? demoData.contractFile(contract) : null;
+    if (sample != null) return sample;
     final result = Map<String, dynamic>.from(
         await _remote('get_contract_file', {'contract': contract}) as Map);
     return (
