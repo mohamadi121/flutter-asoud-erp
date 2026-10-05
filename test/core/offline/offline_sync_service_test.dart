@@ -123,7 +123,9 @@ void main() {
     ).syncNow();
 
     expect(report.failed, 1);
-    expect(report.remaining, 0);
+    // A rejected write stays counted as unsent until the user retries or
+    // discards it, but it is never replayed automatically.
+    expect(report.remaining, 1);
     expect(local.records['mutation-1']!.status, LocalSyncStatus.syncFailed);
   });
 
