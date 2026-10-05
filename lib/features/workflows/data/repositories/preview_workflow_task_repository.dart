@@ -8,12 +8,28 @@ import '../../../../core/network/api_exception.dart';
 import '../../domain/entities/workflow_definition.dart';
 import '../../domain/entities/workflow_task.dart';
 import '../../domain/repositories/workflow_task_repository.dart';
+import '../demo/request_demo_data.dart';
+import '../demo/task_notification_demo_data.dart';
 
 class PreviewWorkflowTaskRepository implements WorkflowTaskRepository {
   PreviewWorkflowTaskRepository(this._remote);
   static const _storageKey = 'asoud_workflow_offline_tasks_v1';
+  static const _demoDoneKey = 'asoud_workflow_demo_done_v1';
   final WorkflowTaskRepository _remote;
   bool _offline = false;
+
+  /// Demo tasks the user already acted on; kept on the device.
+  Future<Set<String>> _doneDemoTasks() async {
+    final preferences = await SharedPreferences.getInstance();
+    return preferences.getStringList(_demoDoneKey)?.toSet() ?? <String>{};
+  }
+
+  /// True while the legacy single-task flow was never touched.
+  bool _isFreshSeed(Map<String, dynamic> saved) =>
+      (saved['status']?.toString() ?? 'Open') == 'Open' &&
+      (saved['current_task']?.toString() ?? 'initial') == 'initial' &&
+      (saved['draft'] is! Map || (saved['draft'] as Map).isEmpty) &&
+      (saved['history'] is! List || (saved['history'] as List).isEmpty);
 
   @override
   bool get isOfflinePreview => _offline;
@@ -80,6 +96,14 @@ class PreviewWorkflowTaskRepository implements WorkflowTaskRepository {
       if (!_networkFailure(error)) rethrow;
       _offline = true;
       final saved = await _read();
+      if (_isFreshSeed(saved)) {
+        // Fresh preview: demo tasks for the demo user.
+        if (status != 'Open') return const [];
+        final done = await _doneDemoTasks();
+        return demoTasks()
+            .where((task) => !done.contains(task.id))
+            .toList(growable: false);
+      }
       final current = saved['status']?.toString() ?? 'Open';
       final currentTask = saved['current_task']?.toString() ?? 'initial';
       return current == status
@@ -126,6 +150,32 @@ class PreviewWorkflowTaskRepository implements WorkflowTaskRepository {
 
   @override
   Future<WorkflowInstanceDetail> getInstance(String instance) async {
+    if (instance.startsWith('DEMO-WFI-')) {
+      _offline = true;
+      final timeline = demoInstanceTimeline(instance);
+      return WorkflowInstanceDetail(
+        summary: WorkflowInstanceSummary(
+          id: instance,
+          subject: _demoInstanceSubject(instance),
+          status: _demoInstanceStatus(instance),
+          currentStage: 'demo',
+          currentStageTitle: 'در انتظار اقدام شما',
+          currentAssignees: const ['کاربر پیش‌نمایش'],
+          startedOn: DateTime.now().subtract(const Duration(days: 2)),
+          localOnly: true,
+        ),
+        activities: [
+          for (final raw in timeline)
+            WorkflowTaskActivity(
+              actor: '${raw['actor']}',
+              action: '${raw['action']}',
+              comment: '${raw['comment']}',
+              createdOn: DateTime.tryParse('${raw['created_on']}'),
+              stageTitle: '${raw['stage_title']}',
+            ),
+        ],
+      );
+    }
     if (!_offline) {
       try {
         return await _remote.getInstance(instance);
@@ -154,8 +204,30 @@ class PreviewWorkflowTaskRepository implements WorkflowTaskRepository {
     );
   }
 
+  String _demoInstanceSubject(String instance) => switch (instance) {
+        'DEMO-WFI-002' => 'خرید لپ‌تاپ برای واحد فروش',
+        'DEMO-WFI-003' => 'مأموریت تهران — نمایشگاه',
+        'DEMO-WFI-004' => 'تنخواه خرداد واحد فروش',
+        'DEMO-WFI-005' => 'خرید ملزومات اداری',
+        'DEMO-WFI-007' => 'مأموریت اصفهان — بازدید مشتری',
+        'DEMO-WFI-008' => 'تنخواه تیر پروژه نمونه',
+        'DEMO-WFI-101' => 'مرخصی استحقاقی تابستان',
+        'DEMO-WFI-102' => 'اصلاح تنخواه خرداد',
+        _ => 'درخواست نمایشی',
+      };
+
+  String _demoInstanceStatus(String instance) => switch (instance) {
+        'DEMO-WFI-003' || 'DEMO-WFI-008' => 'Completed',
+        'DEMO-WFI-004' => 'Rejected',
+        _ => 'Running',
+      };
+
   @override
   Future<WorkflowTaskDetail> getTask(String task) async {
+    if (task.startsWith('WFT-DEMO-')) {
+      _offline = true;
+      return demoTaskDetail(task);
+    }
     if (!_offline) {
       try {
         return await _remote.getTask(task);
@@ -300,6 +372,16 @@ class PreviewWorkflowTaskRepository implements WorkflowTaskRepository {
     String? comment,
     Map<String, dynamic> response = const {},
   }) async {
+    if (task.startsWith('WFT-DEMO-')) {
+      // Demo tasks are samples: acting on one only hides it on this device.
+      _offline = true;
+      final preferences = await SharedPreferences.getInstance();
+      final done =
+          preferences.getStringList(_demoDoneKey)?.toSet() ?? <String>{};
+      done.add(task);
+      await preferences.setStringList(_demoDoneKey, done.toList());
+      return;
+    }
     if (!_offline) {
       try {
         await _remote.completeTask(

@@ -10,6 +10,8 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'demo/request_demo_data.dart';
+
 /// Where [PreviewFallbackWorkflowRepository] keeps the locally designed workflows.
 const previewDesignsKey = 'asoud_workflow_designs_v2';
 
@@ -74,22 +76,29 @@ List<Map<String, dynamic>>? _formFields(Map<String, dynamic> design) {
   ];
 }
 
-/// Request types available offline: locally designed ones, then the sample.
-Future<List<Map<String, dynamic>>> offlineRequestTypes() async => [
-      for (final design in await _designs())
-        if ((design['workflow'] as Map?)?['target_doctype'] ==
-                'ASOUD Workflow Request' &&
-            _formFields(design) != null)
-          {
-            'name': (design['workflow'] as Map)['id'],
-            'workflow_title': (design['workflow'] as Map)['title'],
-            'short_title': (design['workflow'] as Map)['short_title'] ?? '',
-            'icon_key': (design['workflow'] as Map)['icon_key'] ?? '',
-            'request_category': (design['workflow'] as Map)['category'] ?? '',
-            'fields': _formFields(design),
-          },
-      offlineSampleRequestType,
-    ];
+/// Request types available offline: locally designed ones, then the demo
+/// types («شرکت نمونه آسود», each `is_sample: true`) when nothing was
+/// designed yet, then the sample.
+Future<List<Map<String, dynamic>>> offlineRequestTypes() async {
+  final designs = await _designs();
+  final all = [...designs, if (designs.isEmpty) ...demoDesignMaps()];
+  return [
+    for (final design in all)
+      if ((design['workflow'] as Map?)?['target_doctype'] ==
+              'ASOUD Workflow Request' &&
+          _formFields(design) != null)
+        {
+          'name': (design['workflow'] as Map)['id'],
+          'workflow_title': (design['workflow'] as Map)['title'],
+          'short_title': (design['workflow'] as Map)['short_title'] ?? '',
+          'icon_key': (design['workflow'] as Map)['icon_key'] ?? '',
+          'request_category': (design['workflow'] as Map)['category'] ?? '',
+          'fields': _formFields(design),
+          if (design['is_sample'] == true) 'is_sample': true,
+        },
+    offlineSampleRequestType,
+  ];
+}
 
 /// Custom fields of an offline request type (template value sources).
 Future<List<Map<String, dynamic>>> offlineRequestFields(

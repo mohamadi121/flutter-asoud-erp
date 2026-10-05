@@ -6,6 +6,7 @@ import '../../../../core/offline/local_record.dart';
 import '../../../../core/offline/offline_failure.dart';
 import '../../domain/entities/office.dart';
 import '../../domain/repositories/office_repository.dart';
+import '../demo/office_demo_data.dart';
 import '../models/office_model.dart';
 
 class ServerFirstOfficeRepository
@@ -79,7 +80,12 @@ class ServerFirstOfficeRepository
 
   @override
   Future<List<Office>> listOffices() async {
-    if (isLocalPreview) return _localOffices();
+    if (isLocalPreview) {
+      final local = await _localOffices();
+      // Fresh preview: offer the demo company so every screen can be tried.
+      // Never persisted; any created office replaces it.
+      return local.isEmpty ? [demoPreviewOffice()] : local;
+    }
     try {
       final remote = await _remote.listOffices();
       for (final office in remote) {
@@ -95,7 +101,9 @@ class ServerFirstOfficeRepository
   @override
   Future<Office?> getDefaultOffice() async {
     if (isLocalPreview) {
-      return await _localDefaultOffice() ?? (await _localOffices()).firstOrNull;
+      return await _localDefaultOffice() ??
+          (await _localOffices()).firstOrNull ??
+          demoPreviewOffice();
     }
     try {
       final office =

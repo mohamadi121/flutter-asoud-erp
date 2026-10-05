@@ -31,6 +31,9 @@ import 'workflow_instance_detail_page.dart';
   }
   final display = '${data['display_status'] ?? ''}';
   final status = '${data['status'] ?? ''}';
+  if (status == 'Draft') {
+    return (display.isNotEmpty ? display : 'پیش‌نویس', AsoudColors.warning);
+  }
   final base = switch (status) {
     'Completed' => ('تکمیل شده', AsoudColors.success),
     'Rejected' => ('رد شده', AsoudColors.danger),
@@ -441,6 +444,10 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
   }
 
   Future<void> download(Map file) async {
+    if (file['is_sample'] == true) {
+      _message('فایل نمایشی فقط برای مشاهده است و دانلود نمی‌شود.');
+      return;
+    }
     try {
       final result = await widget.repository
           .read('get_attachment', {'name': file['name']}) as Map;
@@ -657,6 +664,7 @@ class _RequestDetailPageState extends State<RequestDetailPage> {
                         formatJalaliDateTimeIso(
                             activity.createdOn!.toIso8601String()),
                     ].join(' · '),
+                    comment: activity.comment,
                     done: !activity.action.contains('Failed') &&
                         activity.action != 'Reject'),
               if (summary != null &&
@@ -727,8 +735,10 @@ class _Step extends StatelessWidget {
       {required this.title,
       required this.subtitle,
       required this.done,
+      this.comment = '',
       this.current = false});
   final String title, subtitle;
+  final String comment;
   final bool done, current;
   @override
   Widget build(BuildContext context) => Padding(
@@ -756,6 +766,13 @@ class _Step extends StatelessWidget {
               Text(subtitle,
                   style:
                       const TextStyle(fontSize: 11, color: AsoudColors.muted)),
+              if (comment.trim().isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text('«${comment.trim()}»',
+                      style: const TextStyle(
+                          fontSize: 11, height: 1.7, color: AsoudColors.text)),
+                ),
             ]),
           ),
         ]),

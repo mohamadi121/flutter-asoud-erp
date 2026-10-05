@@ -21,6 +21,7 @@ import '../../../workflows/presentation/pages/workflow_notifications_page.dart';
 import '../../../workflows/presentation/pages/workflow_tasks_page.dart';
 import 'sync_queue_page.dart';
 import 'sync_status_indicator.dart';
+import '../../data/demo/dashboard_demo_data.dart';
 
 /// Administrative entry points. Unavailable telemetry is never presented as live.
 class SettingsDashboardContent extends StatefulWidget {
@@ -102,6 +103,7 @@ class _SettingsDashboardContentState extends State<SettingsDashboardContent> {
   Widget build(BuildContext context) {
     final company = widget.company;
     final hasOffice = company?.trim().isNotEmpty == true;
+    final demo = widget.offlinePreview;
     final now = DateTime.now();
     final sync = syncServiceOf(context);
     return Directionality(
@@ -208,33 +210,56 @@ class _SettingsDashboardContentState extends State<SettingsDashboardContent> {
                       mainAxisExtent: 126,
                       children: [
                         _StatusCard('کاربران فعال', Icons.people_outline,
-                            AsoudColors.primary),
-                        _StatusCard(
-                            'کاربران آنلاین',
-                            Icons.desktop_windows_outlined,
-                            AsoudColors.success),
+                            AsoudColors.primary,
+                            value:
+                                demo ? demoSystemStatus('کاربران فعال') : null,
+                            demo: demo),
+                        _StatusCard('کاربران آنلاین',
+                            Icons.desktop_windows_outlined, AsoudColors.success,
+                            value: demo
+                                ? demoSystemStatus('کاربران آنلاین')
+                                : null,
+                            demo: demo),
                         _StatusCard('فضای ذخیره‌سازی', Icons.storage_outlined,
-                            AsoudColors.primary),
+                            AsoudColors.primary,
+                            value: demo
+                                ? demoSystemStatus('فضای ذخیره‌سازی')
+                                : null,
+                            demo: demo),
                         _StatusCard('درخواست‌های در انتظار',
                             Icons.pending_actions, AsoudColors.warning,
+                            value: demo
+                                ? demoSystemStatus('درخواست‌های در انتظار')
+                                : null,
+                            demo: demo,
                             onTap: hasOffice
                                 ? () => _open(const WorkflowTasksPage())
                                 : null),
                         _StatusCard('خطاهای سیستم', Icons.bug_report_outlined,
-                            AsoudColors.purple),
+                            AsoudColors.purple,
+                            value:
+                                demo ? demoSystemStatus('خطاهای سیستم') : null,
+                            demo: demo),
                         _StatusCard(
                             'وضعیت همگام‌سازی', Icons.sync, AsoudColors.success,
+                            value: demo
+                                ? demoSystemStatus('وضعیت همگام‌سازی')
+                                : null,
+                            demo: demo,
                             note: sync == null ? null : 'صف ارسال به سرور',
                             onTap: sync == null
                                 ? null
                                 : () => openSyncQueue(context, sync)),
                       ],
                     )),
-            const Padding(
-                padding: EdgeInsets.only(top: 8),
+            Padding(
+                padding: const EdgeInsets.only(top: 8),
                 child: Text(
-                    'آمار سیستم هنوز به منبع داده متصل نیست؛ خط تیره به معنی صفر نیست.',
-                    style: TextStyle(fontSize: 11, color: AsoudColors.muted))),
+                    demo
+                        ? 'آمار نمایشی برای پیش‌نمایش آفلاین است و روی سرور ذخیره نمی‌شود.'
+                        : 'آمار سیستم هنوز به منبع داده متصل نیست؛ خط تیره به معنی صفر نیست.',
+                    style: const TextStyle(
+                        fontSize: 11, color: AsoudColors.muted))),
             const SizedBox(height: 18),
             const Text('عملیات سریع',
                 style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
@@ -334,12 +359,17 @@ class _SettingsDashboardContentState extends State<SettingsDashboardContent> {
 }
 
 class _StatusCard extends StatelessWidget {
-  const _StatusCard(this.title, this.icon, this.color, {this.onTap, this.note});
+  const _StatusCard(this.title, this.icon, this.color,
+      {this.onTap, this.note, this.value, this.demo = false});
   final String title;
   final IconData icon;
   final Color color;
   final VoidCallback? onTap;
   final String? note;
+
+  /// Demo figure for the offline preview; null keeps the «—» placeholder.
+  final String? value;
+  final bool demo;
   @override
   Widget build(BuildContext context) => Card(
       child: InkWell(
@@ -360,16 +390,18 @@ class _StatusCard extends StatelessWidget {
                             height: 1.3,
                             fontWeight: FontWeight.w700)),
                     const Spacer(),
-                    const Text('—',
-                        style: TextStyle(
+                    Text(value ?? '—',
+                        style: const TextStyle(
                             fontSize: 18,
                             height: 1.1,
                             fontWeight: FontWeight.w800)),
                     Text(
                         note ??
                             (onTap == null
-                                ? 'داده موجود نیست'
-                                : 'مشاهده کارتابل'),
+                                ? (demo ? 'نمایشی' : 'داده موجود نیست')
+                                : (demo
+                                    ? 'نمایشی · مشاهده کارتابل'
+                                    : 'مشاهده کارتابل')),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
