@@ -325,10 +325,14 @@ class _TaskCard extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              Text(
-                '${task.dueOn!.toLocal().year}/${task.dueOn!.toLocal().month.toString().padLeft(2, '0')}/${task.dueOn!.toLocal().day.toString().padLeft(2, '0')} '
-                '${task.dueOn!.toLocal().hour.toString().padLeft(2, '0')}:${task.dueOn!.toLocal().minute.toString().padLeft(2, '0')}',
-                style: const TextStyle(fontSize: 9, color: AsoudColors.muted),
+              Flexible(
+                child: Text(
+                  '${task.dueOn!.toLocal().year}/${task.dueOn!.toLocal().month.toString().padLeft(2, '0')}/${task.dueOn!.toLocal().day.toString().padLeft(2, '0')} '
+                  '${task.dueOn!.toLocal().hour.toString().padLeft(2, '0')}:${task.dueOn!.toLocal().minute.toString().padLeft(2, '0')}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 9, color: AsoudColors.muted),
+                ),
               ),
             ]),
             const SizedBox(height: 10),

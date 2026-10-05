@@ -6,6 +6,7 @@ import '../../../core/network/frappe_client.dart';
 import '../../../core/offline/local_database_store.dart';
 import '../../../core/offline/local_record.dart';
 import '../../../core/offline/offline_failure.dart';
+import 'demo/request_demo_data.dart';
 import 'offline_preview_data.dart';
 
 /// Durable, user/server/company-scoped requests. Authorization failures never
@@ -144,6 +145,10 @@ class GenericRequestRepository {
   /// Edits a request until it has been reviewed (server enforced).
   Future<Map<String, dynamic>> update(
       String name, String subject, Map<String, dynamic> values) async {
+    if (name.startsWith('DEMO-')) {
+      throw StateError(
+          'درخواست نمایشی قابل ویرایش نیست؛ یک درخواست جدید ثبت کنید.');
+    }
     await identify();
     final result = await remote(
         'update_request', {'name': name, 'subject': subject, 'values': values});
@@ -152,6 +157,10 @@ class GenericRequestRepository {
 
   /// Withdraws a request that is still in progress.
   Future<Map<String, dynamic>> cancel(String name, {String reason = ''}) async {
+    if (name.startsWith('DEMO-')) {
+      throw StateError(
+          'درخواست نمایشی قابل لغو نیست؛ یک درخواست جدید ثبت کنید.');
+    }
     await identify();
     final result =
         await remote('cancel_request', {'name': name, 'reason': reason});
@@ -226,11 +235,22 @@ class GenericRequestRepository {
         'error': item.lastError
       });
     }
+    if (isLocal && rows.isEmpty) {
+      // Fresh preview: demo requests across every status so each flow can be
+      // opened end to end. Once the user records their own requests, only
+      // those are listed.
+      rows = demoRequests();
+    }
     return rows;
   }
 
   Future<Map<String, dynamic>> detail(String name) async {
     await identify();
+    if (isLocal && name.startsWith('DEMO-REQ-')) {
+      return Map<String, dynamic>.from(
+          demoRequests().where((row) => row['name'] == name).firstOrNull ??
+              (throw StateError('درخواست نمایشی یافت نشد.')));
+    }
     if (name.startsWith('generic-request:')) {
       final item = await store.get(name);
       if (item == null || item.payload['scope'] != _scope) {

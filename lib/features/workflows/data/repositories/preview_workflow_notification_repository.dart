@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../domain/entities/workflow_notification.dart';
 import '../../domain/repositories/workflow_notification_repository.dart';
+import '../demo/task_notification_demo_data.dart';
 
 class PreviewWorkflowNotificationRepository
     implements WorkflowNotificationRepository {
@@ -28,7 +29,7 @@ class PreviewWorkflowNotificationRepository
               .getStringList(_readKey)
               ?.toSet() ??
           <String>{};
-      final items = _samples
+      final items = demoNotifications()
           .map((item) => item.copyWith(isRead: read.contains(item.id)))
           .where((item) => !unreadOnly || !item.isRead)
           .toList(growable: false);
@@ -53,23 +54,4 @@ class PreviewWorkflowNotificationRepository
         ApiFailureKind.timeout,
         ApiFailureKind.server,
       }.contains(error.kind);
-
-  static final _samples = [
-    WorkflowNotification(
-      id: 'LOCAL-NOTIFICATION-1',
-      title: 'کار جدید به شما ارجاع شد',
-      message: 'بررسی درخواست خرید لپ‌تاپ',
-      instance: 'LOCAL-INSTANCE-1',
-      createdAt: DateTime(2026, 8, 11, 9, 41),
-      localOnly: true,
-    ),
-    WorkflowNotification(
-      id: 'LOCAL-NOTIFICATION-2',
-      title: 'درخواست برای اصلاح برگشت داده شد',
-      message: 'لطفاً توضیحات درخواست را تکمیل کنید.',
-      instance: 'LOCAL-INSTANCE-2',
-      createdAt: DateTime(2026, 8, 10, 14, 20),
-      localOnly: true,
-    ),
-  ];
 }
