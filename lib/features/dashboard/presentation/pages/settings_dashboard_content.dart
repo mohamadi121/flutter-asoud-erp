@@ -15,6 +15,8 @@ import '../../../workflows/presentation/pages/generic_request_page.dart';
 import '../../../workflows/presentation/pages/workflow_form_page.dart';
 import '../../../workflows/presentation/pages/workflow_notifications_page.dart';
 import '../../../workflows/presentation/pages/workflow_tasks_page.dart';
+import 'sync_queue_page.dart';
+import 'sync_status_indicator.dart';
 
 /// Administrative entry points. Unavailable telemetry is never presented as live.
 class SettingsDashboardContent extends StatefulWidget {
@@ -56,6 +58,7 @@ class _SettingsDashboardContentState extends State<SettingsDashboardContent> {
     final company = widget.company;
     final hasOffice = company?.trim().isNotEmpty == true;
     final now = DateTime.now();
+    final sync = syncServiceOf(context);
     return Directionality(
         textDirection: TextDirection.rtl,
         child: SafeArea(
@@ -77,6 +80,11 @@ class _SettingsDashboardContentState extends State<SettingsDashboardContent> {
                       style: TextStyle(
                           color: AsoudColors.primary,
                           fontWeight: FontWeight.w900))),
+              if (sync != null)
+                Flexible(
+                    child: SyncStatusIndicator(
+                        service: sync,
+                        onOpen: () => openSyncQueue(context, sync))),
               IconButton(
                   tooltip: 'اعلان‌ها',
                   onPressed: hasOffice
@@ -169,8 +177,12 @@ class _SettingsDashboardContentState extends State<SettingsDashboardContent> {
                                 : null),
                         _StatusCard('خطاهای سیستم', Icons.bug_report_outlined,
                             AsoudColors.purple),
-                        _StatusCard('وضعیت همگام‌سازی', Icons.sync,
-                            AsoudColors.success),
+                        _StatusCard(
+                            'وضعیت همگام‌سازی', Icons.sync, AsoudColors.success,
+                            note: sync == null ? null : 'صف ارسال به سرور',
+                            onTap: sync == null
+                                ? null
+                                : () => openSyncQueue(context, sync)),
                       ],
                     )),
             const Padding(
@@ -255,11 +267,12 @@ class _SettingsDashboardContentState extends State<SettingsDashboardContent> {
 }
 
 class _StatusCard extends StatelessWidget {
-  const _StatusCard(this.title, this.icon, this.color, {this.onTap});
+  const _StatusCard(this.title, this.icon, this.color, {this.onTap, this.note});
   final String title;
   final IconData icon;
   final Color color;
   final VoidCallback? onTap;
+  final String? note;
   @override
   Widget build(BuildContext context) => Card(
       child: InkWell(
@@ -285,7 +298,11 @@ class _StatusCard extends StatelessWidget {
                             fontSize: 18,
                             height: 1.1,
                             fontWeight: FontWeight.w800)),
-                    Text(onTap == null ? 'داده موجود نیست' : 'مشاهده کارتابل',
+                    Text(
+                        note ??
+                            (onTap == null
+                                ? 'داده موجود نیست'
+                                : 'مشاهده کارتابل'),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(

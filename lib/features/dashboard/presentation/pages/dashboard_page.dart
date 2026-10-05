@@ -18,6 +18,8 @@ import '../../../workflows/presentation/pages/generic_request_page.dart';
 import '../../../workflows/presentation/pages/document_templates_page.dart';
 import 'first_office_card.dart';
 import 'settings_dashboard_content.dart';
+import 'sync_queue_page.dart';
+import 'sync_status_indicator.dart';
 
 class DashboardLandingPage extends StatefulWidget {
   const DashboardLandingPage({this.offlinePreview = false, super.key});
@@ -390,37 +392,43 @@ class _Header extends StatelessWidget {
   const _Header({required this.officeName});
   final String? officeName;
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-        child: Row(children: [
-          Expanded(
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                const Text('دفتر کار',
-                    style:
-                        TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
-                Text(officeName ?? 'برای شروع، اطلاعات اولیه دفتر را ثبت کنید',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        fontSize: 11, color: AsoudColors.muted)),
-              ])),
-          const SizedBox(width: 10),
-          if (officeName?.trim().isNotEmpty == true)
-            OutlinedButton.icon(
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(builder: (_) => const OfficesPage()),
-              ),
-              icon: const Icon(Icons.business_outlined, size: 17),
-              label: const Text('تغییر دفتر'),
-              style: OutlinedButton.styleFrom(
-                visualDensity: VisualDensity.compact,
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-              ),
+  Widget build(BuildContext context) {
+    final sync = syncServiceOf(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      child: Row(children: [
+        Expanded(
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('دفتر کار',
+              style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
+          Text(officeName ?? 'برای شروع، اطلاعات اولیه دفتر را ثبت کنید',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 11, color: AsoudColors.muted)),
+        ])),
+        const SizedBox(width: 10),
+        if (sync != null) ...[
+          Flexible(
+              child: SyncStatusIndicator(
+                  service: sync, onOpen: () => openSyncQueue(context, sync))),
+          const SizedBox(width: 6),
+        ],
+        if (officeName?.trim().isNotEmpty == true)
+          OutlinedButton.icon(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const OfficesPage()),
             ),
-        ]),
-      );
+            icon: const Icon(Icons.business_outlined, size: 17),
+            label: const Text('تغییر دفتر'),
+            style: OutlinedButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+            ),
+          ),
+      ]),
+    );
+  }
 }
 
 class _ConnectionBanner extends StatelessWidget {
