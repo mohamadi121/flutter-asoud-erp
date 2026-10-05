@@ -337,7 +337,7 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(320, 844));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await _start(tester, _Files());
-    for (final label in ['ویرایش اطلاعات', 'عملیات بیشتر']) {
+    for (final label in ['ویرایش پرونده', 'عملیات بیشتر']) {
       expect(tester.getSize(find.text(label)).height, lessThanOrEqualTo(24));
       final button = find.ancestor(
           of: find.text(label),
@@ -351,7 +351,7 @@ void main() {
       (tester) async {
     await tester.binding.setSurfaceSize(const Size(320, 844));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    await _start(tester, _Files(), initialTab: 2);
+    await _start(tester, _Files(), initialTab: 3);
     final chips = find.byType(ChoiceChip);
     final top = tester.getTopLeft(chips.first).dy;
     for (final chip in chips.evaluate()) {
@@ -389,11 +389,11 @@ void main() {
     expect(find.textContaining('LOCAL'), findsNothing);
     for (final label in [
       'خلاصه اطلاعات',
-      'واحد سازمانی',
+      'سابقه خدمت',
       'مدیر مستقیم',
       'نوع همکاری',
       'تاریخ شروع همکاری',
-      'قرارداد فعلی',
+      'قرارداد جاری',
       'وضعیت مدارک',
       '۱۳۹۸/۱۰/۱۱',
       '۲ مورد نیازمند اقدام'
@@ -401,7 +401,7 @@ void main() {
       await tester.ensureVisible(find.text(label).first);
       expect(find.text(label), findsWidgets);
     }
-    expect(find.text('ویرایش اطلاعات'), findsOneWidget);
+    expect(find.text('ویرایش پرونده'), findsOneWidget);
     expect(find.text('عملیات بیشتر'), findsOneWidget);
     await tester.ensureVisible(find.text('فعالیت 5'));
     expect(find.text('فعالیت 6'), findsNothing);
@@ -418,7 +418,7 @@ void main() {
     expect(repo.mineReads, 1);
     expect(repo.reads, 0);
     expect(find.text('اطلاعات من'), findsOneWidget);
-    expect(find.text('ویرایش اطلاعات'), findsNothing);
+    expect(find.text('ویرایش پرونده'), findsNothing);
     expect(find.text('عملیات بیشتر'), findsNothing);
     await _tab(tester, 'مدارک');
     expect(find.text('افزودن مدرک'), findsNothing);
@@ -435,12 +435,12 @@ void main() {
     await _start(tester, _Files(_fixture(code: null, canEdit: false)));
     expect(find.text('در انتظار ثبت'), findsOneWidget);
     expect(find.textContaining('LOCAL'), findsNothing);
-    expect(find.text('ویرایش اطلاعات'), findsNothing);
+    expect(find.text('ویرایش پرونده'), findsNothing);
     expect(find.text('عملیات بیشتر'), findsNothing);
   });
 
   testWidgets('documents filter by category and open details', (tester) async {
-    await _start(tester, _Files(), initialTab: 2);
+    await _start(tester, _Files(), initialTab: 3);
     for (final text in ['رو به انقضا', 'معتبر', 'منقضی']) {
       await tester.ensureVisible(find.text(text));
       expect(find.text(text), findsOneWidget);
@@ -613,7 +613,7 @@ void main() {
       await _tap(tester, 'عملیات بیشتر');
       expect(find.text('افزودن قرارداد'), findsNothing);
       expect(find.text('ثبت ارتقا یا تغییر سمت'), findsNothing);
-      expect(find.text('مدارک و سوابق'), findsOneWidget);
+      expect(find.widgetWithText(ListTile, 'افزودن مدرک'), findsOneWidget);
     });
   }
 

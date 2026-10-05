@@ -524,15 +524,20 @@ class LeaveBalance {
 
 class ActivityItem {
   const ActivityItem(
-      {this.date = '', this.title = '', this.details = '', this.by = ''});
+      {this.date = '',
+      this.title = '',
+      this.details = '',
+      this.by = '',
+      this.kind = ''});
 
   factory ActivityItem.fromJson(Map<String, dynamic> json) => ActivityItem(
       date: _string(json['date']),
       title: _string(json['title']),
       details: _string(json['details']),
-      by: _string(json['by']));
+      by: _string(json['by']),
+      kind: _string(json['kind']));
 
-  final String date, title, details, by;
+  final String date, title, details, by, kind;
 }
 
 class EmployeeHome {
