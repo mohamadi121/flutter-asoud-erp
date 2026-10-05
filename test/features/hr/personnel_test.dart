@@ -19,22 +19,48 @@ class _Client extends Mock implements FrappeApiClient {}
 class _Repository extends Mock implements PersonnelRepository {}
 
 void main() {
-  test('financial values stay out of shared party cache including legacy entries', () async {
+  test(
+      'financial values stay out of shared party cache including legacy entries',
+      () async {
     final client = _Client();
     when(() => client.isAuthenticated).thenReturn(true);
-    when(() => client.authenticationChanges).thenAnswer((_) => const Stream.empty());
-    when(() => client.getCurrentUser()).thenAnswer((_) async => const FrappeUserContext(
-      userId: 'hr', fullName: 'HR', roles: ['HR Manager']));
-    when(() => client.callMethod(any(), data: any(named: 'data'))).thenAnswer((call) async {
-      if ((call.positionalArguments.first as String).endsWith('list_personnel')) {
-        return {'message': {'data': {'rows': [], 'can_edit': true}}};
+    when(() => client.authenticationChanges)
+        .thenAnswer((_) => const Stream.empty());
+    when(() => client.getCurrentUser()).thenAnswer((_) async =>
+        const FrappeUserContext(
+            userId: 'hr', fullName: 'HR', roles: ['HR Manager']));
+    when(() => client.callMethod(any(), data: any(named: 'data')))
+        .thenAnswer((call) async {
+      if ((call.positionalArguments.first as String)
+          .endsWith('list_personnel')) {
+        return {
+          'message': {
+            'data': {'rows': [], 'can_edit': true}
+          }
+        };
       }
-      return {'message': {'data': {'profile': {'id': 'P1', 'company': 'office',
-        'base_salary': 456, 'display_name': 'Updated'}, 'can_edit': true, 'records': [], 'revision': '2'}}};
+      return {
+        'message': {
+          'data': {
+            'profile': {
+              'id': 'P1',
+              'company': 'office',
+              'base_salary': 456,
+              'display_name': 'Updated'
+            },
+            'can_edit': true,
+            'records': [],
+            'revision': '2'
+          }
+        }
+      };
     });
     final store = FakeLocalRecordStore();
     await store.save(id: 'party:P1', entityType: 'party_profile', payload: {
-      'company': 'office', 'base_salary': 123, 'display_name': 'Before'});
+      'company': 'office',
+      'base_salary': 123,
+      'display_name': 'Before'
+    });
     final repo = PersonnelRepository(client, local: store);
     addTearDown(repo.dispose);
     await repo.list('office');
@@ -44,39 +70,72 @@ void main() {
     expect(shared['display_name'], 'Updated');
   });
 
-  test('local import requires explicit binding, is durable and cannot be remapped', () async {
+  test(
+      'local import requires explicit binding, is durable and cannot be remapped',
+      () async {
     final client = _Client();
     when(() => client.isAuthenticated).thenReturn(true);
-    when(() => client.authenticationChanges).thenAnswer((_) => const Stream.empty());
-    when(() => client.getCurrentUser()).thenAnswer((_) async => const FrappeUserContext(
-      userId: 'hr', fullName: 'HR', roles: ['HR Manager']));
+    when(() => client.authenticationChanges)
+        .thenAnswer((_) => const Stream.empty());
+    when(() => client.getCurrentUser()).thenAnswer((_) async =>
+        const FrappeUserContext(
+            userId: 'hr', fullName: 'HR', roles: ['HR Manager']));
     final store = FakeLocalRecordStore();
-    await store.save(id: 'party:LOCAL-1', entityType: 'party_profile', payload: {
-      'id': 'LOCAL-1', 'company': 'office', 'roles': ['employee'], 'display_name': 'علی',
+    await store
+        .save(id: 'party:LOCAL-1', entityType: 'party_profile', payload: {
+      'id': 'LOCAL-1',
+      'company': 'office',
+      'roles': ['employee'],
+      'display_name': 'علی',
     });
-    await store.save(id: 'local-record-1', entityType: 'personnel_demo_record', payload: {
-      'party': 'LOCAL-1', 'content': {'kind': 'evaluation', 'title': 'ارزیابی', 'date': '2026-09-08', 'score': 80},
-    });
+    await store.save(
+        id: 'local-record-1',
+        entityType: 'personnel_demo_record',
+        payload: {
+          'party': 'LOCAL-1',
+          'content': {
+            'kind': 'evaluation',
+            'title': 'ارزیابی',
+            'date': '2026-09-08',
+            'score': 80
+          },
+        });
     final sent = <String>[];
     var online = false;
-    when(() => client.callMethod(any(), data: any(named: 'data'))).thenAnswer((invocation) async {
+    when(() => client.callMethod(any(), data: any(named: 'data')))
+        .thenAnswer((invocation) async {
       final method = invocation.positionalArguments.first as String;
       final data = invocation.namedArguments[#data] as Map;
       if (method.endsWith('get_personnel')) {
-        return {'message': {'data': {
-        'profile': {'id': data['name'], 'company': 'office'}, 'can_edit': true, 'records': [], 'revision': '1',
-      }}};
+        return {
+          'message': {
+            'data': {
+              'profile': {'id': data['name'], 'company': 'office'},
+              'can_edit': true,
+              'records': [],
+              'revision': '1',
+            }
+          }
+        };
       }
-      if (!online) throw const ApiException(kind: ApiFailureKind.network, message: 'offline');
+      if (!online) {
+        throw const ApiException(
+            kind: ApiFailureKind.network, message: 'offline');
+      }
       sent.add('${data['request_id']}');
       expect(data['name'], 'REMOTE-1');
-      return {'message': {'data': {'id': 'record-remote'}}};
+      return {
+        'message': {
+          'data': {'id': 'record-remote'}
+        }
+      };
     });
     final repo = PersonnelRepository(client, local: store);
     await repo.synchronize('office');
     expect(await repo.localImportCandidates(), hasLength(1));
     await repo.importLocalRecords('LOCAL-1', 'REMOTE-1');
-    expect((await store.list(entityType: 'personnel_outbox')).single.status, LocalSyncStatus.pendingSync);
+    expect((await store.list(entityType: 'personnel_outbox')).single.status,
+        LocalSyncStatus.pendingSync);
     repo.dispose();
     final reopened = PersonnelRepository(client, local: store);
     addTearDown(reopened.dispose);
@@ -85,7 +144,8 @@ void main() {
     await reopened.importLocalRecords('LOCAL-1', 'REMOTE-1');
     expect(sent, hasLength(1));
     expect(await store.get('local-record-1'), isNotNull);
-    await expectLater(reopened.importLocalRecords('LOCAL-1', 'REMOTE-2'), throwsStateError);
+    await expectLater(
+        reopened.importLocalRecords('LOCAL-1', 'REMOTE-2'), throwsStateError);
   });
   test(
       'authenticated offline edits persist, replay once and deny forbidden cache reads',
@@ -194,8 +254,9 @@ void main() {
           'revision': '1',
           'can_edit': false,
         });
-    await tester.pumpWidget(
-        MaterialApp(home: PersonnelFilePage(profileId: 'self', repository: LegacyFiles(), personnel: repo)));
+    await tester.pumpWidget(MaterialApp(
+        home: PersonnelFilePage(
+            profileId: 'self', repository: LegacyFiles(), personnel: repo)));
     await tester.pumpAndSettle();
     await tester.tap(find.text('اطلاعات پرسنلی'));
     await tester.pumpAndSettle();
@@ -248,6 +309,19 @@ void main() {
               'score': 80
             }),
         returnsNormally);
+  });
+  test('the offered record kinds are exactly the ones the server accepts', () {
+    expect(
+        personnelRecordKindLabels.keys.toSet(), personnelRecordKinds.toSet());
+    for (final kind in personnelRecordKinds) {
+      expect(personnelRecordKindLabel(kind), isNotEmpty);
+      expect(personnelRecordKindLabel('$kind '), '$kind ');
+    }
+    expect(
+        () => validatePersonnelRecord(
+            {'kind': 'education', 'title': 'کار', 'date': '2026-02-01'}),
+        throwsFormatException,
+        reason: 'education is a document category, not a record kind');
   });
   test(
       'local demo uses shared party record but does not expose remote or financial data',
@@ -351,6 +425,8 @@ void main() {
 }
 
 class LegacyFiles extends Fake implements PersonnelFileRepository {
- @override
- Future<PersonnelFile> file(String id) async => throw const legacy_error.ApiException(kind: legacy_error.ApiFailureKind.network, message: 'offline');
+  @override
+  Future<PersonnelFile> file(String id) async =>
+      throw const legacy_error.ApiException(
+          kind: legacy_error.ApiFailureKind.network, message: 'offline');
 }

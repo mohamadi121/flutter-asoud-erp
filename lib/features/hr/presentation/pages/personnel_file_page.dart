@@ -531,15 +531,15 @@ class _PersonnelFilePageState extends State<PersonnelFilePage>
             child: const Text('مشاهده سوابق')),
       ]),
       if (rows.isEmpty) const Text('سابقه‌ای ثبت نشده است.'),
-      for (final kind in _sections.entries)
+      for (final kind in personnelRecordKinds)
         ListTile(
             contentPadding: EdgeInsets.zero,
-            leading: Icon(_recordIcon(kind.key), color: _recordColor(kind.key)),
-            title: Text(kind.value),
+            leading: Icon(_recordIcon(kind), color: _recordColor(kind)),
+            title: Text(personnelRecordKindLabel(kind)),
             trailing: Text(toPersianDigits(
-                rows.where((row) => row['kind'] == kind.key).length)),
-            onTap: () => open(list(kind.key,
-                rows.where((row) => row['kind'] == kind.key).toList()))),
+                rows.where((row) => row['kind'] == kind).length)),
+            onTap: () => open(
+                list(kind, rows.where((row) => row['kind'] == kind).toList()))),
     ]);
   }
 

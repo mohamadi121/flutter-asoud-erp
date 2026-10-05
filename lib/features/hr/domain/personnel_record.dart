@@ -1,9 +1,37 @@
 import 'dart:convert';
 
+/// The record kinds the server accepts, in the order the UI offers them.
+///
+/// `validate_record` in `asoud_erp/services/personnel_contract.py` rejects
+/// anything else and the `ASOUD Personnel Record` `kind` Select offers
+/// exactly these. Education and experience are deliberately not kinds of their
+/// own: they arrive as `personal.education` and `personal.previous_work`, and
+/// an education or employment certificate is a `document` under the Education
+/// or Employment category.
+const personnelRecordKinds = [
+  'attendance',
+  'evaluation',
+  'document',
+  'photo',
+  'history'
+];
+
+const personnelRecordKindLabels = {
+  'attendance': 'کارکرد و سوابق حضور',
+  'evaluation': 'ارزیابی عملکرد',
+  'document': 'مدارک و مستندات',
+  'photo': 'تصویر پرسنل',
+  'history': 'تاریخچه'
+};
+
+/// A kind the app cannot create — a native or legacy row — still has to read
+/// as itself rather than as an empty string.
+String personnelRecordKindLabel(String kind) =>
+    personnelRecordKindLabels[kind] ?? kind;
+
 void validatePersonnelRecord(Map<String, dynamic> value) {
   final kind = value['kind'];
-  if (!['attendance', 'evaluation', 'document', 'photo', 'history']
-      .contains(kind)) {
+  if (!personnelRecordKinds.contains(kind)) {
     throw const FormatException('نوع سابقه نامعتبر است.');
   }
   final title = '${value['title'] ?? ''}'.trim();

@@ -80,13 +80,6 @@ const _benefits = {
   'deductions': 'کسورات',
   'net_salary': 'حقوق خالص'
 };
-const _sections = {
-  'attendance': 'کارکرد و سوابق حضور',
-  'document': 'مدارک و مستندات',
-  'evaluation': 'ارزیابی عملکرد',
-  'history': 'تاریخچه',
-  'photo': 'تصویر پرسنل'
-};
 
 class _PersonnelPhoto extends StatefulWidget {
   const _PersonnelPhoto(
@@ -147,4 +140,3 @@ class _PersonnelPhotoState extends State<_PersonnelPhoto> {
                         const Icon(Icons.broken_image_outlined)));
           }));
 }
-
