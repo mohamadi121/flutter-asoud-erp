@@ -207,19 +207,34 @@ void main() {
   test('filter combines query department and status', () {
     const state = PersonnelState(rows: [
       {
+        'id': 'match',
         'display_name': 'علی',
         'department': 'فروش',
         'job_title': 'کارشناس',
         'disabled': false
       },
       {
+        'id': 'department-mismatch',
         'display_name': 'علی',
         'department': 'مالی',
         'job_title': 'حسابدار',
-        'disabled': true
+        'disabled': false
       },
+      {'id': 'query-mismatch', 'display_name': 'رضا', 'department': 'فروش', 'disabled': false},
+      {'id': 'status-mismatch', 'display_name': 'علی', 'department': 'فروش', 'disabled': true},
     ], query: 'علی', department: 'فروش', status: 'active');
     expect(state.visible.length, 1);
+    expect(state.visible.map((row) => row['id']), ['match']);
+    List<dynamic> matching({String query = 'علی', String department = 'فروش',
+        String status = 'active'}) => PersonnelState(rows: state.rows,
+          query: query, department: department, status: status)
+        .visible.map((row) => row['id']).toList();
+    expect(matching(query: ''), ['match', 'query-mismatch']);
+    expect(matching(query: 'رضا'), ['query-mismatch']);
+    expect(matching(department: ''), ['match', 'department-mismatch']);
+    expect(matching(department: 'مالی'), ['department-mismatch']);
+    expect(matching(status: 'all'), ['match', 'status-mismatch']);
+    expect(matching(status: 'inactive'), ['status-mismatch']);
   });
   test('record validation rejects impossible dates and attendance times', () {
     expect(
