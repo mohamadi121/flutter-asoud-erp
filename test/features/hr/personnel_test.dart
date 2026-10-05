@@ -41,7 +41,7 @@ void main() {
     expect(shared['display_name'], 'Updated');
   });
 
-  test('local import requires explicit binding, is durable and cannot be remapped', () async {
+  test('local import requires explicit binding, survives repository reopen and cannot be remapped', () async {
     final client = _Client();
     when(() => client.isAuthenticated).thenReturn(true);
     when(() => client.authenticationChanges).thenAnswer((_) => const Stream.empty());
