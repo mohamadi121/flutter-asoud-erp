@@ -14,8 +14,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 const previewDesignsKey = 'asoud_workflow_designs_v2';
 
 /// A sample request type so the request flow can be tried before any design.
+/// Never transferred: `is_sample` rows are seed data, not user data.
 const offlineSampleRequestType = <String, dynamic>{
   'name': 'PREVIEW-REQUEST-PURCHASE',
+  'is_sample': true,
   'workflow_title': 'درخواست خرید (نمونه آفلاین)',
   'short_title': 'ثبت درخواست خرید کالا و خدمات',
   'icon_key': 'purchase',
@@ -347,9 +349,11 @@ Future<Map<String, dynamic>> offlineTemplateOptions(String? workflow) async => {
     };
 
 /// The server's ready-made templates («الگوهای آماده»).
+/// Seed data: `is_sample` rows are never offered for demo transfer.
 const offlinePresets = <Map<String, dynamic>>[
   {
     'key': 'purchase_expense',
+    'is_sample': true,
     'title': 'سند هزینه خرید',
     'description': 'ثبت سند حسابداری بر اساس هزینه خرید',
     'icon': 'cart',
@@ -365,6 +369,7 @@ const offlinePresets = <Map<String, dynamic>>[
   },
   {
     'key': 'supplier_payment',
+    'is_sample': true,
     'title': 'پرداخت به تأمین‌کننده',
     'description': 'پرداخت وجه به تأمین‌کننده بر اساس سفارش خرید',
     'icon': 'payment',
@@ -380,6 +385,7 @@ const offlinePresets = <Map<String, dynamic>>[
   },
   {
     'key': 'general_expense',
+    'is_sample': true,
     'title': 'سند هزینه عمومی',
     'description': 'هزینه‌های اداری و عمومی',
     'icon': 'chart',
@@ -392,6 +398,7 @@ const offlinePresets = <Map<String, dynamic>>[
   },
   {
     'key': 'shipping_cost',
+    'is_sample': true,
     'title': 'هزینه حمل و نقل',
     'description': 'ثبت هزینه حمل و نقل بر اساس درخواست خرید',
     'icon': 'truck',
@@ -407,6 +414,7 @@ const offlinePresets = <Map<String, dynamic>>[
   },
   {
     'key': 'purchase_material_request',
+    'is_sample': true,
     'title': 'درخواست خرید کالا',
     'description': 'ایجاد درخواست خرید کالا در ERPNext از اقلام درخواست',
     'icon': 'box',
