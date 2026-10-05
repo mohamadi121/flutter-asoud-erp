@@ -7,6 +7,7 @@ import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 
 import '../config/app_config.dart';
 import '../offline/offline_mutation_store.dart';
+import '../offline/queued_offline_exception.dart';
 import 'api_exception.dart';
 import 'session_vault.dart';
 import '../offline/offline_failure.dart';
@@ -540,13 +541,13 @@ class FrappeClient implements FrappeApiClient {
       await OfflineMutationStore.instance.markSynced(id);
       return response;
     } on ApiException catch (error) {
-      if (error.kind == ApiFailureKind.network ||
-          error.kind == ApiFailureKind.timeout ||
-          error.kind == ApiFailureKind.server) {
+      if (isRetryableOfflineFailure(error)) {
         await OfflineMutationStore.instance.markPending(id);
-      } else {
-        await OfflineMutationStore.instance.markFailed(id, error);
+        // The write is safe on this device; the queue sends it after the
+        // connection returns, so the caller reports "saved", not "failed".
+        throw QueuedOfflineException(localId: id);
       }
+      await OfflineMutationStore.instance.markFailed(id, error);
       rethrow;
     } catch (error) {
       await OfflineMutationStore.instance.markFailed(id, error);

@@ -10,6 +10,9 @@ class FakeLocalRecordStore implements LocalRecordStore {
     required String entityType,
     required Map<String, dynamic> payload,
     LocalSyncStatus status = LocalSyncStatus.localOnly,
+    int? attempts,
+    DateTime? nextAttemptAt,
+    DateTime? createdAt,
   }) async {
     final now = DateTime.now();
     final recordId = id ?? 'LOCAL-${records.length + 1}';
@@ -18,9 +21,11 @@ class FakeLocalRecordStore implements LocalRecordStore {
       entityType: entityType,
       payload: payload,
       status: status,
-      createdAt: records[recordId]?.createdAt ?? now,
+      createdAt: createdAt ?? records[recordId]?.createdAt ?? now,
       updatedAt: now,
       remoteId: records[recordId]?.remoteId,
+      attempts: attempts ?? records[recordId]?.attempts ?? 0,
+      nextAttemptAt: nextAttemptAt ?? records[recordId]?.nextAttemptAt,
     );
     records[recordId] = record;
     return record;
@@ -47,6 +52,8 @@ class FakeLocalRecordStore implements LocalRecordStore {
     LocalSyncStatus status, {
     String? remoteId,
     String? error,
+    int? attempts,
+    DateTime? nextAttemptAt,
   }) async {
     final old = records[id];
     if (old == null) return;
@@ -59,6 +66,8 @@ class FakeLocalRecordStore implements LocalRecordStore {
       updatedAt: DateTime.now(),
       remoteId: remoteId,
       lastError: error,
+      attempts: attempts ?? old.attempts,
+      nextAttemptAt: nextAttemptAt,
     );
   }
 

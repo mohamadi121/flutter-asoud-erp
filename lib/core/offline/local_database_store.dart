@@ -12,6 +12,8 @@ abstract interface class LocalRecordStore {
     required String entityType,
     required Map<String, dynamic> payload,
     LocalSyncStatus status = LocalSyncStatus.localOnly,
+    int? attempts,
+    DateTime? nextAttemptAt,
   });
 
   Future<LocalRecord?> get(String id);
@@ -21,11 +23,16 @@ abstract interface class LocalRecordStore {
     Set<LocalSyncStatus>? statuses,
   });
 
+  /// Stores the new [status]. [attempts] and [nextAttemptAt] carry the retry
+  /// schedule of a queued write: a null [attempts] keeps the stored count and a
+  /// null [nextAttemptAt] clears the deadline, so the row is due immediately.
   Future<void> setStatus(
     String id,
     LocalSyncStatus status, {
     String? remoteId,
     String? error,
+    int? attempts,
+    DateTime? nextAttemptAt,
   });
 
   Future<void> delete(String id);
@@ -55,7 +62,9 @@ class LocalDatabaseStore implements LocalRecordStore {
             remote_id TEXT,
             last_error TEXT,
             created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL
+            updated_at TEXT NOT NULL,
+            attempts INTEGER NOT NULL DEFAULT 0,
+            next_attempt_at TEXT
           )
         ''');
         await db.execute(
@@ -76,6 +85,8 @@ class LocalDatabaseStore implements LocalRecordStore {
     required String entityType,
     required Map<String, dynamic> payload,
     LocalSyncStatus status = LocalSyncStatus.localOnly,
+    int? attempts,
+    DateTime? nextAttemptAt,
   }) async {
     final db = await database;
     final now = DateTime.now();
@@ -89,6 +100,8 @@ class LocalDatabaseStore implements LocalRecordStore {
       createdAt: old?.createdAt ?? now,
       updatedAt: now,
       remoteId: old?.remoteId,
+      attempts: attempts ?? old?.attempts ?? 0,
+      nextAttemptAt: nextAttemptAt ?? old?.nextAttemptAt,
     );
     await db.insert('local_records', record.toRow(),
         conflictAlgorithm: ConflictAlgorithm.replace);
@@ -122,7 +135,7 @@ class LocalDatabaseStore implements LocalRecordStore {
       'local_records',
       where: clauses.isEmpty ? null : clauses.join(' AND '),
       whereArgs: arguments,
-      orderBy: 'updated_at DESC',
+      orderBy: 'created_at ASC',
     );
     return rows.map(LocalRecord.fromRow).toList(growable: false);
   }
@@ -133,15 +146,20 @@ class LocalDatabaseStore implements LocalRecordStore {
     LocalSyncStatus status, {
     String? remoteId,
     String? error,
+    int? attempts,
+    DateTime? nextAttemptAt,
   }) async {
+    final values = <String, Object?>{
+      'sync_status': status.name,
+      'remote_id': remoteId,
+      'last_error': error,
+      'next_attempt_at': nextAttemptAt?.toIso8601String(),
+      'updated_at': DateTime.now().toIso8601String(),
+      if (attempts != null) 'attempts': attempts,
+    };
     await (await database).update(
       'local_records',
-      {
-        'sync_status': status.name,
-        'remote_id': remoteId,
-        'last_error': error,
-        'updated_at': DateTime.now().toIso8601String(),
-      },
+      values,
       where: 'id = ?',
       whereArgs: [id],
     );

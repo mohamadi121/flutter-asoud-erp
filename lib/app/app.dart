@@ -90,6 +90,7 @@ class _AsoudErpAppState extends State<AsoudErpApp> {
       child: MultiRepositoryProvider(
         providers: [
           RepositoryProvider<FrappeApiClient>.value(value: client),
+          RepositoryProvider<OfflineSyncService>.value(value: syncService),
           RepositoryProvider<AuthRepository>.value(
             value: FrappeAuthRepository(client),
           ),
