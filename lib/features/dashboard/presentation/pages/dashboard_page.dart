@@ -12,10 +12,12 @@ import '../../../office_setup/domain/entities/office.dart';
 import '../../../office_setup/domain/repositories/office_repository.dart';
 import '../../../office_setup/presentation/pages/office_type_page.dart';
 import '../../../office_setup/presentation/pages/offices_page.dart';
+import '../../../parties/presentation/pages/party_management_page.dart';
 import '../../../workflows/presentation/pages/workflow_list_page.dart';
 import '../../../workflows/presentation/pages/workflow_tasks_page.dart';
 import '../../../workflows/presentation/pages/generic_request_page.dart';
 import '../../../workflows/presentation/pages/document_templates_page.dart';
+import '../../data/demo/dashboard_demo_data.dart';
 import 'first_office_card.dart';
 import 'settings_dashboard_content.dart';
 
@@ -146,7 +148,7 @@ class _DashboardPageState extends State<DashboardPage> {
                       else ...[
                         _ConnectionBanner(offline: offlinePreview),
                         const SizedBox(height: 10),
-                        const _MetricsGrid(),
+                        _MetricsGrid(demo: offlinePreview),
                         const SizedBox(height: 10),
                         _SetupProgress(
                           offline: offlinePreview,
@@ -187,6 +189,15 @@ class _DashboardPageState extends State<DashboardPage> {
                                   company: officeName ?? ''),
                             ),
                           ),
+                          onParties: offlinePreview
+                              ? () => Navigator.of(context).push(
+                                    MaterialPageRoute<void>(
+                                      builder: (_) => PartyManagementPage(
+                                        company: officeName,
+                                      ),
+                                    ),
+                                  )
+                              : null,
                         ),
                       ],
                     ],
@@ -463,7 +474,8 @@ class _ConnectionBanner extends StatelessWidget {
 }
 
 class _MetricsGrid extends StatelessWidget {
-  const _MetricsGrid();
+  const _MetricsGrid({this.demo = false});
+  final bool demo;
   static const items = [
     ('دریافتی امروز', Icons.payments_outlined, AsoudColors.success),
     ('فروش امروز', Icons.bar_chart_rounded, AsoudColors.primary),
@@ -471,41 +483,48 @@ class _MetricsGrid extends StatelessWidget {
     ('اسناد باز', Icons.description_outlined, AsoudColors.warning),
   ];
   @override
-  Widget build(BuildContext context) => GridView.count(
-        crossAxisCount: 2,
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        crossAxisSpacing: 8,
-        mainAxisSpacing: 8,
-        mainAxisExtent: 126,
-        children: items
-            .map((item) => Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(11),
-                    child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(children: [
-                            Expanded(
-                                child: Text(item.$1,
-                                    style: const TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w700))),
-                            AsoudIconBox(
-                                icon: item.$2, color: item.$3, size: 30)
-                          ]),
-                          const Text('—',
-                              style: TextStyle(
-                                  fontSize: 18, fontWeight: FontWeight.w900)),
-                          const Text('پس از اتصال سرور',
-                              style: TextStyle(
-                                  fontSize: 8, color: AsoudColors.muted)),
+  Widget build(BuildContext context) {
+    final demoValues = demo
+        ? {for (final metric in demoDashboardMetrics()) metric.title: metric}
+        : const <String, DemoMetric>{};
+    return GridView.count(
+      crossAxisCount: 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisSpacing: 8,
+      mainAxisSpacing: 8,
+      mainAxisExtent: demo ? 140 : 126,
+      children: items
+          .map((item) => Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(11),
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(children: [
+                          Expanded(
+                              child: Text(item.$1,
+                                  style: const TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700))),
+                          AsoudIconBox(icon: item.$2, color: item.$3, size: 30)
                         ]),
-                  ),
-                ))
-            .toList(),
-      );
+                        Text(demoValues[item.$1]?.value ?? '—',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                                fontSize: demo ? 15 : 18,
+                                fontWeight: FontWeight.w900)),
+                        Text(demoValues[item.$1]?.hint ?? 'پس از اتصال سرور',
+                            style: const TextStyle(
+                                fontSize: 8, color: AsoudColors.muted)),
+                      ]),
+                ),
+              ))
+          .toList(),
+    );
+  }
 }
 
 class _SetupProgress extends StatelessWidget {
@@ -538,7 +557,7 @@ class _SetupProgress extends StatelessWidget {
             Expanded(
                 child: Text(
                     offline
-                        ? '۱ مورد از ۳ مورد تکمیل شده است'
+                        ? '۳ مورد از ۳ مورد تکمیل شده است (نمایشی)'
                         : 'وضعیت از سرور دریافت می‌شود',
                     style: const TextStyle(
                         fontSize: 9, color: AsoudColors.muted))),
@@ -602,8 +621,10 @@ class _QuickActions extends StatelessWidget {
   const _QuickActions(
       {required this.onAccounting,
       required this.onPurchaseRequest,
-      required this.onDocuments});
+      required this.onDocuments,
+      this.onParties});
   final VoidCallback onAccounting, onPurchaseRequest, onDocuments;
+  final VoidCallback? onParties;
   @override
   Widget build(BuildContext context) {
     final items = <(String, String, IconData, Color, VoidCallback?)>[
@@ -647,7 +668,7 @@ class _QuickActions extends StatelessWidget {
         'Customer/Supplier',
         Icons.people_outline_rounded,
         AsoudColors.cyan,
-        null
+        onParties
       ),
     ];
     return GridView.count(
