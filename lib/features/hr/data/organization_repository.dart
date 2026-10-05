@@ -93,7 +93,7 @@ class OrganizationRepository {
 
   Future<Map<String, dynamic>> _call(
       String method, Map<String, dynamic> data) async {
-    // Explicit draft retry only; never enqueue through the generic offline writer.
+    // Reads stay on the raw transport; they must never be staged as mutations.
     final response = await client
         .callMethod('asoud_erp.api.v1.organization.$method', data: data)
         .timeout(const Duration(seconds: 15));
@@ -106,6 +106,44 @@ class OrganizationRepository {
     return AsoudApiResponse<Map<String, dynamic>>.parse(
         Map<String, dynamic>.from(envelope),
         (value) => Map<String, dynamic>.from(value as Map)).data;
+  }
+
+  Future<Map<String, dynamic>> _write(
+      String method, Map<String, dynamic> data) async {
+    // Chart writes go through the shared offline queue so they are staged
+    // and replayed automatically; the queue rethrows while offline and the
+    // local draft stays pending for the manual "همگام‌سازی" replay.
+    final value = await client
+        .callAsoudMethod('asoud_erp.api.v1.organization.$method', data: data)
+        .timeout(const Duration(seconds: 15));
+    if (value is! Map) throw const ApiException.protocol();
+    return Map<String, dynamic>.from(value);
+  }
+
+  bool _offlineFailure(Object e) =>
+      e is TimeoutException ||
+      isRetryableOfflineFailure(e) ||
+      isQueuedOffline(e);
+
+  /// Marks staged queue rows for an already-applied chart as synced so the
+  /// automatic replay does not send the same rows a second time. Matching on
+  /// company plus the exact row payload keeps other companies' drafts intact.
+  Future<void> _supersedeStaged(String company, List<OrgPosition> rows) async {
+    final fingerprint = jsonEncode(rows.map((row) => row.toJson()).toList());
+    final staged = await local.list(statuses: {
+      LocalSyncStatus.localOnly,
+      LocalSyncStatus.pendingSync,
+      LocalSyncStatus.syncFailed,
+    });
+    for (final record in staged) {
+      if (record.payload['operation'] is! String) continue;
+      if (!record.entityType.endsWith('.save_chart')) continue;
+      final payload = record.payload['payload'];
+      if (payload is! Map) continue;
+      if ('${payload['company']}' != company) continue;
+      if (jsonEncode(payload['rows']) != fingerprint) continue;
+      await local.setStatus(record.id, LocalSyncStatus.synced);
+    }
   }
 
   Future<OrganizationSnapshot> load(String company) async {
@@ -183,7 +221,7 @@ class OrganizationRepository {
         status: LocalSyncStatus.pendingSync);
     _check(epoch);
     try {
-      final data = await _call('save_chart', {'payload': payload});
+      final data = await _write('save_chart', {'payload': payload});
       _check(epoch);
       final snapshot = decode(data, false);
       await local.save(
@@ -192,11 +230,12 @@ class OrganizationRepository {
           payload: data,
           status: LocalSyncStatus.synced);
       await local.delete('$key:draft');
+      await _supersedeStaged(company, rows);
       _check(epoch);
       return snapshot;
     } catch (e) {
       _check(epoch);
-      if (e is TimeoutException || isRetryableOfflineFailure(e)) {
+      if (_offlineFailure(e)) {
         return OrganizationSnapshot(rows, revision, true);
       }
       await local.setStatus('$key:draft', LocalSyncStatus.syncFailed,

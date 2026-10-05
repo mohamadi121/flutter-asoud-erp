@@ -24,3 +24,6 @@ String offlineFailureMessage(Object error) {
   if (error is QueuedOfflineException) return error.message;
   return error.toString();
 }
+
+/// Whether the error means "safely queued, will replay automatically".
+bool isQueuedOffline(Object error) => error is QueuedOfflineException;

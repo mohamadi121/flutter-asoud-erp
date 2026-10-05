@@ -17,28 +17,65 @@ void main() {
   late Object? failure;
   late List<Map> writes;
   setUp(() {
-    client = _Client(); store = FakeLocalRecordStore(); user = 'employee'; failure = null; writes = [];
+    client = _Client();
+    store = FakeLocalRecordStore();
+    user = 'employee';
+    failure = null;
+    writes = [];
     when(() => client.isAuthenticated).thenReturn(true);
-    when(() => client.authenticationChanges).thenAnswer((_) => const Stream.empty());
-    when(() => client.getCurrentUser()).thenAnswer((_) async => FrappeUserContext(
-      userId: user, fullName: user, roles: const ['Employee']));
-    when(() => client.callAsoudMethod(any(), data: any(named: 'data'))).thenAnswer((call) async {
+    when(() => client.authenticationChanges)
+        .thenAnswer((_) => const Stream.empty());
+    when(() => client.getCurrentUser()).thenAnswer((_) async =>
+        FrappeUserContext(
+            userId: user, fullName: user, roles: const ['Employee']));
+    when(() => client.callAsoudMethod(any(), data: any(named: 'data')))
+        .thenAnswer((call) async {
       final method = call.positionalArguments.first as String;
-      if (method.endsWith('create_request')) writes.add(Map.from(call.namedArguments[#data] as Map));
+      if (method.endsWith('create_request')) {
+        throw StateError('create_request replays over the raw transport');
+      }
       if (failure != null) throw failure!;
-      return method.endsWith('create_request') || method.endsWith('get_request')
-        ? {'name': 'REQ-1', 'subject': 'Request', 'status': 'Running'} : <dynamic>[];
+      return method.endsWith('get_request')
+          ? {'name': 'REQ-1', 'subject': 'Request', 'status': 'Running'}
+          : <dynamic>[];
+    });
+    when(() => client.callMethod(any(), data: any(named: 'data')))
+        .thenAnswer((call) async {
+      final method = call.positionalArguments.first as String;
+      if (!method.endsWith('create_request')) {
+        throw StateError('Unexpected raw method: $method');
+      }
+      writes.add(Map.from(call.namedArguments[#data] as Map));
+      if (failure != null) throw failure!;
+      return {
+        'message': {
+          'ok': true,
+          'meta': {'api_version': 'v1'},
+          'data': {'name': 'REQ-1', 'subject': 'Request', 'status': 'Running'},
+        },
+      };
     });
     repo = GenericRequestRepository(client, 'office', store: store);
   });
   tearDown(() => repo.dispose());
-  const offline = ApiException(kind: ApiFailureKind.network, message: 'offline');
-  test('durable queue replays the same ID and attachment after restart', () async {
+  const offline =
+      ApiException(kind: ApiFailureKind.network, message: 'offline');
+  test('durable queue replays the same ID and attachment after restart',
+      () async {
     failure = offline;
-    await repo.create({'subject': 'Request', 'attachments': [{'filename': 'a.pdf', 'content_base64': 'YWJj'}]}, 'stable-request-id');
-    expect((await store.list(entityType: 'generic_request_outbox')).single.status, LocalSyncStatus.pendingSync);
-    repo.dispose(); repo = GenericRequestRepository(client, 'office', store: store);
-    failure = null; await repo.sync();
+    await repo.create({
+      'subject': 'Request',
+      'attachments': [
+        {'filename': 'a.pdf', 'content_base64': 'YWJj'}
+      ]
+    }, 'stable-request-id');
+    expect(
+        (await store.list(entityType: 'generic_request_outbox')).single.status,
+        LocalSyncStatus.pendingSync);
+    repo.dispose();
+    repo = GenericRequestRepository(client, 'office', store: store);
+    failure = null;
+    await repo.sync();
     expect(writes.length, 2);
     expect(writes.first, writes.last);
     expect(writes.last['request_id'], 'stable-request-id');
@@ -46,21 +83,28 @@ void main() {
     expect((await repo.list()).single['name'], 'REQ-1');
     expect((await repo.detail('REQ-1'))['subject'], 'Request');
   });
-  test('permission failures cannot use cache and failed mutation is retained', () async {
+  test('permission failures cannot use cache and failed mutation is retained',
+      () async {
     await repo.options();
-    failure = const ApiException(kind: ApiFailureKind.forbidden, message: 'denied');
+    failure =
+        const ApiException(kind: ApiFailureKind.forbidden, message: 'denied');
     await expectLater(repo.options(), throwsA(isA<ApiException>()));
     await repo.create({'subject': 'Request'}, 'stable-request-id');
-    final record = (await store.list(entityType: 'generic_request_outbox')).single;
+    final record =
+        (await store.list(entityType: 'generic_request_outbox')).single;
     expect(record.status, LocalSyncStatus.syncFailed);
     expect(record.payload['data']['subject'], 'Request');
-    await repo.sync(); expect(writes, hasLength(1));
-    failure = null; await repo.sync(retry: true); expect(writes, hasLength(2));
+    await repo.sync();
+    expect(writes, hasLength(1));
+    failure = null;
+    await repo.sync(retry: true);
+    expect(writes, hasLength(2));
   });
   test('another account cannot replay or view the queued request', () async {
     failure = offline;
     await repo.create({'subject': 'Request'}, 'stable-request-id');
-    final key = (await store.list(entityType: 'generic_request_outbox')).single.id;
+    final key =
+        (await store.list(entityType: 'generic_request_outbox')).single.id;
     user = 'other';
     expect(await repo.list(), isEmpty);
     await expectLater(repo.detail(key), throwsStateError);
@@ -69,7 +113,12 @@ void main() {
   test('same ID cannot overwrite a queued payload', () async {
     failure = offline;
     await repo.create({'subject': 'Request'}, 'stable-request-id');
-    await expectLater(repo.create({'subject': 'Changed'}, 'stable-request-id'), throwsStateError);
-    expect((await store.list(entityType: 'generic_request_outbox')).single.payload['data']['subject'], 'Request');
+    await expectLater(repo.create({'subject': 'Changed'}, 'stable-request-id'),
+        throwsStateError);
+    expect(
+        (await store.list(entityType: 'generic_request_outbox'))
+            .single
+            .payload['data']['subject'],
+        'Request');
   });
 }
