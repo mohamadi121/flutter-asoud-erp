@@ -444,6 +444,7 @@ class PersonnelDocument {
         'valid' => 'معتبر',
         'expiring' => 'رو به انقضا',
         'expired' => 'منقضی',
+        'pending' => 'در انتظار تأیید',
         'no_expiry' => 'بدون تاریخ انقضا',
         _ => status,
       };
