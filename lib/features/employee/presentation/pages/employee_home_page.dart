@@ -11,6 +11,7 @@ import '../../../hr/domain/personnel_file.dart';
 import '../../../hr/presentation/pages/hr_home_page.dart';
 import '../../../hr/presentation/pages/personnel_page.dart';
 import '../../../workflows/presentation/pages/workflow_notifications_page.dart';
+import '../../data/demo/employee_demo_data.dart';
 import '../../data/self_service_repository.dart';
 import 'my_attendance_page.dart';
 
@@ -25,12 +26,16 @@ class EmployeeHomePage extends StatefulWidget {
     this.files,
     this.selfService,
     this.onOpenTab,
+    this.demoPreview = false,
     super.key,
   });
 
   final String company;
   final PersonnelFileRepository? files;
   final SelfServiceRepository? selfService;
+
+  /// Shows the offline-preview demo rows instead of calling the repository.
+  final bool demoPreview;
 
   /// Switches the shell tab (1 کارتابل, 2 درخواست‌ها, 3 مکاتبات).
   final ValueChanged<int>? onOpenTab;
@@ -42,10 +47,18 @@ class EmployeeHomePage extends StatefulWidget {
 class _EmployeeHomePageState extends State<EmployeeHomePage> {
   late final PersonnelFileRepository files =
       widget.files ?? PersonnelFileRepository(context.read<FrappeApiClient>());
-  late Future<EmployeeHome> future = files.myHome();
+
+  /// Demo rows only when explicitly requested (offline preview); injected
+  /// repositories of real sessions are never hijacked.
+  bool get _preview => widget.demoPreview;
+
+  Future<EmployeeHome> _loadHome() =>
+      _preview ? Future.value(demoEmployeeHome()) : files.myHome();
+
+  late Future<EmployeeHome> future = _loadHome();
 
   Future<void> _reload() async {
-    final next = files.myHome();
+    final next = _loadHome();
     setState(() {
       future = next;
     });
@@ -136,8 +149,10 @@ class _EmployeeHomePageState extends State<EmployeeHomePage> {
                                 fontSize: 15, fontWeight: FontWeight.w900)),
                       ),
                       TextButton(
-                          onPressed: () =>
-                              _push(AnnouncementsPage(repository: files)),
+                          onPressed: () => _push(AnnouncementsPage(
+                              repository: files,
+                              demoItems:
+                                  _preview ? demoAnnouncements() : null)),
                           child: const Text('مشاهده همه')),
                     ]),
                     if (home.announcements.isEmpty)
@@ -354,15 +369,21 @@ class AnnouncementCard extends StatelessWidget {
 
 /// «اطلاعیه‌ها»: every public, unexpired announcement.
 class AnnouncementsPage extends StatefulWidget {
-  const AnnouncementsPage({required this.repository, super.key});
+  const AnnouncementsPage(
+      {required this.repository, this.demoItems, super.key});
   final PersonnelFileRepository repository;
+
+  /// Preview rows; when set, the repository is not called.
+  final List<Announcement>? demoItems;
 
   @override
   State<AnnouncementsPage> createState() => _AnnouncementsPageState();
 }
 
 class _AnnouncementsPageState extends State<AnnouncementsPage> {
-  late Future<List<Announcement>> future = widget.repository.announcements();
+  late Future<List<Announcement>> future = widget.demoItems != null
+      ? Future.value(widget.demoItems)
+      : widget.repository.announcements();
 
   @override
   Widget build(BuildContext context) => Directionality(
@@ -376,7 +397,9 @@ class _AnnouncementsPageState extends State<AnnouncementsPage> {
                 return Center(
                   child: TextButton(
                       onPressed: () => setState(() {
-                            future = widget.repository.announcements();
+                            future = widget.demoItems != null
+                                ? Future.value(widget.demoItems)
+                                : widget.repository.announcements();
                           }),
                       child:
                           Text('${_errorText(snapshot.error!)} تلاش دوباره')),

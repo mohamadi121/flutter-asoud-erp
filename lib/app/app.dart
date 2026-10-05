@@ -40,6 +40,7 @@ import '../features/workflows/data/repositories/preview_workflow_notification_re
 import '../features/workflows/domain/repositories/workflow_notification_repository.dart';
 import '../features/purchase/data/frappe_purchase_request_repository.dart';
 import '../features/purchase/domain/purchase_request_repository.dart';
+import '../features/employee/data/preview_hr_repository.dart';
 import '../features/hr/data/frappe_hr_repository.dart';
 import '../features/hr/data/server_first_hr_repository.dart';
 import '../features/hr/domain/hr_repository.dart';
@@ -136,7 +137,10 @@ class _AsoudErpAppState extends State<AsoudErpApp> {
             value: FrappePurchaseRequestRepository(client),
           ),
           RepositoryProvider<HrRepository>.value(
-            value: ServerFirstHrRepository(FrappeHrRepository(client)),
+            value: PreviewHrRepository(
+              ServerFirstHrRepository(FrappeHrRepository(client)),
+              isPreview: () => _localPreview,
+            ),
           ),
         ],
         child: MaterialApp(
