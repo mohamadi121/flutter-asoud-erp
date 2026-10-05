@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import '../../../core/config/app_config.dart';
+import '../../../core/network/api_exception.dart';
+import '../../../core/network/asoud_api_response.dart';
 import '../../../core/network/frappe_client.dart';
 import '../../../core/offline/local_database_store.dart';
 import '../../../core/offline/local_record.dart';
@@ -39,7 +41,9 @@ class GenericRequestRepository {
   bool get isLocal => AppConfig.offlineDemoMode && !client.isAuthenticated;
 
   bool offline(Object error) =>
-      error is TimeoutException || isRetryableOfflineFailure(error);
+      error is TimeoutException ||
+      isRetryableOfflineFailure(error) ||
+      error.runtimeType.toString() == 'QueuedOfflineException';
   Future<void> identify() async {
     _session ??= client.authenticationChanges.listen((_) {
       _owner = null;
@@ -158,6 +162,26 @@ class GenericRequestRepository {
     return Map<String, dynamic>.from(result as Map);
   }
 
+  Future<Map<String, dynamic>> _sendCreate(Map<String, dynamic> data) async {
+    // Single queue path: the outbox row above is the queued mutation. The
+    // replay sends the mutation itself over the raw transport so the shared
+    // queue does not stage a second row for the same logical request. The
+    // `request_id` key keeps the send idempotent server-side.
+    final response = await client
+        .callMethod('asoud_erp.api.v1.workflow_request.create_request',
+            data: data)
+        .timeout(const Duration(seconds: 20));
+    final envelope = response['message'];
+    if (envelope is! Map ||
+        envelope['meta'] is! Map ||
+        (envelope['meta'] as Map)['api_version'] != 'v1') {
+      throw const ApiException.protocol();
+    }
+    return AsoudApiResponse<Map<String, dynamic>>.parse(
+        Map<String, dynamic>.from(envelope),
+        (value) => Map<String, dynamic>.from(value as Map)).data;
+  }
+
   Future<void> sync({bool retry = false}) =>
       _sync ??= _replay(retry).whenComplete(() => _sync = null);
   Future<void> _replay(bool retry) async {
@@ -168,7 +192,7 @@ class GenericRequestRepository {
       if (row.status == LocalSyncStatus.syncFailed && !retry) continue;
       if (row.status == LocalSyncStatus.localOnly) continue;
       try {
-        final result = await remote('create_request',
+        final result = await _sendCreate(
             Map<String, dynamic>.from(row.payload['data'] as Map));
         if (epoch != _epoch || !client.isAuthenticated) return;
         await store.save(

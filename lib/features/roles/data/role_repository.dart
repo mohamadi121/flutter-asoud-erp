@@ -15,7 +15,7 @@ class _RemoteRoleRepository {
   static const _api = 'asoud_erp.api.v1.role_management';
 
   Future<dynamic> _call(String method, {Map<String, dynamic>? data}) async {
-    // Security mutations must not be replayed later by the generic offline queue.
+    // Reads stay on the raw transport: they must never be staged as mutations.
     final response = await client.callMethod(method, data: data);
     final envelope = response['message'];
     if (envelope is! Map ||
@@ -27,6 +27,13 @@ class _RemoteRoleRepository {
         Map<String, dynamic>.from(envelope), (value) => value).data;
   }
 
+  Future<dynamic> _write(String method, {Map<String, dynamic>? data}) async {
+    // Security mutations go through the shared offline queue so they are
+    // staged and replayed automatically; the queue rethrows while offline and
+    // the repository keeps a local draft for the UI in that case.
+    return client.callAsoudMethod(method, data: data);
+  }
+
   Future<RoleCatalog> load() async {
     final value =
         await _call('$_api.catalog').timeout(const Duration(seconds: 12));
@@ -35,21 +42,21 @@ class _RemoteRoleRepository {
 
   Future<ManagedRole> save(ManagedRole role) async {
     final value =
-        await _call('$_api.save_role', data: {'payload': role.toJson()})
+        await _write('$_api.save_role', data: {'payload': role.toJson()})
             .timeout(const Duration(seconds: 25));
     return ManagedRole.fromJson(Map<String, dynamic>.from(value as Map));
   }
 
   Future<RoleCategory> createCategory(
       String code, String title, String style) async {
-    final value = await _call('$_api.create_category', data: {
+    final value = await _write('$_api.create_category', data: {
       'payload': {'code': code, 'title': title, 'style': style}
     }).timeout(const Duration(seconds: 20));
     return RoleCategory.fromJson(Map<String, dynamic>.from(value as Map));
   }
 
   Future<void> applyTemplates(List<String> codes) async {
-    await _call('$_api.apply_templates', data: {'codes': codes})
+    await _write('$_api.apply_templates', data: {'codes': codes})
         .timeout(const Duration(seconds: 30));
   }
 
@@ -64,7 +71,8 @@ class _RemoteRoleRepository {
   }
 }
 
-/// Drafts never enter the generic replay queue or grant effective permissions.
+/// Drafts mirror writes staged in the shared offline queue and grant no
+/// effective permissions until the server accepts them.
 class RoleRepository {
   RoleRepository(this.client, {LocalRecordStore? local})
       : local = local ??
@@ -264,7 +272,9 @@ class RoleRepository {
   }
 
   bool _unreachable(Object e) =>
-      e is TimeoutException || isRetryableOfflineFailure(e);
+      e is TimeoutException ||
+      isRetryableOfflineFailure(e) ||
+      e.runtimeType.toString() == 'QueuedOfflineException';
 
   Future<RoleCatalog> load() async {
     final epoch = _epoch;
@@ -313,12 +323,51 @@ class RoleRepository {
     await _persist(epoch);
   }
 
+  void _dropDraft(String kind, String code) {
+    _data['drafts'] = _drafts
+        .where((e) => !(e['kind'] == kind && e['code'] == code))
+        .toList();
+  }
+
+  /// Marks staged queue rows for an already-applied draft as synced so the
+  /// automatic replay does not send the same write a second time. Role codes
+  /// are unique, so matching on the code is exact.
+  Future<void> _supersedeStaged(String kind, String code) async {
+    final store = local;
+    if (store == null) return;
+    final rows = await store.list(statuses: {
+      LocalSyncStatus.localOnly,
+      LocalSyncStatus.pendingSync,
+      LocalSyncStatus.syncFailed,
+    });
+    for (final row in rows) {
+      if (row.payload['operation'] is! String) continue;
+      final target = row.entityType;
+      final data = row.payload;
+      var match = false;
+      if (kind == 'role' && target.endsWith('.save_role')) {
+        final payload = data['payload'];
+        match = payload is Map && '${payload['code']}' == code;
+      } else if (kind == 'category' && target.endsWith('.create_category')) {
+        final payload = data['payload'];
+        match = payload is Map && '${payload['code']}' == code;
+      } else if (kind == 'template' && target.endsWith('.apply_templates')) {
+        final codes = data['codes'];
+        match = codes is List && codes.map((item) => '$item').contains(code);
+      }
+      if (match) {
+        await store.setStatus(row.id, LocalSyncStatus.synced);
+      }
+    }
+  }
+
   Future<ManagedRole> save(ManagedRole role) async {
     await _identify(draftOnly: offline);
     final epoch = _epoch;
     if (!offline && _drafts.isEmpty) {
       try {
         final saved = await _remote.save(role);
+        _dropDraft('role', role.code);
         await _remember(
             'roles',
             {
@@ -327,6 +376,7 @@ class RoleRepository {
               'assigned_users': saved.assignedUsers
             },
             epoch);
+        await _supersedeStaged('role', role.code);
         return saved;
       } catch (e) {
         _check(epoch);
@@ -353,10 +403,12 @@ class RoleRepository {
     if (!offline && _drafts.isEmpty) {
       try {
         final saved = await _remote.createCategory(code, title, style);
+        _dropDraft('category', code);
         await _remember(
             'categories',
             {'code': saved.code, 'title': saved.title, 'style': saved.style},
             epoch);
+        await _supersedeStaged('category', code);
         return saved;
       } catch (e) {
         _check(epoch);
@@ -475,6 +527,9 @@ class RoleRepository {
               !(e['kind'] == draft['kind'] && e['code'] == draft['code']))
           .toList();
       await _persist(epoch);
+      // The draft is on the server now; a staged queue row for the same
+      // write (queued while offline) must not replay it a second time.
+      await _supersedeStaged(draft['kind'] as String, draft['code'] as String);
     }
     offline = false;
   }

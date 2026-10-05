@@ -54,7 +54,11 @@ class _Files extends Fake implements PersonnelFileRepository {
 class _SelfService extends Fake implements SelfServiceRepository {
   final calls = <String>[];
   @override
-  Future<void> checkin(String logType) async => calls.add(logType);
+  Future<CheckinResult> checkin(String logType) async {
+    calls.add(logType);
+    return CheckinResult.accepted;
+  }
+
   @override
   Future<List<Map<String, dynamic>>> checkins(
           {String? fromDate, String? toDate}) async =>

@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../../core/network/api_exception.dart';
+import '../../../../core/offline/offline_failure.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/jalali_date.dart';
 import '../../../../core/widgets/asoud_ui.dart';
@@ -31,15 +34,31 @@ class _MyAttendancePageState extends State<MyAttendancePage> {
           ({List<Map<String, dynamic>> days, List<Map<String, dynamic>> logs})>
       future = _load();
   bool saving = false;
+  final List<Map<String, dynamic>> _pendingLogs = [];
 
   DateTime get _today => widget.today ?? DateTime.now();
+
+  bool _offlineTolerable(Object error) =>
+      error is TimeoutException ||
+      isRetryableOfflineFailure(error) ||
+      error.runtimeType.toString() == 'QueuedOfflineException';
 
   Future<({List<Map<String, dynamic>> days, List<Map<String, dynamic>> logs})>
       _load() async {
     final today = _today;
     final first = DateTime(today.year, today.month);
-    final days = await widget.repository.attendance(_iso(first), _iso(today));
-    final logs = await widget.repository.checkins();
+    var days = const <Map<String, dynamic>>[];
+    var logs = const <Map<String, dynamic>>[];
+    try {
+      days = await widget.repository.attendance(_iso(first), _iso(today));
+    } catch (error) {
+      if (!_offlineTolerable(error)) rethrow;
+    }
+    try {
+      logs = await widget.repository.checkins();
+    } catch (error) {
+      if (!_offlineTolerable(error)) rethrow;
+    }
     return (days: days, logs: logs);
   }
 
@@ -47,13 +66,26 @@ class _MyAttendancePageState extends State<MyAttendancePage> {
     if (saving) return;
     setState(() => saving = true);
     try {
-      await widget.repository.checkin(logType);
+      final result = await widget.repository.checkin(logType);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(logType == 'IN' ? 'ورود ثبت شد.' : 'خروج ثبت شد.')));
-      setState(() {
-        future = _load();
-      });
+      if (result == CheckinResult.queued) {
+        setState(() {
+          _pendingLogs.insert(0, {
+            'log_type': logType,
+            'time': DateTime.now().toIso8601String(),
+            'pending': true,
+          });
+          future = _load();
+        });
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('ذخیره شد؛ پس از اتصال ارسال می‌شود')));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(logType == 'IN' ? 'ورود ثبت شد.' : 'خروج ثبت شد.')));
+        setState(() {
+          future = _load();
+        });
+      }
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -65,6 +97,21 @@ class _MyAttendancePageState extends State<MyAttendancePage> {
     }
   }
 
+  /// A queued entry disappears from the pending strip once the server list
+  /// contains the same-day entry, so a synced check-in never shows twice.
+  bool _confirmedByServer(
+      Map<String, dynamic> pending, List<Map<String, dynamic>> server) {
+    final time = '${pending['time']}';
+    if (time.length < 10) return false;
+    final day = time.substring(0, 10);
+    return server.any((row) {
+      final actual = '${row['time']}';
+      return row['log_type'] == pending['log_type'] &&
+          actual.length >= 10 &&
+          actual.substring(0, 10) == day;
+    });
+  }
+
   @override
   Widget build(BuildContext context) => Directionality(
         textDirection: TextDirection.rtl,
@@ -73,7 +120,12 @@ class _MyAttendancePageState extends State<MyAttendancePage> {
           body: FutureBuilder(
             future: future,
             builder: (context, snapshot) {
-              final logs = snapshot.data?.logs ?? const [];
+              final serverLogs = snapshot.data?.logs ?? const [];
+              final logs = [
+                for (final pending in _pendingLogs)
+                  if (!_confirmedByServer(pending, serverLogs)) pending,
+                ...serverLogs,
+              ];
               final last = logs.isEmpty ? null : logs.first;
               return ListView(padding: const EdgeInsets.all(16), children: [
                 Card(
@@ -153,7 +205,19 @@ class _MyAttendancePageState extends State<MyAttendancePage> {
                               : Icons.login_rounded,
                           color: AsoudColors.primary),
                       title: Text(log['log_type'] == 'OUT' ? 'خروج' : 'ورود'),
-                      trailing: Text(formatJalaliDateTimeIso('${log['time']}')),
+                      trailing: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(formatJalaliDateTimeIso('${log['time']}')),
+                          if (log['pending'] == true)
+                            const Text('در انتظار ارسال',
+                                style: TextStyle(
+                                    fontSize: 10,
+                                    color: AsoudColors.warning,
+                                    fontWeight: FontWeight.w700)),
+                        ],
+                      ),
                     ),
                 ],
               ]);

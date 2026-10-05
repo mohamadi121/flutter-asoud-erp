@@ -1,4 +1,10 @@
+import 'dart:async';
+
 import '../../../core/network/frappe_client.dart';
+import '../../../core/offline/offline_failure.dart';
+
+/// Whether the check-in reached the server or is waiting in the offline queue.
+enum CheckinResult { accepted, queued }
 
 /// Attendance self-service (`asoud_erp.api.v1.hr_self_service`) for the
 /// session user. Check-ins go through the client's offline mutation queue.
@@ -8,9 +14,21 @@ class SelfServiceRepository {
 
   static const _module = 'asoud_erp.api.v1.hr_self_service';
 
-  Future<void> checkin(String logType) async {
-    await client.callAsoudMethod('$_module.create_checkin',
-        data: {'log_type': logType});
+  bool _queued(Object error) =>
+      error is TimeoutException ||
+      isRetryableOfflineFailure(error) ||
+      error.runtimeType.toString() == 'QueuedOfflineException';
+
+  Future<CheckinResult> checkin(String logType) async {
+    try {
+      await client.callAsoudMethod('$_module.create_checkin',
+          data: {'log_type': logType});
+      return CheckinResult.accepted;
+    } catch (error) {
+      // The write is staged in the offline queue and replays automatically.
+      if (_queued(error)) return CheckinResult.queued;
+      rethrow;
+    }
   }
 
   Future<List<Map<String, dynamic>>> checkins(
