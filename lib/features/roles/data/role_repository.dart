@@ -331,8 +331,11 @@ class RoleRepository {
 
   /// Marks staged queue rows for an already-applied draft as synced so the
   /// automatic replay does not send the same write a second time. Role codes
-  /// are unique, so matching on the code is exact.
-  Future<void> _supersedeStaged(String kind, String code) async {
+  /// are unique, so matching on the code is exact. A staged `apply_templates`
+  /// row is only done when EVERY code in it was applied: marking it synced
+  /// after a single code would drop the remaining codes' automatic replay.
+  Future<void> _supersedeStaged(String kind, String code,
+      {Set<String> appliedTemplates = const {}}) async {
     final store = local;
     if (store == null) return;
     final rows = await store.list(statuses: {
@@ -353,7 +356,9 @@ class RoleRepository {
         match = payload is Map && '${payload['code']}' == code;
       } else if (kind == 'template' && target.endsWith('.apply_templates')) {
         final codes = data['codes'];
-        match = codes is List && codes.map((item) => '$item').contains(code);
+        match = codes is List &&
+            codes.isNotEmpty &&
+            codes.map((item) => '$item').every(appliedTemplates.contains);
       }
       if (match) {
         await store.setStatus(row.id, LocalSyncStatus.synced);
@@ -488,6 +493,10 @@ class RoleRepository {
       ordered.addAll(ready);
       roles.removeWhere(ready.contains);
     }
+    // Template codes confirmed on the server during this run. A staged
+    // apply_templates row is only superseded once every code in it is known
+    // applied here or in the freshly confirmed server catalog.
+    final appliedTemplates = <String>{};
     for (final draft in ordered) {
       _check(epoch);
       final catalog = await _remote.load();
@@ -505,6 +514,7 @@ class RoleRepository {
         }
       } else if (draft['kind'] == 'template') {
         await _remote.applyTemplates([draft['code'] as String]);
+        appliedTemplates.add(draft['code'] as String);
       } else {
         final role = ManagedRole.fromJson(values);
         final found = catalog.roles.where((e) => e.code == role.code);
@@ -529,7 +539,11 @@ class RoleRepository {
       await _persist(epoch);
       // The draft is on the server now; a staged queue row for the same
       // write (queued while offline) must not replay it a second time.
-      await _supersedeStaged(draft['kind'] as String, draft['code'] as String);
+      await _supersedeStaged(draft['kind'] as String, draft['code'] as String,
+          appliedTemplates: {
+            ...confirmed.roles.map((role) => role.code),
+            ...appliedTemplates,
+          });
     }
     offline = false;
   }
