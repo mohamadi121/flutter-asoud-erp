@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.24.0+38
+
+- Offline preview now includes a richer demo app: office dashboard figures, request/cartable samples, workflow notifications, employee home, attendance, HR rows, parties, and three preset document templates.
+- Unified personnel file preview into the four-tab page and seeded 12 realistic personnel files with documents, contracts, attendance, leave, salary visibility rules, and history.
+- Added MyInfo, employee self-service home, demo transfer, restored login/demo choice/logout flows, and safer offline queue behavior with retry/backoff and ownership guards.
+- Queued offline writes now cover roles, organization chart, purchase, attendance and generic requests, with a send-queue screen and rejected writes kept visible.
+- Requires backend 0.13.0.
+
 ## 0.23.0+37
 
 - Offline preview (no server): document templates, stage exit routes and requests are saved on the
