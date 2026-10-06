@@ -43,6 +43,11 @@ void main() {
       expect(find.text('۸٬۲۰۰٬۰۰۰ ریال'), findsOneWidget);
       expect(find.text('۴۵۶٬۷۰۰٬۰۰۰ ریال'), findsOneWidget);
       expect(find.text('۶ سند'), findsOneWidget);
+      await tester.dragUntilVisible(
+        find.text('استاندارد ایران'),
+        find.byType(Scrollable).first,
+        const Offset(0, -200),
+      );
       expect(find.text('استاندارد ایران'), findsOneWidget);
       await tester.dragUntilVisible(
         find.text('طرف حساب‌ها'),
@@ -63,8 +68,18 @@ void main() {
           client));
       await tester.pumpAndSettle();
 
+      await tester.dragUntilVisible(
+        find.text('کاربران فعال'),
+        find.byType(Scrollable).first,
+        const Offset(0, -200),
+      );
       expect(find.text('کاربران فعال'), findsOneWidget);
       expect(find.text('۱۴'), findsOneWidget);
+      await tester.dragUntilVisible(
+        find.text('۶۸٪'),
+        find.byType(Scrollable).first,
+        const Offset(0, -200),
+      );
       expect(find.text('۶۸٪'), findsOneWidget);
       expect(find.text('نمایشی'), findsWidgets);
     });

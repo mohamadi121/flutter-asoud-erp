@@ -19,8 +19,8 @@ class _Client extends Mock implements FrappeClient {}
 final _tabs = {
   'نمای کلی': 'overview',
   'اطلاعات پرسنلی': 'sections',
-  'مدارک': 'documents',
   'سوابق': 'history',
+  'مدارک': 'documents',
 };
 
 final _sections = {
@@ -121,7 +121,9 @@ void main() {
             reason: 'پیش‌نمایش نباید خود را نمونه معرفی کند');
 
         for (final tab in _tabs.entries) {
-          await tester.tap(find.widgetWithText(Tab, tab.key));
+          final tabFinder = find.widgetWithText(Tab, tab.key);
+          await tester.ensureVisible(tabFinder);
+          await tester.tap(tabFinder, warnIfMissed: false);
           await tester.pumpAndSettle();
           collect(tab.value);
           if (tab.key == 'اطلاعات پرسنلی') {
@@ -170,7 +172,7 @@ void main() {
         expect(shows('overview', file.header.employeeCode!), isTrue);
         expect(shows('overview', file.header.departmentName), isTrue);
         expect(shows('overview', 'وضعیت مدارک'), isTrue);
-        expect(shows('overview', 'قرارداد فعلی'), isTrue);
+        expect(shows('overview', 'قرارداد جاری'), isTrue);
         expect(shows('overview', 'روز مانده'), isTrue);
         expect(shows('personal', file.personal.nationalId), isTrue);
         expect(shows('personal', file.personal.mobile), isTrue);

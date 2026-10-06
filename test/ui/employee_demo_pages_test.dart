@@ -4,6 +4,9 @@ import 'package:asoud_erp/features/employee/data/preview_hr_repository.dart';
 import 'package:asoud_erp/features/employee/data/self_service_repository.dart';
 import 'package:asoud_erp/features/employee/presentation/pages/employee_home_page.dart';
 import 'package:asoud_erp/features/employee/presentation/pages/my_attendance_page.dart';
+import 'package:asoud_erp/features/workflows/data/demo/task_notification_demo_data.dart';
+import 'package:asoud_erp/features/workflows/domain/entities/workflow_notification.dart';
+import 'package:asoud_erp/features/workflows/domain/repositories/workflow_notification_repository.dart';
 import 'package:asoud_erp/features/hr/domain/hr_models.dart';
 import 'package:asoud_erp/features/hr/domain/hr_repository.dart';
 import 'package:asoud_erp/features/hr/presentation/pages/hr_home_page.dart';
@@ -14,6 +17,21 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _Client extends Mock implements FrappeApiClient {}
+
+class _Notifications extends Fake implements WorkflowNotificationRepository {
+  @override
+  bool get isOfflinePreview => true;
+
+  @override
+  Future<List<WorkflowNotification>> getNotifications(
+          {bool unreadOnly = false}) async =>
+      demoNotifications()
+          .where((item) => !unreadOnly || !item.isRead)
+          .toList(growable: false);
+
+  @override
+  Future<void> markRead(String notification) async {}
+}
 
 class _ThrowingHr extends Fake implements HrRepository {
   @override
@@ -47,10 +65,16 @@ Widget _app(Widget page, {FrappeApiClient? client, HrRepository? hr}) =>
       value: client ?? _Client(),
       child: RepositoryProvider<HrRepository>.value(
         value: hr ?? _ThrowingHr(),
-        child: MaterialApp(
-            theme: AsoudTheme.light,
-            home:
-                Directionality(textDirection: TextDirection.rtl, child: page)),
+        child: RepositoryProvider<WorkflowNotificationRepository>.value(
+          value: _Notifications(),
+          child: RepositoryProvider<WorkflowNotificationRepository?>.value(
+            value: _Notifications(),
+            child: MaterialApp(
+                theme: AsoudTheme.light,
+                home: Directionality(
+                    textDirection: TextDirection.rtl, child: page)),
+          ),
+        ),
       ),
     );
 
@@ -80,16 +104,26 @@ void main() {
 
       expect(find.text('سلام سارا!'), findsOneWidget);
       expect(find.text('کارشناس فروش · فروش'), findsOneWidget);
-      expect(find.text('جلسه هماهنگی فروش'), findsOneWidget);
-      await tester.tap(find.text('مشاهده همه'));
-      await tester.pumpAndSettle();
-      expect(find.text('اطلاعیه‌ها'), findsOneWidget);
       await tester.dragUntilVisible(
-        find.text('نظرسنجی رضایت شغلی'),
+        find.text('کار جدید به شما ارجاع شد'),
         find.byType(Scrollable).first,
         const Offset(0, -200),
       );
-      expect(find.text('نظرسنجی رضایت شغلی'), findsOneWidget);
+      expect(find.text('کار جدید به شما ارجاع شد'), findsOneWidget);
+      await tester.dragUntilVisible(
+        find.text('مشاهده همه'),
+        find.byType(Scrollable).first,
+        const Offset(0, -200),
+      );
+      await tester.tap(find.text('مشاهده همه'));
+      await tester.pumpAndSettle();
+      expect(find.text('اعلان‌ها'), findsWidgets);
+      await tester.dragUntilVisible(
+        find.text('تنخواه تیر تأیید شد'),
+        find.byType(Scrollable).first,
+        const Offset(0, -200),
+      );
+      expect(find.text('تنخواه تیر تأیید شد'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
