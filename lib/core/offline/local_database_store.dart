@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:path/path.dart' as path;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
@@ -39,18 +40,28 @@ abstract interface class LocalRecordStore {
 }
 
 class LocalDatabaseStore implements LocalRecordStore {
-  LocalDatabaseStore._();
+  LocalDatabaseStore._([this._databasePath]);
+
+  /// A store backed by the database file at [databasePath], so tests can open
+  /// a database that already exists on disk.
+  @visibleForTesting
+  factory LocalDatabaseStore.forPath(String databasePath) =>
+      LocalDatabaseStore._(databasePath);
+
   static final instance = LocalDatabaseStore._();
   static const _legacyKey = 'asoud_offline_mutations_v1';
+  static const _schemaVersion = 2;
+  final String? _databasePath;
   Database? _database;
 
   Future<Database> get database async => _database ??= await _open();
 
   Future<Database> _open() async {
-    final root = await getDatabasesPath();
+    final databasePath = _databasePath ??
+        path.join(await getDatabasesPath(), 'asoud_erp_local_v1.db');
     final database = await openDatabase(
-      path.join(root, 'asoud_erp_local_v1.db'),
-      version: 1,
+      databasePath,
+      version: _schemaVersion,
       onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
       onCreate: (db, _) async {
         await db.execute('''
@@ -74,9 +85,32 @@ class LocalDatabaseStore implements LocalRecordStore {
           'CREATE INDEX idx_local_records_sync ON local_records(sync_status)',
         );
       },
+      onUpgrade: (db, oldVersion, _) async {
+        if (oldVersion < 2) await _addRetryColumns(db);
+      },
     );
     await _migrateLegacyQueue(database);
     return database;
+  }
+
+  /// Adds the retry-schedule columns to a table created before schema v2. Only
+  /// missing columns are added, because a build may already have them while
+  /// still reporting version 1.
+  Future<void> _addRetryColumns(Database db) async {
+    final columns = (await db.rawQuery('PRAGMA table_info(local_records)'))
+        .map((column) => column['name'])
+        .toSet();
+    if (!columns.contains('attempts')) {
+      await db.execute(
+        'ALTER TABLE local_records '
+        'ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0',
+      );
+    }
+    if (!columns.contains('next_attempt_at')) {
+      await db.execute(
+        'ALTER TABLE local_records ADD COLUMN next_attempt_at TEXT',
+      );
+    }
   }
 
   @override
