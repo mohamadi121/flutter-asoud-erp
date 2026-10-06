@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.24.1+39
+
+- Existing offline databases now migrate to schema v2 by adding the retry columns (`attempts`, `next_attempt_at`), so queued writes and status updates keep working on devices that already had a v1 database.
+- Requires backend 0.13.1.
+
 ## 0.24.0+38
 
 - Offline preview now includes a richer demo app: office dashboard figures, request/cartable samples, workflow notifications, employee home, attendance, HR rows, parties, and three preset document templates.
