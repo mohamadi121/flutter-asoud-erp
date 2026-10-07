@@ -1,0 +1,19 @@
+{
+ "ok": true,
+ "data": [
+  {
+   "name": "abc123",
+   "content": "لطفاً پیش‌فاکتور را پیوست کنید.",
+   "author": "mgr@x",
+   "author_name": "احمد رضایی",
+   "creation": "2026-10-05 09:00:00",
+   "is_mine": false
+  }
+ ],
+ "meta": {
+  "api_version": "v1",
+  "total": 1,
+  "limit_start": 0,
+  "limit_page_length": 50
+ }
+}

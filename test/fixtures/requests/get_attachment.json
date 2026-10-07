@@ -1,0 +1,12 @@
+{
+ "ok": true,
+ "data": {
+  "filename": "m.png",
+  "content_type": "image/png",
+  "size": 70,
+  "content_base64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+ },
+ "meta": {
+  "api_version": "v1"
+ }
+}

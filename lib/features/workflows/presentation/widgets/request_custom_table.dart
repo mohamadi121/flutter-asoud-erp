@@ -12,6 +12,7 @@ class RequestCustomTable extends StatefulWidget {
       this.initialValue = const [],
       this.attachments = const [],
       this.uploadAttachment,
+      this.attachmentLabel,
       this.enabled = true,
       this.preview = false,
       super.key});
@@ -20,6 +21,10 @@ class RequestCustomTable extends StatefulWidget {
   final List<Map<String, dynamic>> initialValue;
   final List<String> attachments;
   final Future<String?> Function()? uploadAttachment;
+
+  /// Display text of an attachment option (e.g. the filename of
+  /// `attachment:att-1`); defaults to the option without its prefix.
+  final String Function(String option)? attachmentLabel;
   final bool enabled, preview;
 
   @override
@@ -128,7 +133,11 @@ class _RequestCustomTableState extends State<RequestCustomTable> {
             for (final option in options.toSet())
               DropdownMenuItem(
                   value: option,
-                  child: Text(option.replaceFirst('attachment:', ''),
+                  child: Text(
+                      column.type == 'Attachment' &&
+                              widget.attachmentLabel != null
+                          ? widget.attachmentLabel!(option)
+                          : option.replaceFirst('attachment:', ''),
                       overflow: TextOverflow.ellipsis))
           ],
           onChanged: widget.enabled && !widget.preview ? changed : null);

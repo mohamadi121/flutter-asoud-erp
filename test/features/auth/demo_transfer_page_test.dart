@@ -1,4 +1,5 @@
 import 'package:asoud_erp/core/offline/local_record.dart';
+import 'package:asoud_erp/core/offline/queued_offline_exception.dart';
 import 'package:asoud_erp/core/theme/asoud_theme.dart';
 import 'package:asoud_erp/features/auth/data/demo_transfer_service.dart';
 import 'package:asoud_erp/features/auth/presentation/pages/demo_transfer_page.dart';
@@ -27,7 +28,7 @@ Future<void> seedPreview(FakeLocalRecordStore store) async {
       'data': {
         'company': 'دفتر نمونه',
         'subject': 'خرید لپ‌تاپ',
-        'workflow_definition': 'PREVIEW-REQUEST-PURCHASE',
+        'workflow_definition': 'SYS-PURCHASE-WP',
       },
     },
   );
@@ -93,6 +94,30 @@ void main() {
     expect(find.text('خرید لپ‌تاپ'), findsNothing);
     // The other user items are still listed.
     expect(find.text('سند هزینه'), findsOneWidget);
+  });
+
+  testWidgets('انتقال صف‌شده پیام ذخیره را نشان می‌دهد نه خطا', (tester) async {
+    final store = FakeLocalRecordStore();
+    await seedPreview(store);
+    await tester.pumpWidget(_app(DemoTransferPage(
+      service: DemoTransferService(store: store),
+      submitRequest: (_) async =>
+          throw const QueuedOfflineException(localId: 'queued-1'),
+      submitTemplate: (_) async {},
+      onDone: () {},
+    )));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('انتقال به سرور').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text(QueuedOfflineException.queuedFeedback), findsOneWidget);
+    final feedback =
+        tester.widget<Text>(find.text(QueuedOfflineException.queuedFeedback));
+    expect(feedback.style?.color, isNot(Colors.red));
+    // The preview copy is gone, so a second tap cannot send a duplicate.
+    expect(await store.get(_requestId), isNull);
+    expect(find.text('خرید لپ‌تاپ'), findsNothing);
   });
 
   testWidgets('ignoring discards without submitting; finish closes the page',

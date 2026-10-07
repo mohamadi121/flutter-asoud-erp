@@ -71,7 +71,7 @@ void main() {
         .thenAnswer((_) => const Stream.empty());
   });
 
-  testWidgets('preview requests list renders every demo status at 390',
+  testWidgets('preview requests list renders the demo statuses at 390',
       (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -83,23 +83,23 @@ void main() {
         tasks));
     await tester.pumpAndSettle();
 
-    expect(find.text('خرید لپ‌تاپ برای واحد فروش'), findsOneWidget);
-    expect(find.text('مرخصی استحقاقی تابستان'), findsOneWidget);
-    expect(find.text('پیش‌نویس'), findsOneWidget);
-    expect(find.text('برگشت برای اصلاح'), findsOneWidget);
+    expect(find.text('مأموریت تهران — نمایشگاه'), findsOneWidget);
+    expect(find.text('تنخواه خرداد واحد فروش'), findsOneWidget);
+    expect(find.text('در انتظار تأیید'), findsOneWidget);
+    expect(find.text('رد شده'), findsWidgets); // the tab and a status chip
     expect(find.text('تکمیل شده'), findsWidgets);
 
-    await tester.tap(find.text('خرید لپ‌تاپ برای واحد فروش'));
+    await tester.tap(find.text('مأموریت تهران — نمایشگاه'));
     await tester.pumpAndSettle();
     expect(find.text('جزئیات درخواست'), findsOneWidget);
-    expect(find.text('پیش‌فاکتور.pdf'), findsOneWidget);
+    expect(find.text('دعوت‌نامه نمایشگاه.pdf'), findsOneWidget);
     await tester.dragUntilVisible(
       find.text('گردش فرایند'),
       find.byType(Scrollable).first,
       const Offset(0, -200),
     );
     expect(find.text('گردش فرایند'), findsOneWidget);
-    expect(find.text('«لطفاً پیش‌فاکتور را پیوست کنید.»'), findsOneWidget);
+    expect(find.text('«با مأموریت موافقت شد.»'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

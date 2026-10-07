@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/offline/local_database_store.dart';
+import '../../../core/offline/offline_failure.dart';
 import '../../../core/offline/local_record.dart';
 import '../../workflows/data/offline_preview_data.dart';
 
@@ -149,28 +150,63 @@ class DemoTransferService {
     return items;
   }
 
+  /// The `request_id` a preview request is sent with: derived from the preview
+  /// row, so every attempt for the same row carries the same key and the
+  /// server replays the first result instead of creating a second request. It
+  /// is 46 characters; the server accepts 8 to 100.
+  static String requestIdFor(DemoTransferItem item) {
+    var high = 0xcbf29ce484222325, low = 0x84222325cbf29ce4;
+    for (final unit in utf8.encode(item.id)) {
+      high = ((high ^ unit) * 0x100000001b3) & 0xFFFFFFFFFFFFFFFF;
+      low = ((low ^ unit) * 0x100000001b3) & 0xFFFFFFFFFFFFFFFF;
+      low = ((low << 7) | (low >>> 57)) & 0xFFFFFFFFFFFFFFFF;
+    }
+    String hex(int value) =>
+        value.toUnsigned(64).toRadixString(16).padLeft(16, '0');
+    return 'demo-transfer-${hex(high)}${hex(low)}';
+  }
+
   /// Submits a preview request as a normal server write (queued when
-  /// offline by the repository) and removes the local preview copy.
-  Future<void> transferGenericRequest(
+  /// offline by the repository) and removes the local preview copy. The
+  /// request is sent with [requestIdFor] as its `request_id`. Returns true
+  /// when the write was only queued on this device: it is then safe, so the
+  /// preview copy is removed as well and a second send would be a duplicate.
+  Future<bool> transferGenericRequest(
     DemoTransferItem item, {
     required Future<dynamic> Function(Map<String, dynamic> data) submit,
   }) async {
     assert(item.kind == DemoTransferKind.genericRequest);
     final data =
-        Map<String, dynamic>.from((item.payload['data'] as Map?) ?? const {});
-    await submit(data);
+        Map<String, dynamic>.from((item.payload['data'] as Map?) ?? const {})
+          ..['request_id'] = requestIdFor(item);
+    final queued = await _submitOrQueued(() => submit(data));
     await _store.delete(item.id);
+    return queued;
   }
 
   /// Submits a preview document template as a normal server write and
-  /// removes the local preview copy.
-  Future<void> transferTemplate(
+  /// removes the local preview copy. Returns true when the write was only
+  /// queued on this device (see [transferGenericRequest]).
+  Future<bool> transferTemplate(
     DemoTransferItem item, {
     required Future<dynamic> Function(Map<String, dynamic> template) submit,
   }) async {
     assert(item.kind == DemoTransferKind.documentTemplate);
-    await submit(Map<String, dynamic>.from(item.payload));
+    final queued = await _submitOrQueued(
+        () => submit(Map<String, dynamic>.from(item.payload)));
     await _removePrefsRow(templatesKey, item.id);
+    return queued;
+  }
+
+  /// A write that was safely queued did not fail: the queue sends it later.
+  Future<bool> _submitOrQueued(Future<dynamic> Function() submit) async {
+    try {
+      await submit();
+      return false;
+    } catch (error) {
+      if (isQueuedOffline(error)) return true;
+      rethrow;
+    }
   }
 
   /// Discards a preview copy without sending it to the server.

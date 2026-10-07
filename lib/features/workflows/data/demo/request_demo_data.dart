@@ -1,10 +1,12 @@
-/// Rich demo rows for the offline preview (no session): four request types
-/// backed by local designs, eight requests across every status, and the
-/// cartable timeline behind them.
+/// Demo rows for the offline preview (no session): the mission and advance
+/// request types backed by local designs, four requests across the statuses
+/// and the cartable timeline behind them. The leave and purchase demos live
+/// with the system templates (`RequestDemoRegistry`).
 ///
 /// Every map carries `is_sample: true` and is served only in preview; an
 /// authenticated session never sees these rows.
 library;
+
 import '../../../office_setup/data/demo/office_demo_data.dart';
 
 String _iso(DateTime value) => value.toIso8601String();
@@ -55,59 +57,8 @@ Map<String, dynamic> _design({
       ],
     };
 
-/// Local designs behind the four demo request types.
+/// Local designs behind the demo request types.
 List<Map<String, dynamic>> demoDesignMaps() => [
-      _design(
-        id: 'DEMO-WF-LEAVE',
-        title: 'درخواست مرخصی',
-        shortTitle: 'ثبت درخواست مرخصی استحقاقی و ساعتی',
-        iconKey: 'leave',
-        category: 'HR',
-        fields: [
-          {
-            'key': 'leave_type',
-            'label': 'نوع مرخصی',
-            'type': 'Choice',
-            'required': true,
-            'options': ['استحقاقی', 'استعلاجی', 'ساعتی', 'بدون حقوق'],
-          },
-          {
-            'key': 'from_date',
-            'label': 'از تاریخ',
-            'type': 'Date',
-            'required': true
-          },
-          {
-            'key': 'to_date',
-            'label': 'تا تاریخ',
-            'type': 'Date',
-            'required': true
-          },
-          {'key': 'days', 'label': 'مدت (روز)', 'type': 'Number'},
-          {'key': 'reason', 'label': 'دلیل مرخصی', 'type': 'Long Text'},
-          {'key': 'substitute', 'label': 'جانشین', 'type': 'User'},
-        ],
-      ),
-      _design(
-        id: 'DEMO-WF-PURCHASE',
-        title: 'درخواست خرید',
-        shortTitle: 'ثبت درخواست خرید کالا و خدمات',
-        iconKey: 'purchase',
-        category: 'Purchase',
-        fields: [
-          {
-            'key': 'category',
-            'label': 'دسته‌بندی',
-            'type': 'Choice',
-            'required': true,
-            'options': ['تجهیزات IT', 'ملزومات اداری', 'خدمات'],
-          },
-          {'key': 'description', 'label': 'شرح درخواست', 'type': 'Long Text'},
-          {'key': 'total', 'label': 'مبلغ کل درخواست', 'type': 'Currency'},
-          {'key': 'needed_by', 'label': 'تاریخ نیاز', 'type': 'Date'},
-          {'key': 'items', 'label': 'اقلام درخواستی', 'type': 'Item Table'},
-        ],
-      ),
       _design(
         id: 'DEMO-WF-MISSION',
         title: 'درخواست مأموریت',
@@ -196,59 +147,13 @@ Map<String, dynamic> _request({
   };
 }
 
-/// Eight demo requests: draft, waiting, approved, rejected, returned and
-/// cancelled — dates relative to now.
+/// Four demo requests (mission and advance): waiting, approved and rejected —
+/// dates relative to now.
 List<Map<String, dynamic>> demoRequests() {
   final now = DateTime.now();
   String iso(int daysAgo, [int hours = 0]) =>
       _iso(now.subtract(Duration(days: daysAgo, hours: hours)));
   return [
-    _request(
-      name: 'DEMO-REQ-001',
-      type: 'DEMO-WF-LEAVE',
-      typeTitle: 'درخواست مرخصی',
-      subject: 'مرخصی استحقاقی تابستان',
-      status: 'Draft',
-      displayStatus: 'پیش‌نویس',
-      daysAgo: 0,
-      values: {
-        'leave_type': 'استحقاقی',
-        'from_date': iso(0).substring(0, 10),
-        'to_date': iso(0).substring(0, 10),
-        'days': 3,
-        'reason': 'سفر خانوادگی',
-      },
-    ),
-    _request(
-      name: 'DEMO-REQ-002',
-      type: 'DEMO-WF-PURCHASE',
-      typeTitle: 'درخواست خرید',
-      subject: 'خرید لپ‌تاپ برای واحد فروش',
-      status: 'Running',
-      daysAgo: 2,
-      instance: 'DEMO-WFI-002',
-      values: {
-        'category': 'تجهیزات IT',
-        'description': 'دو دستگاه لپ‌تاپ برای کارشناسان جدید فروش',
-        'total': 145000000,
-        'needed_by': iso(-7).substring(0, 10),
-        'items': [
-          {
-            'item_code': 'PREVIEW-LAPTOP',
-            'item_name': 'لپ‌تاپ',
-            'qty': 2,
-            'uom': 'عدد',
-          },
-        ],
-      },
-      attachments: [
-        {
-          'name': 'DEMO-FILE-1',
-          'filename': 'پیش‌فاکتور.pdf',
-          'is_sample': true
-        },
-      ],
-    ),
     _request(
       name: 'DEMO-REQ-003',
       type: 'DEMO-WF-MISSION',
@@ -264,6 +169,13 @@ List<Map<String, dynamic>> demoRequests() {
         'purpose': 'حضور در نمایشگاه و دیدار با مشتریان',
         'advance': 20000000,
       },
+      attachments: [
+        {
+          'name': 'DEMO-FILE-1',
+          'filename': 'دعوت‌نامه نمایشگاه.pdf',
+          'is_sample': true
+        },
+      ],
     ),
     _request(
       name: 'DEMO-REQ-004',
@@ -278,51 +190,6 @@ List<Map<String, dynamic>> demoRequests() {
         'purpose': 'هزینه‌های پذیرایی و ایاب و ذهاب خرداد',
         'needed_by': iso(12).substring(0, 10),
         'repayment': 'کسر از حقوق',
-      },
-    ),
-    _request(
-      name: 'DEMO-REQ-005',
-      type: 'DEMO-WF-PURCHASE',
-      typeTitle: 'درخواست خرید',
-      subject: 'خرید ملزومات اداری',
-      status: 'Running',
-      displayStatus: 'برگشت برای اصلاح',
-      daysAgo: 1,
-      instance: 'DEMO-WFI-005',
-      values: {
-        'category': 'ملزومات اداری',
-        'description': 'کاغذ، خودکار و پوشه برای دفتر',
-        'total': 8500000,
-        'needed_by': iso(-3).substring(0, 10),
-        'items': [
-          {
-            'item_code': 'PREVIEW-PAPER',
-            'item_name': 'کاغذ A4',
-            'qty': 20,
-            'uom': 'بسته',
-          },
-          {
-            'item_code': 'PREVIEW-MOUSE',
-            'item_name': 'ماوس بی‌سیم',
-            'qty': 3,
-            'uom': 'عدد',
-          },
-        ],
-      },
-    ),
-    _request(
-      name: 'DEMO-REQ-006',
-      type: 'DEMO-WF-LEAVE',
-      typeTitle: 'درخواست مرخصی',
-      subject: 'مرخصی ساعتی',
-      status: 'Cancelled',
-      daysAgo: 5,
-      values: {
-        'leave_type': 'ساعتی',
-        'from_date': iso(5).substring(0, 10),
-        'to_date': iso(5).substring(0, 10),
-        'days': 0.25,
-        'reason': 'مراجعه به بانک',
       },
     ),
     _request(

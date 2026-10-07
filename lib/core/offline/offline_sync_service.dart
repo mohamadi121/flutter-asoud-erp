@@ -23,6 +23,18 @@ class OfflineSyncReport {
 enum _ReplayOutcome { synced, retryLater, failed }
 
 /// Replays queued writes oldest first, one exponential backoff per row.
+/// Statuses of a write that has not reached the server yet.
+const unsentQueueStatuses = {
+  LocalSyncStatus.localOnly,
+  LocalSyncStatus.pendingSync,
+  LocalSyncStatus.syncFailed,
+};
+
+/// Whether [record] is a queued mutation (it has an `operation`), as opposed to
+/// a local mirror or cache row. Shared by the queue, its screen and the counts.
+bool isQueuedMutation(LocalRecord record) =>
+    record.payload['operation'] is String;
+
 class OfflineSyncService {
   OfflineSyncService(
     this._client, {
@@ -78,12 +90,8 @@ class OfflineSyncService {
 
   /// Every write still waiting for the server, oldest first.
   Future<List<LocalRecord>> unsent() async {
-    final rows = (await _local.list(statuses: const {
-      LocalSyncStatus.localOnly,
-      LocalSyncStatus.pendingSync,
-      LocalSyncStatus.syncFailed,
-    }))
-        .where((record) => record.payload['operation'] is String)
+    final rows = (await _local.list(statuses: unsentQueueStatuses))
+        .where(isQueuedMutation)
         .toList()
       ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
     return rows;

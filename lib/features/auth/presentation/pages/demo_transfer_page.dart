@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/offline/queued_offline_exception.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../dashboard/presentation/pages/dashboard_page.dart';
 import '../../data/demo_transfer_service.dart';
@@ -38,6 +39,7 @@ class _DemoTransferPageState extends State<DemoTransferPage> {
   List<DemoTransferItem>? _items;
   String? _busyId;
   String? _error;
+  String? _notice;
 
   @override
   void initState() {
@@ -54,16 +56,20 @@ class _DemoTransferPageState extends State<DemoTransferPage> {
     setState(() {
       _busyId = item.id;
       _error = null;
+      _notice = null;
     });
     try {
-      switch (item.kind) {
-        case DemoTransferKind.genericRequest:
-          await _service.transferGenericRequest(item,
-              submit: widget.submitRequest);
-        case DemoTransferKind.documentTemplate:
-          await _service.transferTemplate(item, submit: widget.submitTemplate);
-        case DemoTransferKind.workflowDesign:
-          throw StateError('این مورد قابل انتقال نیست.');
+      final queued = switch (item.kind) {
+        DemoTransferKind.genericRequest => await _service
+            .transferGenericRequest(item, submit: widget.submitRequest),
+        DemoTransferKind.documentTemplate =>
+          await _service.transferTemplate(item, submit: widget.submitTemplate),
+        DemoTransferKind.workflowDesign =>
+          throw StateError('این مورد قابل انتقال نیست.'),
+      };
+      // A queued write is safe on this device: say so instead of an error.
+      if (queued && mounted) {
+        setState(() => _notice = QueuedOfflineException.queuedFeedback);
       }
       await _reload();
     } catch (error) {
@@ -117,6 +123,9 @@ class _DemoTransferPageState extends State<DemoTransferPage> {
                     style: TextStyle(fontSize: 12, color: AsoudColors.muted),
                   ),
                   const SizedBox(height: 12),
+                  if (_notice != null)
+                    Text(_notice!,
+                        style: const TextStyle(color: AsoudColors.primary)),
                   if (_error != null)
                     Text(_error!, style: const TextStyle(color: Colors.red)),
                   for (final item in items) _card(item),

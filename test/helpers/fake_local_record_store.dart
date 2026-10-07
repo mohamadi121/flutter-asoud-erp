@@ -39,12 +39,16 @@ class FakeLocalRecordStore implements LocalRecordStore {
     String? entityType,
     Set<LocalSyncStatus>? statuses,
   }) async =>
-      records.values
+      // Like the database store: most recently updated first.
+      (records.values
           .where(
               (record) => entityType == null || record.entityType == entityType)
           .where(
               (record) => statuses == null || statuses.contains(record.status))
-          .toList(growable: false);
+          .toList(growable: false)
+          .reversed
+          .toList()
+        ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt)));
 
   @override
   Future<void> setStatus(

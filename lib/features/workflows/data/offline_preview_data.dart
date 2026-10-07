@@ -11,32 +11,10 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'demo/request_demo_data.dart';
+import 'request_demo_source.dart';
 
 /// Where [PreviewFallbackWorkflowRepository] keeps the locally designed workflows.
 const previewDesignsKey = 'asoud_workflow_designs_v2';
-
-/// A sample request type so the request flow can be tried before any design.
-/// Never transferred: `is_sample` rows are seed data, not user data.
-const offlineSampleRequestType = <String, dynamic>{
-  'name': 'PREVIEW-REQUEST-PURCHASE',
-  'is_sample': true,
-  'workflow_title': 'درخواست خرید (نمونه آفلاین)',
-  'short_title': 'ثبت درخواست خرید کالا و خدمات',
-  'icon_key': 'purchase',
-  'request_category': 'Purchase',
-  'fields': [
-    {
-      'key': 'category',
-      'label': 'دسته‌بندی',
-      'type': 'Choice',
-      'required': true,
-      'options': ['تجهیزات IT', 'ملزومات اداری', 'خدمات'],
-    },
-    {'key': 'description', 'label': 'شرح درخواست', 'type': 'Long Text'},
-    {'key': 'total', 'label': 'مبلغ کل درخواست', 'type': 'Currency'},
-    {'key': 'items', 'label': 'اقلام درخواستی', 'type': 'Item Table'},
-  ],
-};
 
 Future<List<Map<String, dynamic>>> _designs() async {
   final raw =
@@ -76,13 +54,15 @@ List<Map<String, dynamic>>? _formFields(Map<String, dynamic> design) {
   ];
 }
 
-/// Request types available offline: locally designed ones, then the demo
-/// types («شرکت نمونه آسود», each `is_sample: true`) when nothing was
-/// designed yet, then the sample.
+/// Request types available offline: those registered by
+/// [RequestDemoRegistry] (the system templates), then locally designed ones,
+/// then the demo types («شرکت نمونه آسود», each `is_sample: true`) when
+/// nothing was designed yet.
 Future<List<Map<String, dynamic>>> offlineRequestTypes() async {
   final designs = await _designs();
   final all = [...designs, if (designs.isEmpty) ...demoDesignMaps()];
   return [
+    ...RequestDemoRegistry.requestTypes(),
     for (final design in all)
       if ((design['workflow'] as Map?)?['target_doctype'] ==
               'ASOUD Workflow Request' &&
@@ -96,7 +76,6 @@ Future<List<Map<String, dynamic>>> offlineRequestTypes() async {
           'fields': _formFields(design),
           if (design['is_sample'] == true) 'is_sample': true,
         },
-    offlineSampleRequestType,
   ];
 }
 
@@ -117,9 +96,83 @@ Future<List<Map<String, dynamic>>> offlineRequestFields(
 
 const _sampleOptions = <String, List<Map<String, dynamic>>>{
   'Item': [
-    {'value': 'PREVIEW-LAPTOP', 'label': 'لپ‌تاپ', 'stock_uom': 'عدد'},
-    {'value': 'PREVIEW-MOUSE', 'label': 'ماوس بی‌سیم', 'stock_uom': 'عدد'},
-    {'value': 'PREVIEW-PAPER', 'label': 'کاغذ A4', 'stock_uom': 'بسته'},
+    {
+      'value': 'PREVIEW-LAPTOP',
+      'label': 'لپ‌تاپ',
+      'item_code': 'PREVIEW-LAPTOP',
+      'item_name': 'لپ‌تاپ',
+      'stock_uom': 'عدد',
+      'is_stock_item': 1,
+      'is_purchase_item': 1,
+    },
+    {
+      'value': 'PREVIEW-MOUSE',
+      'label': 'ماوس بی‌سیم',
+      'item_code': 'PREVIEW-MOUSE',
+      'item_name': 'ماوس بی‌سیم',
+      'stock_uom': 'عدد',
+      'is_stock_item': 1,
+      'is_purchase_item': 1,
+    },
+    {
+      'value': 'PREVIEW-PAPER',
+      'label': 'کاغذ A4',
+      'item_code': 'PREVIEW-PAPER',
+      'item_name': 'کاغذ A4',
+      'stock_uom': 'بسته',
+      'is_stock_item': 1,
+      'is_purchase_item': 1,
+    },
+    {
+      'value': 'ICU-MON-01',
+      'label': 'مانیتور ICU',
+      'item_code': 'ICU-MON-01',
+      'item_name': 'مانیتور ICU',
+      'stock_uom': 'Nos',
+      'is_stock_item': 1,
+      'is_purchase_item': 1,
+      'item_group': 'تجهیزات پزشکی',
+    },
+    {
+      'value': 'MON-XS',
+      'label': 'مانیتور بیمار مدل XS',
+      'item_code': 'MON-XS',
+      'item_name': 'مانیتور بیمار مدل XS',
+      'stock_uom': 'Nos',
+      'is_stock_item': 1,
+      'is_purchase_item': 1,
+      'item_group': 'تجهیزات پزشکی',
+    },
+    {
+      'value': 'SPO2-SENSOR',
+      'label': 'سنسور اکسیژن SpO2',
+      'item_code': 'SPO2-SENSOR',
+      'item_name': 'سنسور اکسیژن SpO2',
+      'stock_uom': 'Nos',
+      'is_stock_item': 1,
+      'is_purchase_item': 1,
+      'item_group': 'تجهیزات پزشکی',
+    },
+    {
+      'value': 'CABLE-5M',
+      'label': 'کابل اتصال ۵ متری',
+      'item_code': 'CABLE-5M',
+      'item_name': 'کابل اتصال ۵ متری',
+      'stock_uom': 'Meter',
+      'is_stock_item': 1,
+      'is_purchase_item': 1,
+      'item_group': 'ملزومات',
+    },
+    {
+      'value': 'SVC-INSTALL',
+      'label': 'خدمات نصب و راه‌اندازی',
+      'item_code': 'SVC-INSTALL',
+      'item_name': 'خدمات نصب و راه‌اندازی',
+      'stock_uom': 'Nos',
+      'is_stock_item': 0,
+      'is_purchase_item': 0,
+      'item_group': 'خدمات',
+    },
   ],
   'User': [
     {'value': 'preview.manager@local', 'label': 'مدیر نمونه'},
@@ -129,25 +182,103 @@ const _sampleOptions = <String, List<Map<String, dynamic>>>{
     {'value': 'PREVIEW-FINANCE', 'label': 'مالی و حسابداری'},
     {'value': 'PREVIEW-TRADE', 'label': 'بازرگانی'},
     {'value': 'PREVIEW-IT', 'label': 'فناوری اطلاعات'},
+    {'value': 'ICU - DEMO', 'label': 'بخش ICU'},
+  ],
+  'Cost Center': [
+    {'value': 'MED - DEMO', 'label': 'تجهیزات پزشکی'},
+    {'value': 'ADM - DEMO', 'label': 'اداری و پشتیبانی'},
+  ],
+  'Project': [
+    {'value': 'PRJ-ICU-1404', 'label': 'توسعه بخش ICU'},
+    {'value': 'PRJ-LAB-1404', 'label': 'نوسازی آزمایشگاه'},
+  ],
+  'Warehouse': [
+    {'value': 'Stores - DEMO', 'label': 'انبار مرکزی'},
+    {'value': 'Med - DEMO', 'label': 'انبار تجهیزات پزشکی'},
+  ],
+  'Branch': [
+    {'value': 'Tehran', 'label': 'تهران'},
+    {'value': 'Karaj', 'label': 'کرج'},
+  ],
+  'Supplier': [
+    {'value': 'SUP-0001', 'label': 'نوید طب'},
+    {'value': 'SUP-0002', 'label': 'پارس تجهیز'},
+  ],
+  'Leave Type': [
+    {
+      'value': 'Casual Leave',
+      'label': 'سالانه',
+      'category': 'annual',
+      'is_lwp': 0
+    },
+    {
+      'value': 'Sick Leave',
+      'label': 'استعلاجی',
+      'category': 'sick',
+      'is_lwp': 0
+    },
+    {
+      'value': 'Leave Without Pay',
+      'label': 'بدون حقوق',
+      'category': 'unpaid',
+      'is_lwp': 1
+    },
+    {'value': 'Other Leave', 'label': 'سایر', 'category': 'other', 'is_lwp': 0},
+  ],
+  'Delivery Location': [
+    {
+      'value': 'warehouse:Stores - DEMO',
+      'label': 'انبار مرکزی',
+      'kind': 'warehouse'
+    },
+    {
+      'value': 'warehouse:Med - DEMO',
+      'label': 'انبار تجهیزات پزشکی',
+      'kind': 'warehouse'
+    },
+    {'value': 'branch:Tehran', 'label': 'تهران', 'kind': 'branch'},
+    {'value': 'branch:Karaj', 'label': 'کرج', 'kind': 'branch'},
+    {
+      'value': 'department:ICU - DEMO',
+      'label': 'بخش ICU',
+      'kind': 'department'
+    },
   ],
 };
 
-/// Sample choices for User, Department, Item and UOM fields while offline.
+/// Sample choices for `request_field_options` while offline: the rows
+/// registered by [RequestDemoRegistry] for [fieldType], else the built-in
+/// samples. [scope] `purchase` limits `Item` to purchase items.
 List<Map<String, dynamic>> offlineFieldOptions(String fieldType,
-    {String txt = '', String? itemCode}) {
+    {String txt = '', String? itemCode, String? scope}) {
+  final all = RequestDemoRegistry.fieldOptions(fieldType) ??
+      _sampleOptions[fieldType] ??
+      const <Map<String, dynamic>>[];
   if (fieldType == 'UOM') {
-    final item = _sampleOptions['Item']!
-        .where((row) => row['value'] == itemCode)
-        .firstOrNull;
+    final item =
+        (RequestDemoRegistry.fieldOptions('Item') ?? _sampleOptions['Item']!)
+            .where((row) => row['value'] == itemCode)
+            .firstOrNull;
     final uom = '${item?['stock_uom'] ?? 'عدد'}';
+    final registered = RequestDemoRegistry.fieldOptions('UOM');
+    if (registered != null) return registered;
     return [
-      {'value': uom, 'label': uom, 'conversion_factor': 1}
+      {'value': uom, 'label': uom, 'conversion_factor': 1},
+      if (uom == 'Nos')
+        {'value': 'Box', 'label': 'Box', 'conversion_factor': 10},
     ];
   }
+  final needle = txt.trim().toLowerCase();
   return [
-    for (final row
-        in _sampleOptions[fieldType] ?? const <Map<String, dynamic>>[])
-      if (txt.isEmpty || '${row['label']}'.contains(txt)) row
+    for (final row in all)
+      if ((needle.isEmpty ||
+              '${row['label']}'.toLowerCase().contains(needle) ||
+              '${row['value']}'.toLowerCase().contains(needle)) &&
+          !(fieldType == 'Item' &&
+              scope == 'purchase' &&
+              (row['is_purchase_item'] == 0 ||
+                  row['is_purchase_item'] == false)))
+        row
   ];
 }
 
@@ -435,3 +566,204 @@ const offlinePresets = <Map<String, dynamic>>[
     },
   },
 ];
+
+/// The sample leave balance of the offline preview (`get_leave_balance`
+/// shape, §4.11): annual 12.5, sick 8, other 2 days, 8 working hours a day.
+Map<String, dynamic> offlineLeaveBalance() => {
+      'employee': 'PREVIEW-EMP-001',
+      'as_of': DateTime.now().toIso8601String().substring(0, 10),
+      'daily_working_hours': 8,
+      'leave_approver': 'preview.manager@local',
+      'categories': [
+        {
+          'category': 'annual',
+          'label': 'سالانه',
+          'remaining_days': 12.5,
+          'available_days': 12.0,
+          'pending_days': 0.5
+        },
+        {
+          'category': 'sick',
+          'label': 'استعلاجی',
+          'remaining_days': 8.0,
+          'available_days': 8.0,
+          'pending_days': 0.0
+        },
+        {
+          'category': 'other',
+          'label': 'سایر',
+          'remaining_days': 2.0,
+          'available_days': 2.0,
+          'pending_days': 0.0
+        },
+      ],
+      'leave_types': [
+        for (final row in _sampleOptions['Leave Type']!)
+          {
+            'leave_type': row['value'],
+            'category': row['category'],
+            'label': row['label'],
+            'is_lwp': row['is_lwp'],
+            'has_allocation': row['is_lwp'] != 1,
+            'total_leaves': 0,
+            'leaves_taken': 0,
+            'hourly_taken': 0,
+            'leaves_pending': 0,
+            'remaining': switch (row['category']) {
+              'annual' => 12.5,
+              'sick' => 8.0,
+              'other' => 2.0,
+              _ => null,
+            },
+            'available': switch (row['category']) {
+              'annual' => 12.0,
+              'sick' => 8.0,
+              'other' => 2.0,
+              _ => null,
+            },
+          }
+      ],
+    };
+
+const _leaveErrorMessages = {
+  'INVALID_DATE_RANGE': 'تاریخ پایان نباید قبل از تاریخ شروع باشد.',
+  'INVALID_TIME_RANGE': 'ساعت پایان باید بعد از ساعت شروع باشد.',
+  'LEAVE_ALL_HOLIDAYS':
+      'روزهای انتخاب‌شده همگی تعطیل هستند و نیازی به مرخصی نیست.',
+  'HOURLY_ON_HOLIDAY': 'تاریخ انتخاب‌شده برای شما تعطیل است.',
+  'HOURLY_EXCEEDS_DAY':
+      'مدت مرخصی ساعتی نمی‌تواند از ساعت کاری روزانه بیشتر باشد.',
+  'INSUFFICIENT_LEAVE_BALANCE': 'مانده مرخصی کافی نیست.',
+};
+
+int? _minutes(Object? value) {
+  final match =
+      RegExp(r'^([01]\d|2[0-3]):([0-5]\d)$').firstMatch('${value ?? ''}');
+  return match == null
+      ? null
+      : int.parse(match[1]!) * 60 + int.parse(match[2]!);
+}
+
+double _round(double value, int digits) =>
+    double.parse(value.toStringAsFixed(digits));
+
+/// `numerator / denominator` rounded half up at [places] decimals with integer
+/// arithmetic, like the server's exact-decimal `round_half_up` (a binary double
+/// would round some 0.xxx5 values down).
+double _halfUp(int numerator, int denominator, int places) {
+  var scale = 1;
+  for (var i = 0; i < places; i++) {
+    scale *= 10;
+  }
+  final scaled = numerator * scale;
+  return ((2 * scaled + denominator) ~/ (2 * denominator)) / scale;
+}
+
+/// A local `preview_leave_request` for the offline preview: the server's rules
+/// except holidays, where only Friday is a day off. Errors are data, as on the
+/// server. [args]: `leave_type`, `request_kind` (`Daily` / `Hourly`),
+/// `start_date`, `end_date`, `leave_date`, `start_time`, `end_time`.
+Map<String, dynamic> offlinePreviewLeave(Map<String, dynamic> args) {
+  final balance = offlineLeaveBalance();
+  final dailyHours = (balance['daily_working_hours'] as num).toDouble();
+  final errors = <Map<String, dynamic>>[];
+  void error(String code, String field, [String? message]) => errors.add({
+        'code': code,
+        'field': field,
+        'message': message ?? _leaveErrorMessages[code] ?? code
+      });
+
+  Map<String, dynamic>? duration;
+  var holidays = 0;
+  if ('${args['request_kind']}' == 'Hourly') {
+    final date = DateTime.tryParse('${args['leave_date'] ?? ''}');
+    final start = _minutes(args['start_time']);
+    final end = _minutes(args['end_time']);
+    if (date != null && start != null && end != null) {
+      final minutes = end - start;
+      final limit = (dailyHours * 60).round();
+      if (minutes <= 0) {
+        error('INVALID_TIME_RANGE', 'end_time');
+      } else if (minutes < 15) {
+        // Like the server, a broken time rule gives no duration.
+        error('INVALID_TIME_RANGE', 'end_time',
+            'حداقل مدت مرخصی ساعتی ۱۵ دقیقه است.');
+      } else if (minutes > limit) {
+        error('HOURLY_EXCEEDS_DAY', 'end_time');
+      } else {
+        // hours: minutes / 60 at 2 decimals; day_equivalent: that figure over
+        // the daily hours at 4 decimals (CONTRACT §3.6).
+        final hours = _halfUp(minutes, 60, 2);
+        duration = {
+          'unit': 'hour',
+          'days': null,
+          'hours': hours,
+          'day_equivalent':
+              _halfUp((hours * 100).round(), (dailyHours * 100).round(), 4),
+        };
+      }
+      if (date.weekday == DateTime.friday) {
+        error('HOURLY_ON_HOLIDAY', 'leave_date');
+      }
+    }
+  } else {
+    final from = DateTime.tryParse('${args['start_date'] ?? ''}');
+    final to = DateTime.tryParse('${args['end_date'] ?? ''}');
+    if (from != null && to != null) {
+      if (to.isBefore(from)) {
+        error('INVALID_DATE_RANGE', 'end_date');
+      } else {
+        var days = 0;
+        for (var day = DateTime(from.year, from.month, from.day);
+            !day.isAfter(to);
+            day = DateTime(day.year, day.month, day.day + 1)) {
+          day.weekday == DateTime.friday ? holidays++ : days++;
+        }
+        if (days <= 0) {
+          error('LEAVE_ALL_HOLIDAYS', 'start_date');
+        } else {
+          duration = {
+            'unit': 'day',
+            'days': days.toDouble(),
+            'hours': null,
+            'day_equivalent': days.toDouble(),
+          };
+        }
+      }
+    }
+  }
+
+  Map<String, dynamic>? result;
+  final type = _sampleOptions['Leave Type']!
+      .where((row) => row['value'] == args['leave_type'])
+      .firstOrNull;
+  if (duration != null && type != null) {
+    final requested = (duration['day_equivalent'] as num).toDouble();
+    final row = (balance['leave_types'] as List)
+        .cast<Map<String, dynamic>>()
+        .firstWhere((row) => row['leave_type'] == type['value']);
+    final remaining = (row['remaining'] as num?)?.toDouble();
+    final available = (row['available'] as num?)?.toDouble();
+    if (remaining != null && available != null && type['is_lwp'] != 1) {
+      // The server compares with `available` (remaining minus pending).
+      if (requested > available) {
+        error('INSUFFICIENT_LEAVE_BALANCE', 'leave_type');
+      }
+      result = {
+        'leave_type': type['value'],
+        'remaining_before': remaining,
+        'requested_days': requested,
+        'remaining_after': _round(remaining - requested, 3),
+        'available_after': _round(available - requested, 3),
+      };
+    }
+  }
+  return {
+    'valid': errors.isEmpty && duration != null,
+    'errors': errors,
+    'duration': duration ??
+        {'unit': '', 'days': null, 'hours': null, 'day_equivalent': null},
+    'balance': result,
+    'holidays_excluded': holidays,
+  };
+}

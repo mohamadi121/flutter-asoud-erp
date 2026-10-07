@@ -169,7 +169,7 @@ class LocalDatabaseStore implements LocalRecordStore {
       'local_records',
       where: clauses.isEmpty ? null : clauses.join(' AND '),
       whereArgs: arguments,
-      orderBy: 'created_at ASC',
+      orderBy: 'updated_at DESC',
     );
     return rows.map(LocalRecord.fromRow).toList(growable: false);
   }

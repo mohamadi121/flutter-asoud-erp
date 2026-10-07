@@ -45,11 +45,15 @@ class OfflineMutationStore {
   Future<void> remove(String id) => LocalDatabaseStore.instance.delete(id);
 
   Future<List<Map<String, dynamic>>> pending() async {
-    final records = await LocalDatabaseStore.instance.list(statuses: {
-      LocalSyncStatus.localOnly,
-      LocalSyncStatus.pendingSync,
-      LocalSyncStatus.syncFailed,
-    });
+    final records = [
+      ...await LocalDatabaseStore.instance.list(statuses: {
+        LocalSyncStatus.localOnly,
+        LocalSyncStatus.pendingSync,
+        LocalSyncStatus.syncFailed,
+      }),
+    ];
+    // Oldest first, whatever order the store lists in.
+    records.sort((a, b) => a.createdAt.compareTo(b.createdAt));
     return records
         .map((record) => {
               'id': record.id,

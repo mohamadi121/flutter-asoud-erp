@@ -479,6 +479,16 @@ class FrappeClient implements FrappeApiClient {
     if (message is! Map) throw const ApiException.protocol();
 
     final envelope = Map<String, dynamic>.from(message);
+    if (envelope['ok'] != true && _errorCode(envelope) == _requestInProgress) {
+      // The first send of this key is still running (typically after a client
+      // timeout). The same key replays later, so it is retried with backoff
+      // instead of being parked as a validation failure.
+      throw ApiException(
+        kind: ApiFailureKind.server,
+        message: _errorMessage(envelope) ??
+            'این درخواست هنوز در حال پردازش در سرور است.',
+      );
+    }
     if (envelope['ok'] != true || !envelope.containsKey('data')) {
       throw const ApiException(
         kind: ApiFailureKind.validation,
@@ -491,6 +501,22 @@ class FrappeClient implements FrappeApiClient {
       throw const ApiException.protocol();
     }
     return envelope['data'];
+  }
+
+  /// Error code of the backend's `failure()` envelope
+  /// (`{ok: false, error: {code, message}}`), when it has one.
+  static const _requestInProgress = 'REQUEST_IN_PROGRESS';
+
+  static String? _errorCode(Map<String, dynamic> envelope) {
+    final error = envelope['error'];
+    final code = error is Map ? error['code'] : null;
+    return code is String ? code : null;
+  }
+
+  static String? _errorMessage(Map<String, dynamic> envelope) {
+    final error = envelope['error'];
+    final message = error is Map ? error['message'] : null;
+    return message is String && message.trim().isNotEmpty ? message : null;
   }
 
   Future<Map<String, dynamic>> _requestAsoudMutation({
@@ -598,6 +624,24 @@ class FrappeClient implements FrappeApiClient {
         statusCode: statusCode,
       );
     }
+    if (statusCode == 417) {
+      // Business validation (`frappe.throw`): the first server message is
+      // written for the user. Nothing is read from any other status.
+      final server = _serverMessage(error.response?.data);
+      if (server != null) {
+        return ApiException(
+          kind: ApiFailureKind.validation,
+          message: server.message,
+          statusCode: statusCode,
+          code: server.code,
+        );
+      }
+      return ApiException(
+        kind: ApiFailureKind.validation,
+        message: 'اطلاعات ارسال‌شده معتبر نیست.',
+        statusCode: statusCode,
+      );
+    }
     if (statusCode == 403) {
       return ApiException(
         kind: ApiFailureKind.forbidden,
@@ -652,6 +696,37 @@ class FrappeClient implements FrappeApiClient {
         ),
     };
   }
+
+  /// The first entry of a Frappe `_server_messages` field (a JSON string of a
+  /// list of JSON strings): its text without markup and its `title` as code.
+  static ({String message, String? code})? _serverMessage(Object? body) {
+    if (body is! Map) return null;
+    try {
+      var raw = body['_server_messages'];
+      if (raw is String) raw = jsonDecode(raw);
+      if (raw is! List || raw.isEmpty) return null;
+      var first = raw.first;
+      if (first is String) first = jsonDecode(first);
+      if (first is! Map) return null;
+      final message = _plainText('${first['message'] ?? ''}');
+      if (message.isEmpty) return null;
+      final title = '${first['title'] ?? ''}'.trim();
+      return (message: message, code: title.isEmpty ? null : title);
+    } on Object {
+      return null;
+    }
+  }
+
+  static String _plainText(String html) => html
+      .replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n')
+      .replaceAll(RegExp(r'<[^>]*>'), '')
+      .replaceAll('&nbsp;', ' ')
+      .replaceAll('&lt;', '<')
+      .replaceAll('&gt;', '>')
+      .replaceAll('&quot;', '"')
+      .replaceAll('&#39;', "'")
+      .replaceAll('&amp;', '&')
+      .trim();
 
   Future<bool> _hasValidSessionCookie() async {
     final cookies = await _cookies.loadForRequest(_baseUri);

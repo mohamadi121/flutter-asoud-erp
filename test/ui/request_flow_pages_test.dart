@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:asoud_erp/core/theme/asoud_theme.dart';
 import 'package:asoud_erp/features/workflows/data/generic_request_repository.dart';
+import 'package:asoud_erp/features/workflows/domain/entities/request_models.dart';
 import 'package:asoud_erp/features/workflows/domain/entities/workflow_task.dart';
 import 'package:asoud_erp/features/workflows/domain/repositories/workflow_task_repository.dart';
 import 'package:asoud_erp/features/workflows/presentation/pages/generic_request_page.dart';
@@ -95,7 +96,16 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(390, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final repo = _Repo();
-    when(() => repo.list()).thenAnswer((_) async => []);
+    when(() => repo.listPage(
+            templateKey: any(named: 'templateKey'),
+            statusGroup: any(named: 'statusGroup'),
+            search: any(named: 'search'),
+            offset: any(named: 'offset'),
+            limit: any(named: 'limit'),
+            priority: any(named: 'priority'),
+            dateFrom: any(named: 'dateFrom'),
+            dateTo: any(named: 'dateTo')))
+        .thenAnswer((_) async => const RequestListPage.empty());
     when(() => repo.pending()).thenAnswer((_) async => []);
     when(() => repo.options()).thenAnswer((_) async => [_type]);
     Map<String, dynamic>? sent;
@@ -190,7 +200,11 @@ void main() {
       expect(find.text(item), findsOneWidget, reason: item);
     }
     await _tap(tester, find.text('لغو درخواست'));
-    await tester.enterText(find.byType(TextField), 'دیگر لازم نیست');
+    // The detail page has its own comment box; the reason box is the dialog's.
+    await tester.enterText(
+        find.descendant(
+            of: find.byType(AlertDialog), matching: find.byType(TextField)),
+        'دیگر لازم نیست');
     await _tap(
         tester,
         find.descendant(

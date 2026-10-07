@@ -1,4 +1,5 @@
 import 'package:asoud_erp/core/network/api_exception.dart';
+import 'package:asoud_erp/features/request_types/domain/request_templates.dart';
 import 'package:asoud_erp/features/request_types/presentation/cubit/request_type_builder_cubit.dart';
 import 'package:asoud_erp/features/workflows/data/repositories/preview_fallback_workflow_repository.dart';
 import 'package:asoud_erp/features/workflows/domain/entities/workflow_definition.dart';
@@ -22,6 +23,15 @@ WorkflowStage _formStage(WorkflowDesign design) {
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  test('the builder suggests mission and advance only', () {
+    // `leave` and `purchase` are system templates of the server
+    // (`template_key`); a custom copy would duplicate them.
+    expect(requestTemplates.map((template) => template.key),
+        ['mission', 'advance']);
+    expect(requestTemplates.map((template) => template.info.title),
+        ['درخواست مأموریت', 'درخواست مساعده']);
+  });
 
   test('builds and persists a three-step form without changing access',
       () async {

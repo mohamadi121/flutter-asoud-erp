@@ -147,6 +147,28 @@ void main() {
     });
   }
 
+  test('REQUEST_IN_PROGRESS با انتظار دوباره تلاش می‌شود نه شکست پایدار',
+      () async {
+    final store = FakeLocalRecordStore();
+    await _queue(store, 'one', target: _office);
+    // What FrappeClient throws for the server's REQUEST_IN_PROGRESS envelope.
+    final client = _QueueClient()
+      ..error = const ApiException(
+        kind: ApiFailureKind.server,
+        message: 'این درخواست در حال پردازش است.',
+      );
+    final now = DateTime.utc(2026, 10, 5, 8);
+    final service = OfflineSyncService(client, local: store, clock: () => now);
+
+    await service.syncNow();
+
+    final row = store.records['one']!;
+    expect(row.status, LocalSyncStatus.pendingSync);
+    expect(row.attempts, 1);
+    expect(row.nextAttemptAt, now.add(const Duration(seconds: 30)));
+    expect(row.lastError, 'این درخواست در حال پردازش است.');
+  });
+
   test('تلاش دوباره شمارش و موعد را از نو می‌سازد', () async {
     final store = FakeLocalRecordStore();
     final now = DateTime.utc(2026, 10, 5, 8);

@@ -1,12 +1,13 @@
 import '../../../core/offline/local_database_store.dart';
-import '../../../core/offline/local_record.dart';
+import '../../../core/offline/offline_sync_service.dart';
 
-/// Rows that were staged for the server but have not been sent yet:
-/// `pendingSync` (waiting/retryable) plus `syncFailed` (needs attention).
-/// `localOnly` preview rows and `synced` rows are not unsent server writes.
+/// The number of queued writes still waiting for the server: the same
+/// definition as the send-queue screen (`OfflineSyncService.unsent`), so the
+/// two never disagree. Local mirror rows (no `operation`) and `synced` rows do
+/// not count; owners and servers are not told apart, because the screen lists
+/// them all too.
 Future<int> countUnsentOfflineRows({LocalRecordStore? store}) async {
-  final records = await (store ?? LocalDatabaseStore.instance).list(
-    statuses: const {LocalSyncStatus.pendingSync, LocalSyncStatus.syncFailed},
-  );
-  return records.length;
+  final records = await (store ?? LocalDatabaseStore.instance)
+      .list(statuses: unsentQueueStatuses);
+  return records.where(isQueuedMutation).length;
 }

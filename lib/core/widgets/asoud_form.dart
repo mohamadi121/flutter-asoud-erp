@@ -58,11 +58,16 @@ class AsoudFormField extends StatelessWidget {
       this.suffixIcon,
       this.readOnly = false,
       this.onTap,
+      this.errorText,
       super.key});
   final TextEditingController controller;
   final String label;
   final String? hint;
   final FormFieldValidator<String>? validator;
+
+  /// An error computed elsewhere (e.g. by a form controller); it is shown
+  /// without running the [validator].
+  final String? errorText;
   final int lines;
   final TextInputType? keyboardType;
   final bool enabled, readOnly;
@@ -80,6 +85,7 @@ class AsoudFormField extends StatelessWidget {
             keyboardType: keyboardType,
             decoration: InputDecoration(
                 labelText: label, hintText: hint, suffixIcon: suffixIcon),
+            forceErrorText: errorText,
             validator: validator),
       );
 }
@@ -140,10 +146,18 @@ class AsoudFormDateField extends StatefulWidget {
       required this.label,
       this.required = false,
       this.enabled = true,
+      this.clearable = false,
+      this.errorText,
       super.key});
   final TextEditingController controller;
   final String label;
   final bool required, enabled;
+
+  /// Shows a clear button while a date is set.
+  final bool clearable;
+
+  /// An error computed elsewhere (e.g. by a form controller).
+  final String? errorText;
   @override
   State<AsoudFormDateField> createState() => _AsoudFormDateFieldState();
 }
@@ -177,6 +191,8 @@ class _AsoudFormDateFieldState extends State<AsoudFormDateField> {
         ? ''
         : (asoudDateValidator(raw) == null ? formatJalaliIso(raw) : raw);
     _changing = false;
+    // The clear button depends on whether a date is set.
+    if (widget.clearable && mounted) setState(() {});
   }
 
   void _write() {
@@ -212,6 +228,7 @@ class _AsoudFormDateFieldState extends State<AsoudFormDateField> {
         enabled: widget.enabled,
         keyboardType: TextInputType.datetime,
         hint: '۱۴۰۵/۰۷/۱۱',
+        errorText: widget.errorText,
         validator: (value) {
           if ((value ?? '').trim().isEmpty) {
             return widget.required ? 'این فیلد الزامی است.' : null;
@@ -220,11 +237,159 @@ class _AsoudFormDateFieldState extends State<AsoudFormDateField> {
               ? 'تاریخ شمسی معتبر به شکل سال/ماه/روز وارد کنید.'
               : null;
         },
-        suffixIcon: IconButton(
-            tooltip: 'انتخاب تاریخ شمسی',
-            onPressed: widget.enabled ? _pick : null,
-            icon: const Icon(Icons.calendar_month_outlined)),
+        suffixIcon: _suffix(),
       );
+
+  Widget _suffix() {
+    final picker = IconButton(
+        tooltip: 'انتخاب تاریخ شمسی',
+        onPressed: widget.enabled ? _pick : null,
+        icon: const Icon(Icons.calendar_month_outlined));
+    if (!widget.clearable ||
+        !widget.enabled ||
+        widget.controller.text.isEmpty) {
+      return picker;
+    }
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      IconButton(
+          tooltip: 'پاک کردن تاریخ',
+          onPressed: () => widget.controller.text = '',
+          icon: const Icon(Icons.close_rounded, size: 18)),
+      picker,
+    ]);
+  }
+}
+
+/// Displays and picks a 24-hour time. The controller keeps the canonical
+/// `HH:MM` (Latin digits) for APIs; the field shows Persian digits.
+class AsoudFormTimeField extends StatefulWidget {
+  const AsoudFormTimeField(
+      {required this.controller,
+      required this.label,
+      this.required = false,
+      this.enabled = true,
+      this.clearable = false,
+      this.errorText,
+      super.key});
+  final TextEditingController controller;
+  final String label;
+  final bool required, enabled;
+
+  /// Shows a clear button while a time is set.
+  final bool clearable;
+
+  /// An error computed elsewhere (e.g. by a form controller).
+  final String? errorText;
+
+  /// `09:30` of a time, in the canonical form.
+  static String format(TimeOfDay time) =>
+      '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+
+  /// The time of a canonical `HH:MM`, or null.
+  static TimeOfDay? parse(String text) {
+    final match =
+        RegExp(r'^([01]\d|2[0-3]):([0-5]\d)$').firstMatch(toLatinDigits(text));
+    return match == null
+        ? null
+        : TimeOfDay(hour: int.parse(match[1]!), minute: int.parse(match[2]!));
+  }
+
+  @override
+  State<AsoudFormTimeField> createState() => _AsoudFormTimeFieldState();
+}
+
+class _AsoudFormTimeFieldState extends State<AsoudFormTimeField> {
+  final _display = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _read();
+    widget.controller.addListener(_changed);
+  }
+
+  @override
+  void didUpdateWidget(covariant AsoudFormTimeField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_changed);
+      widget.controller.addListener(_changed);
+      _read();
+    }
+  }
+
+  void _read() => _display.text = toPersianDigits(widget.controller.text);
+
+  void _changed() {
+    if (!mounted) return;
+    setState(_read);
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_changed);
+    _display.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pick() async {
+    final value = await showTimePicker(
+      context: context,
+      initialTime: AsoudFormTimeField.parse(widget.controller.text) ??
+          const TimeOfDay(hour: 8, minute: 0),
+      helpText: widget.label,
+      cancelText: 'انصراف',
+      confirmText: 'تأیید',
+      builder: (context, child) => Directionality(
+          textDirection: TextDirection.rtl,
+          child: MediaQuery(
+              data:
+                  MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+              child: child!)),
+    );
+    if (!mounted || value == null) return;
+    widget.controller.text = AsoudFormTimeField.format(value);
+  }
+
+  @override
+  Widget build(BuildContext context) => AsoudFormField(
+        controller: _display,
+        label: widget.label,
+        enabled: widget.enabled,
+        readOnly: true,
+        onTap: widget.enabled ? _pick : null,
+        hint: '۰۸:۳۰',
+        errorText: widget.errorText,
+        validator: (_) {
+          final text = widget.controller.text.trim();
+          if (text.isEmpty) {
+            return widget.required ? 'این فیلد الزامی است.' : null;
+          }
+          return AsoudFormTimeField.parse(text) == null
+              ? 'ساعت معتبر (۲۴ ساعته) وارد کنید.'
+              : null;
+        },
+        suffixIcon: _suffix(),
+      );
+
+  Widget _suffix() {
+    final picker = IconButton(
+        tooltip: 'انتخاب ساعت',
+        onPressed: widget.enabled ? _pick : null,
+        icon: const Icon(Icons.schedule_rounded));
+    if (!widget.clearable ||
+        !widget.enabled ||
+        widget.controller.text.isEmpty) {
+      return picker;
+    }
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      IconButton(
+          tooltip: 'پاک کردن ساعت',
+          onPressed: () => widget.controller.text = '',
+          icon: const Icon(Icons.close_rounded, size: 18)),
+      picker,
+    ]);
+  }
 }
 
 class AsoudFormDateValue extends StatefulWidget {
@@ -286,11 +451,15 @@ class AsoudFormPage extends StatelessWidget {
       required this.children,
       required this.onSave,
       this.saving = false,
+      this.canSave = true,
       this.error,
       this.subtitle = 'تکمیل اطلاعات',
       this.saveLabel = 'ذخیره',
       super.key});
   final String title, subtitle, saveLabel;
+
+  /// False disables the primary button (e.g. while a check reports an error).
+  final bool canSave;
   final GlobalKey<FormState> formKey;
   final List<Widget> children;
   final VoidCallback onSave;
@@ -320,7 +489,7 @@ class AsoudFormPage extends StatelessWidget {
                         ]))),
             bottomNavigationBar: AsoudBottomActions(
               primaryLabel: saving ? 'در حال ذخیره...' : saveLabel,
-              onPrimary: saving ? null : onSave,
+              onPrimary: saving || !canSave ? null : onSave,
               secondaryLabel: 'انصراف',
               onSecondary: saving ? null : () => Navigator.pop(context),
             ),

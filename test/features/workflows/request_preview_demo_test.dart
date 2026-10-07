@@ -73,47 +73,52 @@ void main() {
         .thenAnswer((_) => const Stream.empty());
   });
 
-  test('preview offers the four demo request types with designs', () async {
+  test('preview offers the mission and advance demo types with designs',
+      () async {
     final repository = GenericRequestRepository(client, 'شرکت نمونه آسود',
         store: FakeLocalRecordStore());
     final types = await repository.options();
     final titles = types.map((row) => row['workflow_title']).toList();
     expect(
       titles,
-      containsAll([
-        'درخواست مرخصی',
-        'درخواست خرید',
-        'درخواست مأموریت',
-        'درخواست تنخواه',
-      ]),
+      containsAll(['درخواست مأموریت', 'درخواست تنخواه']),
     );
+    // Leave and purchase are system templates (template_key), not demo types.
+    expect(titles, isNot(contains('درخواست مرخصی')));
+    expect(titles, isNot(contains('درخواست خرید')));
+    expect(types.where((row) => row['name'] == 'DEMO-WF-LEAVE'), isEmpty);
+    expect(types.where((row) => row['name'] == 'DEMO-WF-PURCHASE'), isEmpty);
+    expect(types.where((row) => row['name'] == 'PREVIEW-REQUEST-PURCHASE'),
+        isEmpty);
     for (final type
         in types.where((row) => '${row['name']}'.startsWith('DEMO-'))) {
       expect(type['is_sample'], isTrue);
       expect((type['fields'] as List), isNotEmpty);
     }
-    final leave = types.firstWhere((row) => row['name'] == 'DEMO-WF-LEAVE');
+    final mission = types.firstWhere((row) => row['name'] == 'DEMO-WF-MISSION');
     expect(
-      (leave['fields'] as List).map((field) => (field as Map)['key']),
-      containsAll(['leave_type', 'from_date', 'to_date', 'reason']),
+      (mission['fields'] as List).map((field) => (field as Map)['key']),
+      containsAll(['destination', 'from_date', 'to_date', 'purpose']),
     );
   });
 
-  test('preview lists eight demo requests across all statuses', () async {
+  test('preview lists four demo requests across the statuses', () async {
     final repository = GenericRequestRepository(client, 'شرکت نمونه آسود',
         store: FakeLocalRecordStore());
     final rows = await repository.list();
-    expect(rows, hasLength(8));
+    expect(rows, hasLength(4));
+    expect(rows.map((row) => row['name']),
+        ['DEMO-REQ-003', 'DEMO-REQ-004', 'DEMO-REQ-007', 'DEMO-REQ-008']);
     for (final row in rows) {
       expect(row['is_sample'], isTrue);
     }
     expect(
       rows.map((row) => row['subject']),
       containsAll([
-        'مرخصی استحقاقی تابستان',
-        'خرید لپ‌تاپ برای واحد فروش',
         'مأموریت تهران — نمایشگاه',
         'تنخواه خرداد واحد فروش',
+        'مأموریت اصفهان — بازدید مشتری',
+        'تنخواه تیر پروژه نمونه',
       ]),
     );
     Map<String, int> counts() {
@@ -128,12 +133,9 @@ void main() {
     expect(
       counts(),
       {
-        'پیش‌نویس': 1,
-        'در انتظار تأیید': 2,
-        'برگشت برای اصلاح': 1,
+        'در انتظار تأیید': 1,
         'تکمیل شده': 2,
         'رد شده': 1,
-        'لغو شده': 1,
       },
     );
     // Dates are relative to now, not frozen samples.
@@ -147,18 +149,20 @@ void main() {
     final tasks = PreviewWorkflowTaskRepository(_OfflineTasks());
     final repository = GenericRequestRepository(client, 'شرکت نمونه آسود',
         store: FakeLocalRecordStore());
-    final detail = await repository.detail('DEMO-REQ-002');
-    expect(detail['subject'], 'خرید لپ‌تاپ برای واحد فروش');
-    expect((detail['values'] as Map)['category'], 'تجهیزات IT');
-    expect(
-        (detail['attachments'] as List).single['filename'], 'پیش‌فاکتور.pdf');
+    final detail = await repository.detail('DEMO-REQ-003');
+    expect(detail['subject'], 'مأموریت تهران — نمایشگاه');
+    expect((detail['values'] as Map)['destination'], 'تهران');
+    expect((detail['attachments'] as List).single['filename'],
+        'دعوت‌نامه نمایشگاه.pdf');
+    expect(detail['can_edit'], isFalse);
+    expect(detail['can_cancel'], isFalse);
 
     final instance = await tasks.getInstance('${detail['workflow_instance']}');
     final comments = instance.activities
         .map((activity) => activity.comment)
         .where((comment) => comment.isNotEmpty)
         .toList();
-    expect(comments, contains('لطفاً پیش‌فاکتور را پیوست کنید.'));
+    expect(comments, contains('با مأموریت موافقت شد.'));
     expect(
       instance.activities.map((activity) => activity.actor),
       containsAll(['سارا محمدی', 'احمد رضایی']),

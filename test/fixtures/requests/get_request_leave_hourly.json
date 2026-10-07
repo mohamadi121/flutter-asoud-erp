@@ -1,0 +1,177 @@
+{
+ "ok": true,
+ "data": {
+  "name": "LV-1405-0041",
+  "number": "LV-1405-0041",
+  "company": "...",
+  "template_key": "leave",
+  "template_version": 1,
+  "workflow_definition": "SYS-LEAVE-WP",
+  "request_type": "درخواست مرخصی",
+  "subject": "مرخصی سالانه (ساعتی)",
+  "priority": "Normal",
+  "required_by": "2026-10-20",
+  "project": "",
+  "department": "ICU - WP",
+  "owner": "sara@x",
+  "requester_name": "سارا محمدی",
+  "requester_employee": "HR-EMP-00001",
+  "creation": "2026-10-04 10:15:00",
+  "workflow_instance": "WFI-2026-00017",
+  "status": "Running",
+  "display_status": "",
+  "status_key": "submitted",
+  "status_label": "ارسال شده",
+  "status_group": "pending",
+  "request_id": "request-9f...",
+  "rejection_reason": "",
+  "can_edit": true,
+  "can_cancel": true,
+  "item_count": 0,
+  "attachment_count": 0,
+  "comment_count": 1,
+  "values": {
+   "requester": "sara@x",
+   "org_unit": "ICU - WP",
+   "leave_type": "Sick Leave",
+   "request_kind": "Hourly",
+   "leave_date": "2026-10-06",
+   "start_time": "10:00",
+   "end_time": "14:00",
+   "location": "Tehran",
+   "reason": "مراجعه به بیمارستان برای معاینه پزشک"
+  },
+  "attachments": [],
+  "fields": [
+   {
+    "key": "request_number",
+    "label": "شماره درخواست",
+    "type": "Auto",
+    "auto": "request_number"
+   },
+   {
+    "key": "request_date",
+    "label": "تاریخ ثبت",
+    "type": "Auto",
+    "auto": "request_date"
+   },
+   {
+    "key": "requester",
+    "label": "درخواست‌کننده",
+    "type": "User",
+    "required": true,
+    "editable": false,
+    "default_source": "session_user"
+   },
+   {
+    "key": "org_unit",
+    "label": "واحد سازمانی",
+    "type": "Department",
+    "required": true,
+    "default_source": "employee_department"
+   },
+   {
+    "key": "leave_type",
+    "label": "نوع مرخصی",
+    "type": "System Select",
+    "source": "leave_type",
+    "required": true
+   },
+   {
+    "key": "request_kind",
+    "label": "نوع درخواست",
+    "type": "Choice",
+    "required": true,
+    "options": [
+     "Daily",
+     "Hourly"
+    ],
+    "option_labels": {
+     "Daily": "روزانه",
+     "Hourly": "ساعتی"
+    },
+    "widget": "segmented",
+    "default_value": "Daily"
+   },
+   {
+    "key": "start_date",
+    "label": "تاریخ شروع",
+    "type": "Date",
+    "required": true,
+    "visible_when": {
+     "field": "request_kind",
+     "equals": "Daily"
+    }
+   },
+   {
+    "key": "end_date",
+    "label": "تاریخ پایان",
+    "type": "Date",
+    "required": true,
+    "visible_when": {
+     "field": "request_kind",
+     "equals": "Daily"
+    }
+   },
+   {
+    "key": "leave_date",
+    "label": "تاریخ مرخصی",
+    "type": "Date",
+    "required": true,
+    "visible_when": {
+     "field": "request_kind",
+     "equals": "Hourly"
+    }
+   },
+   {
+    "key": "start_time",
+    "label": "ساعت شروع",
+    "type": "Time",
+    "required": true,
+    "visible_when": {
+     "field": "request_kind",
+     "equals": "Hourly"
+    }
+   },
+   {
+    "key": "end_time",
+    "label": "ساعت پایان",
+    "type": "Time",
+    "required": true,
+    "visible_when": {
+     "field": "request_kind",
+     "equals": "Hourly"
+    }
+   },
+   {
+    "key": "duration",
+    "label": "مدت مرخصی",
+    "type": "Auto",
+    "auto": "leave_duration"
+   },
+   {
+    "key": "location",
+    "label": "محل خدمت",
+    "type": "System Select",
+    "source": "branch",
+    "default_source": "employee_branch"
+   },
+   {
+    "key": "reason",
+    "label": "دلیل مرخصی",
+    "type": "Long Text",
+    "required": true,
+    "max_length": 2000
+   }
+  ],
+  "native": {
+   "doctype": "",
+   "name": "",
+   "status": "",
+   "error": ""
+  }
+ },
+ "meta": {
+  "api_version": "v1"
+ }
+}

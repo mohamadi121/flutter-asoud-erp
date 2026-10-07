@@ -87,4 +87,24 @@ void main() {
     final after = await store.list(entityType: 'generic_request_outbox');
     expect(after.single.status, LocalSyncStatus.synced);
   });
+
+  test('queued requests replay oldest first whatever order the store lists',
+      () async {
+    failure = offline;
+    await repo.create({'subject': 'first'}, 'id-1');
+    await Future<void>.delayed(const Duration(milliseconds: 2));
+    await repo.create({'subject': 'second'}, 'id-2');
+    await Future<void>.delayed(const Duration(milliseconds: 2));
+    await repo.create({'subject': 'third'}, 'id-3');
+    // The store lists the most recently updated row first.
+    final listed = await store.list(entityType: 'generic_request_outbox');
+    expect(listed.first.payload['data']['request_id'], 'id-3');
+
+    rawWrites.clear();
+    failure = null;
+    await repo.sync();
+
+    expect(rawWrites.map((write) => write['request_id']),
+        ['id-1', 'id-2', 'id-3']);
+  });
 }

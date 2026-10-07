@@ -122,8 +122,8 @@ void main() {
     final repository =
         GenericRequestRepository(client, 'دفتر نمونه', store: store);
     final types = await repository.options();
-    final sample = types.last;
-    expect(sample['workflow_title'], 'درخواست خرید (نمونه آفلاین)');
+    final sample = types.firstWhere((row) => row['name'] == 'DEMO-WF-MISSION');
+    expect(sample['workflow_title'], 'درخواست مأموریت');
     expect((await repository.fieldOptions('Item')).first['label'], 'لپ‌تاپ');
     expect(
         (await repository.fieldOptions('UOM', itemCode: 'PREVIEW-PAPER'))
@@ -134,7 +134,7 @@ void main() {
       'workflow_definition': sample['name'],
       'subject': 'خرید لپ‌تاپ',
       'values': {
-        'category': 'تجهیزات IT',
+        'destination': 'تهران',
         'items': [
           {'item_code': 'PREVIEW-LAPTOP', 'qty': 2, 'uom': 'عدد'}
         ]
@@ -151,7 +151,7 @@ void main() {
     expect(rows.single['subject'], 'خرید لپ‌تاپ');
     expect(rows.single['local_preview'], isTrue);
     final detail = await repository.detail('${created['name']}');
-    expect(detail['values']['category'], 'تجهیزات IT');
+    expect(detail['values']['destination'], 'تهران');
     await repository.sync(retry: true);
     verifyNever(() => client.callAsoudMethod(any(), data: any(named: 'data')));
     verifyNever(() => client.getCurrentUser());

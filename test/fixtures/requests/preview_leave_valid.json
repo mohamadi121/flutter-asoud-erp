@@ -1,0 +1,24 @@
+{
+ "ok": true,
+ "data": {
+  "valid": true,
+  "errors": [],
+  "duration": {
+   "unit": "day",
+   "days": 3.0,
+   "hours": null,
+   "day_equivalent": 3.0
+  },
+  "balance": {
+   "leave_type": "Casual Leave",
+   "remaining_before": 12.5,
+   "requested_days": 3.0,
+   "remaining_after": 9.5,
+   "available_after": 9.0
+  },
+  "holidays_excluded": 1
+ },
+ "meta": {
+  "api_version": "v1"
+ }
+}

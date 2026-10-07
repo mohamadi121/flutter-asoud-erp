@@ -45,7 +45,7 @@ List<Map<String, dynamic>> demoTemplateRows() {
     build(
       'purchase_expense',
       'LOCAL-DEMO-TPL-PURCHASE',
-      'DEMO-WF-PURCHASE',
+      'SYS-PURCHASE-WP',
       {
         'amount': {'source': 'request', 'value': 'total'},
         'debit_account': {'source': 'fixed', 'value': 'هزینه خرید - نمونه'},
@@ -56,7 +56,7 @@ List<Map<String, dynamic>> demoTemplateRows() {
     build(
       'supplier_payment',
       'LOCAL-DEMO-TPL-SUPPLIER',
-      'DEMO-WF-PURCHASE',
+      'SYS-PURCHASE-WP',
       {
         'amount': {'source': 'request', 'value': 'total'},
         'debit_account': {'source': 'fixed', 'value': 'بستانکاران - نمونه'},

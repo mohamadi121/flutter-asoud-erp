@@ -11,6 +11,7 @@ import '../../../hr/domain/personnel_file.dart';
 import '../../../hr/presentation/pages/hr_home_page.dart';
 import 'my_info_page.dart';
 import '../widgets/employee_photo.dart';
+import '../../../request_templates/request_templates.dart';
 import '../../../workflows/presentation/pages/generic_request_page.dart';
 import '../../../workflows/domain/entities/workflow_notification.dart';
 import '../../../workflows/domain/repositories/workflow_notification_repository.dart';
@@ -160,6 +161,18 @@ class _EmployeeHomePageState extends State<EmployeeHomePage> {
                           'مدارک', Icons.folder_outlined, AsoudColors.danger,
                           onTap: () => _push(MyInfoPage(
                               repository: files, showDocuments: true))),
+                      _Action('مرخصی', Icons.beach_access_outlined,
+                          AsoudColors.success,
+                          onTap: () => _push(
+                              LeaveRequestsListPage(company: widget.company))),
+                      _Action('درخواست خرید', Icons.shopping_cart_outlined,
+                          AsoudColors.primary,
+                          onTap: () => _push(PurchaseRequestsListPage(
+                              company: widget.company))),
+                      _Action('تأمین کالا / خدمات', Icons.inventory_2_outlined,
+                          AsoudColors.cyan,
+                          onTap: () => _push(
+                              SupplyRequestsListPage(company: widget.company))),
                     ]),
                     const SizedBox(height: 18),
                     Row(children: [
@@ -350,6 +363,9 @@ class _Action {
   final int badge;
   String get subtitle => const {
         'درخواست‌ها': 'ثبت و پیگیری درخواست',
+        'مرخصی': 'روزانه و ساعتی',
+        'درخواست خرید': 'خرید کالا',
+        'تأمین کالا / خدمات': 'تأمین از انبار یا خرید',
         'حضور و غیاب': 'ثبت ورود و خروج',
         'گزارش کار': 'ثبت گزارش روزانه',
         'مکاتبات': 'دریافت و ارسال نامه',

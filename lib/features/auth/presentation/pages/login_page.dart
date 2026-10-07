@@ -98,8 +98,12 @@ class _LoginPageState extends State<LoginPage> {
       ..remove('company')
       ..remove('request_id')
       ..remove('is_sample');
+    // The transfer service derives a stable id from the preview row, so a
+    // second tap on the same row is an idempotent replay, not a new request.
+    final requestId = '${data['request_id'] ?? ''}';
     await GenericRequestRepository(client, company).create(
-        {...payload, 'company': company}, GenericRequestRepository.requestId());
+        {...payload, 'company': company},
+        requestId.isEmpty ? GenericRequestRepository.requestId() : requestId);
   }
 
   Future<void> _submitTemplate(

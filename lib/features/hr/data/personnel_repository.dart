@@ -313,7 +313,8 @@ class PersonnelRepository {
               r.payload['owner'] == _user &&
               r.payload['server'] == _server &&
               r.payload['company'] == _company)
-          .toList();
+          .toList()
+        ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
 
   Future<Map<String, dynamic>> _overlay(String action,
       Map<String, dynamic> data, Map<String, dynamic> result) async {

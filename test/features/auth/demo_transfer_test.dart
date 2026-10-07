@@ -1,4 +1,7 @@
 import 'package:asoud_erp/core/offline/local_record.dart';
+import 'package:asoud_erp/core/network/frappe_client.dart';
+import 'package:asoud_erp/core/offline/offline_sync_service.dart';
+import 'package:asoud_erp/core/offline/queued_offline_exception.dart';
 import 'package:asoud_erp/core/utils/jalali_date.dart';
 import 'package:asoud_erp/features/auth/data/demo_choice_store.dart';
 import 'package:asoud_erp/features/auth/data/demo_transfer_service.dart';
@@ -7,6 +10,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../helpers/fake_local_record_store.dart';
+
+class _NoClient extends Fake implements FrappeApiClient {}
 
 void main() {
   setUp(() {
@@ -21,19 +26,24 @@ void main() {
     expect(await DemoChoiceStore.isDemoChosen(), isFalse);
   });
 
-  test('unsent count counts pending/failed rows only, in Persian digits',
-      () async {
+  test('unsent count equals the send-queue list, in Persian digits', () async {
     final store = FakeLocalRecordStore();
     await store.save(
         id: 'p1',
         entityType: 'm',
         payload: const {'operation': 'asoud_method'},
         status: LocalSyncStatus.pendingSync);
+    // A local mirror row has no operation: it is not a queued write.
     await store.save(
-        id: 'p2',
-        entityType: 'generic_request_outbox',
-        payload: const {'scope': 's', 'data': {}},
+        id: 'mirror',
+        entityType: 'office',
+        payload: const {'company': 'دفتر'},
         status: LocalSyncStatus.pendingSync);
+    await store.save(
+        id: 'mirror-failed',
+        entityType: 'office',
+        payload: const {'company': 'دفتر ۲'},
+        status: LocalSyncStatus.syncFailed);
     await store.save(
         id: 'f1',
         entityType: 'm',
@@ -44,13 +54,24 @@ void main() {
         entityType: 'm',
         payload: const {'operation': 'asoud_method'},
         status: LocalSyncStatus.synced);
+    // The queue screen lists localOnly writes that carry an operation, but
+    // not preview rows (no operation).
     await store.save(
         id: 'l1',
+        entityType: 'm',
+        payload: const {'operation': 'asoud_method'},
+        status: LocalSyncStatus.localOnly);
+    await store.save(
+        id: 'preview',
         entityType: 'generic_request_outbox',
         payload: const {'scope': 's', 'data': {}},
         status: LocalSyncStatus.localOnly);
 
-    expect(await countUnsentOfflineRows(store: store), 3);
+    final count = await countUnsentOfflineRows(store: store);
+
+    expect(count, 3);
+    expect(count,
+        await OfflineSyncService(_NoClient(), local: store).unsentCount());
     expect(toPersianDigits(3), '۳');
     expect(toPersianDigits(12), '۱۲');
   });
@@ -67,7 +88,7 @@ void main() {
         'data': {
           'company': 'دفتر نمونه',
           'subject': 'خرید لپ‌تاپ',
-          'workflow_definition': 'PREVIEW-REQUEST-PURCHASE',
+          'workflow_definition': 'SYS-PURCHASE-WP',
         },
       },
     );
@@ -101,7 +122,7 @@ void main() {
         ]));
     expect(ids.any((id) => id.contains('request-sample')), isFalse);
     // Built-in samples are never offered even if stored under sample ids.
-    expect(ids, isNot(contains('PREVIEW-REQUEST-PURCHASE')));
+    expect(ids, isNot(contains('DEMO-REQ-003')));
     expect(ids, isNot(contains('PREVIEW-WF-001')));
     // Workflow designs reference local stage ids: not safely transferable.
     final design = items.singleWhere((item) => item.id == 'PREVIEW-DRAFT-1');
@@ -131,7 +152,7 @@ void main() {
         'data': {
           'company': 'دفتر نمونه',
           'subject': 'خرید لپ‌تاپ',
-          'workflow_definition': 'PREVIEW-REQUEST-PURCHASE',
+          'workflow_definition': 'SYS-PURCHASE-WP',
         },
       },
     );
@@ -151,6 +172,96 @@ void main() {
     expect(calls, 1);
     expect(submitted!['subject'], 'خرید لپ‌تاپ');
     expect(await store.get(rowId), isNull);
+    expect(await service.listCandidates(), isEmpty);
+  });
+
+  Future<DemoTransferItem> seedRequest(
+    FakeLocalRecordStore store,
+    DemoTransferService service,
+    String rowId,
+  ) async {
+    await store.save(
+      id: rowId,
+      entityType: 'generic_request_outbox',
+      status: LocalSyncStatus.localOnly,
+      payload: {
+        'scope': '["srv","offline-preview","c"]',
+        'data': {
+          'company': 'دفتر نمونه',
+          'subject': 'خرید لپ‌تاپ',
+          'workflow_definition': 'SYS-PURCHASE-WP',
+        },
+      },
+    );
+    return (await service.listCandidates())
+        .singleWhere((item) => item.id == rowId);
+  }
+
+  test('هر بار ارسال یک ردیف نمایشی همان request_id را دارد', () async {
+    final store = FakeLocalRecordStore();
+    final service = DemoTransferService(store: store);
+    final item = await seedRequest(store, service, 'generic-request:a:r-1');
+    final other = await seedRequest(store, service, 'generic-request:a:r-2');
+
+    final ids = <String>[];
+    // The first attempt fails for a reason that does not queue the write, so
+    // the preview row stays and the user taps again.
+    await expectLater(
+        service.transferGenericRequest(item, submit: (data) async {
+          ids.add('${data['request_id']}');
+          throw StateError('timeout after commit');
+        }),
+        throwsStateError);
+    expect(await store.get(item.id), isNotNull);
+    await service.transferGenericRequest(item, submit: (data) async {
+      ids.add('${data['request_id']}');
+    });
+
+    expect(ids, hasLength(2));
+    expect(ids.first, ids.last);
+    // The server accepts request ids of 8 to 100 characters.
+    expect(ids.first.length, inInclusiveRange(8, 100));
+    expect(DemoTransferService.requestIdFor(other), isNot(ids.first));
+  });
+
+  test('نوشته صف‌شده خطا نیست و نسخه نمایشی درخواست پاک می‌شود', () async {
+    final store = FakeLocalRecordStore();
+    final service = DemoTransferService(store: store);
+    final item = await seedRequest(store, service, 'generic-request:a:r-3');
+
+    final queued = await service.transferGenericRequest(item,
+        submit: (_) async => throw const QueuedOfflineException(localId: 'q'));
+
+    expect(queued, isTrue);
+    expect(await store.get(item.id), isNull);
+    expect(await service.listCandidates(), isEmpty);
+  });
+
+  test('خطای دیگر نسخه نمایشی را نگه می‌دارد', () async {
+    final store = FakeLocalRecordStore();
+    final service = DemoTransferService(store: store);
+    final item = await seedRequest(store, service, 'generic-request:a:r-4');
+
+    await expectLater(
+        service.transferGenericRequest(item,
+            submit: (_) async => throw StateError('rejected')),
+        throwsStateError);
+
+    expect(await store.get(item.id), isNotNull);
+  });
+
+  test('الگوی صف‌شده خطا نیست و نسخه نمایشی الگو پاک می‌شود', () async {
+    SharedPreferences.setMockInitialValues({
+      'asoud_document_templates_local_v1':
+          '[{"name":"LOCAL-TPL-8","title":"سند هزینه","module":"Finance","document_type":"Journal Entry","mapping":{},"status":"Active","company":"دفتر نمونه"}]',
+    });
+    final service = DemoTransferService(store: FakeLocalRecordStore());
+    final item = (await service.listCandidates()).single;
+
+    final queued = await service.transferTemplate(item,
+        submit: (_) async => throw const QueuedOfflineException(localId: 'q'));
+
+    expect(queued, isTrue);
     expect(await service.listCandidates(), isEmpty);
   });
 
