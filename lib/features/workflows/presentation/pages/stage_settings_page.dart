@@ -266,10 +266,12 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
   String? _validate() {
     if (title.text.trim().length < 2) return 'عنوان مرحله را وارد کنید.';
     if (type != WorkflowStageType.systemAction && ownerMode == 'unit') {
-      if (!specificPerson && unit == null)
+      if (!specificPerson && unit == null) {
         return 'واحد سازمانی مسئول را انتخاب کنید.';
-      if (specificPerson && selectedPeople.isEmpty)
+      }
+      if (specificPerson && selectedPeople.isEmpty) {
         return 'افراد مسئول را انتخاب کنید.';
+      }
     }
     if (type != WorkflowStageType.systemAction &&
         hasDeadline &&
