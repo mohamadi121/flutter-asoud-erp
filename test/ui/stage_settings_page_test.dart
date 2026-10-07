@@ -165,13 +165,25 @@ Future<(_Workflows, _Automation)> _open(
 }
 
 Future<void> _tap(WidgetTester tester, Finder finder) async {
+  await _scrollToFinder(tester, finder);
   await tester.ensureVisible(finder);
   await tester.pumpAndSettle();
   await tester.tap(finder);
   await tester.pumpAndSettle();
 }
 
+Future<void> _scrollToFinder(WidgetTester tester, Finder finder) async {
+  for (var attempt = 0; finder.evaluate().isEmpty && attempt < 20; attempt++) {
+    final lists = find.byType(ListView);
+    if (lists.evaluate().isEmpty) break;
+    await tester.drag(lists.last, const Offset(0, -320));
+    await tester.pumpAndSettle();
+  }
+  expect(finder, findsOneWidget);
+}
+
 Future<void> _choose(WidgetTester tester, String label, String option) async {
+  await _scrollToFinder(tester, find.text(label));
   final dropdown =
       find.ancestor(of: find.text(label), matching: find.byType(Row)).first;
   await _tap(
@@ -194,7 +206,8 @@ void main() {
       expect(find.text('مدیر مستقیم'), findsOneWidget);
       expect(find.text('امکان تأیید'), findsOneWidget);
       await _tap(tester, find.text('الزام ثبت توضیح هنگام رد'));
-      await _choose(tester, 'در صورت رد', 'رد درخواست');
+      await _tap(tester, find.text('پایان فرایند (رد درخواست)'));
+      await _tap(tester, find.text('رد درخواست'));
       await _tap(tester, find.text('ذخیره'));
       final config = workflows.saved.single;
       expect(config['assignment_type'], 'Direct Manager');

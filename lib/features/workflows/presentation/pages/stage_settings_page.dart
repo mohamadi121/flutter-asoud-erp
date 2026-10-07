@@ -436,9 +436,13 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
                     Expanded(
                       child: Column(mainAxisSize: MainAxisSize.min, children: [
                         const Text('تنظیمات مرحله',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                                 fontSize: 17, fontWeight: FontWeight.w900)),
                         Text(_typeInfo.$1,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                                 fontSize: 11, color: AsoudColors.muted)),
                       ]),
@@ -669,23 +673,41 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
           ),
           const SizedBox(height: 10),
           _label('انتخاب افراد'),
-          PickerField(
-            value: specificPerson
-                ? selectedPeople
+          if (unit != null) ...[
+            AsoudSegmentedControl<bool>(
+              value: specificPerson,
+              options: const [
+                AsoudSegmentedOption(value: false, label: 'همه افراد واحد'),
+                AsoudSegmentedOption(value: true, label: 'یک فرد مشخص'),
+              ],
+              onChanged: (value) => setState(() {
+                specificPerson = value;
+                if (!value) selectedPeople.clear();
+              }),
+            ),
+            if (!specificPerson) ...[
+              const SizedBox(height: 8),
+              _notice(
+                  'این مرحله برای تمامی افراد واحد انتخاب‌شده قابل انجام خواهد بود.'),
+            ],
+          ],
+          if (specificPerson)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: PickerField(
+                value: selectedPeople
                     .map((id) =>
                         employees
                             .where((item) => item.id == id)
                             .firstOrNull
                             ?.label ??
                         id)
-                    .join('، ')
-                : unit == null
-                    ? ''
-                    : 'همه افراد ${unit!.label}',
-            placeholder: 'انتخاب افراد',
-            icon: Icons.people_outline_rounded,
-            onTap: _pickPeople,
-          ),
+                    .join('، '),
+                placeholder: 'انتخاب فرد',
+                icon: Icons.people_outline_rounded,
+                onTap: _pickPeople,
+              ),
+            ),
         ],
       ];
 
@@ -1044,6 +1066,12 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
         ],
         const SizedBox(height: 16),
         _label('تصمیم‌های قابل انجام'),
+        _switch(
+            'الزام ثبت توضیح هنگام رد',
+            rejectComment,
+            allowReject
+                ? (value) => setState(() => rejectComment = value)
+                : null),
         _decision('امکان تأیید', true, AsoudColors.success, null),
         _decision('امکان رد', allowReject, AsoudColors.danger,
             (value) => setState(() => allowReject = value)),
@@ -1080,12 +1108,6 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
               TextButton(
                   onPressed: _removeApprovalForm, child: const Text('حذف فرم')),
             ]),
-          _switch(
-              'الزام توضیح هنگام رد',
-              rejectComment,
-              allowReject
-                  ? (value) => setState(() => rejectComment = value)
-                  : null),
           _switch('الزام توضیح هنگام برگشت برای اصلاح', true, null,
               subtitle:
                   'طبق قواعد فعلی سامانه، دلیل بازگشت همواره الزامی است.'),
@@ -1111,12 +1133,12 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
 
   Widget _decision(String label, bool value, Color color,
           ValueChanged<bool>? onChanged) =>
-      Container(
-        margin: const EdgeInsets.only(bottom: 6),
-        decoration: BoxDecoration(
-            color: color.withValues(alpha: .06),
-            borderRadius: BorderRadius.circular(10)),
+      Padding(
+        padding: const EdgeInsets.only(bottom: 6),
         child: CheckboxListTile(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          tileColor: color.withValues(alpha: .06),
           dense: true,
           contentPadding: const EdgeInsets.symmetric(horizontal: 10),
           activeColor: color,
