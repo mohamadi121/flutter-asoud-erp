@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.25.0+40
+
+- Purchase, supply and leave requests are system templates served by the backend: shared request form, list and detail pages (status tabs, search, filters, files with thumbnails, comments, edit and cancel), the leave form with a live preview and balance panel, and quick actions on the employee home.
+- The offline preview shows the three templates with demo requests that follow the mockups; the old client-side leave and purchase demo types are gone.
+- The offline leave preview follows the server's rounding and messages.
+- Requires backend 0.14.0 (`docs/api/request_templates.md`, `docs/api/leave_request.md`).
+
 ## 0.24.1+39
 
 - Existing offline databases now migrate to schema v2 by adding the retry columns (`attempts`, `next_attempt_at`), so queued writes and status updates keep working on devices that already had a v1 database.
