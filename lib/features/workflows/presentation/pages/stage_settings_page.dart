@@ -11,6 +11,7 @@ import '../../domain/entities/workflow_definition.dart';
 import '../cubit/workflow_designer_cubit.dart';
 import '../widgets/document_template_visuals.dart';
 import '../widgets/stage_pickers.dart';
+import '../widgets/stage_people_sheet.dart';
 import '../widgets/workflow_form_builder.dart';
 import 'create_document_settings_page.dart';
 import 'automatic_action_page.dart';
@@ -96,7 +97,8 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
   String role = directManagerRole;
   OrgUnitChoice? unit;
   bool specificPerson = false;
-  OrgUnitChoice? person;
+  Set<String> selectedPeople = {};
+  late bool hasDeadline = ((config['deadline_value'] as num?) ?? 0) > 0;
 
   // Decisions and extra settings.
   late bool allowReject =
@@ -110,10 +112,17 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
   late bool editAfterSubmit = config['allow_edit_after_submit'] == true;
   late String approvalMode = config['approval_mode']?.toString() ?? 'Any';
   late String access = config['document_access']?.toString() ?? 'Read Only';
+  late String activityType =
+      config['activity_type']?.toString() ?? 'Data Entry';
   late List<WorkflowFormFieldDefinition> formFields =
       ((config['form_fields'] as List?) ?? const [])
           .whereType<Map>()
           .map(WorkflowFormFieldDefinition.fromMap)
+          .toList();
+  late List<Map<String, dynamic>> formLayout =
+      ((config['form_layout'] as List?) ?? const [])
+          .whereType<Map>()
+          .map(Map<String, dynamic>.from)
           .toList();
 
   // Automatic action.
@@ -171,9 +180,9 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
       case 'Employee':
         ownerMode = 'unit';
         specificPerson = true;
+        selectedPeople = values('employees').toSet();
         final id = values('employees').firstOrNull ?? '';
         if (id.isNotEmpty) {
-          person = OrgUnitChoice.employee(id, label(employees, id));
           final department =
               employees.where((item) => item.id == id).firstOrNull?.department;
           if (department != null) {
@@ -221,10 +230,10 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
           },
       };
     }
-    if (specificPerson && person != null) {
+    if (specificPerson && selectedPeople.isNotEmpty) {
       return {
         'assignment_type': 'Employee',
-        '${prefix}_employees': [person!.id]
+        '${prefix}_employees': selectedPeople.toList()
       };
     }
     if (unit?.kind == 'initiator') {
@@ -237,18 +246,37 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
   }
 
   Map<String, dynamic> _deadline() => {
-        'deadline_value': int.tryParse(deadline.text.trim()) ?? 0,
+        'deadline_value': hasDeadline ? _deadlineValue : 0,
         'deadline_unit': deadlineUnit,
         'reminder_before_minutes': config['reminder_before_minutes'] ?? 0,
         'escalation_roles': config['escalation_roles'] ?? const [],
         'reassign_on_overdue': config['reassign_on_overdue'] == true,
       };
 
+  int? get _deadlineValue {
+    var value = deadline.text.trim();
+    for (var i = 0; i < 10; i++) {
+      value = value
+          .replaceAll('۰۱۲۳۴۵۶۷۸۹'[i], '$i')
+          .replaceAll('٠١٢٣٤٥٦٧٨٩'[i], '$i');
+    }
+    return int.tryParse(value);
+  }
+
   String? _validate() {
     if (title.text.trim().length < 2) return 'عنوان مرحله را وارد کنید.';
     if (type != WorkflowStageType.systemAction && ownerMode == 'unit') {
-      if (unit == null) return 'واحد سازمانی مسئول را انتخاب کنید.';
-      if (specificPerson && person == null) return 'فرد مسئول را انتخاب کنید.';
+      if (!specificPerson && unit == null)
+        return 'واحد سازمانی مسئول را انتخاب کنید.';
+      if (specificPerson && selectedPeople.isEmpty)
+        return 'افراد مسئول را انتخاب کنید.';
+    }
+    if (type != WorkflowStageType.systemAction &&
+        hasDeadline &&
+        (_deadlineValue == null ||
+            _deadlineValue! <= 0 ||
+            _deadlineValue! > 3650)) {
+      return 'مهلت انجام باید یک عدد صحیح بین ۱ تا ۳۶۵۰ باشد.';
     }
     if (type == WorkflowStageType.systemAction) {
       if (action == 'Create Document' && document.template == null) {
@@ -276,10 +304,17 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
           'title': title.text.trim(),
           'description': text,
           'instructions': text,
-          'activity_type': config['activity_type'] ?? 'Data Entry',
+          'activity_type': activityType,
           ..._assignment(),
           'document_access': access,
           'form_fields': formFields.map((field) => field.toMap()).toList(),
+          if (formLayout.isNotEmpty)
+            'form_layout': [
+              for (final item in formLayout)
+                if (item['key'].toString().startsWith('base:') ||
+                    formFields.any((field) => field.key == item['key']))
+                  Map<String, dynamic>.from(item),
+            ],
           'allow_reject': allowReject,
           'allow_return': allowReturn,
           'comment_required': commentRequired,
@@ -295,6 +330,7 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
           'description': text,
           ..._assignment(),
           'approval_mode': approvalMode,
+          'form_fields': formFields.map((field) => field.toMap()).toList(),
           'document_access': access,
           'allow_reject': allowReject,
           'allow_return': allowReturn,
@@ -381,64 +417,80 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
           repository: automation,
           initialRoutes: routes,
           onSaved: () => context.read<WorkflowDesignerCubit>().load())
-      : Scaffold(
-          appBar: PreferredSize(
-            preferredSize: const Size.fromHeight(84),
-            child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-                child: Row(children: [
-                  IconButton(
-                      tooltip: 'بستن',
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close_rounded)),
-                  Expanded(
-                    child: Column(mainAxisSize: MainAxisSize.min, children: [
-                      const Text('تنظیمات مرحله',
-                          style: TextStyle(
-                              fontSize: 17, fontWeight: FontWeight.w900)),
-                      Text(_typeInfo.$1,
-                          style: const TextStyle(
-                              fontSize: 11, color: AsoudColors.muted)),
-                    ]),
-                  ),
-                  FilledButton(
-                      style: FilledButton.styleFrom(
-                          minimumSize: const Size(72, 40),
-                          padding: const EdgeInsets.symmetric(horizontal: 14)),
-                      onPressed: saving ? null : save,
-                      child: Text(saving ? '...' : 'ذخیره')),
-                ]),
+      : Directionality(
+          textDirection: TextDirection.rtl,
+          child: Scaffold(
+            backgroundColor: AsoudColors.background,
+            appBar: PreferredSize(
+              preferredSize: const Size.fromHeight(64),
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                  child: Row(children: [
+                    IconButton(
+                        tooltip: 'بستن',
+                        onPressed: saving ? null : () => Navigator.pop(context),
+                        icon: const Icon(Icons.close_rounded)),
+                    Expanded(
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        const Text('تنظیمات مرحله',
+                            style: TextStyle(
+                                fontSize: 17, fontWeight: FontWeight.w900)),
+                        Text(_typeInfo.$1,
+                            style: const TextStyle(
+                                fontSize: 11, color: AsoudColors.muted)),
+                      ]),
+                    ),
+                    IconButton(
+                        tooltip: 'بازگشت',
+                        onPressed: saving ? null : () => Navigator.pop(context),
+                        icon: const Icon(Icons.arrow_forward_ios_rounded,
+                            size: 18)),
+                  ]),
+                ),
               ),
             ),
-          ),
-          body: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
-              children: [
-                _typeCard(),
-                const SizedBox(height: 14),
-                _label('عنوان مرحله', required: true),
-                TextField(
-                    controller: title,
-                    decoration: const InputDecoration(
-                        hintText: 'مثلاً: تأیید مدیر مستقیم')),
-                const SizedBox(height: 14),
-                _label('توضیحات'),
-                TextField(
-                  controller: description,
-                  minLines: 3,
-                  maxLines: 4,
-                  maxLength: 500,
-                  decoration: const InputDecoration(
-                      hintText: 'شرح کوتاهی از کار این مرحله...'),
-                ),
-                ...switch (type) {
-                  WorkflowStageType.userTask => _userTask(),
-                  WorkflowStageType.approval => _approval(),
-                  _ => _systemAction(),
-                },
-              ]),
-        );
+            bottomNavigationBar: Padding(
+              padding: EdgeInsets.only(
+                  bottom: MediaQuery.viewInsetsOf(context).bottom),
+              child: AsoudBottomActions(
+                primaryLabel: saving ? 'در حال ذخیره...' : 'ذخیره',
+                onPrimary: saving ? null : save,
+                secondaryLabel: 'انصراف',
+                onSecondary: saving ? null : () => Navigator.pop(context),
+              ),
+            ),
+            body: AbsorbPointer(
+                absorbing: saving,
+                child: ListView(
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
+                    children: [
+                      _typeCard(),
+                      const SizedBox(height: 14),
+                      _label('عنوان مرحله', required: true),
+                      TextField(
+                          controller: title,
+                          decoration: const InputDecoration(
+                              hintText: 'مثلاً: تأیید مدیر مستقیم')),
+                      const SizedBox(height: 14),
+                      _label('توضیحات'),
+                      TextField(
+                        controller: description,
+                        minLines: 3,
+                        maxLines: 4,
+                        maxLength: 500,
+                        decoration: const InputDecoration(
+                            hintText: 'شرح کوتاهی از کار این مرحله...'),
+                      ),
+                      ...switch (type) {
+                        WorkflowStageType.userTask => _userTask(),
+                        WorkflowStageType.approval => _approval(),
+                        _ => _systemAction(),
+                      },
+                    ])),
+          ));
 
   (String, String, IconData, Color) get _typeInfo => switch (type) {
         WorkflowStageType.userTask => (
@@ -451,7 +503,7 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
             'تأیید / رد',
             'بررسی و تصمیم‌گیری توسط کاربر',
             Icons.approval_outlined,
-            AsoudColors.danger
+            AsoudColors.purple
           ),
         _ => (
             'اقدام خودکار',
@@ -477,11 +529,10 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
   Widget _typeCard() {
     final info = _typeInfo;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      _label('نوع مرحله', required: true),
       Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-            color: Colors.white,
+            color: info.$4.withValues(alpha: .06),
             border: Border.all(color: AsoudColors.border),
             borderRadius: BorderRadius.circular(12)),
         child: Row(children: [
@@ -519,6 +570,44 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
 
   // --- responsible person -------------------------------------------------------------
 
+  Future<void> _pickPeople() async {
+    if (unit == null && !specificPerson) {
+      _message('ابتدا واحد سازمانی را انتخاب کنید.');
+      return;
+    }
+    if (unit?.kind == 'initiator') {
+      _message('افراد این واحد هنگام اجرا از واحد درخواست‌کننده مشخص می‌شوند.');
+      return;
+    }
+    final candidates = <String, WorkflowTargetOption>{
+      for (final item in employees)
+        if (item.department == unit?.id || selectedPeople.contains(item.id))
+          item.id: item,
+      for (final id in selectedPeople)
+        if (!employees.any((item) => item.id == id))
+          id: WorkflowTargetOption(id: id, label: id),
+    };
+    final result = await showModalBottomSheet<Set<String>>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (_) => StagePeopleSheet(
+        employees: candidates.values.toList(),
+        selected: selectedPeople,
+        allSelected: !specificPerson,
+        allowAll: unit != null,
+        unitLabel: unit?.label ?? 'واحد',
+      ),
+    );
+    if (result != null && mounted) {
+      setState(() {
+        selectedPeople = result;
+        specificPerson = result.isNotEmpty;
+      });
+    }
+  }
+
   List<Widget> _owner() => [
         const SizedBox(height: 6),
         _label('مسئول انجام', required: true),
@@ -541,7 +630,7 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
                   roles: roles,
                   selected: role,
                   initiator: type == WorkflowStageType.userTask);
-              if (choice != null) setState(() => role = choice);
+              if (choice != null && mounted) setState(() => role = choice);
             },
           )
         else ...[
@@ -551,65 +640,50 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
             placeholder: 'انتخاب واحد',
             icon: Icons.apartment_rounded,
             onTap: () async {
-              final choice = await pickOrgUnit(context,
-                  departments: departments, selected: unit);
-              if (choice != null) {
+              final choice = await showModalBottomSheet<OrgUnitChoice>(
+                context: context,
+                isScrollControlled: true,
+                useSafeArea: true,
+                showDragHandle: true,
+                builder: (sheetContext) => Directionality(
+                  textDirection: TextDirection.rtl,
+                  child: SizedBox(
+                    height: MediaQuery.sizeOf(sheetContext).height * .75,
+                    child: OrgUnitPickerPage(
+                      departments: departments,
+                      selected: unit,
+                    ),
+                  ),
+                ),
+              );
+              if (choice != null && mounted) {
                 setState(() {
                   unit = choice;
-                  person = null;
-                  if (choice.kind == 'initiator') specificPerson = false;
+                  selectedPeople.clear();
+                  specificPerson = false;
                 });
               }
             },
           ),
           const SizedBox(height: 10),
           _label('انتخاب افراد'),
-          RadioGroup<bool>(
-            groupValue: specificPerson,
-            onChanged: (value) => setState(() => specificPerson = value!),
-            child: Column(children: [
-              const RadioListTile<bool>(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  value: false,
-                  title: Text('همه افراد واحد')),
-              RadioListTile<bool>(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  value: true,
-                  enabled: unit != null && unit!.kind != 'initiator',
-                  title: const Text('یک فرد مشخص')),
-            ]),
+          PickerField(
+            value: specificPerson
+                ? selectedPeople
+                    .map((id) =>
+                        employees
+                            .where((item) => item.id == id)
+                            .firstOrNull
+                            ?.label ??
+                        id)
+                    .join('، ')
+                : unit == null
+                    ? ''
+                    : 'همه افراد ${unit!.label}',
+            placeholder: 'انتخاب افراد',
+            icon: Icons.people_outline_rounded,
+            onTap: _pickPeople,
           ),
-          if (specificPerson)
-            PickerField(
-              value: person?.label ?? '',
-              placeholder: 'انتخاب فرد',
-              icon: Icons.person_outline_rounded,
-              onTap: () async {
-                final unitOption = departments
-                    .where((item) => item.id == unit?.id)
-                    .firstOrNull;
-                if (unitOption == null) return;
-                final choice = await Navigator.push<OrgUnitChoice>(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => OrgUnitPickerPage(
-                            departments: departments,
-                            employees: employees,
-                            parent: unitOption,
-                            selected: person,
-                            initiatorDepartment: false,
-                            members: true)));
-                if (choice?.kind == 'employee') {
-                  setState(() => person = choice);
-                }
-              },
-            )
-          else
-            _notice(
-                'این مرحله برای تمامی افراد واحد انتخاب‌شده قابل انجام خواهد بود.',
-                color: AsoudColors.success),
         ],
       ];
 
@@ -618,33 +692,45 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
         children: [
           const SizedBox(height: 14),
           _label('مهلت انجام'),
-          Row(children: [
-            Expanded(
-              flex: 3,
-              child: TextField(
-                controller: deadline,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                    hintText: 'بدون مهلت',
-                    prefixIcon: Icon(Icons.calendar_today_outlined, size: 18)),
+          AsoudSegmentedControl<bool>(
+            value: hasDeadline,
+            options: const [
+              AsoudSegmentedOption(value: true, label: 'مهلت دارد'),
+              AsoudSegmentedOption(value: false, label: 'بدون مهلت'),
+            ],
+            onChanged: (value) => setState(() => hasDeadline = value),
+          ),
+          if (hasDeadline) ...[
+            const SizedBox(height: 8),
+            Row(children: [
+              Expanded(
+                flex: 3,
+                child: TextField(
+                  controller: deadline,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                      hintText: 'مدت انجام',
+                      prefixIcon:
+                          Icon(Icons.calendar_today_outlined, size: 18)),
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              flex: 2,
-              child: DropdownButtonFormField<String>(
-                isExpanded: true,
-                initialValue: deadlineUnit,
-                items: const [
-                  DropdownMenuItem(value: 'Day', child: Text('روز')),
-                  DropdownMenuItem(value: 'Hour', child: Text('ساعت')),
-                  DropdownMenuItem(value: 'Minute', child: Text('دقیقه')),
-                ],
-                onChanged: (value) =>
-                    setState(() => deadlineUnit = value ?? 'Day'),
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 2,
+                child: DropdownButtonFormField<String>(
+                  isExpanded: true,
+                  initialValue: deadlineUnit,
+                  items: const [
+                    DropdownMenuItem(value: 'Day', child: Text('روز')),
+                    DropdownMenuItem(value: 'Hour', child: Text('ساعت')),
+                    DropdownMenuItem(value: 'Minute', child: Text('دقیقه')),
+                  ],
+                  onChanged: (value) =>
+                      setState(() => deadlineUnit = value ?? 'Day'),
+                ),
               ),
-            ),
-          ]),
+            ]),
+          ],
         ],
       );
 
@@ -742,23 +828,161 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
 
   // --- user task --------------------------------------------------------------------------
 
+  Widget _taskPurpose() => Container(
+        margin: const EdgeInsets.only(bottom: 14),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: AsoudColors.border),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child:
+            Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          _label('کار این مرحله روی چیست؟', required: true),
+          for (final entry in const [
+            (
+              'ایجاد درخواست جدید',
+              'ایجاد و تکمیل یک درخواست جدید',
+              Icons.description_outlined
+            ),
+            (
+              'ایجاد سند جدید',
+              'ایجاد و تکمیل یک سند جدید',
+              Icons.note_add_outlined
+            ),
+            (
+              'کار روی موجودیت فعلی',
+              'ادامه کار روی درخواست یا سند فعلی در مراحل قبل',
+              Icons.link_rounded
+            ),
+          ])
+            Container(
+              margin: const EdgeInsets.only(bottom: 6),
+              decoration: BoxDecoration(
+                color: entry.$3 == Icons.link_rounded
+                    ? AsoudColors.primary.withValues(alpha: .06)
+                    : null,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: ListTile(
+                dense: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                leading: Icon(entry.$3,
+                    color: entry.$3 == Icons.link_rounded
+                        ? AsoudColors.primary
+                        : AsoudColors.muted),
+                title: Text(entry.$1, style: const TextStyle(fontSize: 12)),
+                subtitle: Text(
+                    entry.$3 == Icons.link_rounded
+                        ? entry.$2
+                        : '${entry.$2} · نیازمند پشتیبانی بک‌اند',
+                    style: const TextStyle(fontSize: 10)),
+                trailing: Icon(
+                    entry.$3 == Icons.link_rounded
+                        ? Icons.radio_button_checked
+                        : Icons.lock_outline_rounded,
+                    size: 20,
+                    color: entry.$3 == Icons.link_rounded
+                        ? AsoudColors.primary
+                        : AsoudColors.muted),
+              ),
+            ),
+        ]),
+      );
+
+  Future<void> _editForm() async {
+    final fields = await Navigator.push<List<WorkflowFormFieldDefinition>>(
+      context,
+      MaterialPageRoute(builder: (_) => _StageFormPage(fields: formFields)),
+    );
+    if (fields != null && mounted) {
+      setState(() => formFields = fields);
+    }
+  }
+
+  Future<void> _pickForm() async {
+    final available = widget.design.stages
+        .where((stage) =>
+            stage.id != widget.stage.id &&
+            (stage.type == WorkflowStageType.userTask ||
+                stage.type == WorkflowStageType.approval) &&
+            ((stage.config['form_fields'] as List?) ?? const []).isNotEmpty)
+        .toList();
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (sheetContext) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: SafeArea(
+            child: Padding(
+                padding: EdgeInsets.only(
+                    bottom: MediaQuery.viewInsetsOf(sheetContext).bottom),
+                child: SizedBox(
+                  height: MediaQuery.sizeOf(sheetContext).height * .6,
+                  child: _StageFormChoices(
+                    stages: available,
+                    hasForm: formFields.isNotEmpty,
+                  ),
+                ))),
+      ),
+    );
+    if (choice == null || !mounted) return;
+    if (choice == '__edit__') {
+      await _editForm();
+      return;
+    }
+    final source = available.where((stage) => stage.id == choice).firstOrNull;
+    if (source == null) return;
+    if (formFields.isNotEmpty) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('جایگزینی فرم مرحله'),
+          content: const Text(
+              'فیلدهای فعلی با یک نسخه از فرم انتخاب‌شده جایگزین شوند؟ فرم اصلی تغییر نمی‌کند.'),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('انصراف')),
+            FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('جایگزینی')),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+    }
+    setState(() {
+      formFields = (source.config['form_fields'] as List)
+          .whereType<Map>()
+          .map(WorkflowFormFieldDefinition.fromMap)
+          .toList();
+      formLayout = ((source.config['form_layout'] as List?) ?? const [])
+          .whereType<Map>()
+          .map(Map<String, dynamic>.from)
+          .toList();
+    });
+  }
+
   List<Widget> _userTask() => [
+        _taskPurpose(),
         _label('فرم مرحله'),
         PickerField(
           value: formFields.isEmpty
               ? 'بدون فرم'
               : 'فرم مرحله · ${formFields.length} فیلد',
           icon: Icons.dynamic_form_outlined,
-          trailing: const Icon(Icons.add_rounded, color: AsoudColors.primary),
-          onTap: () async {
-            final fields =
-                await Navigator.push<List<WorkflowFormFieldDefinition>>(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => _StageFormPage(fields: formFields)));
-            if (fields != null) setState(() => formFields = fields);
-          },
+          onTap: _pickForm,
         ),
+        if (formFields.isNotEmpty)
+          Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: TextButton.icon(
+                  onPressed: _editForm,
+                  icon: const Icon(Icons.edit_outlined, size: 16),
+                  label: const Text('ویرایش فرم مرحله'))),
         ..._owner(),
         _deadlineRow(),
         const SizedBox(height: 6),
@@ -766,6 +990,21 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
             subtitle:
                 'کاربر نمی‌تواند بدون تکمیل این مرحله به مرحله بعد برود.'),
         _extra([
+          DropdownButtonFormField<String>(
+            initialValue: activityType,
+            isExpanded: true,
+            decoration: const InputDecoration(labelText: 'نوع فعالیت'),
+            items: const [
+              DropdownMenuItem(
+                  value: 'Data Entry', child: Text('تکمیل اطلاعات')),
+              DropdownMenuItem(value: 'Review', child: Text('بررسی')),
+              DropdownMenuItem(value: 'Correction', child: Text('اصلاح')),
+              DropdownMenuItem(value: 'Task', child: Text('انجام کار')),
+            ],
+            onChanged: (value) {
+              if (value != null) setState(() => activityType = value);
+            },
+          ),
           _switch('امکان ویرایش بعد از ارسال', editAfterSubmit,
               (value) => setState(() => editAfterSubmit = value)),
           _switch('الزام تکمیل تمام فیلدهای فرم', requireAll,
@@ -786,6 +1025,10 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
           _route(
               'Reject', 'در صورت رد', Icons.close_rounded, AsoudColors.danger,
               emptyLabel: 'پایان فرایند (رد درخواست)'),
+        if (allowReturn)
+          _route('Return', 'در صورت بازگشت برای اصلاح', Icons.undo_rounded,
+              AsoudColors.primary,
+              emptyLabel: 'آخرین مرحله قابل اصلاح'),
       ];
 
   // --- approval ---------------------------------------------------------------------------
@@ -793,47 +1036,57 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
   List<Widget> _approval() => [
         ..._owner(),
         _deadlineRow(),
+        if (hasDeadline) ...[
+          const SizedBox(height: 8),
+          _notice('مهلت از زمان ارجاع کار در این مرحله محاسبه می‌شود.'),
+        ],
         const SizedBox(height: 16),
         _label('تصمیم‌های قابل انجام'),
-        CheckboxListTile(
-            contentPadding: EdgeInsets.zero,
-            controlAffinity: ListTileControlAffinity.leading,
-            value: true,
-            onChanged: (_) {},
-            title: const Text('امکان تأیید', style: TextStyle(fontSize: 13))),
-        CheckboxListTile(
-            contentPadding: EdgeInsets.zero,
-            controlAffinity: ListTileControlAffinity.leading,
-            value: allowReject,
-            onChanged: (value) => setState(() => allowReject = value ?? false),
-            title: const Text('امکان رد', style: TextStyle(fontSize: 13))),
-        CheckboxListTile(
-            contentPadding: EdgeInsets.zero,
-            controlAffinity: ListTileControlAffinity.leading,
-            value: allowReturn,
-            onChanged: (value) => setState(() => allowReturn = value ?? false),
-            title: const Text('امکان بازگشت برای اصلاح',
-                style: TextStyle(fontSize: 13))),
-        _switch(
-            'الزام ثبت توضیح هنگام رد',
-            rejectComment,
-            allowReject
-                ? (value) => setState(() => rejectComment = value)
-                : null),
-        _switch('الزام ثبت توضیح هنگام بازگشت', true, null),
+        _decision('امکان تأیید', true, AsoudColors.success, null),
+        _decision('امکان رد', allowReject, AsoudColors.danger,
+            (value) => setState(() => allowReject = value)),
+        _decision('امکان بازگشت برای اصلاح', allowReturn, AsoudColors.warning,
+            (value) => setState(() => allowReturn = value)),
         const SizedBox(height: 12),
-        _label('مسیرهای خروجی', required: true),
-        _route('Approve', 'در صورت تأیید', Icons.check_rounded,
+        _approvalRoute('Approve', 'در صورت تأیید', Icons.check_circle_outline,
             AsoudColors.success),
         if (allowReject)
-          _route(
-              'Reject', 'در صورت رد', Icons.close_rounded, AsoudColors.danger,
+          _approvalRoute(
+              'Reject', 'در صورت رد', Icons.cancel_outlined, AsoudColors.danger,
               emptyLabel: 'پایان فرایند (رد درخواست)'),
         if (allowReturn)
-          _route('Return', 'در صورت بازگشت برای اصلاح', Icons.undo_rounded,
-              AsoudColors.primary,
+          _approvalRoute('Return', 'در صورت بازگشت برای اصلاح',
+              Icons.undo_rounded, AsoudColors.warning,
               emptyLabel: 'آخرین مرحله قابل اصلاح'),
         _extra([
+          _label('فرم تکمیلی تأیید (اختیاری)'),
+          PickerField(
+            value: formFields.isEmpty
+                ? ''
+                : 'فرم تکمیلی · ${formFields.length} فیلد',
+            placeholder: 'انتخاب یا ساخت فرم تکمیلی',
+            icon: Icons.description_outlined,
+            onTap: _pickForm,
+          ),
+          if (formFields.isNotEmpty)
+            Row(children: [
+              Expanded(
+                  child: TextButton.icon(
+                      onPressed: _editForm,
+                      icon: const Icon(Icons.edit_outlined, size: 16),
+                      label: const Text('ویرایش فرم'))),
+              TextButton(
+                  onPressed: _removeApprovalForm, child: const Text('حذف فرم')),
+            ]),
+          _switch(
+              'الزام توضیح هنگام رد',
+              rejectComment,
+              allowReject
+                  ? (value) => setState(() => rejectComment = value)
+                  : null),
+          _switch('الزام توضیح هنگام برگشت برای اصلاح', true, null,
+              subtitle:
+                  'طبق قواعد فعلی سامانه، دلیل بازگشت همواره الزامی است.'),
           const SizedBox(height: 4),
           AsoudSegmentedControl<String>(
             value: approvalMode,
@@ -848,7 +1101,104 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
               (value) => setState(() => commentRequired = value)),
           _accessControl(),
         ]),
+        const SizedBox(height: 12),
+        _notice(approvalMode == 'Any'
+            ? 'تأیید یک نفر کافی است؛ پس از تأیید، کار سایر مسئولان این مرحله بسته می‌شود.'
+            : 'تأیید همه مسئولان لازم است؛ تا تکمیل همه تأییدها، مرحله ادامه نمی‌یابد.'),
       ];
+
+  Widget _decision(String label, bool value, Color color,
+          ValueChanged<bool>? onChanged) =>
+      Container(
+        margin: const EdgeInsets.only(bottom: 6),
+        decoration: BoxDecoration(
+            color: color.withValues(alpha: .06),
+            borderRadius: BorderRadius.circular(10)),
+        child: CheckboxListTile(
+          dense: true,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+          activeColor: color,
+          value: value,
+          onChanged: onChanged == null
+              ? null
+              : (checked) => onChanged(checked ?? false),
+          title: Text(label, style: const TextStyle(fontSize: 13)),
+        ),
+      );
+
+  Future<void> _removeApprovalForm() async {
+    final remove = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('حذف فرم تکمیلی'),
+        content: const Text('فرم تکمیلی از تنظیمات این مرحله حذف شود؟'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('انصراف')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('حذف')),
+        ],
+      ),
+    );
+    if (remove == true && mounted) {
+      setState(() {
+        formFields = [];
+        formLayout = [];
+      });
+    }
+  }
+
+  Widget _approvalRoute(String action, String label, IconData icon, Color color,
+      {String? emptyLabel}) {
+    final target = routes[action] ?? '';
+    final selected =
+        _destinations.where((stage) => stage.id == target).firstOrNull;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: .05),
+        border: Border.all(color: color.withValues(alpha: .15)),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          Icon(icon, color: color, size: 22),
+          const SizedBox(width: 8),
+          Expanded(child: _label(label, required: true)),
+        ]),
+        const SizedBox(height: 6),
+        PickerField(
+          value:
+              selected?.title ?? (target.isEmpty ? emptyLabel ?? '' : target),
+          placeholder:
+              action == 'Return' ? 'انتخاب مقصد برگشت' : 'انتخاب مرحله بعد',
+          icon: action == 'Return'
+              ? Icons.undo_rounded
+              : Icons.account_tree_outlined,
+          onTap: () async {
+            final result = await showModalBottomSheet<String>(
+              context: context,
+              isScrollControlled: true,
+              useSafeArea: true,
+              showDragHandle: true,
+              builder: (_) => _StageRouteSheet(
+                stages: _destinations,
+                selected: target,
+                emptyLabel: emptyLabel,
+                returning: action == 'Return',
+              ),
+            );
+            if (result != null && mounted) {
+              setState(() => routes[action] = result);
+            }
+          },
+        ),
+      ]),
+    );
+  }
 
   // --- automatic action ----------------------------------------------------------------
 
@@ -1089,6 +1439,219 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
               const InputDecoration(hintText: 'درخواست {{RequestNo}} ثبت شد.'),
         ),
       ];
+}
+
+class _StageRouteSheet extends StatefulWidget {
+  const _StageRouteSheet(
+      {required this.stages,
+      required this.selected,
+      required this.returning,
+      this.emptyLabel});
+  final List<WorkflowStage> stages;
+  final String selected;
+  final bool returning;
+  final String? emptyLabel;
+
+  @override
+  State<_StageRouteSheet> createState() => _StageRouteSheetState();
+}
+
+class _StageRouteSheetState extends State<_StageRouteSheet> {
+  String query = '';
+  WorkflowStageType? filter;
+
+  (String, IconData, Color) _visual(WorkflowStageType type) => switch (type) {
+        WorkflowStageType.userTask => (
+            'وظیفه کاربر',
+            Icons.person_outline,
+            AsoudColors.primary
+          ),
+        WorkflowStageType.approval => (
+            'تأیید',
+            Icons.verified_user_outlined,
+            AsoudColors.purple
+          ),
+        WorkflowStageType.systemAction => (
+            'اقدام خودکار',
+            Icons.settings_outlined,
+            AsoudColors.success
+          ),
+        WorkflowStageType.end => (
+            'پایان فرایند',
+            Icons.stop_circle_outlined,
+            AsoudColors.danger
+          ),
+        WorkflowStageType.condition => (
+            'شرط',
+            Icons.call_split_rounded,
+            AsoudColors.warning
+          ),
+        WorkflowStageType.wait => (
+            'انتظار',
+            Icons.schedule_rounded,
+            AsoudColors.cyan
+          ),
+        WorkflowStageType.start => (
+            'شروع',
+            Icons.play_circle_outline,
+            AsoudColors.primary
+          ),
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final visible = widget.stages.where((stage) =>
+        (filter == null || stage.type == filter) &&
+        stage.title.contains(query));
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: SafeArea(
+          child: Padding(
+        padding: EdgeInsets.fromLTRB(
+            16, 0, 16, MediaQuery.viewInsetsOf(context).bottom + 12),
+        child: SizedBox(
+          height: MediaQuery.sizeOf(context).height * .65,
+          child: Column(children: [
+            Row(children: [
+              Expanded(
+                  child: Text(
+                      widget.returning
+                          ? 'انتخاب مقصد برگشت'
+                          : 'انتخاب مرحله بعد',
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w800))),
+              IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  tooltip: 'بستن',
+                  icon: const Icon(Icons.close_rounded)),
+            ]),
+            TextField(
+                onChanged: (value) => setState(() => query = value.trim()),
+                decoration: const InputDecoration(
+                    hintText: 'جستجو در مراحل گردش کار...',
+                    prefixIcon: Icon(Icons.search_rounded))),
+            const SizedBox(height: 8),
+            SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(children: [
+                  ChoiceChip(
+                      label: const Text('همه'),
+                      selected: filter == null,
+                      onSelected: (_) => setState(() => filter = null)),
+                  for (final type
+                      in widget.stages.map((stage) => stage.type).toSet())
+                    Padding(
+                        padding: const EdgeInsetsDirectional.only(start: 6),
+                        child: ChoiceChip(
+                            label: Text(_visual(type).$1),
+                            selected: filter == type,
+                            onSelected: (_) => setState(() => filter = type))),
+                ])),
+            Expanded(
+                child: ListView(children: [
+              if (widget.emptyLabel != null && query.isEmpty && filter == null)
+                ListTile(
+                  title: Text(widget.emptyLabel!),
+                  subtitle: widget.returning
+                      ? const Text(
+                          'آخرین مرحله قابل اصلاح از سابقه اجرا انتخاب می‌شود.')
+                      : null,
+                  leading: Icon(widget.returning
+                      ? Icons.history_rounded
+                      : Icons.stop_circle_outlined),
+                  trailing: widget.selected.isEmpty
+                      ? const Icon(Icons.check, color: AsoudColors.primary)
+                      : null,
+                  onTap: () => Navigator.pop(context, ''),
+                ),
+              if (visible.isEmpty)
+                const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Text(
+                        'مرحله‌ای یافت نشد؛ مرحله مقصد را در طراح گردش کار ایجاد کنید.')),
+              for (final stage in visible)
+                Card(
+                    color: widget.selected == stage.id
+                        ? AsoudColors.primary.withValues(alpha: .06)
+                        : null,
+                    child: ListTile(
+                      leading: Icon(_visual(stage.type).$2,
+                          color: _visual(stage.type).$3),
+                      title: Text(stage.title),
+                      subtitle: Text(_visual(stage.type).$1),
+                      trailing: widget.selected == stage.id
+                          ? const Icon(Icons.check, color: AsoudColors.primary)
+                          : null,
+                      onTap: () => Navigator.pop(context, stage.id),
+                    )),
+            ])),
+          ]),
+        ),
+      )),
+    );
+  }
+}
+
+/// Searches existing forms without changing the source stage.
+class _StageFormChoices extends StatefulWidget {
+  const _StageFormChoices({required this.stages, required this.hasForm});
+  final List<WorkflowStage> stages;
+  final bool hasForm;
+
+  @override
+  State<_StageFormChoices> createState() => _StageFormChoicesState();
+}
+
+class _StageFormChoicesState extends State<_StageFormChoices> {
+  String query = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final stages = widget.stages.where((stage) => stage.title.contains(query));
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(children: [
+        Row(children: [
+          const Expanded(
+              child: Text('انتخاب فرم',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800))),
+          IconButton(
+              onPressed: () => Navigator.pop(context),
+              tooltip: 'بستن',
+              icon: const Icon(Icons.close_rounded)),
+        ]),
+        TextField(
+          decoration: const InputDecoration(
+              hintText: 'جستجو در فرم‌های این گردش کار...',
+              prefixIcon: Icon(Icons.search_rounded)),
+          onChanged: (value) => setState(() => query = value.trim()),
+        ),
+        const SizedBox(height: 8),
+        ListTile(
+          leading:
+              const Icon(Icons.edit_note_rounded, color: AsoudColors.primary),
+          title: Text(widget.hasForm ? 'ویرایش فرم فعلی' : 'ساخت فرم اختصاصی'),
+          onTap: () => Navigator.pop(context, '__edit__'),
+        ),
+        Expanded(
+            child: ListView(children: [
+          if (stages.isEmpty)
+            const Padding(
+                padding: EdgeInsets.all(16),
+                child: Text('فرم دیگری در این گردش کار یافت نشد.')),
+          for (final stage in stages)
+            ListTile(
+              leading: const Icon(Icons.description_outlined,
+                  color: AsoudColors.primary),
+              title: Text(stage.title),
+              subtitle: const Text('استفاده از یک نسخه مستقل از فیلدهای فرم'),
+              trailing: const Icon(Icons.chevron_left_rounded),
+              onTap: () => Navigator.pop(context, stage.id),
+            ),
+        ])),
+      ]),
+    );
+  }
 }
 
 /// Edits the form fields of a user task.
