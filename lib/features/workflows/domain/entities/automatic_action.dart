@@ -24,12 +24,6 @@ class ActionMapping {
       this.stage,
       this.transform = 'none',
       this.empty = 'error'});
-  final ActionSource source;
-  final Object value;
-  final String? stage;
-  final String transform;
-  final String empty;
-
   factory ActionMapping.fromJson(Map<String, dynamic> json) => ActionMapping(
         source: ActionSource.values.byName(json['source'] as String),
         value: json['value'] as Object,
@@ -37,6 +31,12 @@ class ActionMapping {
         transform: json['transform'] as String? ?? 'none',
         empty: json['empty'] as String? ?? 'error',
       );
+
+  final ActionSource source;
+  final Object value;
+  final String? stage;
+  final String transform;
+  final String empty;
 
   Map<String, dynamic> toJson() => {
         'source': source.name,
