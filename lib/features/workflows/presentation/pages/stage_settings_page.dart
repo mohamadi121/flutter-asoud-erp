@@ -13,6 +13,7 @@ import '../widgets/document_template_visuals.dart';
 import '../widgets/stage_pickers.dart';
 import '../widgets/workflow_form_builder.dart';
 import 'create_document_settings_page.dart';
+import 'automatic_action_page.dart';
 
 /// Decision routes by stage type; the first one is the main route.
 const _routeActions = {
@@ -61,6 +62,9 @@ class StageSettingsPage extends StatefulWidget {
 }
 
 class _StageSettingsPageState extends State<StageSettingsPage> {
+  late bool modernAutomaticAction =
+      widget.stage.config['schema_version'] == 2 ||
+          !widget.stage.config.containsKey('action_type');
   late final WorkflowAutomationRepository automation = widget.automation ??
       WorkflowAutomationRepository(context.read<FrappeApiClient>());
   Map<String, dynamic> get config => widget.stage.config;
@@ -368,64 +372,73 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: PreferredSize(
-          preferredSize: const Size.fromHeight(84),
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-              child: Row(children: [
-                IconButton(
-                    tooltip: 'بستن',
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close_rounded)),
-                Expanded(
-                  child: Column(mainAxisSize: MainAxisSize.min, children: [
-                    const Text('تنظیمات مرحله',
-                        style: TextStyle(
-                            fontSize: 17, fontWeight: FontWeight.w900)),
-                    Text(_typeInfo.$1,
-                        style: const TextStyle(
-                            fontSize: 11, color: AsoudColors.muted)),
-                  ]),
-                ),
-                FilledButton(
-                    style: FilledButton.styleFrom(
-                        minimumSize: const Size(72, 40),
-                        padding: const EdgeInsets.symmetric(horizontal: 14)),
-                    onPressed: saving ? null : save,
-                    child: Text(saving ? '...' : 'ذخیره')),
-              ]),
+  Widget build(BuildContext context) => type ==
+              WorkflowStageType.systemAction &&
+          modernAutomaticAction
+      ? AutomaticActionPage(
+          stage: widget.stage,
+          design: widget.design,
+          repository: automation,
+          initialRoutes: routes,
+          onSaved: () => context.read<WorkflowDesignerCubit>().load())
+      : Scaffold(
+          appBar: PreferredSize(
+            preferredSize: const Size.fromHeight(84),
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                child: Row(children: [
+                  IconButton(
+                      tooltip: 'بستن',
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close_rounded)),
+                  Expanded(
+                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      const Text('تنظیمات مرحله',
+                          style: TextStyle(
+                              fontSize: 17, fontWeight: FontWeight.w900)),
+                      Text(_typeInfo.$1,
+                          style: const TextStyle(
+                              fontSize: 11, color: AsoudColors.muted)),
+                    ]),
+                  ),
+                  FilledButton(
+                      style: FilledButton.styleFrom(
+                          minimumSize: const Size(72, 40),
+                          padding: const EdgeInsets.symmetric(horizontal: 14)),
+                      onPressed: saving ? null : save,
+                      child: Text(saving ? '...' : 'ذخیره')),
+                ]),
+              ),
             ),
           ),
-        ),
-        body: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
-            children: [
-              _typeCard(),
-              const SizedBox(height: 14),
-              _label('عنوان مرحله', required: true),
-              TextField(
-                  controller: title,
+          body: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
+              children: [
+                _typeCard(),
+                const SizedBox(height: 14),
+                _label('عنوان مرحله', required: true),
+                TextField(
+                    controller: title,
+                    decoration: const InputDecoration(
+                        hintText: 'مثلاً: تأیید مدیر مستقیم')),
+                const SizedBox(height: 14),
+                _label('توضیحات'),
+                TextField(
+                  controller: description,
+                  minLines: 3,
+                  maxLines: 4,
+                  maxLength: 500,
                   decoration: const InputDecoration(
-                      hintText: 'مثلاً: تأیید مدیر مستقیم')),
-              const SizedBox(height: 14),
-              _label('توضیحات'),
-              TextField(
-                controller: description,
-                minLines: 3,
-                maxLines: 4,
-                maxLength: 500,
-                decoration: const InputDecoration(
-                    hintText: 'شرح کوتاهی از کار این مرحله...'),
-              ),
-              ...switch (type) {
-                WorkflowStageType.userTask => _userTask(),
-                WorkflowStageType.approval => _approval(),
-                _ => _systemAction(),
-              },
-            ]),
-      );
+                      hintText: 'شرح کوتاهی از کار این مرحله...'),
+                ),
+                ...switch (type) {
+                  WorkflowStageType.userTask => _userTask(),
+                  WorkflowStageType.approval => _approval(),
+                  _ => _systemAction(),
+                },
+              ]),
+        );
 
   (String, String, IconData, Color) get _typeInfo => switch (type) {
         WorkflowStageType.userTask => (
@@ -840,6 +853,33 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
   // --- automatic action ----------------------------------------------------------------
 
   List<Widget> _systemAction() => [
+        OutlinedButton.icon(
+          icon: const Icon(Icons.upgrade),
+          label: const Text('ویرایش با فرم جدید اقدام خودکار'),
+          onPressed: saving
+              ? null
+              : () async {
+                  final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                            title: const Text('انتقال به فرم جدید'),
+                            content: const Text(
+                                'عنوان و مسیرها حفظ می‌شوند، اما تنظیمات اختصاصی عملیات باید دوباره تکمیل شوند. تا ذخیره، نسخه قبلی تغییر نمی‌کند.'),
+                            actions: [
+                              TextButton(
+                                  onPressed: () =>
+                                      Navigator.pop(context, false),
+                                  child: const Text('انصراف')),
+                              FilledButton(
+                                  onPressed: () => Navigator.pop(context, true),
+                                  child: const Text('ادامه'))
+                            ],
+                          ));
+                  if (confirmed == true && mounted) {
+                    setState(() => modernAutomaticAction = true);
+                  }
+                },
+        ),
         _notice(
             'این مرحله به صورت خودکار توسط سیستم اجرا می‌شود و نیازی به تعیین مسئول ندارد.'),
         const SizedBox(height: 16),
