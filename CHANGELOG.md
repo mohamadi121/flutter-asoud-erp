@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.25.2+42
+
+- Merged the latest `main` workflow/offline updates into the test release.
+- Keeps the editable login server address fix from 0.25.1+41.
+- Requires backend 0.14.0.
+
 ## 0.25.1+41
 
 - Login server address is editable again. Entering an address without a scheme, such as `91.108.140.180:8080`, is normalized to `http://91.108.140.180:8080` before signing in.
