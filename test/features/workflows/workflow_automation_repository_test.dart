@@ -1,8 +1,13 @@
 import 'package:asoud_erp/core/network/frappe_client.dart';
+import 'package:asoud_erp/core/network/api_exception.dart';
+import 'package:asoud_erp/core/offline/local_record.dart';
 import 'package:asoud_erp/features/workflows/data/workflow_automation_repository.dart';
 import 'package:asoud_erp/features/workflows/domain/entities/document_template.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../helpers/fake_local_record_store.dart';
 
 class _Client extends Mock implements FrappeClient {}
 
@@ -28,13 +33,22 @@ Map<String, dynamic> _templateJson() => {
 void main() {
   late _Client client;
   late WorkflowAutomationRepository repository;
+  late FakeLocalRecordStore local;
   late List<(String, Map<String, dynamic>)> calls;
 
   setUp(() {
+    SharedPreferences.setMockInitialValues({});
     client = _Client();
     calls = [];
-    repository = WorkflowAutomationRepository(client);
+    local = FakeLocalRecordStore();
+    repository = WorkflowAutomationRepository(client, local: local);
     when(() => client.isAuthenticated).thenReturn(true);
+    when(() => client.serverIdentity).thenReturn('http://localhost:8000');
+    when(() => client.getCurrentUser()).thenAnswer((_) async =>
+        const FrappeUserContext(
+            userId: 'operator@example.com',
+            fullName: 'Operator',
+            roles: ['System Manager']));
     when(() => client.callAsoudMethod(any(), data: any(named: 'data')))
         .thenAnswer((invocation) async {
       final method = invocation.positionalArguments.first as String;
@@ -84,8 +98,57 @@ void main() {
         '${_prefix}document_template_link_options' => [
             {'value': 'Expenses - T', 'label': 'هزینه‌ها'}
           ],
+        'asoud_erp.api.v1.automatic_actions.options' => {
+            'schema_version': 2,
+            'sources': {'stages': []},
+            'execution_ready': true,
+          },
         _ => {'ok': true},
       };
+    });
+  });
+
+  test('automatic action options are cached per user and reused offline',
+      () async {
+    final online = await repository.automaticActionOptions('WF-1', 'ST-2');
+    expect(online.data['schema_version'], 2);
+    expect(online.fromCache, isFalse);
+
+    when(() =>
+        client.callAsoudMethod('asoud_erp.api.v1.automatic_actions.options',
+            data: any(named: 'data'))).thenThrow(const ApiException(
+        kind: ApiFailureKind.network, message: 'server offline'));
+    final offline = await repository.automaticActionOptions('WF-1', 'ST-2');
+    expect(offline.data['schema_version'], 2);
+    expect(offline.fromCache, isTrue);
+    expect(offline.connectionError, 'server offline');
+  });
+
+  test('offline automatic action options restore the queued save for this user',
+      () async {
+    await repository.automaticActionOptions('WF-1', 'ST-2');
+    await local.save(
+      entityType: 'asoud_erp.api.v1.automatic_actions.save',
+      payload: {
+        'operation': 'asoud_method',
+        '_asoud_owner': 'operator@example.com',
+        '_asoud_server': 'http://localhost:8000',
+        'definition': 'WF-1',
+        'stage': 'ST-2',
+        'config': {'schema_version': 2, 'title': 'Saved offline'},
+        'routes': {'Success': 'ST-3', 'Error': ''},
+      },
+      status: LocalSyncStatus.pendingSync,
+    );
+    when(() =>
+        client.callAsoudMethod('asoud_erp.api.v1.automatic_actions.options',
+            data: any(named: 'data'))).thenThrow(const ApiException(
+        kind: ApiFailureKind.network, message: 'server offline'));
+
+    final offline = await repository.automaticActionOptions('WF-1', 'ST-2');
+    expect(offline.pendingDraft, {
+      'config': {'schema_version': 2, 'title': 'Saved offline'},
+      'routes': {'Success': 'ST-3', 'Error': ''},
     });
   });
 

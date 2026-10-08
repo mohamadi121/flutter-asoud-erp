@@ -54,7 +54,10 @@ class _AutomaticActionPageState extends State<AutomaticActionPage> {
   AutomaticActionType type = AutomaticActionType.createRequest;
   Map<String, dynamic>? metadata;
   String? error;
-  bool loading = true, saving = false, linkOriginal = true;
+  bool loading = true,
+      saving = false,
+      linkOriginal = true,
+      metadataFromCache = false;
   String destination = '', targetStage = '', field = '', transition = '';
   String method = 'sum',
       initialState = 'Draft',
@@ -71,9 +74,22 @@ class _AutomaticActionPageState extends State<AutomaticActionPage> {
     super.initState();
     success = widget.initialRoutes['Success'] ?? '';
     failure = widget.initialRoutes['Error'] ?? '';
-    final config = widget.stage.config;
+    _restoreConfig(widget.stage.config);
+    for (final controller in _controllers) {
+      controller.addListener(_changed);
+    }
+    _load();
+  }
+
+  void _restoreConfig(Map<String, dynamic> config,
+      {Map<String, dynamic>? routes}) {
+    title.text = (config['title'] ?? widget.stage.title).toString();
+    description.text = (config['description'] ?? '').toString();
+    final exits = routes ?? const <String, dynamic>{};
+    success = (exits['Success'] ?? success).toString();
+    failure = (exits['Error'] ?? failure).toString();
     if (config['schema_version'] == 2) {
-      type = AutomaticActionType.parse(config['action_type'] as String);
+      type = AutomaticActionType.parse(config['action_type'].toString());
       final op = _map(config['operation']);
       destination = (op['request_type'] ?? op['doctype'] ?? '').toString();
       targetStage = _map(op['target'])['stage']?.toString() ?? '';
@@ -101,10 +117,6 @@ class _AutomaticActionPageState extends State<AutomaticActionPage> {
       interval.text = '${policy['retry_seconds'] ?? 60}';
       timeout.text = '${policy['timeout_seconds'] ?? 120}';
     }
-    for (final controller in _controllers) {
-      controller.addListener(_changed);
-    }
-    _load();
   }
 
   List<TextEditingController> get _controllers =>
@@ -131,21 +143,30 @@ class _AutomaticActionPageState extends State<AutomaticActionPage> {
     try {
       final result = await widget.repository
           .automaticActionOptions(widget.design.workflow.id, widget.stage.id);
-      if (result['schema_version'] != 2) {
+      if (result.data['schema_version'] != 2) {
         throw StateError('نسخه سرور از این فرم پشتیبانی نمی‌کند.');
       }
       if (mounted) {
         setState(() {
-          metadata = result;
+          metadata = result.data;
+          metadataFromCache = result.fromCache;
+          error = result.connectionError;
+          final draft = result.pendingDraft;
+          if (draft != null) {
+            _restoreConfig(_map(draft['config']), routes: _map(draft['routes']));
+          }
           loading = false;
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          error = e is ApiException
+          error = e is ApiException &&
+                  e.kind != ApiFailureKind.network &&
+                  e.kind != ApiFailureKind.timeout &&
+                  e.kind != ApiFailureKind.server
               ? e.message
-              : 'دریافت تنظیمات از سرور ناموفق بود.';
+              : 'دریافت تنظیمات از سرور ناموفق بود؛ اتصال، دسترسی یا نسخهٔ API را بررسی کنید.';
           loading = false;
         });
       }
@@ -402,9 +423,14 @@ class _AutomaticActionPageState extends State<AutomaticActionPage> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          error = e is ApiException
-              ? e.message
-              : 'ذخیره ناموفق بود؛ تنظیمات شما حفظ شده‌اند.';
+          error = e is ApiException &&
+                  (e.kind == ApiFailureKind.network ||
+                      e.kind == ApiFailureKind.timeout ||
+                      e.kind == ApiFailureKind.server)
+              ? 'ارتباط با سرور برقرار نشد؛ تغییرات در صف محلی ذخیره شده و پس از اتصال دوباره همگام می‌شوند.'
+              : e is ApiException
+                  ? e.message
+                  : 'ذخیره ناموفق بود؛ تنظیمات شما حفظ شده‌اند.';
           saving = false;
         });
         ScaffoldMessenger.of(context)
@@ -735,6 +761,10 @@ class _AutomaticActionPageState extends State<AutomaticActionPage> {
                     16, 8, 16, 24 + MediaQuery.viewInsetsOf(context).bottom),
                 children: [
                     if (error != null) _notice(error!, warning: true),
+                    if (metadataFromCache)
+                      _notice(
+                          'اطلاعات گزینه‌ها از آخرین دریافت موفق روی همین حساب و سرور خوانده شده است. سرور هنگام همگام‌سازی مجدداً مجوزها و اعتبار تنظیمات را بررسی می‌کند.',
+                          warning: true),
                     if (metadata == null)
                       OutlinedButton(
                           onPressed: _load,
