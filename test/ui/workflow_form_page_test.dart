@@ -82,19 +82,10 @@ void main() {
       await tester.ensureVisible(toggle);
       await tester.tap(toggle);
       await tester.pumpAndSettle();
-      final company =
-          find.widgetWithText(DropdownButtonFormField<String>, 'دفتر / شرکت');
-      await tester.ensureVisible(company);
-      tester
-          .widget<DropdownButtonFormField<String>>(company)
-          .onChanged!('دفتر دوم');
-      await tester.pumpAndSettle();
-      final doctype =
-          find.widgetWithText(DropdownButtonFormField<String>, 'نوع سند *');
-      tester
-          .widget<DropdownButtonFormField<String>>(doctype)
-          .onChanged!('Purchase Order');
-      await tester.pumpAndSettle();
+      // Scope/document selectors were deliberately removed from this sheet.
+      expect(find.text('دامنه و سند مقصد'), findsNothing);
+      expect(find.text('دفتر / شرکت'), findsNothing);
+      expect(find.text('نوع سند *'), findsNothing);
       await tester.tap(find.byTooltip('بستن تنظیمات'));
       await tester.pumpAndSettle();
       expect(cubit.state.iconKey, 'purchase');
@@ -103,7 +94,9 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('workflow-more')));
       await tester.pumpAndSettle();
       expect(tester.widget<SwitchListTile>(toggle).value, isTrue);
-      expect(find.text('سفارش خرید'), findsOneWidget);
+      expect(cubit.state.iconKey, 'purchase');
+      expect(cubit.state.colorHex, '#16A765');
+      expect(cubit.state.targetDoctype, 'ASOUD Workflow Request');
       await tester.tap(find.byTooltip('بستن تنظیمات'));
       await tester.pumpAndSettle();
       expect(find.text('ذخیره و طراحی مراحل').hitTestable(), findsOneWidget);
@@ -113,8 +106,8 @@ void main() {
         'title': 'تأیید خرید',
         'description': 'شرح فرایند',
         'module': 'Purchase',
-        'doctype': 'Purchase Order',
-        'company': 'دفتر دوم',
+        'doctype': 'ASOUD Workflow Request',
+        'company': 'دفتر اول',
         'mode': 'Template',
         'icon': 'purchase',
         'color': '#16A765'
@@ -129,12 +122,14 @@ void main() {
       expect(tester.getBottomRight(save).dy, lessThanOrEqualTo(544));
       tester.view.resetViewInsets();
       await tester.pumpAndSettle();
-      // A module change must reset the target document in the reopened sheet.
+      // Changing the module must not silently change the workflow reference.
       cubit.changeModule('HR');
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('workflow-more')));
       await tester.pumpAndSettle();
-      expect(find.text('درخواست مرخصی'), findsOneWidget);
+      expect(cubit.state.moduleKey, 'HR');
+      expect(cubit.state.targetDoctype, 'ASOUD Workflow Request');
+      expect(find.text('نوع سند *'), findsNothing);
       expect(find.text('سفارش خرید'), findsNothing);
       expect(tester.takeException(), isNull);
     });
