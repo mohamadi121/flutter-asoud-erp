@@ -42,6 +42,34 @@ class WorkflowAutomationRepository {
       'asoud_automatic_action_options_v2_';
   static const _automaticActionSave = 'asoud_erp.api.v1.automatic_actions.save';
 
+  Future<String> _draftKey(String definition, String stage) async {
+    final owner = isLocal
+        ? '__offline_preview__'
+        : (await client.getCurrentUser()).userId;
+    return '${_automaticActionCacheKey(definition: definition, stage: stage, userId: owner)}_draft';
+  }
+
+  Future<Map<String, dynamic>?> automaticActionDraft(
+      String definition, String stage) async {
+    final key = await _draftKey(definition, stage);
+    final raw = (await SharedPreferences.getInstance()).getString(key);
+    return raw == null ? null : _object(jsonDecode(raw));
+  }
+
+  Future<void> saveAutomaticActionDraft(
+      String definition, String stage, Map<String, dynamic> draft) async {
+    final key = await _draftKey(definition, stage);
+    final saved = await (await SharedPreferences.getInstance())
+        .setString(key, jsonEncode(draft));
+    if (!saved) throw StateError('ذخیرهٔ پیش‌نویس روی دستگاه ناموفق بود.');
+  }
+
+  Future<void> clearAutomaticActionDraft(
+      String definition, String stage) async {
+    final key = await _draftKey(definition, stage);
+    await (await SharedPreferences.getInstance()).remove(key);
+  }
+
   /// Uses only previously authorized options for this user, server and stage
   /// during a network outage; the server still validates every save.
   Future<AutomaticActionOptions> automaticActionOptions(
@@ -157,6 +185,23 @@ class WorkflowAutomationRepository {
 
   static const _templates = 'asoud_erp.api.v1.document_templates';
   static const _localKey = 'asoud_document_templates_local_v1';
+
+  Future<List<Map<String, dynamic>>> userTaskRequests(String company) async {
+    final key = '${await _draftKey(company, 'request-types')}_options';
+    final prefs = await SharedPreferences.getInstance();
+    try {
+      final rows = _list(await _call(
+          'asoud_erp.api.v1.workflow_request.request_options',
+          {'company': company}));
+      await prefs.setString(key, jsonEncode(rows));
+      return rows;
+    } catch (error) {
+      if (!isRetryableOfflineFailure(error)) rethrow;
+      final cached = prefs.getString(key);
+      if (cached == null) rethrow;
+      return _list(jsonDecode(cached));
+    }
+  }
 
   /// True in the offline preview: templates are read and saved locally.
   bool get isLocal => AppConfig.offlineDemoMode && !client.isAuthenticated;

@@ -274,6 +274,7 @@ class FrappeWorkflowRepository implements WorkflowRepository {
       data: {
         'name': definition,
         'workflow_title': info.title,
+        if (info.moduleKey != null) 'module_key': info.moduleKey,
         'short_title': info.shortTitle,
         'process_description': info.description,
         'request_category': info.category,

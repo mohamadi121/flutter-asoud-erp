@@ -54,6 +54,7 @@ class _AutomaticActionPageState extends State<AutomaticActionPage> {
   AutomaticActionType type = AutomaticActionType.createRequest;
   Map<String, dynamic>? metadata;
   String? error;
+  bool draftLoaded = false;
   bool loading = true,
       saving = false,
       linkOriginal = true,
@@ -140,9 +141,22 @@ class _AutomaticActionPageState extends State<AutomaticActionPage> {
       loading = true;
       error = null;
     });
+    Map<String, dynamic>? localDraft;
+    try {
+      localDraft = await widget.repository
+          .automaticActionDraft(widget.design.workflow.id, widget.stage.id);
+      if (!draftLoaded && localDraft != null && mounted) {
+        _restoreConfig(_map(localDraft['config']),
+            routes: _map(localDraft['routes']));
+        draftLoaded = true;
+      }
+    } catch (_) {
+      // A missing session or corrupt draft must not hide the editor or replace its current values.
+    }
     try {
       final result = await widget.repository
-          .automaticActionOptions(widget.design.workflow.id, widget.stage.id);
+          .automaticActionOptions(widget.design.workflow.id, widget.stage.id)
+          .timeout(const Duration(seconds: 12));
       if (result.data['schema_version'] != 2) {
         throw StateError('نسخه سرور از این فرم پشتیبانی نمی‌کند.');
       }
@@ -152,8 +166,10 @@ class _AutomaticActionPageState extends State<AutomaticActionPage> {
           metadataFromCache = result.fromCache;
           error = result.connectionError;
           final draft = result.pendingDraft;
-          if (draft != null) {
-            _restoreConfig(_map(draft['config']), routes: _map(draft['routes']));
+          if (!draftLoaded && draft != null) {
+            _restoreConfig(_map(draft['config']),
+                routes: _map(draft['routes']));
+            draftLoaded = true;
           }
           loading = false;
         });
@@ -401,6 +417,7 @@ class _AutomaticActionPageState extends State<AutomaticActionPage> {
       error = null;
     });
     try {
+      await _persistDraft();
       await widget.repository.saveAutomaticAction(
           definition: widget.design.workflow.id,
           stage: widget.stage.id,
@@ -416,6 +433,8 @@ class _AutomaticActionPageState extends State<AutomaticActionPage> {
             'Success': success,
             'Error': failure
           });
+      await widget.repository.clearAutomaticActionDraft(
+          widget.design.workflow.id, widget.stage.id);
       await widget.onSaved();
       if (mounted) {
         Navigator.pop(context);
@@ -427,7 +446,7 @@ class _AutomaticActionPageState extends State<AutomaticActionPage> {
                   (e.kind == ApiFailureKind.network ||
                       e.kind == ApiFailureKind.timeout ||
                       e.kind == ApiFailureKind.server)
-              ? 'ارتباط با سرور برقرار نشد؛ تغییرات در صف محلی ذخیره شده و پس از اتصال دوباره همگام می‌شوند.'
+              ? 'ارتباط با سرور برقرار نشد؛ پیش‌نویس روی دستگاه ذخیره است. پس از اتصال، دوباره اعتبارسنجی و ذخیره کنید.'
               : e is ApiException
                   ? e.message
                   : 'ذخیره ناموفق بود؛ تنظیمات شما حفظ شده‌اند.';
@@ -436,6 +455,63 @@ class _AutomaticActionPageState extends State<AutomaticActionPage> {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(error!)));
       }
+    }
+  }
+
+  Future<void> _persistDraft() => widget.repository.saveAutomaticActionDraft(
+          widget.design.workflow.id, widget.stage.id, {
+        'config': {
+          'title': title.text,
+          'description': description.text,
+          'schema_version': 2,
+          'action_type': type.key,
+          'operation': {
+            'request_type': destination,
+            'doctype': destination,
+            'target': target.toJson(),
+            'field': field,
+            'lookup_field': field,
+            'transition': transition,
+            'method': method,
+            'initial_state': initialState,
+            'relationship': relationship,
+            'missing': missing,
+            'link_original': linkOriginal,
+            'message': message.text,
+            'formula': formula.text,
+            'mapping':
+                mapping.map((key, value) => MapEntry(key, value.toJson())),
+            'inputs': inputs.map((key, value) => MapEntry(key, value.toJson())),
+            'lookup': lookup?.toJson(),
+            'recipients': recipients.toList(),
+            'channels': channels.toList(),
+          },
+          'execution': {
+            'extra_attempts': extra.text,
+            'retry_seconds': interval.text,
+            'timeout_seconds': timeout.text
+          },
+        },
+        'routes': {'Success': success, 'Error': failure},
+      });
+
+  Future<void> _saveDraft() async {
+    setState(() => saving = true);
+    try {
+      await _persistDraft();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text(
+                'پیش‌نویس روی دستگاه ذخیره شد؛ هنوز روی سرور ثبت یا اجرا نشده است.')));
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text(
+                'ذخیره محلی انجام نشد؛ وضعیت نشست و فضای دستگاه را بررسی کنید.')));
+      }
+    } finally {
+      if (mounted) setState(() => saving = false);
     }
   }
 
@@ -749,11 +825,16 @@ class _AutomaticActionPageState extends State<AutomaticActionPage> {
             child: Padding(
                 padding: EdgeInsets.fromLTRB(
                     16, 16, 16, 16 + MediaQuery.viewInsetsOf(context).bottom),
-                child: FilledButton(
-                    onPressed:
-                        loading || saving || problem != null ? null : _save,
-                    child: Text(
-                        saving ? 'در حال ذخیره…' : 'اعتبارسنجی و ذخیره')))),
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  OutlinedButton(
+                      onPressed: loading || saving ? null : _saveDraft,
+                      child: const Text('ذخیره پیش‌نویس روی دستگاه')),
+                  FilledButton(
+                      onPressed:
+                          loading || saving || problem != null ? null : _save,
+                      child:
+                          Text(saving ? 'در حال ذخیره…' : 'اعتبارسنجی و ذخیره'))
+                ]))),
         body: loading
             ? const Center(child: CircularProgressIndicator())
             : ListView(
@@ -769,10 +850,10 @@ class _AutomaticActionPageState extends State<AutomaticActionPage> {
                       OutlinedButton(
                           onPressed: _load,
                           child: const Text('دریافت دوباره از سرور')),
-                    if (metadata != null) ...[
-                      if (metadata!['execution_ready'] != true)
+                    ...[
+                      if (metadata?['execution_ready'] != true)
                         _notice(
-                            'اجرا متوقف است: مدیر باید کاربر سیستمی محدود و شرکت‌های مجاز را در سرور معرفی کند. ذخیرهٔ تنظیمات، به معنی اجرای عملیات نیست.',
+                            'اجرای خودکار آماده نیست. ${metadata?['blocked_reason'] ?? 'دریافت تنظیمات معتبر و معرفی کاربر سیستمی محدود لازم است.'} ذخیرهٔ پیش‌نویس به معنی اجرای عملیات نیست.',
                             warning: true),
                       TextField(
                           controller: title,

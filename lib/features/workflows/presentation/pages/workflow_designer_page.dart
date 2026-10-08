@@ -9,6 +9,8 @@ import '../cubit/workflow_designer_cubit.dart';
 import '../widgets/workflow_graph_canvas.dart';
 import 'stage_settings_page.dart';
 import 'workflow_stage_settings_page.dart';
+import 'workflow_form_page.dart';
+import 'workflow_end_settings_page.dart';
 
 class WorkflowDesignerPage extends StatelessWidget {
   const WorkflowDesignerPage({required this.definition, super.key});
@@ -54,7 +56,7 @@ class _DesignerView extends StatelessWidget {
               subtitle: design.workflow.title,
               action: IconButton(
                 tooltip: 'تنظیمات فرایند',
-                onPressed: () {},
+                onPressed: () => _editWorkflow(context),
                 icon: const Icon(Icons.settings_outlined),
               ),
             ),
@@ -94,11 +96,15 @@ class _DesignerView extends StatelessWidget {
   Future<void> _openStage(BuildContext context, WorkflowStage stage,
       WorkflowFormOptions? options) async {
     if (stage.type == WorkflowStageType.start) {
+      await _editWorkflow(context);
+      return;
+    }
+    if (stage.type == WorkflowStageType.end) {
+      final cubit = context.read<WorkflowDesignerCubit>();
       await Navigator.of(context).push(MaterialPageRoute<void>(
         builder: (_) => BlocProvider.value(
-          value: context.read<WorkflowDesignerCubit>(),
-          child: StartSettingsPage(
-              stage: stage, roles: options?.roles ?? const []),
+          value: cubit,
+          child: WorkflowEndSettingsPage(stage: stage),
         ),
       ));
       return;
@@ -141,6 +147,20 @@ class _DesignerView extends StatelessWidget {
       builder: (_) => const _StagePickerSheet(),
     );
     if (type != null) await cubit.addStage(type);
+  }
+
+  Future<void> _editWorkflow(BuildContext context) async {
+    final cubit = context.read<WorkflowDesignerCubit>();
+    final workflow = cubit.state.design?.workflow;
+    if (workflow == null) {
+      return;
+    }
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => WorkflowFormPage(existing: workflow),
+    ));
+    if (!cubit.isClosed) {
+      await cubit.load();
+    }
   }
 
   Future<void> _insertStage(
