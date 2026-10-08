@@ -208,6 +208,30 @@ void main() {
     expect(find.text('91.108.140.180:8080'), findsOneWidget);
   });
 
+  testWidgets('successful organization login clears the remembered demo choice',
+      (tester) async {
+    await DemoChoiceStore.setDemoChosen(true);
+    final client = _FakeClient();
+    final auth = _FakeAuth(client);
+    await tester.pumpWidget(_app(
+        LoginPage(
+            showDemoButton: true,
+            transferService:
+                DemoTransferService(store: FakeLocalRecordStore())),
+        client: client,
+        auth: auth));
+
+    await tester.enterText(
+        find.widgetWithText(TextField, 'نام کاربری یا ایمیل'), 'user');
+    await tester.enterText(find.widgetWithText(TextField, 'رمز عبور'), 'pass');
+    await tester.tap(find.text('ورود'));
+    await tester.pumpAndSettle();
+
+    expect(auth.signInCalls, 1);
+    expect(find.byType(DashboardPage), findsOneWidget);
+    expect(await DemoChoiceStore.isDemoChosen(), isFalse);
+  });
+
   testWidgets('successful login opens the transfer page when demo data exists',
       (tester) async {
     SharedPreferences.setMockInitialValues({

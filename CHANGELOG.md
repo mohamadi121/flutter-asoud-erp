@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.25.3+43
+
+- After a successful organization login, the app clears the remembered offline demo choice so the next launch does not reopen the demo/offline dashboard by mistake.
+- Keeps the editable login server address fix and latest `main` workflow/offline updates.
+- Requires backend 0.14.0.
+
 ## 0.25.2+42
 
 - Merged the latest `main` workflow/offline updates into the test release.

@@ -79,6 +79,7 @@ class _LoginPageState extends State<LoginPage> {
   /// transfer of rows created in the preview.
   Future<void> _afterLogin() async {
     final client = context.read<FrappeApiClient>();
+    await DemoChoiceStore.setDemoChosen(false);
     final service = widget.transferService ?? DemoTransferService();
     final candidates = await service.listCandidates();
     final seen = await DemoTransferService.isTransferSeen();
