@@ -164,12 +164,47 @@ class FrappeClient implements FrappeApiClient {
 
   FrappeClient._(this._dio, this._cookies, this._baseUri, this._vault);
 
+  final Dio _dio;
+  final CookieJar _cookies;
+  Uri _baseUri;
   final SessionVault? _vault;
   FrappeUserContext? _knownUser;
   DateTime? _offlineUntil;
   int _sessionGeneration = 0;
   Future<void> _vaultWrites = Future<void>.value();
   String get serverIdentity => _baseUri.toString();
+
+  static String normalizeBaseUrl(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      throw const FormatException('Server URL is empty');
+    }
+    final withScheme = RegExp(r'^[a-zA-Z][a-zA-Z0-9+.-]*://').hasMatch(trimmed)
+        ? trimmed
+        : 'http://$trimmed';
+    final uri = Uri.parse(withScheme);
+    if (!uri.hasScheme ||
+        uri.host.isEmpty ||
+        (uri.scheme != 'http' && uri.scheme != 'https')) {
+      throw const FormatException('Server URL must be http or https');
+    }
+    final normalized = withScheme.endsWith('/')
+        ? withScheme.substring(0, withScheme.length - 1)
+        : withScheme;
+    return normalized;
+  }
+
+  Future<void> useServer(String baseUrl) async {
+    final normalized = normalizeBaseUrl(baseUrl);
+    if (normalized == _baseUri.toString()) return;
+    _sessionGeneration++;
+    _knownUser = null;
+    _offlineUntil = null;
+    await _cookies.deleteAll();
+    _dio.options.baseUrl = normalized;
+    _baseUri = Uri.parse(normalized);
+  }
+
   Future<void> _writeVault(Future<void> Function() action) {
     final next =
         _vaultWrites.then((_) => action(), onError: (Object _) => action());
@@ -243,9 +278,6 @@ class FrappeClient implements FrappeApiClient {
     });
   }
 
-  final Dio _dio;
-  final CookieJar _cookies;
-  final Uri _baseUri;
   final _authenticationController = StreamController<bool>.broadcast();
 
   bool _isAuthenticated = false;

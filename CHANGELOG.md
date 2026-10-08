@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.25.1+41
+
+- Login server address is editable again. Entering an address without a scheme, such as `91.108.140.180:8080`, is normalized to `http://91.108.140.180:8080` before signing in.
+- Requires backend 0.14.0.
+
 ## 0.25.0+40
 
 - Purchase, supply and leave requests are system templates served by the backend: shared request form, list and detail pages (status tabs, search, filters, files with thumbnails, comments, edit and cancel), the leave form with a live preview and balance panel, and quick actions on the employee home.

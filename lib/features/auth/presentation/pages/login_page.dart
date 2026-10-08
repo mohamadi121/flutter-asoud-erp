@@ -51,17 +51,24 @@ class _LoginPageState extends State<LoginPage> {
       _error = null;
     });
     try {
-      await context
-          .read<AuthRepository>()
-          .signIn(username: _username.text.trim(), password: _password.text);
+      final client = context.read<FrappeApiClient>();
+      final auth = context.read<AuthRepository>();
+      if (client is FrappeClient) {
+        await client.useServer(_serverUrl.text);
+        _serverUrl.text = client.serverIdentity;
+      }
+      await auth.signIn(
+          username: _username.text.trim(), password: _password.text);
       _password.clear();
       if (!mounted) return;
       await _afterLogin();
     } catch (error) {
       if (mounted) {
-        setState(() => _error = error is ApiException
-            ? error.message
-            : 'ورود ممکن نشد؛ اتصال و ذخیره امن گوشی را بررسی کنید.');
+        setState(() => _error = error is FormatException
+            ? 'نشانی سرور را درست وارد کنید؛ مثل http://91.108.140.180:8080'
+            : error is ApiException
+                ? error.message
+                : 'ورود ممکن نشد؛ اتصال و ذخیره امن گوشی را بررسی کنید.');
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -161,7 +168,7 @@ class _LoginPageState extends State<LoginPage> {
                     const SizedBox(height: 30),
                     TextField(
                       controller: _serverUrl,
-                      readOnly: true,
+                      enabled: !_busy,
                       keyboardType: TextInputType.url,
                       textDirection: TextDirection.ltr,
                       decoration: const InputDecoration(

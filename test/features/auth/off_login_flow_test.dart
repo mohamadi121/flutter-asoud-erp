@@ -196,6 +196,18 @@ void main() {
     expect(find.text('نام کاربری یا ایمیل'), findsOneWidget);
   });
 
+  testWidgets('login lets the server address be edited', (tester) async {
+    final client = _FakeClient();
+    final auth = _FakeAuth(client);
+    await tester.pumpWidget(_app(const LoginPage(showDemoButton: false),
+        client: client, auth: auth));
+
+    final server = find.widgetWithText(TextField, 'نشانی سرور');
+    expect(server, findsOneWidget);
+    await tester.enterText(server, '91.108.140.180:8080');
+    expect(find.text('91.108.140.180:8080'), findsOneWidget);
+  });
+
   testWidgets('successful login opens the transfer page when demo data exists',
       (tester) async {
     SharedPreferences.setMockInitialValues({

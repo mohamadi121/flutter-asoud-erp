@@ -116,4 +116,12 @@ void main() {
       expect(error.code, isNull, reason: '$status');
     }
   });
+  test('normalizes login server URLs', () {
+    expect(FrappeClient.normalizeBaseUrl('91.108.140.180:8080'),
+        'http://91.108.140.180:8080');
+    expect(FrappeClient.normalizeBaseUrl('https://erp.example.com/'),
+        'https://erp.example.com');
+    expect(() => FrappeClient.normalizeBaseUrl('ftp://erp.example.com'),
+        throwsFormatException);
+  });
 }
