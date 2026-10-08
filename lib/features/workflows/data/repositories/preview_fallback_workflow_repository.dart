@@ -16,6 +16,7 @@ class PreviewFallbackWorkflowRepository
   bool _offline = false;
   int _draftSequence = 1;
   bool _loaded = false;
+  Future<void> _persistTail = Future<void>.value();
   static const _storageKey = 'asoud_workflow_designs_v2';
 
   Future<void> _loadLocal() async {
@@ -36,12 +37,15 @@ class PreviewFallbackWorkflowRepository
     }
   }
 
-  Future<void> _persist() async {
-    final preferences = await SharedPreferences.getInstance();
-    await preferences.setString(
-      _storageKey,
-      jsonEncode(_designs.values.map(_designToMap).toList(growable: false)),
-    );
+  Future<void> _persist() {
+    final snapshot =
+        jsonEncode(_designs.values.map(_designToMap).toList(growable: false));
+    final write = _persistTail.then((_) async {
+      final preferences = await SharedPreferences.getInstance();
+      await preferences.setString(_storageKey, snapshot);
+    });
+    _persistTail = write;
+    return write;
   }
 
   Map<String, dynamic> _designToMap(WorkflowDesign design) => {
@@ -144,9 +148,37 @@ class PreviewFallbackWorkflowRepository
     );
   }
 
-  void _remember(String definition, WorkflowDesign design) {
+  Future<void> _remember(String definition, WorkflowDesign design) async {
     _designs[definition] = design;
-    unawaited(_persist());
+    await _persist();
+  }
+
+  Future<WorkflowDesign> _rememberRemoteDesign(
+    String definition,
+    Future<WorkflowDesign> Function() load,
+  ) async {
+    final design = await load();
+    await _remember(definition, design);
+    return design;
+  }
+
+  Future<WorkflowDefinition> _rememberRemoteWorkflow(
+    String definition,
+    Future<WorkflowDefinition> Function() load,
+  ) async {
+    final workflow = await load();
+    final design = _designs[definition];
+    if (design != null) {
+      await _remember(
+        definition,
+        WorkflowDesign(
+          workflow: workflow,
+          stages: design.stages,
+          transitions: design.transitions,
+        ),
+      );
+    }
+    return workflow;
   }
 
   @override
@@ -233,11 +265,11 @@ class PreviewFallbackWorkflowRepository
 
   Future<T> _remoteOrPreview<T>(
     Future<T> Function() remote,
-    T Function() preview, {
+    FutureOr<T> Function() preview, {
     bool probe = false,
   }) async {
     await _loadLocal();
-    if (_offline && !probe) return preview();
+    if (_offline && !probe) return await preview();
     try {
       final result = await remote();
       _offline = false;
@@ -245,7 +277,7 @@ class PreviewFallbackWorkflowRepository
     } catch (error) {
       if (!_canPreview(error)) rethrow;
       _offline = true;
-      return preview();
+      return await preview();
     }
   }
 
@@ -259,7 +291,7 @@ class PreviewFallbackWorkflowRepository
       _remoteOrPreview(
         () => _remote.getWorkflows(
             search: search, status: status, company: company, orderBy: orderBy),
-        () {
+        () async {
           final all = [
             ..._samples,
             ..._designs.values.map((item) => item.workflow)
@@ -282,8 +314,11 @@ class PreviewFallbackWorkflowRepository
     required RequestTypeInfo info,
   }) =>
       _remoteOrPreview(
-        () => _remote.saveRequestTypeInfo(definition: definition, info: info),
-        () {
+        () => _rememberRemoteWorkflow(
+          definition,
+          () => _remote.saveRequestTypeInfo(definition: definition, info: info),
+        ),
+        () async {
           final design = _designs[definition] ?? _sampleDesign(definition);
           final old = design.workflow;
           final workflow = WorkflowDefinition(
@@ -310,7 +345,7 @@ class PreviewFallbackWorkflowRepository
             showInList: info.showInList,
             userSubmittable: info.userSubmittable,
           );
-          _remember(
+          await _remember(
               definition,
               WorkflowDesign(
                   workflow: workflow,
@@ -326,7 +361,11 @@ class PreviewFallbackWorkflowRepository
     required WorkflowDefinitionStatus status,
   }) =>
       _remoteOrPreview(
-        () => _remote.setWorkflowStatus(definition: definition, status: status),
+        () => _rememberRemoteWorkflow(
+          definition,
+          () =>
+              _remote.setWorkflowStatus(definition: definition, status: status),
+        ),
         () => throw StateError('تغییر وضعیت در پیش‌نمایش آفلاین ممکن نیست.'),
       );
 
@@ -355,7 +394,7 @@ class PreviewFallbackWorkflowRepository
             company: company,
             iconKey: iconKey,
             colorHex: colorHex),
-        () {
+        () async {
           final sequence = _draftSequence++;
           final id = 'PREVIEW-DRAFT-$sequence';
           final workflow = WorkflowDefinition(
@@ -400,7 +439,8 @@ class PreviewFallbackWorkflowRepository
 
   @override
   Future<WorkflowDesign> getDesign(String definition) => _remoteOrPreview(
-      () => _remote.getDesign(definition),
+      () => _rememberRemoteDesign(
+          definition, () => _remote.getDesign(definition)),
       () => _designs[definition] ?? _sampleDesign(definition));
 
   WorkflowDesign _sampleDesign(String id) {
@@ -426,9 +466,12 @@ class PreviewFallbackWorkflowRepository
           required String afterStage,
           required WorkflowStageType type}) =>
       _remoteOrPreview(
-        () => _remote.addStage(
-            definition: definition, afterStage: afterStage, type: type),
-        () {
+        () => _rememberRemoteDesign(
+          definition,
+          () => _remote.addStage(
+              definition: definition, afterStage: afterStage, type: type),
+        ),
+        () async {
           final design = _designs[definition] ?? _sampleDesign(definition);
           final sequence = design.stages.length + 1;
           final stage = WorkflowStage(
@@ -450,7 +493,7 @@ class PreviewFallbackWorkflowRepository
               workflow: design.workflow,
               stages: [...design.stages, stage],
               transitions: [...design.transitions, transition]);
-          _remember(definition, updated);
+          await _remember(definition, updated);
           return updated;
         },
       );
@@ -462,12 +505,15 @@ class PreviewFallbackWorkflowRepository
     required WorkflowStageType type,
   }) =>
       _remoteOrPreview(
-        () => _remote.insertStage(
-          definition: definition,
-          transition: transition,
-          type: type,
+        () => _rememberRemoteDesign(
+          definition,
+          () => _remote.insertStage(
+            definition: definition,
+            transition: transition,
+            type: type,
+          ),
         ),
-        () {
+        () async {
           final design = _designs[definition] ?? _sampleDesign(definition);
           final edge =
               design.transitions.firstWhere((item) => item.id == transition);
@@ -506,7 +552,7 @@ class PreviewFallbackWorkflowRepository
               ),
             ],
           );
-          _remember(definition, updated);
+          await _remember(definition, updated);
           return updated;
         },
       );
@@ -520,14 +566,17 @@ class PreviewFallbackWorkflowRepository
     Map<String, dynamic> condition = const {},
   }) =>
       _remoteOrPreview(
-        () => _remote.connectStages(
-          definition: definition,
-          fromStage: fromStage,
-          toStage: toStage,
-          action: action,
-          condition: condition,
+        () => _rememberRemoteDesign(
+          definition,
+          () => _remote.connectStages(
+            definition: definition,
+            fromStage: fromStage,
+            toStage: toStage,
+            action: action,
+            condition: condition,
+          ),
         ),
-        () {
+        () async {
           final design = _designs[definition] ?? _sampleDesign(definition);
           if (fromStage == toStage) {
             throw StateError('Self transition is invalid');
@@ -547,7 +596,7 @@ class PreviewFallbackWorkflowRepository
               ),
             ],
           );
-          _remember(definition, updated);
+          await _remember(definition, updated);
           return updated;
         },
       );
@@ -558,11 +607,14 @@ class PreviewFallbackWorkflowRepository
     required Map<String, ({double x, double y})> positions,
   }) =>
       _remoteOrPreview(
-        () => _remote.updateStagePositions(
-          definition: definition,
-          positions: positions,
+        () => _rememberRemoteDesign(
+          definition,
+          () => _remote.updateStagePositions(
+            definition: definition,
+            positions: positions,
+          ),
         ),
-        () {
+        () async {
           final design = _designs[definition] ?? _sampleDesign(definition);
           final updated = WorkflowDesign(
             workflow: design.workflow,
@@ -574,7 +626,7 @@ class PreviewFallbackWorkflowRepository
             }).toList(growable: false),
             transitions: design.transitions,
           );
-          _remember(definition, updated);
+          await _remember(definition, updated);
           return updated;
         },
       );
@@ -587,13 +639,16 @@ class PreviewFallbackWorkflowRepository
     required bool result,
   }) =>
       _remoteOrPreview(
-        () => _remote.addConditionBranch(
-          definition: definition,
-          conditionStage: conditionStage,
-          type: type,
-          result: result,
+        () => _rememberRemoteDesign(
+          definition,
+          () => _remote.addConditionBranch(
+            definition: definition,
+            conditionStage: conditionStage,
+            type: type,
+            result: result,
+          ),
         ),
-        () {
+        () async {
           final design = _designs[definition] ?? _sampleDesign(definition);
           if (design.transitions.any((item) =>
               item.fromStage == conditionStage &&
@@ -621,7 +676,7 @@ class PreviewFallbackWorkflowRepository
             stages: [...design.stages, stage],
             transitions: [...design.transitions, transition],
           );
-          _remember(definition, updated);
+          await _remember(definition, updated);
           return updated;
         },
       );
@@ -634,13 +689,30 @@ class PreviewFallbackWorkflowRepository
           required String subjectSource,
           required String passMode}) =>
       _remoteOrPreview(
-        () => _remote.saveStartSettings(
-            definition: definition,
-            triggerType: triggerType,
-            initiatorRoles: initiatorRoles,
-            subjectSource: subjectSource,
-            passMode: passMode),
-        () {
+        () async {
+          final updated = await _remote.saveStartSettings(
+              definition: definition,
+              triggerType: triggerType,
+              initiatorRoles: initiatorRoles,
+              subjectSource: subjectSource,
+              passMode: passMode);
+          final design = _designs[definition];
+          if (design != null) {
+            await _remember(
+              definition,
+              WorkflowDesign(
+                workflow: design.workflow,
+                stages: [
+                  for (final stage in design.stages)
+                    if (stage.id == updated.id) updated else stage,
+                ],
+                transitions: design.transitions,
+              ),
+            );
+          }
+          return updated;
+        },
+        () async {
           final design = _designs[definition] ?? _sampleDesign(definition);
           final old = design.stages.first;
           final updated = WorkflowStage(
@@ -656,7 +728,7 @@ class PreviewFallbackWorkflowRepository
                 'subject_source': subjectSource,
                 'pass_mode': passMode
               });
-          _remember(
+          await _remember(
               definition,
               WorkflowDesign(
                   workflow: design.workflow,
@@ -689,9 +761,12 @@ class PreviewFallbackWorkflowRepository
           required String stage,
           required Map<String, dynamic> config}) =>
       _remoteOrPreview(
-        () => _remote.saveStageSettings(
-            definition: definition, stage: stage, config: config),
-        () {
+        () => _rememberRemoteDesign(
+          definition,
+          () => _remote.saveStageSettings(
+              definition: definition, stage: stage, config: config),
+        ),
+        () async {
           final design = _designs[definition] ?? _sampleDesign(definition);
           final stages = design.stages
               .map((item) => item.id == stage
@@ -710,7 +785,7 @@ class PreviewFallbackWorkflowRepository
               workflow: design.workflow,
               stages: stages,
               transitions: design.transitions);
-          _remember(definition, updated);
+          await _remember(definition, updated);
           return updated;
         },
       );
@@ -762,7 +837,7 @@ class PreviewFallbackWorkflowRepository
         workflow: design.workflow,
         stages: design.stages,
         transitions: transitions);
-    _remember(definition, updated);
+    await _remember(definition, updated);
     return updated;
   }
 }

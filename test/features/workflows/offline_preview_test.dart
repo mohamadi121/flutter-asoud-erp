@@ -30,6 +30,53 @@ class _Offline extends Fake implements WorkflowRepository {
       throw error;
 }
 
+class _DesignRemote extends _Offline {
+  _DesignRemote(this.design);
+
+  final WorkflowDesign design;
+  bool connected = true;
+
+  @override
+  Future<WorkflowDesign> getDesign(String definition) async {
+    if (!connected) throw _Offline.error;
+    return design;
+  }
+
+  @override
+  Future<WorkflowDesign> saveStageSettings({
+    required String definition,
+    required String stage,
+    required Map<String, dynamic> config,
+  }) async =>
+      throw _Offline.error;
+}
+
+WorkflowDesign _cachedDesign() => WorkflowDesign(
+      workflow: const WorkflowDefinition(
+        id: 'WF-REAL-1',
+        code: 'REAL',
+        title: 'فرایند واقعی',
+        targetDoctype: 'ASOUD Workflow Request',
+        status: WorkflowDefinitionStatus.inactive,
+        isLocked: false,
+        version: 1,
+        stepsCount: 1,
+        modified: null,
+      ),
+      stages: [
+        WorkflowStage(
+          id: 'REAL-START',
+          key: 'START',
+          type: WorkflowStageType.start,
+          title: 'شروع',
+          sequence: 1,
+          configurationComplete: true,
+          config: const {'trigger_type': 'Manual'},
+        ),
+      ],
+      transitions: const [],
+    );
+
 void main() {
   late _Client client;
   setUp(() {
@@ -114,6 +161,29 @@ void main() {
             .single
             .toStage,
         end.id);
+  });
+
+  test('workflow edits survive server loss and repository restart', () async {
+    final remote = _DesignRemote(_cachedDesign());
+    final repository = PreviewFallbackWorkflowRepository(remote);
+
+    final loaded = await repository.getDesign('WF-REAL-1');
+    expect(loaded.workflow.title, 'فرایند واقعی');
+
+    remote.connected = false;
+    final updated = await repository.saveStageSettings(
+      definition: 'WF-REAL-1',
+      stage: 'REAL-START',
+      config: const {'title': 'شروع و ثبت اطلاعات'},
+    );
+
+    expect(updated.workflow.id, 'WF-REAL-1');
+    expect(updated.stages.single.config['title'], 'شروع و ثبت اطلاعات');
+
+    final restarted = PreviewFallbackWorkflowRepository(_Offline());
+    final restored = await restarted.getDesign('WF-REAL-1');
+    expect(restored.workflow.id, 'WF-REAL-1');
+    expect(restored.stages.single.config['title'], 'شروع و ثبت اطلاعات');
   });
 
   test('requests are created and read on the device without a session',

@@ -42,37 +42,198 @@ class _WorkflowFormView extends StatelessWidget {
                 .showSnackBar(SnackBar(content: Text(state.message!)));
           }
         },
-        builder: (context, state) => Scaffold(
-          appBar: const AsoudHeader(
-            title: 'ایجاد گردش‌کار',
-            subtitle: 'اطلاعات پایه فرایند را وارد کنید',
+        builder: (context, state) => Directionality(
+          textDirection: TextDirection.rtl,
+          child: Scaffold(
+            appBar: AppBar(
+              toolbarHeight: 76,
+              centerTitle: true,
+              leading: IconButton(
+                tooltip: 'بازگشت',
+                onPressed: state.status == WorkflowFormStatus.submitting
+                    ? null
+                    : () => Navigator.maybePop(context),
+                icon: const Icon(Icons.chevron_right_rounded),
+              ),
+              title: const Column(children: [
+                Text('ایجاد گردش کار',
+                    style:
+                        TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+                SizedBox(height: 5),
+                Text('اطلاعات پایه فرایند را وارد کنید',
+                    style: TextStyle(fontSize: 10, color: AsoudColors.muted)),
+              ]),
+            ),
+            body: switch (state.status) {
+              WorkflowFormStatus.initial ||
+              WorkflowFormStatus.loading =>
+                const Center(child: CircularProgressIndicator()),
+              WorkflowFormStatus.failure when state.options == null =>
+                _LoadFailure(message: state.message ?? 'خطا در دریافت اطلاعات'),
+              _ => _FormContent(state: state),
+            },
+            bottomNavigationBar: state.options == null
+                ? null
+                : Padding(
+                    padding: EdgeInsets.only(
+                        bottom: MediaQuery.viewInsetsOf(context).bottom),
+                    child: AsoudBottomActions(
+                      primaryLabel:
+                          state.status == WorkflowFormStatus.submitting
+                              ? 'در حال ذخیره...'
+                              : 'ذخیره و طراحی مراحل',
+                      onPrimary: state.status == WorkflowFormStatus.submitting
+                          ? null
+                          : context.read<WorkflowFormCubit>().submit,
+                    ),
+                  ),
           ),
-          body: switch (state.status) {
-            WorkflowFormStatus.initial ||
-            WorkflowFormStatus.loading =>
-              const Center(child: CircularProgressIndicator()),
-            WorkflowFormStatus.failure when state.options == null =>
-              _LoadFailure(message: state.message ?? 'خطا در دریافت اطلاعات'),
-            _ => _FormContent(state: state),
-          },
-          bottomNavigationBar: state.options == null
-              ? null
-              : AsoudBottomActions(
-                  primaryLabel: state.status == WorkflowFormStatus.submitting
-                      ? 'در حال ذخیره...'
-                      : 'ذخیره و طراحی مراحل',
-                  onPrimary: state.status == WorkflowFormStatus.submitting
-                      ? null
-                      : context.read<WorkflowFormCubit>().submit,
-                  secondaryLabel: 'انصراف',
-                  onSecondary: () => Navigator.pop(context),
-                ),
         ),
       );
 }
 
 class _FormContent extends StatelessWidget {
   const _FormContent({required this.state});
+  final WorkflowFormState state;
+
+  Future<void> _more(BuildContext context) async {
+    FocusScope.of(context).unfocus();
+    final cubit = context.read<WorkflowFormCubit>();
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (sheetContext) => BlocProvider.value(
+        value: cubit,
+        child: Directionality(
+          textDirection: TextDirection.rtl,
+          child: FractionallySizedBox(
+            heightFactor: .82,
+            child: Column(children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(children: [
+                  const Expanded(
+                      child: Text('تنظیمات بیشتر',
+                          style: TextStyle(
+                              fontSize: 17, fontWeight: FontWeight.w800))),
+                  IconButton(
+                      tooltip: 'بستن تنظیمات',
+                      onPressed: () => Navigator.pop(sheetContext),
+                      icon: const Icon(Icons.close_rounded)),
+                ]),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                  child: BlocBuilder<WorkflowFormCubit, WorkflowFormState>(
+                      builder: (context, state) =>
+                          _MoreSettingsContent(state: state))),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cubit = context.read<WorkflowFormCubit>();
+    final enabled = state.status != WorkflowFormStatus.submitting;
+    return ListView(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+      children: [
+        if (state.offlinePreview) ...[
+          const AsoudOfflinePreviewBanner(),
+          const SizedBox(height: 12),
+        ],
+        const _FieldLabel('عنوان گردش کار *'),
+        TextFormField(
+          key: const ValueKey('workflow-title'),
+          initialValue: state.title,
+          enabled: enabled,
+          onChanged: cubit.changeTitle,
+          decoration: InputDecoration(
+            hintText: 'مثلاً تأیید درخواست تأمین کالا',
+            suffixIcon: const Icon(Icons.title_rounded),
+            errorText: state.titleError,
+          ),
+        ),
+        const SizedBox(height: 22),
+        const _FieldLabel('ماژول *'),
+        DropdownButtonFormField<String>(
+          key: ValueKey('workflow-module-${state.moduleKey}'),
+          isExpanded: true,
+          initialValue: state.moduleKey.isEmpty ? null : state.moduleKey,
+          decoration:
+              const InputDecoration(suffixIcon: Icon(Icons.layers_outlined)),
+          items: state.options!.modules
+              .map((item) => DropdownMenuItem(
+                  value: item.key,
+                  child: Text(_moduleLabel(item.key),
+                      overflow: TextOverflow.ellipsis)))
+              .toList(),
+          onChanged: enabled ? cubit.changeModule : null,
+        ),
+        const SizedBox(height: 22),
+        const _FieldLabel('توضیح کوتاه (اختیاری)'),
+        TextFormField(
+          key: const ValueKey('workflow-description'),
+          initialValue: state.description,
+          enabled: enabled,
+          onChanged: cubit.changeDescription,
+          minLines: 3,
+          maxLines: 5,
+          decoration: const InputDecoration(
+              hintText: 'هدف و کاربرد این گردش کار را بنویسید…',
+              suffixIcon: Icon(Icons.description_outlined)),
+        ),
+        const SizedBox(height: 20),
+        Card(
+          margin: EdgeInsets.zero,
+          child: ListTile(
+            key: const ValueKey('workflow-more'),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            leading:
+                const Icon(Icons.settings_outlined, color: AsoudColors.primary),
+            title: const Text('تنظیمات بیشتر',
+                style: TextStyle(fontWeight: FontWeight.w700)),
+            subtitle: Text(
+                state.creationMode == 'Template'
+                    ? 'قالب پیشنهادی فعال • آیکون، رنگ و موارد تکمیلی'
+                    : 'آیکون، رنگ و موارد تکمیلی',
+                style: const TextStyle(fontSize: 11)),
+            trailing: const Icon(Icons.expand_more),
+            onTap: enabled ? () => _more(context) : null,
+          ),
+        ),
+        if (state.message != null &&
+            state.status == WorkflowFormStatus.ready) ...[
+          const SizedBox(height: 12),
+          Text(state.message!,
+              style: const TextStyle(color: AsoudColors.warning)),
+        ],
+      ],
+    );
+  }
+}
+
+class _FieldLabel extends StatelessWidget {
+  const _FieldLabel(this.text);
+  final String text;
+  @override
+  Widget build(BuildContext context) => Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(text,
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800)));
+}
+
+class _MoreSettingsContent extends StatelessWidget {
+  const _MoreSettingsContent({required this.state});
   final WorkflowFormState state;
 
   @override
@@ -86,120 +247,9 @@ class _FormContent extends StatelessWidget {
     final unavailable =
         module?.doctypes.where((item) => !item.available).toList() ?? const [];
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 116),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
       children: [
-        if (state.offlinePreview) const AsoudOfflinePreviewBanner(),
-        const _InfoBanner(
-          icon: Icons.info_outline_rounded,
-          text:
-              'ابتدا مشخصات پایه ثبت می‌شود؛ مراحل، تأییدکنندگان و شرط‌ها در صفحه بعد طراحی خواهند شد.',
-          color: AsoudColors.primary,
-        ),
-        const SizedBox(height: 12),
-        const _SectionTitle(number: '۱', title: 'روش ایجاد فرایند'),
-        AsoudSegmentedControl<String>(
-          value: state.creationMode,
-          options: const [
-            AsoudSegmentedOption(
-                value: 'Custom',
-                label: 'ایجاد سفارشی',
-                icon: Icons.account_tree_outlined),
-            AsoudSegmentedOption(
-                value: 'Template',
-                label: 'قالب پیشنهادی',
-                icon: Icons.auto_awesome_outlined),
-          ],
-          onChanged: cubit.changeCreationMode,
-        ),
-        const SizedBox(height: 14),
-        const _SectionTitle(number: '۲', title: 'اطلاعات اصلی'),
-        TextField(
-          onChanged: cubit.changeTitle,
-          decoration: InputDecoration(
-            labelText: 'عنوان فرایند *',
-            hintText: 'مثلاً فرایند درخواست خرید کالا',
-            prefixIcon: const Icon(Icons.title_rounded),
-            errorText: state.titleError,
-          ),
-        ),
-        const SizedBox(height: 10),
-        TextField(
-          onChanged: cubit.changeDescription,
-          minLines: 3,
-          maxLines: 4,
-          decoration: const InputDecoration(
-            labelText: 'توضیح کوتاه',
-            hintText: 'هدف و کاربرد این فرایند را بنویسید...',
-            alignLabelWithHint: true,
-            prefixIcon: Padding(
-              padding: EdgeInsets.only(bottom: 50),
-              child: Icon(Icons.notes_rounded),
-            ),
-          ),
-        ),
-        const SizedBox(height: 14),
-        const _SectionTitle(number: '۳', title: 'دامنه و سند مقصد'),
-        DropdownButtonFormField<String>(
-          isExpanded: true,
-          initialValue: state.company.isEmpty ? null : state.company,
-          decoration: const InputDecoration(
-              labelText: 'دفتر / شرکت',
-              prefixIcon: Icon(Icons.business_outlined)),
-          items: state.options!.companies
-              .map((company) => DropdownMenuItem(
-                    value: company,
-                    child: Text(company, overflow: TextOverflow.ellipsis),
-                  ))
-              .toList(growable: false),
-          onChanged: cubit.changeCompany,
-        ),
-        const SizedBox(height: 10),
-        Row(children: [
-          Expanded(
-            child: DropdownButtonFormField<String>(
-              isExpanded: true,
-              initialValue: state.moduleKey.isEmpty ? null : state.moduleKey,
-              decoration: const InputDecoration(labelText: 'ماژول *'),
-              items: state.options!.modules
-                  .map((item) => DropdownMenuItem(
-                        value: item.key,
-                        child: Text(_moduleLabel(item.key),
-                            overflow: TextOverflow.ellipsis),
-                      ))
-                  .toList(growable: false),
-              onChanged: cubit.changeModule,
-            ),
-          ),
-          const SizedBox(width: 9),
-          Expanded(
-            child: DropdownButtonFormField<String>(
-              isExpanded: true,
-              initialValue:
-                  state.targetDoctype.isEmpty ? null : state.targetDoctype,
-              decoration: const InputDecoration(labelText: 'نوع سند *'),
-              items: available
-                  .map((item) => DropdownMenuItem(
-                        value: item.name,
-                        child: Text(_doctypeLabel(item.name),
-                            overflow: TextOverflow.ellipsis),
-                      ))
-                  .toList(growable: false),
-              onChanged: cubit.changeDoctype,
-            ),
-          ),
-        ]),
-        if (unavailable.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          _InfoBanner(
-            icon: Icons.lock_clock_outlined,
-            text:
-                '${unavailable.map((item) => _doctypeLabel(item.name)).join('، ')} فعلاً نصب نیست و برای مرحله بعد قفل می‌ماند.',
-            color: AsoudColors.warning,
-          ),
-        ],
-        const SizedBox(height: 14),
-        const _SectionTitle(number: '۴', title: 'نمای ظاهری'),
-        const Text('آیکون فرایند',
+        const Text('آیکون گردش کار',
             style: TextStyle(fontSize: 10, color: AsoudColors.muted)),
         const SizedBox(height: 7),
         Wrap(
@@ -215,6 +265,7 @@ class _FormContent extends StatelessWidget {
               ('hiring', Icons.person_add_alt_1_outlined),
             ])
               _IconChoice(
+                key: ValueKey('workflow-icon-${option.$1}'),
                 icon: option.$2,
                 selected: state.iconKey == option.$1,
                 onTap: () => cubit.changeIcon(option.$1),
@@ -222,7 +273,7 @@ class _FormContent extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 12),
-        const Text('رنگ فرایند',
+        const Text('رنگ گردش کار',
             style: TextStyle(fontSize: 10, color: AsoudColors.muted)),
         const SizedBox(height: 7),
         Wrap(
@@ -237,12 +288,67 @@ class _FormContent extends StatelessWidget {
               ('#0E9FB5', Color(0xFF0E9FB5)),
             ])
               _ColorChoice(
+                key: ValueKey('workflow-color-${option.$1}'),
                 color: option.$2,
                 selected: state.colorHex == option.$1,
                 onTap: () => cubit.changeColor(option.$1),
               ),
           ],
         ),
+        const SizedBox(height: 16),
+        SwitchListTile.adaptive(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('استفاده از قالب پیشنهادی',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+          subtitle: const Text(
+              'قالب اولیه از مسیر فعلی پروژه ایجاد می‌شود؛ مراحل در صفحه بعد قابل تکمیل‌اند.',
+              style: TextStyle(fontSize: 11)),
+          value: state.creationMode == 'Template',
+          onChanged: (value) =>
+              cubit.changeCreationMode(value ? 'Template' : 'Custom'),
+        ),
+        const Divider(height: 32),
+        const _FieldLabel('دامنه و سند مقصد'),
+        DropdownButtonFormField<String>(
+          isExpanded: true,
+          initialValue: state.company.isEmpty ? null : state.company,
+          decoration: const InputDecoration(
+              labelText: 'دفتر / شرکت',
+              prefixIcon: Icon(Icons.business_outlined)),
+          items: state.options!.companies
+              .map((company) => DropdownMenuItem(
+                    value: company,
+                    child: Text(company, overflow: TextOverflow.ellipsis),
+                  ))
+              .toList(growable: false),
+          onChanged: cubit.changeCompany,
+        ),
+        const SizedBox(height: 10),
+        DropdownButtonFormField<String>(
+          isExpanded: true,
+          key: ValueKey(
+              'workflow-doctype-${state.moduleKey}-${state.targetDoctype}'),
+          initialValue:
+              state.targetDoctype.isEmpty ? null : state.targetDoctype,
+          decoration: const InputDecoration(labelText: 'نوع سند *'),
+          items: available
+              .map((item) => DropdownMenuItem(
+                    value: item.name,
+                    child: Text(_doctypeLabel(item.name),
+                        overflow: TextOverflow.ellipsis),
+                  ))
+              .toList(growable: false),
+          onChanged: cubit.changeDoctype,
+        ),
+        if (unavailable.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          _InfoBanner(
+            icon: Icons.lock_clock_outlined,
+            text:
+                '${unavailable.map((item) => _doctypeLabel(item.name)).join('، ')} فعلاً نصب نیست و برای مرحله بعد قفل می‌ماند.',
+            color: AsoudColors.warning,
+          ),
+        ],
         const SizedBox(height: 14),
         const _InfoBanner(
           icon: Icons.lock_outline_rounded,
@@ -253,30 +359,6 @@ class _FormContent extends StatelessWidget {
       ],
     );
   }
-}
-
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({required this.number, required this.title});
-  final String number, title;
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Row(children: [
-          CircleAvatar(
-            radius: 13,
-            backgroundColor: AsoudColors.primary.withValues(alpha: .1),
-            child: Text(number,
-                style: const TextStyle(
-                    fontSize: 10,
-                    color: AsoudColors.primary,
-                    fontWeight: FontWeight.w900)),
-          ),
-          const SizedBox(width: 7),
-          Text(title,
-              style:
-                  const TextStyle(fontSize: 13, fontWeight: FontWeight.w900)),
-        ]),
-      );
 }
 
 class _InfoBanner extends StatelessWidget {
@@ -305,7 +387,10 @@ class _InfoBanner extends StatelessWidget {
 
 class _IconChoice extends StatelessWidget {
   const _IconChoice(
-      {required this.icon, required this.selected, required this.onTap});
+      {required this.icon,
+      required this.selected,
+      required this.onTap,
+      super.key});
   final IconData icon;
   final bool selected;
   final VoidCallback onTap;
@@ -334,7 +419,10 @@ class _IconChoice extends StatelessWidget {
 
 class _ColorChoice extends StatelessWidget {
   const _ColorChoice(
-      {required this.color, required this.selected, required this.onTap});
+      {required this.color,
+      required this.selected,
+      required this.onTap,
+      super.key});
   final Color color;
   final bool selected;
   final VoidCallback onTap;

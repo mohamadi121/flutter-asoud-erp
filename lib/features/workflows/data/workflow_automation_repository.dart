@@ -19,6 +19,27 @@ class WorkflowAutomationRepository {
 
   final FrappeApiClient client;
 
+  /// No local-success fallback: capabilities and permissions belong to the server.
+  Future<Map<String, dynamic>> automaticActionOptions(
+          String definition, String stage) async =>
+      _object(await _call('asoud_erp.api.v1.automatic_actions.options', {
+        'definition': definition,
+        'stage': stage,
+      }));
+
+  Future<void> saveAutomaticAction(
+      {required String definition,
+      required String stage,
+      required Map<String, dynamic> config,
+      required Map<String, String> routes}) async {
+    await _call('asoud_erp.api.v1.automatic_actions.save', {
+      'definition': definition,
+      'stage': stage,
+      'config': config,
+      'routes': routes,
+    });
+  }
+
   static const _templates = 'asoud_erp.api.v1.document_templates';
   static const _localKey = 'asoud_document_templates_local_v1';
 
