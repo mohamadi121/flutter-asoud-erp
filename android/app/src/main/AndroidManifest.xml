@@ -1,5 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- usesCleartextTraffic: the deployed server is plain HTTP (http://91.108.140.180:8080) -->
     <application
+        android:usesCleartextTraffic="true"
         android:label="asoud_erp"
         android:allowBackup="false"
         android:name="${applicationName}"
