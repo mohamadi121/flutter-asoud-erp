@@ -3,10 +3,14 @@ import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/network/frappe_client.dart';
+import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/jalali_date.dart';
 import '../../../../core/widgets/asoud_form.dart';
 import '../../domain/personnel_file.dart';
 import '../../domain/personnel_record.dart';
+import '../../data/personnel_file_repository.dart';
 import '../../data/personnel_repository.dart';
 import '../cubit/personnel_cubit.dart';
 
@@ -17,6 +21,10 @@ import '../../../parties/presentation/pages/personnel_roles_page.dart';
 import 'hr_home_page.dart';
 part 'personnel_design.dart';
 part 'personnel_forms.dart';
+part 'personnel_file_capabilities.dart';
+part 'personnel_cap_contracts.dart';
+part 'personnel_cap_documents.dart';
+part 'personnel_cap_activity.dart';
 
 class PersonnelPage extends StatelessWidget {
   const PersonnelPage({required this.company, this.repository, super.key});
@@ -155,9 +163,13 @@ class _PersonnelPhotoState extends State<_PersonnelPhoto> {
 
 class PersonnelDetailPage extends StatefulWidget {
   const PersonnelDetailPage(
-      {required this.id, required this.repository, super.key});
+      {required this.id,
+      required this.repository,
+      this.fileRepository,
+      super.key});
   final String id;
   final PersonnelRepository repository;
+  final PersonnelFileRepository? fileRepository;
   @override
   State<PersonnelDetailPage> createState() => _PersonnelDetailState();
 }
@@ -166,6 +178,38 @@ class _PersonnelDetailState extends State<PersonnelDetailPage> {
   final _overviewKey = GlobalKey<_PersonnelOverviewState>();
   bool _importing = false;
   String? _operationMessage;
+  PersonnelFileRepository? _fileRepository;
+  late Future<_PersonnelBundle> future;
+
+  @override
+  void initState() {
+    super.initState();
+    _fileRepository = widget.fileRepository ?? _contextFileRepository();
+    future = _load();
+  }
+
+  /// The file repository comes from the injected one, or from the app-wide
+  /// client. Pages built without a client (e.g. injected repositories in tests)
+  /// simply skip the file-only capabilities.
+  PersonnelFileRepository? _contextFileRepository() {
+    try {
+      return PersonnelFileRepository(context.read<FrappeApiClient>());
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<_PersonnelBundle> _load() async {
+    final data = await widget.repository.detail(widget.id);
+    final file = await loadPersonnelFile(
+      id: widget.id,
+      repository: widget.repository,
+      fileRepository: _fileRepository,
+      detail: data,
+    );
+    return _PersonnelBundle(data: data, file: file);
+  }
+
   Future<void> _import(Map<String, dynamic> target) async {
     if (_importing) return;
     setState(() {
@@ -242,10 +286,8 @@ class _PersonnelDetailState extends State<PersonnelDetailPage> {
     }
   }
 
-  late Future<Map<String, dynamic>> future =
-      widget.repository.detail(widget.id);
   void reload() => setState(() {
-        future = widget.repository.detail(widget.id);
+        future = _load();
       });
   @override
   Widget build(BuildContext context) => Directionality(
@@ -257,7 +299,7 @@ class _PersonnelDetailState extends State<PersonnelDetailPage> {
                 tooltip: 'مدارک پرسنلی',
                 onPressed: () => _overviewKey.currentState?.selectTab(3),
                 icon: const Icon(Icons.description_outlined, size: 20))),
-        body: FutureBuilder<Map<String, dynamic>>(
+        body: FutureBuilder<_PersonnelBundle>(
             future: future,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
@@ -270,7 +312,8 @@ class _PersonnelDetailState extends State<PersonnelDetailPage> {
                         child:
                             const Text('دریافت پرونده ممکن نشد؛ تلاش دوباره')));
               }
-              final data = snapshot.data!;
+              final bundle = snapshot.data!;
+              final data = bundle.data;
               final profile = Map<String, dynamic>.from(data['profile'] as Map);
               final records = (data['records'] as List).cast<Map>();
               final canEdit = data['can_edit'] == true;
@@ -293,6 +336,8 @@ class _PersonnelDetailState extends State<PersonnelDetailPage> {
                     profile: profile,
                     records: records,
                     repository: widget.repository,
+                    file: bundle.file,
+                    fileRepository: _fileRepository,
                     canEdit: canEdit,
                     onProfile: (title, labels) async {
                       await Navigator.push<bool>(
@@ -303,7 +348,8 @@ class _PersonnelDetailState extends State<PersonnelDetailPage> {
                                       profile: profile,
                                       revision: '${data['revision']}',
                                       canEdit: canEdit,
-                                      repository: widget.repository)
+                                      repository: widget.repository,
+                                      fileRepository: _fileRepository)
                                   : title.startsWith('ویرایش')
                                       ? _ProfileEditor(
                                           title: title,
@@ -357,4 +403,10 @@ class _PersonnelDetailState extends State<PersonnelDetailPage> {
               ]);
             }),
       ));
+}
+
+class _PersonnelBundle {
+  const _PersonnelBundle({required this.data, required this.file});
+  final Map<String, dynamic> data;
+  final PersonnelFile? file;
 }

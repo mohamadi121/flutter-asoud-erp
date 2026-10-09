@@ -711,6 +711,15 @@ PersonnelFile personnelFileFromLegacy(Map<String, dynamic> detail,
       'department_name': value('department'),
       'designation': value('job_title'),
       'branch': value('branch'),
+      if (profile['reports_to'] != null && value('reports_to').isNotEmpty)
+        'reports_to': profile['reports_to'] is Map
+            ? profile['reports_to']
+            : {
+                'employee': value('reports_to'),
+                'name': value('reports_to_name').isNotEmpty
+                    ? value('reports_to_name')
+                    : value('reports_to'),
+              },
     },
     'employment': {
       'employment_type': value('employment_type'),

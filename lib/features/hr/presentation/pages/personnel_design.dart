@@ -1004,10 +1004,14 @@ class _PersonnelOverview extends StatefulWidget {
       required this.canEdit,
       required this.onProfile,
       required this.onRecords,
-      required this.onRecord});
+      required this.onRecord,
+      this.file,
+      this.fileRepository});
   final Map<String, dynamic> profile;
   final List<Map> records;
   final PersonnelRepository repository;
+  final PersonnelFile? file;
+  final PersonnelFileRepository? fileRepository;
   final bool canEdit;
   final void Function(String, Map<String, String>) onProfile;
   final ValueChanged<String> onRecords;
@@ -1019,11 +1023,10 @@ class _PersonnelOverview extends StatefulWidget {
 class _PersonnelOverviewState extends State<_PersonnelOverview> {
   int tab = 0;
   void selectTab(int value) => setState(() => tab = value);
+
   @override
   Widget build(BuildContext context) {
     final p = widget.profile;
-    final recent = [...widget.records]
-      ..sort((a, b) => '${b['record_date']}'.compareTo('${a['record_date']}'));
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Container(
           height: 168,
@@ -1171,22 +1174,15 @@ class _PersonnelOverviewState extends State<_PersonnelOverview> {
                   onTap: () => widget.onProfile('اطلاعات پرسنلی', _personal))),
         ]),
         const SizedBox(height: 10),
-        Row(children: [
-          const Expanded(
-              child: Text('آخرین فعالیت‌ها',
-                  style: TextStyle(
-                      color: _ink, fontSize: 14, fontWeight: FontWeight.w900))),
-          TextButton(
-              onPressed: () => widget.onRecords('all'),
-              child: const Text('مشاهده همه', style: TextStyle(fontSize: 10)))
-        ]),
-        if (recent.isEmpty)
-          const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text('هنوز فعالیتی ثبت نشده است.',
-                  style: TextStyle(fontSize: 11, color: Color(0xFF8193BA)))),
-        for (final record in recent.take(4))
-          _ActivityRow(record: record, onTap: () => widget.onRecord(record)),
+        PersonnelManagerAndTenureSlot(
+            file: widget.file,
+            repository: widget.repository,
+            fileRepository: widget.fileRepository),
+        PersonnelActivityFeedSlot(
+            file: widget.file,
+            records: widget.records,
+            onRecord: widget.onRecord,
+            onRecords: widget.onRecords),
       ],
       if (tab == 1) ...[
         _SummaryTile(
@@ -1218,6 +1214,8 @@ class _PersonnelOverviewState extends State<_PersonnelOverview> {
                       : Icons.folder_outlined,
                   color: _blue,
                   onTap: () => widget.onRecords(kind))),
+      if (tab == 3)
+        PersonnelDocumentsSlot(file: widget.file, personnel: widget.repository),
       const SizedBox(height: 10),
       Row(children: [
         if (widget.canEdit)
@@ -1286,11 +1284,11 @@ class _SummaryTile extends StatelessWidget {
       required this.value,
       required this.icon,
       required this.color,
-      required this.onTap});
+      this.onTap});
   final String title, value;
   final IconData icon;
   final Color color;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   @override
   Widget build(BuildContext context) => Material(
       color: color.withValues(alpha: .055),

@@ -261,11 +261,13 @@ class _PersonnelInfoPage extends StatefulWidget {
       {required this.profile,
       required this.revision,
       required this.canEdit,
-      required this.repository});
+      required this.repository,
+      this.fileRepository});
   final Map<String, dynamic> profile;
   final String revision;
   final bool canEdit;
   final PersonnelRepository repository;
+  final PersonnelFileRepository? fileRepository;
   @override
   State<_PersonnelInfoPage> createState() => _PersonnelInfoPageState();
 }
@@ -339,6 +341,7 @@ class _PersonnelInfoPageState extends State<_PersonnelInfoPage> {
                 category: category,
                 profile: profile,
                 repository: widget.repository,
+                fileRepository: widget.fileRepository,
                 canEdit: canEdit)));
   }
 
@@ -559,10 +562,12 @@ class _PersonnelCategoryPage extends StatefulWidget {
       {required this.category,
       required this.profile,
       required this.repository,
-      required this.canEdit});
+      required this.canEdit,
+      this.fileRepository});
   final String category;
   final Map<String, dynamic> profile;
   final PersonnelRepository repository;
+  final PersonnelFileRepository? fileRepository;
   final bool canEdit;
   @override
   State<_PersonnelCategoryPage> createState() => _PersonnelCategoryPageState();
@@ -571,6 +576,58 @@ class _PersonnelCategoryPage extends StatefulWidget {
 class _PersonnelCategoryPageState extends State<_PersonnelCategoryPage> {
   late Future<Map<String, dynamic>> future =
       widget.repository.detail('${widget.profile['id']}');
+  PersonnelFile? file;
+  bool loadingFile = false;
+  String? fileError;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFile();
+  }
+
+  Future<void> _loadFile() async {
+    setState(() {
+      loadingFile = true;
+      fileError = null;
+    });
+    try {
+      PersonnelFile value;
+      final repository = widget.fileRepository;
+      if (repository != null) {
+        try {
+          value = await repository.file('${widget.profile['id']}');
+        } catch (error) {
+          final detail =
+              await widget.repository.detail('${widget.profile['id']}');
+          if (!canUseLegacyPersonnelFile(error) &&
+              !isLocalPersonnelId('${widget.profile['id']}') &&
+              detail['offline'] != true &&
+              !_localDemo) {
+            rethrow;
+          }
+          value = personnelFileFromLegacy(detail);
+        }
+      } else {
+        final detail =
+            await widget.repository.detail('${widget.profile['id']}');
+        value = personnelFileFromLegacy(detail);
+      }
+      if (mounted) setState(() => file = value);
+    } catch (error) {
+      if (mounted) setState(() => fileError = capError(error));
+    } finally {
+      if (mounted) setState(() => loadingFile = false);
+    }
+  }
+
+  bool get _localDemo {
+    try {
+      return widget.repository.localDemo;
+    } catch (_) {
+      return false;
+    }
+  }
 
   String get title => switch (widget.category) {
         'employment' => 'اطلاعات استخدامی',
@@ -639,13 +696,47 @@ class _PersonnelCategoryPageState extends State<_PersonnelCategoryPage> {
                       const SizedBox(height: 10),
                       _ProfileMetricStrip(profile: profile),
                       const SizedBox(height: 12),
-                      if (widget.category == 'employment')
+                      if (widget.category == 'employment') ...[
                         _EmploymentCategory(profile: profile),
-                      if (widget.category == 'contracts')
+                        PersonnelPromotionSlot(
+                            profileId: '${widget.profile['id']}',
+                            canEdit: data['can_edit'] == true,
+                            personnel: widget.repository,
+                            repository: widget.fileRepository,
+                            onPromoted: () {
+                              setState(() {
+                                future = widget.repository
+                                    .detail('${widget.profile['id']}');
+                              });
+                            }),
+                      ],
+                      if (widget.category == 'contracts') ...[
+                        if (loadingFile) const LinearProgressIndicator(),
+                        if (fileError != null) ...[
+                          Text(fileError!),
+                          TextButton(
+                              onPressed: _loadFile,
+                              child: const Text('تلاش دوباره')),
+                        ],
+                        PersonnelContractsSlot(
+                            file: file,
+                            profileId: '${widget.profile['id']}',
+                            canEdit: data['can_edit'] == true,
+                            repository: widget.fileRepository,
+                            onRefresh: () async {
+                              await _loadFile();
+                              if (mounted) {
+                                setState(() {
+                                  future = widget.repository
+                                      .detail('${widget.profile['id']}');
+                                });
+                              }
+                            }),
                         _ContractsCategory(
                             records: records,
                             canEdit: data['can_edit'] == true,
                             onRecords: openRecords),
+                      ],
                       if (widget.category == 'benefits')
                         _BenefitsCategory(
                             profile: profile,
