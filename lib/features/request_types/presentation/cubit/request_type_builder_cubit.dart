@@ -144,6 +144,12 @@ class RequestTypeBuilderCubit extends Cubit<RequestTypeBuilderState> {
     }
   }
 
+  void goToStep(int step) {
+    if (step >= 0 && step < state.step) {
+      emit(state.copyWith(step: step, clearMessage: true));
+    }
+  }
+
   /// Step 1: create the draft on first save, then store its metadata.
   Future<void> saveInfo() async {
     final info = state.info;
@@ -173,7 +179,19 @@ class RequestTypeBuilderCubit extends Cubit<RequestTypeBuilderState> {
   /// adding that task when the workflow has none.
   Future<void> saveForm() async {
     final definition = state.definition;
-    if (definition == null) return;
+    if (definition == null) {
+      _showMessage('ابتدا بخش «اطلاعات کلی» را تکمیل کنید.');
+      return;
+    }
+    if (definition.isSystemTemplate) {
+      emit(state.copyWith(step: 2, clearMessage: true));
+      return;
+    }
+    final validation = _formValidationMessage();
+    if (validation != null) {
+      _showMessage(validation);
+      return;
+    }
     await _run('ذخیره فرم درخواست ممکن نشد.', () async {
       var design = await repository.getDesign(definition.id);
       var form = _formStage(design);
@@ -210,11 +228,44 @@ class RequestTypeBuilderCubit extends Cubit<RequestTypeBuilderState> {
     });
   }
 
+  String? _formValidationMessage() {
+    for (var index = 0; index < state.fields.length; index++) {
+      final field = state.fields[index];
+      final name = field.label.trim().isNotEmpty
+          ? field.label.trim()
+          : field.key.trim().isNotEmpty
+              ? field.key.trim()
+              : 'شماره ${index + 1}';
+      if (field.label.trim().isEmpty) {
+        return 'عنوان فیلد «$name» وارد نشده است.';
+      }
+      if (field.key.trim().isEmpty) {
+        return 'شناسه فیلد «$name» وارد نشده است.';
+      }
+      if (field.type.trim().isEmpty) {
+        return 'نوع فیلد «$name» انتخاب نشده است.';
+      }
+      if (field.type == 'Choice' && field.options.length < 2) {
+        return 'گزینه‌های فیلد «$name» کامل نیست؛ حداقل دو گزینه وارد کنید.';
+      }
+    }
+    return null;
+  }
+
+  void _showMessage(String message) {
+    emit(state.copyWith(clearMessage: true));
+    emit(state.copyWith(message: message));
+  }
+
   void continueToAccess() => emit(state.copyWith(step: 3, clearMessage: true));
 
   /// Save presentation without changing initiator roles or granting access.
   Future<void> finish() async {
     final definition = state.definition;
+    if (definition?.isSystemTemplate == true) {
+      emit(state.copyWith(completed: true));
+      return;
+    }
     final form = state.design == null ? null : _formStage(state.design!);
     if (definition == null || form == null) return;
     await _run('ذخیره چیدمان ممکن نشد.', () async {

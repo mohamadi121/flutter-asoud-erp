@@ -4,7 +4,7 @@ import '../../domain/repositories/workflow_repository.dart';
 
 class FrappeWorkflowRepository implements WorkflowRepository {
   const FrappeWorkflowRepository(this._client);
-  final FrappeClient _client;
+  final FrappeApiClient _client;
 
   Future<dynamic> _call(String method, {Map<String, dynamic>? data}) async {
     return _client.callAsoudMethod(method, data: data);
@@ -351,6 +351,9 @@ class FrappeWorkflowRepository implements WorkflowRepository {
           item['show_in_request_list'] != false,
       userSubmittable: item['allow_user_submission'] != 0 &&
           item['allow_user_submission'] != false,
+      isSystemTemplate:
+          item['is_system_template'] == 1 || item['is_system_template'] == true,
+      templateKey: item['template_key']?.toString(),
     );
   }
 
