@@ -307,9 +307,14 @@ void main() {
       expect(
           form.value('items'),
           [
-            {'item_code': 'ICU-MON-01', 'qty': 1, 'uom': 'Nos'}
+            {
+              'item_code': 'ICU-MON-01',
+              'item_name': 'مانیتور ICU',
+              'qty': 1,
+              'uom': 'Nos',
+            }
           ],
-          reason: 'the unit is filled from the item stock unit');
+          reason: 'the unit and Persian item label are kept with the code');
       expect(
           loader.calls
               .any((c) => c['type'] == 'UOM' && c['itemCode'] == 'ICU-MON-01'),
