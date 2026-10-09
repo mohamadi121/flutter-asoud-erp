@@ -17,7 +17,11 @@ import 'demo_transfer_page.dart';
 
 /// Server sign-in. The offline demo preview is a secondary, explicit choice.
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key, bool? showDemoButton, this.transferService})
+  const LoginPage(
+      {super.key,
+      bool? showDemoButton,
+      this.transferService,
+      this.initialServerUrl})
       : showDemoButton = showDemoButton ?? AppConfig.offlineDemoMode;
 
   /// `OFFLINE_DEMO_MODE` only decides whether the demo entry exists.
@@ -28,17 +32,57 @@ class LoginPage extends StatefulWidget {
   /// Overridable for tests; defaults to the on-device preview stores.
   final DemoTransferService? transferService;
 
+  final String? initialServerUrl;
+
   @override
   State<LoginPage> createState() => _LoginPageState();
 }
 
 class _LoginPageState extends State<LoginPage> {
-  final _serverUrl = TextEditingController(text: AppConfig.erpNextBaseUrl);
+  late final TextEditingController _serverUrl;
   final _username = TextEditingController();
   final _password = TextEditingController();
   bool _obscurePassword = true;
   bool _busy = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    String? initial = widget.initialServerUrl;
+    if (initial == null || initial.trim().isEmpty) {
+      try {
+        final client = context.read<FrappeApiClient>();
+        if (client is FrappeClient && client.serverIdentity.trim().isNotEmpty) {
+          initial = client.serverIdentity;
+        }
+      } catch (_) {}
+    }
+    _serverUrl = TextEditingController(
+        text: initial?.trim().isNotEmpty == true
+            ? initial!
+            : AppConfig.erpNextBaseUrl);
+    _loadRememberedServer();
+  }
+
+  Future<void> _loadRememberedServer() async {
+    if (widget.initialServerUrl != null) return;
+    try {
+      final client = context.read<FrappeApiClient>();
+      if (client is FrappeClient) {
+        final saved = await client.getRememberedServer();
+        if (saved != null &&
+            saved.trim().isNotEmpty &&
+            mounted &&
+            (_serverUrl.text == AppConfig.erpNextBaseUrl ||
+                _serverUrl.text.trim().isEmpty)) {
+          setState(() {
+            _serverUrl.text = saved.trim();
+          });
+        }
+      }
+    } catch (_) {}
+  }
 
   Future<void> _login() async {
     if (_busy) return;

@@ -65,7 +65,11 @@ class _SettingsDashboardContentState extends State<SettingsDashboardContent> {
   void _open(Widget page) =>
       Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
 
-  void _openLogin() => _open(const LoginPage());
+  void _openLogin() {
+    final client = context.read<FrappeApiClient>();
+    final serverUrl = client is FrappeClient ? client.serverIdentity : null;
+    _open(LoginPage(initialServerUrl: serverUrl));
+  }
 
   /// Signs out without deleting queued rows: they are owner-scoped and
   /// replay when the same user signs in again.
@@ -92,10 +96,13 @@ class _SettingsDashboardContentState extends State<SettingsDashboardContent> {
       ),
     );
     if (leave != true || !mounted) return;
+    final client = context.read<FrappeApiClient>();
+    final serverUrl = client is FrappeClient ? client.serverIdentity : null;
     await context.read<AuthRepository>().signOut();
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute<void>(builder: (_) => const LoginPage()),
+      MaterialPageRoute<void>(
+          builder: (_) => LoginPage(initialServerUrl: serverUrl)),
       (_) => false,
     );
   }

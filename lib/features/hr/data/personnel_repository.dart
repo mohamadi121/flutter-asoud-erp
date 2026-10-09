@@ -273,7 +273,7 @@ class PersonnelRepository {
       } catch (error) {
         if (_offline(error)) return;
         await local.setStatus(item.id, LocalSyncStatus.syncFailed,
-            error: error.toString());
+            error: offlineFailureMessage(error));
         // Do not replay subsequent edits across a rejected revision/permission boundary.
         return;
       }

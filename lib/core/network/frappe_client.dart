@@ -178,6 +178,8 @@ class FrappeClient implements FrappeApiClient {
   Future<void> _vaultWrites = Future<void>.value();
   String get serverIdentity => _baseUri.toString();
 
+  Future<String?> getRememberedServer() async => _serverStore?.read();
+
   static String normalizeBaseUrl(String value) {
     final trimmed = value.trim();
     if (trimmed.isEmpty) {
