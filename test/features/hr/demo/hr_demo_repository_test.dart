@@ -25,6 +25,41 @@ void main() {
     return client;
   }
 
+  test('detail exposes every demo document and photo through legacy records',
+      () async {
+    final repository = PersonnelRepository(offline(),
+        local: FakeLocalRecordStore(), demoData: clock);
+    addTearDown(repository.dispose);
+    for (final code in hrDemoEmployeeCodes) {
+      final detail = await repository.detail(code);
+      final profile = detail['profile'] as Map;
+      final records = (detail['records'] as List).cast<Map>();
+      final file = clock.file(code);
+      final documents = (file['documents'] as List).cast<Map>();
+      expect(
+          records
+              .where((row) => row['kind'] == 'document')
+              .map((row) => row['name']),
+          documents.map((row) => row['id']));
+      expect(records.where((row) => row['kind'] == 'photo').single['name'],
+          clock.photoRecordId(code));
+      expect(
+          profile['company_email'], (file['personal'] as Map)['company_email']);
+      expect(profile['emergency_contact_name'],
+          ((file['personal'] as Map)['emergency'] as Map)['name']);
+      for (final row in records) {
+        final record = await repository.record(row['name'] as String);
+        expect(record['date'], row['record_date']);
+        expect(record['kind'], row['kind']);
+        expect(record['file'], isNotEmpty);
+        expect(record['_can_edit'], isFalse);
+      }
+      for (final field in financialPersonnelFields) {
+        expect(profile.containsKey(field), isFalse, reason: '$code/$field');
+      }
+    }
+  });
+
   test('an offline preview lists the seeded people of the sample company',
       () async {
     final store = FakeLocalRecordStore();

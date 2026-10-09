@@ -218,9 +218,9 @@ class _PersonnelList extends StatelessWidget {
                             await Navigator.push(
                                 context,
                                 MaterialPageRoute<void>(
-                                    builder: (_) => PersonnelFilePage(
-                                        profileId: '${person['id']}',
-                                        personnel: cubit.repository)));
+                                    builder: (_) => PersonnelDetailPage(
+                                        id: '${person['id']}',
+                                        repository: cubit.repository)));
                             if (context.mounted) await cubit.load();
                           }),
                   ])),
@@ -995,6 +995,291 @@ class _PersonnelNavigation extends StatelessWidget {
           ]);
 }
 
+class _PersonnelOverview extends StatefulWidget {
+  const _PersonnelOverview(
+      {super.key,
+      required this.profile,
+      required this.records,
+      required this.repository,
+      required this.canEdit,
+      required this.onProfile,
+      required this.onRecords,
+      required this.onRecord});
+  final Map<String, dynamic> profile;
+  final List<Map> records;
+  final PersonnelRepository repository;
+  final bool canEdit;
+  final void Function(String, Map<String, String>) onProfile;
+  final ValueChanged<String> onRecords;
+  final ValueChanged<Map> onRecord;
+  @override
+  State<_PersonnelOverview> createState() => _PersonnelOverviewState();
+}
+
+class _PersonnelOverviewState extends State<_PersonnelOverview> {
+  int tab = 0;
+  void selectTab(int value) => setState(() => tab = value);
+  @override
+  Widget build(BuildContext context) {
+    final p = widget.profile;
+    final recent = [...widget.records]
+      ..sort((a, b) => '${b['record_date']}'.compareTo('${a['record_date']}'));
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Container(
+          height: 168,
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+              color: const Color(0xFFEAF5FF),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: const Color(0xFFD5E9FF))),
+          child: Stack(children: [
+            Positioned(
+                left: 14,
+                bottom: 12,
+                child: _PersonnelPhoto(
+                    recordId: p['photo_record'] as String?,
+                    repository: widget.repository,
+                    size: 124)),
+            Positioned(
+                right: 16,
+                top: 15,
+                bottom: 15,
+                width: 160,
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 9, vertical: 4),
+                          decoration: BoxDecoration(
+                              color: const Color(0xFFD9F8EE),
+                              borderRadius: BorderRadius.circular(20)),
+                          child: _EmploymentStatus(
+                              disabled: p['disabled'] == true)),
+                      const Spacer(),
+                      Text(_valueOf(p, 'display_name'),
+                          maxLines: 2,
+                          style: const TextStyle(
+                              color: _ink,
+                              fontSize: 21,
+                              fontWeight: FontWeight.w900)),
+                      const SizedBox(height: 3),
+                      Text(_valueOf(p, 'job_title'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: _ink, fontSize: 12)),
+                      Text(_valueOf(p, 'department'),
+                          style: const TextStyle(
+                              color: Color(0xFF6481A8), fontSize: 10)),
+                    ])),
+          ])),
+      Container(
+          margin: const EdgeInsets.symmetric(vertical: 10),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _line)),
+          child: Row(children: [
+            _ProfileMetric(
+                icon: Icons.verified_outlined,
+                title: _valueOf(p, 'employment_type'),
+                subtitle: 'نوع همکاری'),
+            _ProfileMetric(
+                icon: Icons.apartment_rounded,
+                title: _valueOf(p, 'department'),
+                subtitle: 'واحد سازمانی'),
+            _ProfileMetric(
+                icon: Icons.badge_outlined,
+                title: _valueOf(p, 'employee_code', _valueOf(p, 'id')),
+                subtitle: 'کد پرسنلی'),
+          ])),
+      Container(
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+              color: const Color(0xFFEDF4FF),
+              borderRadius: BorderRadius.circular(11)),
+          child: Row(children: [
+            for (final (i, label)
+                in ['نمای کلی', 'اطلاعات پرسنلی', 'سوابق', 'مدارک'].indexed)
+              Expanded(
+                  child: InkWell(
+                      onTap: () {
+                        if (i == 1) {
+                          widget.onProfile('اطلاعات پرسنلی', _personal);
+                        } else {
+                          setState(() => tab = i);
+                        }
+                      },
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(
+                              color: tab == i ? _blue : Colors.transparent,
+                              borderRadius: BorderRadius.circular(8)),
+                          child: Text(label,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: tab == i
+                                      ? Colors.white
+                                      : const Color(0xFF7E90BA))))))
+          ])),
+      const SizedBox(height: 10),
+      if (tab == 0) ...[
+        const Text('خلاصه اطلاعات',
+            style: TextStyle(
+                color: _ink, fontSize: 14, fontWeight: FontWeight.w900)),
+        const SizedBox(height: 10),
+        Row(children: [
+          Expanded(
+              child: _SummaryTile(
+                  title: 'واحد سازمانی',
+                  value: _valueOf(p, 'department'),
+                  icon: Icons.apartment_outlined,
+                  color: _blue,
+                  onTap: () =>
+                      widget.onProfile('اطلاعات سازمانی', _organization))),
+          const SizedBox(width: 10),
+          Expanded(
+              child: _SummaryTile(
+                  title: 'سمت شغلی',
+                  value: _valueOf(p, 'job_title'),
+                  icon: Icons.work_outline_rounded,
+                  color: const Color(0xFF00BCCD),
+                  onTap: () =>
+                      widget.onProfile('اطلاعات سازمانی', _organization))),
+        ]),
+        const SizedBox(height: 10),
+        Row(children: [
+          Expanded(
+              child: _SummaryTile(
+                  title: 'تاریخ استخدام',
+                  value: _valueOf(p, 'date_of_joining'),
+                  icon: Icons.calendar_month_outlined,
+                  color: const Color(0xFFFF9B2D),
+                  onTap: () =>
+                      widget.onProfile('اطلاعات سازمانی', _organization))),
+          const SizedBox(width: 10),
+          Expanded(
+              child: _SummaryTile(
+                  title: 'اطلاعات فردی',
+                  value: _valueOf(p, 'display_name'),
+                  icon: Icons.person_outline_rounded,
+                  color: const Color(0xFF8A52FA),
+                  onTap: () => widget.onProfile('اطلاعات پرسنلی', _personal))),
+        ]),
+        const SizedBox(height: 10),
+        Row(children: [
+          const Expanded(
+              child: Text('آخرین فعالیت‌ها',
+                  style: TextStyle(
+                      color: _ink, fontSize: 14, fontWeight: FontWeight.w900))),
+          TextButton(
+              onPressed: () => widget.onRecords('all'),
+              child: const Text('مشاهده همه', style: TextStyle(fontSize: 10)))
+        ]),
+        if (recent.isEmpty)
+          const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('هنوز فعالیتی ثبت نشده است.',
+                  style: TextStyle(fontSize: 11, color: Color(0xFF8193BA)))),
+        for (final record in recent.take(4))
+          _ActivityRow(record: record, onTap: () => widget.onRecord(record)),
+      ],
+      if (tab == 1) ...[
+        _SummaryTile(
+            title: 'اطلاعات فردی',
+            value: 'مشخصات و راه‌های ارتباطی',
+            icon: Icons.person_outline,
+            color: _blue,
+            onTap: () => widget.onProfile('اطلاعات پرسنلی', _personal)),
+        const SizedBox(height: 10),
+        _SummaryTile(
+            title: 'اطلاعات سازمانی',
+            value: 'سمت، واحد و نوع همکاری',
+            icon: Icons.apartment,
+            color: const Color(0xFF8A52FA),
+            onTap: () => widget.onProfile('اطلاعات سازمانی', _organization)),
+      ],
+      if (tab == 2 || tab == 3)
+        for (final kind in (tab == 2
+            ? ['attendance', 'evaluation', 'history']
+            : ['document', 'photo']))
+          Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _SummaryTile(
+                  title: personnelRecordKindLabel(kind),
+                  value:
+                      '${widget.records.where((r) => r['kind'] == kind).length} مورد ثبت‌شده',
+                  icon: kind == 'photo'
+                      ? Icons.photo_outlined
+                      : Icons.folder_outlined,
+                  color: _blue,
+                  onTap: () => widget.onRecords(kind))),
+      const SizedBox(height: 10),
+      Row(children: [
+        if (widget.canEdit)
+          Expanded(
+              child: FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                      backgroundColor: _blue,
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10))),
+                  onPressed: () => widget.onProfile(
+                      'ویرایش اطلاعات', {..._personal, ..._organization}),
+                  icon: const Icon(Icons.edit_outlined, size: 17),
+                  label: const Text('ویرایش اطلاعات',
+                      style: TextStyle(fontSize: 11)))),
+        const SizedBox(width: 10),
+        Expanded(
+            child: OutlinedButton.icon(
+                onPressed: () => widget.onRecords('all'),
+                icon: const Icon(Icons.history, size: 17),
+                label:
+                    const Text('مشاهده سوابق', style: TextStyle(fontSize: 11)),
+                style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    side: const BorderSide(color: _line),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10))))),
+      ]),
+    ]);
+  }
+}
+
+class _ProfileMetric extends StatelessWidget {
+  const _ProfileMetric(
+      {required this.icon, required this.title, required this.subtitle});
+  final IconData icon;
+  final String title, subtitle;
+  @override
+  Widget build(BuildContext context) => Expanded(
+      child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 5),
+          child: Row(children: [
+            Icon(icon, size: 20, color: _blue),
+            const SizedBox(width: 5),
+            Expanded(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                  Text(title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 10,
+                          color: _ink,
+                          fontWeight: FontWeight.w800)),
+                  Text(subtitle,
+                      style: const TextStyle(
+                          fontSize: 8, color: Color(0xFF8493B9))),
+                ])),
+          ])));
+}
+
 class _SummaryTile extends StatelessWidget {
   const _SummaryTile(
       {required this.title,
@@ -1046,6 +1331,35 @@ class _SummaryTile extends StatelessWidget {
               ]))));
 }
 
+class _ActivityRow extends StatelessWidget {
+  const _ActivityRow({required this.record, required this.onTap});
+  final Map record;
+  final VoidCallback onTap;
+  @override
+  Widget build(BuildContext context) => InkWell(
+      onTap: onTap,
+      child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 5),
+          decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: _line))),
+          child: Row(children: [
+            Icon(
+                record['kind'] == 'evaluation'
+                    ? Icons.star_border_rounded
+                    : Icons.event_available_outlined,
+                size: 21,
+                color: record['kind'] == 'evaluation'
+                    ? const Color(0xFFFFA42A)
+                    : const Color(0xFF0CBD91)),
+            const SizedBox(width: 9),
+            Expanded(
+                child: Text('${record['title']}',
+                    style: const TextStyle(fontSize: 11, color: _ink))),
+            Text('${record['record_date'] ?? ''}',
+                style: const TextStyle(fontSize: 10, color: Color(0xFF8392B8))),
+          ])));
+}
+
 class _PersonnelAccountMenu extends StatelessWidget {
   const _PersonnelAccountMenu(
       {required this.profile, required this.repository});
@@ -1056,9 +1370,7 @@ class _PersonnelAccountMenu extends StatelessWidget {
       context: context, profile: profile, repository: repository);
 }
 
-/// The single declaration of the employee-account actions. The personnel list
-/// row and the personnel file page both build their ⋮ menu from this list, so
-/// the two entry points can never drift apart.
+/// Account actions available from each personnel list row.
 const personnelAccountMenuEntries =
     <({String value, String title, IconData icon})>[
   (

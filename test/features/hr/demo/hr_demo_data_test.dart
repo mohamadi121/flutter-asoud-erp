@@ -44,6 +44,36 @@ void _requireFilled(Map<String, Object?> json, String path) {
 }
 
 void main() {
+  test('retired file UI data remains complete for shared consumers', () {
+    for (final subject in ['EMP-0003', 'EMP-0006']) {
+      for (final mine in [false, if (subject == hrDemoSelfEmployeeCode) true]) {
+        final file =
+            PersonnelFile.fromJson(_clock.file(subject, selfView: mine));
+        expect(file.organization.reportsTo!.name, isNotEmpty);
+        expect(file.employment.serviceLength!.label, isNotEmpty);
+        expect(file.contracts.first.terms, isNotEmpty);
+        expect(file.contracts.first.daysRemaining, greaterThan(0));
+        expect(file.leave.first.remainingLeaves, greaterThan(0));
+        expect(file.documents.map((doc) => doc.statusLabel),
+            contains('در انتظار تأیید'));
+        expect(file.documents.map((doc) => doc.statusLabel),
+            contains('رو به انقضا'));
+        expect(file.history.first.title, isNotEmpty);
+        if (mine || subject != 'EMP-0003') {
+          expect(file.salary.visible, isFalse);
+          expect(file.salary.current, isNull);
+          expect(file.salary.latestSlip, isNull);
+        } else {
+          expect(file.salary.visible, isTrue);
+          expect(file.salary.current!.salaryStructure, isNotEmpty);
+          expect(file.salary.current!.base, greaterThan(0));
+          expect(file.salary.latestSlip!.earnings, isNotEmpty);
+          expect(file.salary.latestSlip!.deductions, isNotEmpty);
+        }
+      }
+    }
+  });
+
   test('seeded files parse and fill every personal, contract and salary field',
       () {
     for (final code in hrDemoEmployeeCodes) {

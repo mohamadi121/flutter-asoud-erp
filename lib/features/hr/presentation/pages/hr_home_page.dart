@@ -77,31 +77,25 @@ class _HrHome extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   const AsoudSectionTitle(title: 'خدمات منابع انسانی'),
-                  _Action(
-                      'پروفایل من',
-                      'اطلاعات کاری و مدیر مستقیم',
-                      Icons.account_circle_outlined,
-                      AsoudColors.primary,
-                      () {
-                        if (data.employee.partyProfile.isEmpty) {
-                          _push(context, HrProfilePage(employee: data.employee));
-                          return;
-                        }
-                        _push(
-                            context,
-                            PersonnelFilePage(
-                                profileId: data.employee.partyProfile,
-                                personnel: PersonnelRepository(
-                                    context.read<FrappeApiClient>())));
-                      }),
+                  _Action('پروفایل من', 'اطلاعات کاری و مدیر مستقیم',
+                      Icons.account_circle_outlined, AsoudColors.primary, () {
+                    if (data.employee.partyProfile.isEmpty) {
+                      _push(context, HrProfilePage(employee: data.employee));
+                      return;
+                    }
+                    _push(
+                        context,
+                        PersonnelDetailPage(
+                            id: data.employee.partyProfile,
+                            repository: PersonnelRepository(
+                                context.read<FrappeApiClient>())));
+                  }),
                   _Action(
                       'لیست پرسنل',
                       'مشاهده، ایجاد و ویرایش اطلاعات پرسنلی',
                       Icons.people_alt_outlined,
                       AsoudColors.warning,
-                      () => _push(
-                          context,
-                          PersonnelPage(company: company))),
+                      () => _push(context, PersonnelPage(company: company))),
                   _Action(
                       'تیم و ساختار سازمانی',
                       'همکاران، واحدها و مسیر سازمانی',

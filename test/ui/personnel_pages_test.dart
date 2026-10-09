@@ -1,6 +1,3 @@
-import 'package:asoud_erp/core/network/api_exception.dart' as legacy_error;
-import 'package:asoud_erp/features/hr/data/personnel_file_repository.dart';
-import 'package:asoud_erp/features/hr/domain/personnel_file.dart';
 import 'package:asoud_erp/core/theme/asoud_theme.dart';
 import 'package:asoud_erp/features/hr/data/personnel_repository.dart';
 import 'package:asoud_erp/features/hr/presentation/pages/personnel_page.dart';
@@ -85,10 +82,8 @@ void main() {
       }
       tester.state<NavigatorState>(find.byType(Navigator)).push<void>(
           MaterialPageRoute(
-              builder: (_) => PersonnelFilePage(
-                  profileId: 'person-0',
-                  repository: LegacyFiles(),
-                  personnel: repository)));
+              builder: (_) =>
+                  PersonnelDetailPage(id: 'person-0', repository: repository)));
       await tester.pumpAndSettle();
       expect(find.text('پرونده پرسنلی'), findsOneWidget);
       expect(tester.takeException(), isNull);
@@ -96,8 +91,7 @@ void main() {
         await expectLater(find.byType(Scaffold).last,
             matchesGoldenFile('goldens/personnel_detail_390.png'));
       }
-      // Record kinds live under «سوابق»; مدارک is the document tab only.
-      await tester.tap(find.text('سوابق'));
+      await tester.tap(find.text('مدارک'));
       await tester.pumpAndSettle();
       expect(find.text('مدارک و مستندات'), findsOneWidget);
       await tester.tap(find.text('مدارک و مستندات'));
@@ -106,11 +100,4 @@ void main() {
       expect(tester.takeException(), isNull);
     }, tags: 'golden');
   }
-}
-
-class LegacyFiles extends Fake implements PersonnelFileRepository {
-  @override
-  Future<PersonnelFile> file(String id) async =>
-      throw const legacy_error.ApiException(
-          kind: legacy_error.ApiFailureKind.network, message: 'offline');
 }

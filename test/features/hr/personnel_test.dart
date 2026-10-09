@@ -1,6 +1,3 @@
-import 'package:asoud_erp/core/network/api_exception.dart' as legacy_error;
-import 'package:asoud_erp/features/hr/data/personnel_file_repository.dart';
-import 'package:asoud_erp/features/hr/domain/personnel_file.dart';
 import 'dart:async';
 import 'package:asoud_erp/core/network/frappe_client.dart';
 import 'package:asoud_erp/core/network/api_exception.dart';
@@ -254,11 +251,8 @@ void main() {
           'revision': '1',
           'can_edit': false,
         });
-    await tester.pumpWidget(MaterialApp(
-        home: PersonnelFilePage(
-            profileId: 'self', repository: LegacyFiles(), personnel: repo)));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('اطلاعات پرسنلی'));
+    await tester.pumpWidget(
+        MaterialApp(home: PersonnelDetailPage(id: 'self', repository: repo)));
     await tester.pumpAndSettle();
     await tester.tap(find.text('اطلاعات فردی'));
     await tester.pumpAndSettle();
@@ -267,7 +261,7 @@ void main() {
     expect(find.text('secret-iban'), findsNothing);
     expect(find.byType(TextFormField), findsNothing);
     expect(find.text('ویرایش اطلاعات'), findsNothing);
-    expect(find.text('نام'), findsNWidgets(2));
+    expect(find.text('نام و نام خانوادگی'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
   test('filter combines query department and status', () {
@@ -286,15 +280,33 @@ void main() {
         'job_title': 'حسابدار',
         'disabled': false
       },
-      {'id': 'query-mismatch', 'display_name': 'رضا', 'department': 'فروش', 'disabled': false},
-      {'id': 'status-mismatch', 'display_name': 'علی', 'department': 'فروش', 'disabled': true},
+      {
+        'id': 'query-mismatch',
+        'display_name': 'رضا',
+        'department': 'فروش',
+        'disabled': false
+      },
+      {
+        'id': 'status-mismatch',
+        'display_name': 'علی',
+        'department': 'فروش',
+        'disabled': true
+      },
     ], query: 'علی', department: 'فروش', status: 'active');
     expect(state.visible.length, 1);
     expect(state.visible.map((row) => row['id']), ['match']);
-    List<dynamic> matching({String query = 'علی', String department = 'فروش',
-        String status = 'active'}) => PersonnelState(rows: state.rows,
-          query: query, department: department, status: status)
-        .visible.map((row) => row['id']).toList();
+    List<dynamic> matching(
+            {String query = 'علی',
+            String department = 'فروش',
+            String status = 'active'}) =>
+        PersonnelState(
+                rows: state.rows,
+                query: query,
+                department: department,
+                status: status)
+            .visible
+            .map((row) => row['id'])
+            .toList();
     expect(matching(query: ''), ['match', 'query-mismatch']);
     expect(matching(query: 'رضا'), ['query-mismatch']);
     expect(matching(department: ''), ['match', 'department-mismatch']);
@@ -437,11 +449,4 @@ void main() {
     expect(find.text('پرسنلی با این مشخصات وجود ندارد.'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
-}
-
-class LegacyFiles extends Fake implements PersonnelFileRepository {
-  @override
-  Future<PersonnelFile> file(String id) async =>
-      throw const legacy_error.ApiException(
-          kind: legacy_error.ApiFailureKind.network, message: 'offline');
 }

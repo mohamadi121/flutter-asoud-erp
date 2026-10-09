@@ -908,12 +908,52 @@ class HrDemoData {
   Map<String, dynamic> detail(String profileId) {
     final profile = row(profileId);
     if (profile == null) throw ArgumentError.value(profileId, 'profileId');
+    final index = indexOfCode(profileId);
+    final person = _people[index];
+    final personal = _personal(person, index);
+    final emergency = personal['emergency']! as Map;
+    final employment = _employment(person, _joined(person));
     return {
-      'profile': profile,
+      'profile': {
+        ...profile,
+        for (final key in ['marital_status', 'blood_group', 'company_email'])
+          key: personal[key],
+        'emergency_contact_name': emergency['name'],
+        'emergency_phone': emergency['phone'],
+        'emergency_relation': emergency['relation'],
+        'branch': person['branch'],
+        // An employee without a manager has no manager field to display.
+        if ('${profile['reports_to']}'.isNotEmpty)
+          'reports_to': profile['reports_to'],
+        for (final key in [
+          'final_confirmation_date',
+          'contract_end_date',
+          'notice_number_of_days'
+        ])
+          if ('${employment[key]}'.isNotEmpty) key: employment[key],
+      }..removeWhere((key, value) => key == 'reports_to' && '$value'.isEmpty),
       'can_edit': false,
       'revision': 'demo-v1-$profileId',
       'is_sample': true,
-      'records': _legacyRecords(profileId),
+      'records': [
+        ..._legacyRecords(profileId)
+            .where((record) => record['kind'] != 'document'),
+        for (final document in _documents(profileId, index))
+          {
+            'name': document['id'],
+            'kind': 'document',
+            'title': document['title'],
+            'record_date': document['issue_date'],
+            'is_sample': true,
+          },
+        {
+          'name': photoRecordId(profileId),
+          'kind': 'photo',
+          'title': 'تصویر پرسنلی',
+          'record_date': _iso(today),
+          'is_sample': true,
+        },
+      ],
     };
   }
 
@@ -972,6 +1012,8 @@ class HrDemoData {
       final document = documents[number - 1];
       return {
         ...document,
+        'kind': 'document',
+        'date': document['issue_date'],
         'file': base64Encode(_pdf(
             '${document['ascii_code']} $code $number'.replaceAll('-', ' '))),
         'notes': 'پیوست نمونه برای پیش‌نمایش آفلاین.',
@@ -987,6 +1029,11 @@ class HrDemoData {
       final record = records[number - 1];
       return {
         ...record,
+        'date': record['record_date'],
+        if (record['kind'] == 'evaluation') ...{
+          'score': 85 + indexOfCode(code) % 10,
+          'appraisal_cycle': 'ارزیابی سالانه',
+        },
         'filename': 'record-$code-$number.pdf',
         'file': base64Encode(_pdf('RECORD $code $number')),
         'notes': 'سابقه نمونه برای پیش‌نمایش آفلاین.',

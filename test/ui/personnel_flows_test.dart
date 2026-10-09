@@ -1,6 +1,3 @@
-import 'package:asoud_erp/core/network/api_exception.dart' as legacy_error;
-import 'package:asoud_erp/features/hr/data/personnel_file_repository.dart';
-import 'package:asoud_erp/features/hr/domain/personnel_file.dart';
 import 'dart:convert';
 import 'package:asoud_erp/core/theme/asoud_theme.dart';
 import 'package:asoud_erp/core/widgets/asoud_form.dart';
@@ -51,6 +48,7 @@ class _Repository extends Mock implements PersonnelRepository {
     'city': 'تهران'
   };
   int creates = 0, edits = 0;
+  String? profileRevision, recordRevision;
   bool failSave = false;
   @override
   Future<Map<String, dynamic>> detail(String id) async => {
@@ -80,6 +78,7 @@ class _Repository extends Mock implements PersonnelRepository {
   Future<void> updateRecord(String personId, String recordId,
       Map<String, dynamic> payload, String revision, String requestId) async {
     if (failSave) throw StateError('ذخیره ناموفق');
+    recordRevision = revision;
     edits++;
     values[recordId] = {...payload, '_revision': '2', '_can_edit': true};
   }
@@ -87,6 +86,7 @@ class _Repository extends Mock implements PersonnelRepository {
   @override
   Future<Map<String, dynamic>> update(
       String id, Map<String, dynamic> values, String revision) async {
+    profileRevision = revision;
     edits++;
     profile.addAll(values);
     return detail(id);
@@ -122,10 +122,7 @@ Future<void> _start(WidgetTester tester, _Repository repo,
   addTearDown(tester.view.resetDevicePixelRatio);
   await tester.pumpWidget(MaterialApp(
       theme: AsoudTheme.light,
-      home: PersonnelFilePage(
-          profileId: 'LOCAL-person',
-          repository: LegacyFiles(),
-          personnel: repo)));
+      home: PersonnelDetailPage(id: 'LOCAL-person', repository: repo)));
   await tester.pumpAndSettle();
 }
 
@@ -136,10 +133,13 @@ Future<void> _tap(WidgetTester tester, String text) async {
 }
 
 Future<void> _section(WidgetTester tester, String title) async {
-  await tester.scrollUntilVisible(
-      find.widgetWithText(ExpansionTile, title), 150,
+  final header = find.descendant(
+      of: find.byType(ExpansionTile), matching: find.text(title));
+  await tester.scrollUntilVisible(header, 150,
       scrollable: find.byType(Scrollable).first);
-  await tester.tap(find.widgetWithText(ExpansionTile, title));
+  await tester.ensureVisible(header);
+  await tester.pumpAndSettle();
+  await tester.tap(header);
   await tester.pumpAndSettle();
 }
 
@@ -160,7 +160,7 @@ void main() {
     await tester.enterText(fields.first, '45678');
     await _tap(tester, 'ذخیره');
     expect(repo.profile['base_salary'].toString(), '45678');
-    expect(find.text('۴۵,۶۷۸'), findsOneWidget);
+    expect(find.text('45678'), findsOneWidget);
   });
 
   setUpAll(() async {
@@ -173,116 +173,125 @@ void main() {
         .load();
   });
 
-  for (final e in _kinds.entries) {
-    testWidgets('${e.key}: list, accordion create, detail and edit persist',
-        (tester) async {
-      FilePicker.platform = _Files();
-      final repo = _Repository();
-      await _start(tester, repo, width: e.key == 'attendance' ? 320 : 390);
-      await _tap(tester, 'سوابق');
-      await _tap(tester, e.value);
-      expect(find.text('هنوز موردی ثبت نشده است.'), findsOneWidget);
-      await _tap(tester, 'ثبت مورد جدید');
-      expect(find.byType(AsoudFormPage), findsOneWidget);
-      expect(find.byType(TextFormField), findsNothing);
-      if (e.key == 'evaluation') {
-        await expectLater(find.byType(Scaffold).last,
-            matchesGoldenFile('goldens/personnel_form_closed_390.png'));
-      }
-      await _section(tester, 'اطلاعات اصلی');
-      await tester.enterText(
-          find.widgetWithText(TextFormField, 'عنوان *'), 'سابقه نمونه');
-      if (e.key == 'attendance') {
-        await _section(tester, 'ساعات حضور');
+  for (final golden in [false, true]) {
+    for (final e in _kinds.entries) {
+      testWidgets(
+          '${e.key} golden=$golden: list, accordion create, detail and edit persist',
+          (tester) async {
+        FilePicker.platform = _Files();
+        final repo = _Repository();
+        await _start(tester, repo, width: e.key == 'attendance' ? 320 : 390);
+        await _tap(
+            tester, ['document', 'photo'].contains(e.key) ? 'مدارک' : 'سوابق');
+        await _tap(tester, e.value);
+        expect(find.text('هنوز موردی ثبت نشده است.'), findsOneWidget);
+        await _tap(tester, 'ثبت مورد جدید');
+        expect(find.byType(AsoudFormPage), findsOneWidget);
+        expect(find.byType(TextFormField), findsNothing);
+        if (golden && e.key == 'evaluation') {
+          await expectLater(find.byType(Scaffold).last,
+              matchesGoldenFile('goldens/personnel_form_closed_390.png'));
+        }
+        await _section(tester, 'اطلاعات اصلی');
         await tester.enterText(
-            find.widgetWithText(TextFormField, 'ساعت ورود'), '08:00');
-        await tester.enterText(
-            find.widgetWithText(TextFormField, 'ساعت خروج'), '16:00');
-      }
-      if (e.key == 'evaluation') {
-        await _section(tester, 'نتیجه ارزیابی');
-        await _tap(tester, 'دوره ارزیابی *');
-        await _tap(tester, 'دوره سالانه');
-        await tester.enterText(
-            find.widgetWithText(TextFormField, 'امتیاز هدف از ۱۰۰ *'), '85');
+            find.widgetWithText(TextFormField, 'عنوان *'), 'سابقه نمونه');
+        tester
+            .widget<AsoudFormDateField>(find.byType(AsoudFormDateField).first)
+            .controller
+            .text = '2026-10-05';
         await tester.pumpAndSettle();
-        await expectLater(find.byType(Scaffold).last,
-            matchesGoldenFile('goldens/personnel_form_open_390.png'));
-      }
-      if (['document', 'photo'].contains(e.key)) {
-        await _section(tester, 'فایل پیوست');
-        await _tap(tester, 'انتخاب فایل');
-      }
-      await _tap(tester, 'ذخیره');
-      expect(repo.creates, 1);
-      if (e.key == 'evaluation') {
-        expect(repo.values['new']!['appraisal_cycle'], 'دوره سالانه');
-      }
-      expect(find.text('سابقه نمونه'), findsOneWidget);
-      if (e.key == 'evaluation') {
-        await expectLater(find.byType(Scaffold).last,
-            matchesGoldenFile('goldens/personnel_records_390.png'));
-      }
-      await _tap(tester, 'سابقه نمونه');
-      expect(find.text('جزئیات سابقه'), findsOneWidget);
-      if (e.key == 'evaluation') {
-        await expectLater(find.byType(Scaffold).last,
-            matchesGoldenFile('goldens/personnel_record_detail_390.png'));
-      }
-      await _tap(tester, 'ویرایش سابقه');
-      await _section(tester, 'اطلاعات اصلی');
-      expect(find.widgetWithText(TextFormField, 'سابقه نمونه'), findsOneWidget);
-      await tester.enterText(
-          find.widgetWithText(TextFormField, 'عنوان *'), 'سابقه ویرایش‌شده');
-      if (e.key == 'evaluation') {
-        repo.failSave = true;
+        if (e.key == 'attendance') {
+          await _section(tester, 'ساعات حضور');
+          await tester.enterText(
+              find.widgetWithText(TextFormField, 'ساعت ورود'), '08:00');
+          await tester.enterText(
+              find.widgetWithText(TextFormField, 'ساعت خروج'), '16:00');
+        }
+        if (e.key == 'evaluation') {
+          await _section(tester, 'نتیجه ارزیابی');
+          await _tap(tester, 'دوره ارزیابی *');
+          await _tap(tester, 'دوره سالانه');
+          await tester.enterText(
+              find.widgetWithText(TextFormField, 'امتیاز هدف از ۱۰۰ *'), '85');
+          await tester.pumpAndSettle();
+          if (golden) {
+            await expectLater(find.byType(Scaffold).last,
+                matchesGoldenFile('goldens/personnel_form_open_390.png'));
+          }
+        }
+        if (['document', 'photo'].contains(e.key)) {
+          await _section(tester, 'فایل پیوست');
+          await _tap(tester, 'انتخاب فایل');
+        }
         await _tap(tester, 'ذخیره');
-        expect(repo.edits, 0);
-        expect(find.widgetWithText(TextFormField, 'سابقه ویرایش‌شده'),
-            findsOneWidget);
-        repo.failSave = false;
-      }
-      await _tap(tester, 'ذخیره');
-      expect(repo.edits, 1);
-      expect(find.text('سابقه ویرایش‌شده'), findsOneWidget);
-      if (['document', 'photo'].contains(e.key)) {
-        expect(repo.values['new']!['file'], _png);
-      }
-      await tester.tap(find.byTooltip('بازگشت').last);
-      await tester.pumpAndSettle();
-      expect(find.text('سابقه ویرایش‌شده'), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    }, tags: 'golden');
-  }
+        expect(repo.creates, 1);
+        if (e.key == 'evaluation') {
+          expect(repo.values['new']!['appraisal_cycle'], 'دوره سالانه');
+        }
+        expect(find.text('سابقه نمونه'), findsOneWidget);
+        if (golden && e.key == 'evaluation') {
+          await expectLater(find.byType(Scaffold).last,
+              matchesGoldenFile('goldens/personnel_records_390.png'));
+        }
+        await _tap(tester, 'سابقه نمونه');
+        expect(find.text('جزئیات سابقه'), findsOneWidget);
+        if (golden && e.key == 'evaluation') {
+          await expectLater(find.byType(Scaffold).last,
+              matchesGoldenFile('goldens/personnel_record_detail_390.png'));
+        }
+        await _tap(tester, 'ویرایش سابقه');
+        await _section(tester, 'اطلاعات اصلی');
+        expect(
+            find.widgetWithText(TextFormField, 'سابقه نمونه'), findsOneWidget);
+        await tester.enterText(
+            find.widgetWithText(TextFormField, 'عنوان *'), 'سابقه ویرایش‌شده');
+        if (e.key == 'evaluation') {
+          repo.failSave = true;
+          await _tap(tester, 'ذخیره');
+          expect(repo.edits, 0);
+          expect(find.widgetWithText(TextFormField, 'سابقه ویرایش‌شده'),
+              findsOneWidget);
+          repo.failSave = false;
+        }
+        await _tap(tester, 'ذخیره');
+        expect(repo.edits, 1);
+        expect(repo.recordRevision, '1');
+        expect(find.text('سابقه ویرایش‌شده'), findsOneWidget);
+        if (['document', 'photo'].contains(e.key)) {
+          expect(repo.values['new']!['file'], _png);
+        }
+        await tester.tap(find.byTooltip('بازگشت').last);
+        await tester.pumpAndSettle();
+        expect(find.text('سابقه ویرایش‌شده'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      }, tags: golden ? ['golden'] : null);
+    }
 
-  testWidgets('person details stay read-only and name the person master',
-      (tester) async {
-    final repo = _Repository();
-    await _start(tester, repo);
-    await _tap(tester, 'اطلاعات پرسنلی');
-    await _tap(tester, 'اطلاعات فردی');
-    expect(find.byType(TextFormField), findsNothing);
-    await expectLater(find.byType(Scaffold).last,
-        matchesGoldenFile('goldens/personnel_personal_390.png'));
-    // Person data is owned by the person master, so the button says so; HR
-    // profile editing stays on the organization section.
-    expect(find.text('ویرایش اطلاعات شخص'), findsOneWidget);
-    expect(find.text('ویرایش اطلاعات'), findsNothing);
-    await tester.tap(find.byIcon(Icons.chevron_right_rounded).last);
-    await tester.pumpAndSettle();
-    await _tap(tester, 'اطلاعات سازمانی');
-    await _tap(tester, 'ویرایش اطلاعات');
-    expect(find.text('ویرایش اطلاعات سازمانی'), findsOneWidget);
-    expect(
-        find.widgetWithText(ExpansionTile, 'اطلاعات سازمانی'), findsOneWidget);
-    await _section(tester, 'اطلاعات سازمانی');
-    // Every field the section owns is offered, and nothing else.
-    expect(find.text('سمت'), findsOneWidget);
-    expect(find.text('واحد سازمانی'), findsOneWidget);
-    expect(find.text('شعبه'), findsOneWidget);
-    expect(find.text('مدیر مستقیم'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  }, tags: 'golden');
+    testWidgets(
+        'golden=$golden profile details open a separate locked-style editor and refresh after save',
+        (tester) async {
+      final repo = _Repository();
+      await _start(tester, repo);
+      await _tap(tester, 'اطلاعات فردی');
+      expect(find.byType(TextFormField), findsNothing);
+      if (golden) {
+        await expectLater(find.byType(Scaffold).last,
+            matchesGoldenFile('goldens/personnel_personal_390.png'));
+      }
+      await _tap(tester, 'ویرایش اطلاعات');
+      await _section(tester, 'اطلاعات اصلی');
+      await tester.enterText(
+          find.widgetWithText(TextFormField, 'نام و نام خانوادگی'), 'علی جدید');
+      await _section(tester, 'اطلاعات اصلی');
+      await _section(tester, 'اطلاعات اصلی');
+      expect(find.widgetWithText(TextFormField, 'علی جدید'), findsOneWidget);
+      await _tap(tester, 'ذخیره');
+      expect(repo.profile['display_name'], 'علی جدید');
+      expect(repo.profileRevision, 'profile-1');
+      expect(find.byType(TextFormField), findsNothing);
+      expect(tester.takeException(), isNull);
+    }, tags: golden ? ['golden'] : null);
+  }
 
   testWidgets(
       'recent activity opens its own record and system audit has no edit action',
@@ -300,16 +309,8 @@ void main() {
     expect(find.text('ویرایش سابقه'), findsNothing);
     await tester.tap(find.byTooltip('بازگشت').last);
     await tester.pumpAndSettle();
-    await _tap(tester, 'سوابق');
-    await _tap(tester, 'مشاهده سوابق');
+    await _tap(tester, 'مشاهده همه');
     expect(find.text('سوابق و فعالیت‌ها'), findsNWidgets(2));
     expect(tester.takeException(), isNull);
   });
-}
-
-class LegacyFiles extends Fake implements PersonnelFileRepository {
-  @override
-  Future<PersonnelFile> file(String id) async =>
-      throw const legacy_error.ApiException(
-          kind: legacy_error.ApiFailureKind.network, message: 'offline');
 }
