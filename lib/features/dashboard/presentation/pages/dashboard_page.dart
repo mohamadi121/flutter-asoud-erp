@@ -176,6 +176,20 @@ class _DashboardPageState extends State<DashboardPage> {
                                 fontSize: 14, fontWeight: FontWeight.w900)),
                         const SizedBox(height: 8),
                         _QuickActions(
+                          onPayments: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const _UnavailablePage(
+                                title: 'دریافت و پرداخت',
+                              ),
+                            ),
+                          ),
+                          onSalesInvoice: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const _UnavailablePage(
+                                title: 'فاکتور فروش',
+                              ),
+                            ),
+                          ),
                           onAccounting: () => Navigator.of(context).push(
                             MaterialPageRoute<void>(
                               builder: (_) => AccountingHomePage(
@@ -215,7 +229,7 @@ class _DashboardPageState extends State<DashboardPage> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: selectedIndex,
         onDestinationSelected: (index) {
-          if (index == 0 || index == 3 || index == 4) {
+          if (index == 0 || index == 4) {
             setState(() => selectedIndex = index);
             return;
           }
@@ -233,6 +247,10 @@ class _DashboardPageState extends State<DashboardPage> {
           } else if (index == 2) {
             Navigator.of(context).push(MaterialPageRoute<void>(
               builder: (_) => const WorkflowTasksPage(),
+            ));
+          } else if (index == 3) {
+            Navigator.of(context).push(MaterialPageRoute<void>(
+              builder: (_) => const _UnavailablePage(title: 'گزارش‌ها'),
             ));
           } else if (index != 0) {
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -675,10 +693,13 @@ class _InfoCard extends StatelessWidget {
 class _QuickActions extends StatelessWidget {
   const _QuickActions(
       {required this.onAccounting,
+      required this.onPayments,
+      required this.onSalesInvoice,
       required this.onPurchaseRequest,
       required this.onDocuments,
       this.onParties});
-  final VoidCallback onAccounting, onPurchaseRequest, onDocuments;
+  final VoidCallback onAccounting, onPayments, onSalesInvoice,
+      onPurchaseRequest, onDocuments;
   final VoidCallback? onParties;
   @override
   Widget build(BuildContext context) {
@@ -688,14 +709,14 @@ class _QuickActions extends StatelessWidget {
         'Payment',
         Icons.payments_outlined,
         AsoudColors.success,
-        null
+        onPayments
       ),
       (
         'فاکتور فروش',
         'Sale Invoice',
         Icons.description_outlined,
         AsoudColors.primary,
-        null
+        onSalesInvoice
       ),
       (
         'ثبت درخواست',
@@ -764,4 +785,15 @@ class _QuickActions extends StatelessWidget {
           .toList(),
     );
   }
+}
+
+class _UnavailablePage extends StatelessWidget {
+  const _UnavailablePage({required this.title});
+  final String title;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AsoudHeader(title: title),
+        body: const Center(child: Text('به‌زودی')),
+      );
 }
