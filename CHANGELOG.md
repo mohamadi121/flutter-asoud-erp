@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.26.1+45
+
+- Fixes the release APK: it had no INTERNET permission and blocked plain-HTTP servers, so every sign-in failed with «ارتباط با سرور برقرار نشد». Release builds can now reach the server (debug builds were not affected).
+- Adds a test that keeps the permission in the main Android manifest.
+- Requires backend 0.15.0.
+
 ## 0.26.0+44
 
 - Personnel: the single personnel detail page now also shows contracts, promotion, documents, manager and tenure, and recent activities.
