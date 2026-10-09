@@ -583,34 +583,29 @@ class _PersonnelCategoryPageState extends State<_PersonnelCategoryPage> {
   @override
   void initState() {
     super.initState();
-    _loadFile();
+    if (widget.fileRepository != null) _loadFile();
   }
 
   Future<void> _loadFile() async {
+    final repository = widget.fileRepository;
+    if (repository == null) return;
     setState(() {
       loadingFile = true;
       fileError = null;
     });
     try {
       PersonnelFile value;
-      final repository = widget.fileRepository;
-      if (repository != null) {
-        try {
-          value = await repository.file('${widget.profile['id']}');
-        } catch (error) {
-          final detail =
-              await widget.repository.detail('${widget.profile['id']}');
-          if (!canUseLegacyPersonnelFile(error) &&
-              !isLocalPersonnelId('${widget.profile['id']}') &&
-              detail['offline'] != true &&
-              !_localDemo) {
-            rethrow;
-          }
-          value = personnelFileFromLegacy(detail);
-        }
-      } else {
+      try {
+        value = await repository.file('${widget.profile['id']}');
+      } catch (error) {
         final detail =
             await widget.repository.detail('${widget.profile['id']}');
+        if (!canUseLegacyPersonnelFile(error) &&
+            !isLocalPersonnelId('${widget.profile['id']}') &&
+            detail['offline'] != true &&
+            !_localDemo) {
+          rethrow;
+        }
         value = personnelFileFromLegacy(detail);
       }
       if (mounted) setState(() => file = value);
@@ -718,24 +713,26 @@ class _PersonnelCategoryPageState extends State<_PersonnelCategoryPage> {
                               onPressed: _loadFile,
                               child: const Text('تلاش دوباره')),
                         ],
-                        PersonnelContractsSlot(
-                            file: file,
-                            profileId: '${widget.profile['id']}',
-                            canEdit: data['can_edit'] == true,
-                            repository: widget.fileRepository,
-                            onRefresh: () async {
-                              await _loadFile();
-                              if (mounted) {
-                                setState(() {
-                                  future = widget.repository
-                                      .detail('${widget.profile['id']}');
-                                });
-                              }
-                            }),
-                        _ContractsCategory(
-                            records: records,
-                            canEdit: data['can_edit'] == true,
-                            onRecords: openRecords),
+                        if (widget.fileRepository != null && file != null)
+                          PersonnelContractsSlot(
+                              file: file,
+                              profileId: '${widget.profile['id']}',
+                              canEdit: data['can_edit'] == true,
+                              repository: widget.fileRepository,
+                              onRefresh: () async {
+                                await _loadFile();
+                                if (mounted) {
+                                  setState(() {
+                                    future = widget.repository
+                                        .detail('${widget.profile['id']}');
+                                  });
+                                }
+                              })
+                        else
+                          _ContractsCategory(
+                              records: records,
+                              canEdit: data['can_edit'] == true,
+                              onRecords: openRecords),
                       ],
                       if (widget.category == 'benefits')
                         _BenefitsCategory(

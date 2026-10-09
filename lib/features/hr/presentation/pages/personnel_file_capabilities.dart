@@ -230,7 +230,7 @@ Future<PersonnelFile?> loadPersonnelFile({
       return null;
     }
   }
-  return personnelFileFromLegacy(data);
+  return null;
 }
 
 bool _isLocalDemo(PersonnelRepository repository) {
