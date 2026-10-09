@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/jalali_date.dart';
+import '../../../../core/utils/persian_server_values.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../domain/entities/party_profile.dart';
 import '../../domain/repositories/party_repository.dart';
@@ -110,9 +112,13 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
                   'نام مدیر': profile.managerName,
                   'شماره ثبت': profile.registrationNumber,
                   'کد اقتصادی': profile.economicCode,
-                  'تاریخ تأسیس': profile.foundingDate,
-                  'تاریخ تولد': profile.birthDate,
-                  'جنسیت': profile.employeeGender,
+                  'تاریخ تأسیس': profile.foundingDate == null
+                      ? null
+                      : formatJalaliIso(profile.foundingDate!),
+                  'تاریخ تولد': profile.birthDate == null
+                      ? null
+                      : formatJalaliIso(profile.birthDate!),
+                  'جنسیت': persianGenderLabel(profile.employeeGender),
                   'نام پدر': profile.fatherName,
                   'شماره شناسنامه': profile.birthCertificateNumber,
                   'محل صدور': profile.birthCertificateIssuePlace,

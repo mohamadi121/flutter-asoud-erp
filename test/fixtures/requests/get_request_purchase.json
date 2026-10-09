@@ -1,0 +1,171 @@
+{
+ "ok": true,
+ "data": {
+  "name": "PR-1405-0023",
+  "number": "PR-1405-0023",
+  "company": "...",
+  "template_key": "purchase",
+  "template_version": 1,
+  "workflow_definition": "SYS-PURCHASE-WP",
+  "request_type": "درخواست خرید کالا",
+  "subject": "خرید تجهیزات ICU",
+  "priority": "High",
+  "required_by": "2026-10-20",
+  "project": "",
+  "department": "ICU - WP",
+  "owner": "sara@x",
+  "requester_name": "سارا محمدی",
+  "requester_employee": "HR-EMP-00001",
+  "creation": "2026-10-04 10:15:00",
+  "workflow_instance": "WFI-2026-00017",
+  "status": "Running",
+  "display_status": "",
+  "status_key": "submitted",
+  "status_label": "ارسال شده",
+  "status_group": "pending",
+  "request_id": "request-9f...",
+  "rejection_reason": "",
+  "can_edit": true,
+  "can_cancel": true,
+  "item_count": 3,
+  "attachment_count": 2,
+  "comment_count": 1,
+  "values": {
+   "requester": "sara@x",
+   "org_unit": "ICU - WP",
+   "cost_center": "Main - WP",
+   "project": null,
+   "needed_date": "2026-10-20",
+   "priority": "High",
+   "reason": "...",
+   "items": [
+    {
+     "item_code": "ICU-MON-01",
+     "item_name": "مانیتور ICU",
+     "qty": 2,
+     "uom": "Nos",
+     "stock_uom": "Nos",
+     "conversion_factor": 1,
+     "stock_qty": 2,
+     "is_stock_item": 1,
+     "description": "",
+     "note": "",
+     "attachment": "/private/files/m.png",
+     "attachment_ref": {
+      "name": "1a2b3c",
+      "filename": "m.png",
+      "is_image": true
+     }
+    }
+   ]
+  },
+  "attachments": [
+   {
+    "name": "1a2b3c",
+    "filename": "m.png",
+    "file_url": "/private/files/m.png",
+    "size": 18211,
+    "content_type": "image/png",
+    "is_image": true,
+    "scope": "row:items:0"
+   }
+  ],
+  "fields": [
+   {
+    "key": "request_number",
+    "label": "شماره درخواست",
+    "type": "Auto",
+    "auto": "request_number"
+   },
+   {
+    "key": "request_date",
+    "label": "تاریخ درخواست",
+    "type": "Auto",
+    "auto": "request_date"
+   },
+   {
+    "key": "requester",
+    "label": "درخواست‌کننده",
+    "type": "User",
+    "required": true,
+    "editable": false,
+    "default_source": "session_user"
+   },
+   {
+    "key": "org_unit",
+    "label": "واحد درخواست‌کننده",
+    "type": "Department",
+    "required": true,
+    "default_source": "employee_department"
+   },
+   {
+    "key": "cost_center",
+    "label": "مرکز هزینه",
+    "type": "System Select",
+    "source": "cost_center",
+    "required_by_setting": "request_cost_center_required"
+   },
+   {
+    "key": "project",
+    "label": "پروژه",
+    "type": "System Select",
+    "source": "project"
+   },
+   {
+    "key": "needed_date",
+    "label": "تاریخ مورد نیاز",
+    "type": "Date",
+    "required": true,
+    "min_date": "today"
+   },
+   {
+    "key": "priority",
+    "label": "اولویت",
+    "type": "Choice",
+    "required": true,
+    "options": [
+     "Normal",
+     "High",
+     "Urgent"
+    ],
+    "option_labels": {
+     "Normal": "عادی",
+     "High": "مهم",
+     "Urgent": "فوری"
+    },
+    "widget": "segmented",
+    "default_value": "Normal",
+    "show_in_list": true
+   },
+   {
+    "key": "reason",
+    "label": "دلیل درخواست",
+    "type": "Long Text",
+    "required": true,
+    "max_length": 2000
+   },
+   {
+    "key": "items",
+    "label": "اقلام",
+    "type": "Item Table",
+    "required": true,
+    "row_options": {
+     "item_scope": "purchase",
+     "note": true,
+     "attachment": true,
+     "min_rows": 1,
+     "max_rows": 100
+    }
+   }
+  ],
+  "native": {
+   "doctype": "",
+   "name": "",
+   "status": "",
+   "error": ""
+  }
+ },
+ "meta": {
+  "api_version": "v1"
+ }
+}

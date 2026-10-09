@@ -7,7 +7,7 @@ class HrEmployee extends Equatable {
       {required this.id,
       required this.name,
       required this.company,
-    this.partyProfile = '',
+      this.partyProfile = '',
       this.department = '',
       this.designation = '',
       this.manager = '',
@@ -26,7 +26,7 @@ class HrEmployee extends Equatable {
       email;
   factory HrEmployee.fromJson(Map<String, dynamic> json) => HrEmployee(
       id: json['id']?.toString() ?? json['name']?.toString() ?? '',
-    partyProfile: json['party_profile']?.toString() ?? '',
+      partyProfile: json['party_profile']?.toString() ?? '',
       name: json['name']?.toString() ?? '',
       company: json['company']?.toString() ?? '',
       department: json['department']?.toString() ?? '',
@@ -67,24 +67,28 @@ class HrDashboard extends Equatable {
       this.pendingTasks = 0,
       this.unreadNotifications = 0,
       this.unreadCommunications = 0,
-      this.todayReportStatus});
+      this.todayReportStatus,
+      this.managerAccess = false});
   final HrEmployee employee;
   final int pendingTasks, unreadNotifications, unreadCommunications;
   final String? todayReportStatus;
+  final bool managerAccess;
   factory HrDashboard.fromJson(Map<String, dynamic> json) => HrDashboard(
       employee: HrEmployee.fromJson(
           Map<String, dynamic>.from(json['employee'] as Map? ?? {})),
       pendingTasks: json['pending_tasks'] as int? ?? 0,
       unreadNotifications: json['unread_notifications'] as int? ?? 0,
       unreadCommunications: json['unread_communications'] as int? ?? 0,
-      todayReportStatus: (json['today_report'] as Map?)?['status']?.toString());
+      todayReportStatus: (json['today_report'] as Map?)?['status']?.toString(),
+      managerAccess: json['manager_access'] == true);
   @override
   List<Object?> get props => [
         employee,
         pendingTasks,
         unreadNotifications,
         unreadCommunications,
-        todayReportStatus
+        todayReportStatus,
+        managerAccess
       ];
 }
 

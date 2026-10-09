@@ -82,8 +82,8 @@ void main() {
       }
       tester.state<NavigatorState>(find.byType(Navigator)).push<void>(
           MaterialPageRoute(
-              builder: (_) => PersonnelDetailPage(
-                  id: 'person-0', repository: repository)));
+              builder: (_) =>
+                  PersonnelDetailPage(id: 'person-0', repository: repository)));
       await tester.pumpAndSettle();
       expect(find.text('پرونده پرسنلی'), findsOneWidget);
       expect(tester.takeException(), isNull);

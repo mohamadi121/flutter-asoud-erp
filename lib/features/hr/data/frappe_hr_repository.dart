@@ -4,13 +4,24 @@ import '../domain/hr_repository.dart';
 
 class FrappeHrRepository implements HrRepository {
   const FrappeHrRepository(this.client);
-  final FrappeClient client;
+  final FrappeApiClient client;
   Future<dynamic> _call(String method, [Map<String, dynamic>? data]) =>
       client.callAsoudMethod('asoud_erp.api.v1.hr.$method', data: data);
   @override
-  Future<HrDashboard> dashboard(String company) async =>
-      HrDashboard.fromJson(Map<String, dynamic>.from(
-          await _call('get_dashboard', {'company': company}) as Map));
+  Future<HrDashboard> dashboard(String company) async {
+    final user = await client.getCurrentUser();
+    final hasManagerAccess =
+        const {'System Manager', 'HR Manager', 'HR User'}.any(user.hasRole);
+    if (hasManagerAccess && (user.employeeId?.trim().isEmpty ?? true)) {
+      return HrDashboard(
+        employee: HrEmployee(id: '', name: '', company: company),
+        managerAccess: true,
+      );
+    }
+    return HrDashboard.fromJson(Map<String, dynamic>.from(
+        await _call('get_dashboard', {'company': company}) as Map));
+  }
+
   @override
   Future<HrEmployee> myProfile() async => HrEmployee.fromJson(
       Map<String, dynamic>.from(await _call('get_my_profile') as Map));

@@ -69,7 +69,7 @@ const _recordLabels = {
 };
 
 String _recordTitle(String kind) =>
-    kind == 'all' ? 'سوابق و فعالیت‌ها' : _sections[kind]!;
+    kind == 'all' ? 'سوابق و فعالیت‌ها' : personnelRecordKindLabel(kind);
 IconData _recordIcon(String kind) => switch (kind) {
       'attendance' => Icons.event_available_outlined,
       'evaluation' => Icons.star_border_rounded,
@@ -220,6 +220,8 @@ class _ProfileDetailHero extends StatelessWidget {
                       fontSize: 19,
                       fontWeight: FontWeight.w900)),
               Text(_valueOf(profile, 'job_title'),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(color: Colors.white, fontSize: 11)),
               Text(_valueOf(profile, 'department'),
                   style:
@@ -259,11 +261,13 @@ class _PersonnelInfoPage extends StatefulWidget {
       {required this.profile,
       required this.revision,
       required this.canEdit,
-      required this.repository});
+      required this.repository,
+      this.fileRepository});
   final Map<String, dynamic> profile;
   final String revision;
   final bool canEdit;
   final PersonnelRepository repository;
+  final PersonnelFileRepository? fileRepository;
   @override
   State<_PersonnelInfoPage> createState() => _PersonnelInfoPageState();
 }
@@ -337,6 +341,7 @@ class _PersonnelInfoPageState extends State<_PersonnelInfoPage> {
                 category: category,
                 profile: profile,
                 repository: widget.repository,
+                fileRepository: widget.fileRepository,
                 canEdit: canEdit)));
   }
 
@@ -461,6 +466,8 @@ class _PersonnelInfoHero extends StatelessWidget {
                   style: const TextStyle(
                       color: _ink, fontSize: 20, fontWeight: FontWeight.w900)),
               Text(_valueOf(profile, 'job_title'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(color: _ink, fontSize: 11)),
               Text(_valueOf(profile, 'department'),
                   style:
@@ -490,7 +497,7 @@ class _PersonnelInfoMetrics extends StatelessWidget {
             subtitle: 'واحد سازمانی'),
         _ProfileMetric(
             icon: Icons.badge_outlined,
-            title: _valueOf(profile, 'employee_code', _valueOf(profile, 'id')),
+            title: capEmployeeCode(profile['employee_code']),
             subtitle: 'کد پرسنلی'),
       ]));
 }
@@ -555,10 +562,12 @@ class _PersonnelCategoryPage extends StatefulWidget {
       {required this.category,
       required this.profile,
       required this.repository,
-      required this.canEdit});
+      required this.canEdit,
+      this.fileRepository});
   final String category;
   final Map<String, dynamic> profile;
   final PersonnelRepository repository;
+  final PersonnelFileRepository? fileRepository;
   final bool canEdit;
   @override
   State<_PersonnelCategoryPage> createState() => _PersonnelCategoryPageState();
@@ -567,6 +576,53 @@ class _PersonnelCategoryPage extends StatefulWidget {
 class _PersonnelCategoryPageState extends State<_PersonnelCategoryPage> {
   late Future<Map<String, dynamic>> future =
       widget.repository.detail('${widget.profile['id']}');
+  PersonnelFile? file;
+  bool loadingFile = false;
+  String? fileError;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.fileRepository != null) _loadFile();
+  }
+
+  Future<void> _loadFile() async {
+    final repository = widget.fileRepository;
+    if (repository == null) return;
+    setState(() {
+      loadingFile = true;
+      fileError = null;
+    });
+    try {
+      PersonnelFile value;
+      try {
+        value = await repository.file('${widget.profile['id']}');
+      } catch (error) {
+        final detail =
+            await widget.repository.detail('${widget.profile['id']}');
+        if (!canUseLegacyPersonnelFile(error) &&
+            !isLocalPersonnelId('${widget.profile['id']}') &&
+            detail['offline'] != true &&
+            !_localDemo) {
+          rethrow;
+        }
+        value = personnelFileFromLegacy(detail);
+      }
+      if (mounted) setState(() => file = value);
+    } catch (error) {
+      if (mounted) setState(() => fileError = capError(error));
+    } finally {
+      if (mounted) setState(() => loadingFile = false);
+    }
+  }
+
+  bool get _localDemo {
+    try {
+      return widget.repository.localDemo;
+    } catch (_) {
+      return false;
+    }
+  }
 
   String get title => switch (widget.category) {
         'employment' => 'اطلاعات استخدامی',
@@ -635,13 +691,49 @@ class _PersonnelCategoryPageState extends State<_PersonnelCategoryPage> {
                       const SizedBox(height: 10),
                       _ProfileMetricStrip(profile: profile),
                       const SizedBox(height: 12),
-                      if (widget.category == 'employment')
+                      if (widget.category == 'employment') ...[
                         _EmploymentCategory(profile: profile),
-                      if (widget.category == 'contracts')
-                        _ContractsCategory(
-                            records: records,
+                        PersonnelPromotionSlot(
+                            profileId: '${widget.profile['id']}',
                             canEdit: data['can_edit'] == true,
-                            onRecords: openRecords),
+                            personnel: widget.repository,
+                            repository: widget.fileRepository,
+                            onPromoted: () {
+                              setState(() {
+                                future = widget.repository
+                                    .detail('${widget.profile['id']}');
+                              });
+                            }),
+                      ],
+                      if (widget.category == 'contracts') ...[
+                        if (loadingFile) const LinearProgressIndicator(),
+                        if (fileError != null) ...[
+                          Text(fileError!),
+                          TextButton(
+                              onPressed: _loadFile,
+                              child: const Text('تلاش دوباره')),
+                        ],
+                        if (widget.fileRepository != null && file != null)
+                          PersonnelContractsSlot(
+                              file: file,
+                              profileId: '${widget.profile['id']}',
+                              canEdit: data['can_edit'] == true,
+                              repository: widget.fileRepository,
+                              onRefresh: () async {
+                                await _loadFile();
+                                if (mounted) {
+                                  setState(() {
+                                    future = widget.repository
+                                        .detail('${widget.profile['id']}');
+                                  });
+                                }
+                              })
+                        else
+                          _ContractsCategory(
+                              records: records,
+                              canEdit: data['can_edit'] == true,
+                              onRecords: openRecords),
+                      ],
                       if (widget.category == 'benefits')
                         _BenefitsCategory(
                             profile: profile,
@@ -681,8 +773,7 @@ class _EmploymentCategory extends StatelessWidget {
               'تاریخ شروع همکاری': _valueOf(profile, 'date_of_joining'),
               'سمت شغلی': _valueOf(profile, 'job_title'),
               'واحد سازمانی': _valueOf(profile, 'department'),
-              'کد پرسنلی':
-                  _valueOf(profile, 'employee_code', _valueOf(profile, 'id')),
+              'کد پرسنلی': capEmployeeCode(profile['employee_code']),
             }),
         const SizedBox(height: 10),
         _CategoryCard(
@@ -790,9 +881,10 @@ class _CategoryCard extends StatelessWidget {
         Row(children: [
           Icon(icon, color: color, size: 22),
           const SizedBox(width: 8),
-          Text(title,
-              style: const TextStyle(
-                  color: _ink, fontSize: 13, fontWeight: FontWeight.w900)),
+          Expanded(
+              child: Text(title,
+                  style: const TextStyle(
+                      color: _ink, fontSize: 13, fontWeight: FontWeight.w900))),
         ]),
         const SizedBox(height: 7),
         for (final entry in values.entries)
@@ -962,7 +1054,7 @@ class _ProfileMetricStrip extends StatelessWidget {
             subtitle: 'واحد سازمانی'),
         _ProfileMetric(
             icon: Icons.badge_outlined,
-            title: _valueOf(profile, 'employee_code', _valueOf(profile, 'id')),
+            title: capEmployeeCode(profile['employee_code']),
             subtitle: 'کد پرسنلی'),
       ]));
 }
@@ -1250,7 +1342,7 @@ class _RecordsPageState extends State<_RecordsPage> {
                 const ListTile(
                     title: Text('نوع سابقه جدید',
                         style: TextStyle(fontWeight: FontWeight.w900))),
-                for (final e in _sections.entries)
+                for (final e in personnelRecordKindLabels.entries)
                   ListTile(
                       leading:
                           Icon(_recordIcon(e.key), color: _recordColor(e.key)),
@@ -1311,8 +1403,10 @@ class _RecordsPageState extends State<_RecordsPage> {
                         SingleChildScrollView(
                             scrollDirection: Axis.horizontal,
                             child: Row(children: [
-                              for (final e
-                                  in {'all': 'همه', ..._sections}.entries)
+                              for (final e in {
+                                'all': 'همه',
+                                ...personnelRecordKindLabels
+                              }.entries)
                                 Padding(
                                     padding: const EdgeInsets.only(left: 6),
                                     child: ChoiceChip(
@@ -1880,3 +1974,50 @@ class _RecordFormState extends State<_RecordForm> {
             ]),
           ]);
 }
+
+String _fileValue(String? value) =>
+    value == null || value.trim().isEmpty ? '—' : value;
+
+String _fileLabel(String value) =>
+    const {
+      'Male': 'مرد',
+      'Female': 'زن',
+      'Other': 'سایر',
+      'Single': 'مجرد',
+      'Married': 'متأهل',
+      'Divorced': 'مطلقه',
+      'Widowed': 'همسر فوت‌شده',
+      'Active': 'فعال',
+      'Inactive': 'غیرفعال',
+      'Left': 'پایان همکاری',
+      'Suspended': 'تعلیق',
+      'Full-time': 'تمام وقت',
+      'Part-time': 'پاره وقت',
+      'Contract': 'قراردادی',
+      'Intern': 'کارآموز',
+      'Internship': 'کارآموزی',
+      'Temporary': 'موقت',
+      'Permanent': 'دائم',
+      'Graduate': 'کارشناسی',
+      'Post Graduate': 'کارشناسی ارشد',
+      'Under Graduate': 'دانشجو',
+      'Casual Leave': 'مرخصی استحقاقی',
+      'Sick Leave': 'مرخصی استعلاجی',
+      'Privilege Leave': 'مرخصی استحقاقی',
+      'Leave Without Pay': 'مرخصی بدون حقوق',
+    }[value] ??
+    _fileValue(value);
+
+Map<String, String> _personnelLinkOptions(
+        Map<String, dynamic> options, String key) =>
+    {
+      for (final row in options[key] as List? ?? [])
+        if (row is Map)
+          '${row['name']}': key == 'reports_to'
+              ? [row['employee_name'], row['designation']]
+                  .where((v) => v != null && '$v'.isNotEmpty)
+                  .join(' — ')
+              : '${row['label'] ?? row['department_name'] ?? row['name']}'
+        else
+          '$row': _fileLabel('$row'),
+    };

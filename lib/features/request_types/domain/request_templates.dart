@@ -1,6 +1,8 @@
 import '../../workflows/domain/entities/workflow_definition.dart';
 
 /// Editable form suggestions, not registered requests or approved transactions.
+/// `leave` and `purchase` are system templates of the server (`template_key`),
+/// so the builder does not suggest them.
 class RequestTemplate {
   const RequestTemplate(this.key, this.info, this.fields);
   final String key;
@@ -9,31 +11,6 @@ class RequestTemplate {
 }
 
 const requestTemplates = [
-  RequestTemplate(
-      'leave',
-      RequestTypeInfo(
-          title: 'درخواست مرخصی',
-          shortTitle: 'مرخصی',
-          category: 'HR',
-          iconKey: 'leave',
-          colorHex: '#EF3340',
-          description:
-              'بررسی مرخصی توسط مسئول تعیین‌شده؛ ثبت این فرم به‌تنهایی مرخصی تأییدشده ایجاد نمی‌کند.'),
-      [
-        WorkflowFormFieldDefinition(
-            key: 'leave_type',
-            label: 'نوع مرخصی',
-            type: 'Choice',
-            required: true,
-            options: ['استحقاقی', 'استعلاجی', 'بدون حقوق'],
-            showInList: true),
-        WorkflowFormFieldDefinition(
-            key: 'from_date', label: 'از تاریخ', type: 'Date', required: true),
-        WorkflowFormFieldDefinition(
-            key: 'to_date', label: 'تا تاریخ', type: 'Date', required: true),
-        WorkflowFormFieldDefinition(
-            key: 'leave_reason', label: 'توضیحات مرخصی', type: 'Long Text'),
-      ]),
   RequestTemplate(
       'mission',
       RequestTypeInfo(
@@ -97,42 +74,5 @@ const requestTemplates = [
             key: 'repayment_note',
             label: 'پیشنهاد بازپرداخت',
             type: 'Long Text'),
-      ]),
-  RequestTemplate(
-      'purchase',
-      RequestTypeInfo(
-          title: 'درخواست خرید',
-          shortTitle: 'خرید',
-          category: 'Purchase',
-          iconKey: 'purchase',
-          colorHex: '#1769F6',
-          description:
-              'درخواست تأمین اقلام؛ سفارش خرید و پرداخت نیازمند مراحل و تأییدهای جداگانه هستند.'),
-      [
-        WorkflowFormFieldDefinition(
-            key: 'purchase_items',
-            label: 'اقلام موردنیاز',
-            type: 'Item Table',
-            required: true),
-        WorkflowFormFieldDefinition(
-            key: 'needed_date',
-            label: 'تاریخ نیاز',
-            type: 'Date',
-            required: true),
-        WorkflowFormFieldDefinition(
-            key: 'priority',
-            label: 'اولویت',
-            type: 'Choice',
-            required: true,
-            options: ['عادی', 'فوری'],
-            defaultValue: 'عادی',
-            showInList: true),
-        WorkflowFormFieldDefinition(
-            key: 'purchase_reason',
-            label: 'دلیل خرید',
-            type: 'Long Text',
-            required: true),
-        WorkflowFormFieldDefinition(
-            key: 'estimated_budget', label: 'بودجه برآوردی', type: 'Currency'),
       ]),
 ];

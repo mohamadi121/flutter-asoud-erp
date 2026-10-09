@@ -5,12 +5,18 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/network/frappe_client.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
-import '../../../../core/config/app_config.dart';
 import '../../../dashboard/presentation/pages/dashboard_page.dart';
+import '../../data/demo_choice_store.dart';
 import 'login_page.dart';
 
 class SplashPage extends StatefulWidget {
-  const SplashPage({super.key});
+  const SplashPage({super.key, this.restoreSession, this.hasDemoChoice});
+
+  /// Overridable for tests; defaults to restoring the vault session.
+  final Future<bool> Function()? restoreSession;
+
+  /// Overridable for tests; defaults to the remembered demo choice.
+  final Future<bool> Function()? hasDemoChoice;
 
   @override
   State<SplashPage> createState() => _SplashPageState();
@@ -25,21 +31,36 @@ class _SplashPageState extends State<SplashPage> {
     _timer = Timer(const Duration(milliseconds: 1400), _open);
   }
 
+  Future<bool> _restore() async {
+    final override = widget.restoreSession;
+    if (override != null) return override();
+    final client = context.read<FrappeApiClient>();
+    return client is FrappeClient ? client.restoreSession() : false;
+  }
+
   Future<void> _open() async {
     if (!mounted) return;
     setState(() => _error = null);
-    final client = context.read<FrappeApiClient>();
     try {
-      final restored =
-          client is FrappeClient ? await client.restoreSession() : false;
+      final restored = await _restore();
       if (!mounted) return;
+      if (restored) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute<void>(builder: (_) => const DashboardLandingPage()),
+        );
+        return;
+      }
+      final demoChosen = widget.hasDemoChoice != null
+          ? await widget.hasDemoChoice!()
+          : await DemoChoiceStore.isDemoChosen();
+      if (!mounted) return;
+      final client = context.read<FrappeApiClient>();
+      final serverUrl = client is FrappeClient ? client.serverIdentity : null;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(
-            builder: (_) => restored
-                ? const DashboardLandingPage()
-                : AppConfig.offlineDemoMode
-                    ? const DashboardLandingPage(offlinePreview: true)
-                    : const LoginPage()),
+            builder: (_) => demoChosen
+                ? const DashboardLandingPage(offlinePreview: true)
+                : LoginPage(initialServerUrl: serverUrl)),
       );
     } catch (_) {
       if (mounted) {

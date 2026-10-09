@@ -11,6 +11,7 @@ import '../cubit/workflow_list_cubit.dart';
 import 'workflow_form_page.dart';
 import 'workflow_notifications_page.dart';
 import 'workflow_designer_page.dart';
+import '../../../dashboard/presentation/pages/dashboard_page.dart';
 
 class WorkflowListPage extends StatelessWidget {
   const WorkflowListPage({this.company, this.onCreate, super.key});
@@ -374,8 +375,8 @@ class _WorkflowCard extends StatelessWidget {
     }
     final date = item.modified == null
         ? 'ثبت نشده'
-        : JalaliDate.fromDateTime(item.modified!).format();
-    return '${item.stepsCount} مرحله • آخرین ویرایش: $date';
+        : toPersianDigits(JalaliDate.fromDateTime(item.modified!).format());
+    return '${toPersianDigits(item.stepsCount)} مرحله • آخرین ویرایش: $date';
   }
 
   Future<void> _showDetails(BuildContext context) => showDialog<void>(
@@ -477,10 +478,19 @@ class _WorkflowBottomNavigation extends StatelessWidget {
             );
             return;
           }
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text(
-                    'این مسیر در مرحله بعد به صفحه اصلی مربوط متصل می‌شود.')),
+          if (index == 0 || index == 4) {
+            Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                  builder: (_) =>
+                      const DashboardLandingPage(offlinePreview: true)),
+            );
+            return;
+          }
+          Navigator.push(
+            context,
+            MaterialPageRoute<void>(
+                builder: (_) => const WorkflowComingSoonPage()),
           );
         },
         destinations: const [
@@ -497,6 +507,16 @@ class _WorkflowBottomNavigation extends StatelessWidget {
           NavigationDestination(
               icon: Icon(Icons.grid_view_rounded), label: 'بیشتر'),
         ],
+      );
+}
+
+class WorkflowComingSoonPage extends StatelessWidget {
+  const WorkflowComingSoonPage({super.key});
+
+  @override
+  Widget build(BuildContext context) => const Scaffold(
+        appBar: AsoudHeader(title: 'گزارش‌ها'),
+        body: Center(child: Text('به‌زودی')),
       );
 }
 

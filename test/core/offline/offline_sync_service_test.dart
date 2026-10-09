@@ -9,14 +9,27 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../helpers/fake_local_record_store.dart';
 
 void main() {
-  test('unowned, other-user and other-server queued mutations are never replayed', () async {
+  test(
+      'unowned, other-user and other-server queued mutations are never replayed',
+      () async {
     final local = FakeLocalRecordStore();
     for (final entry in [
       {'operation': 'asoud_method'},
-      {'operation': 'asoud_method', '_asoud_owner': 'other', '_asoud_server': 'injected-client'},
-      {'operation': 'asoud_method', '_asoud_owner': 'user', '_asoud_server': 'other-server'},
+      {
+        'operation': 'asoud_method',
+        '_asoud_owner': 'other',
+        '_asoud_server': 'injected-client'
+      },
+      {
+        'operation': 'asoud_method',
+        '_asoud_owner': 'user',
+        '_asoud_server': 'other-server'
+      },
     ]) {
-      await local.save(entityType: 'test', payload: entry, status: LocalSyncStatus.pendingSync);
+      await local.save(
+          entityType: 'test',
+          payload: entry,
+          status: LocalSyncStatus.pendingSync);
     }
     final client = _ReplayClient();
     final report = await OfflineSyncService(client, local: local).syncNow();
@@ -42,15 +55,45 @@ void main() {
       payload: const {'company': 'دفتر نمونه'},
       status: LocalSyncStatus.pendingSync,
     );
+    for (final index in [3, 1, 2]) {
+      final id = 'mutation-$index';
+      final timestamp = DateTime.utc(2026, 1, index);
+      local.records[id] = LocalRecord(
+        id: id,
+        entityType: 'asoud_erp.api.v1.setup.save_office',
+        payload: {
+          'operation': 'asoud_method',
+          '_asoud_owner': 'user',
+          '_asoud_server': 'injected-client',
+          'company_name': index == 1 ? 'دفتر نمونه' : 'دفتر $index',
+        },
+        status: LocalSyncStatus.pendingSync,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      );
+    }
+    // Reinsert the first entry so map iteration is deliberately 3, 1, 2.
+    final first = local.records.remove('mutation-1')!;
+    final second = local.records.remove('mutation-2')!;
+    local.records[first.id] = first;
+    local.records[second.id] = second;
     final client = _ReplayClient();
 
     final report = await OfflineSyncService(client, local: local).syncNow();
 
-    expect(report.synced, 1);
+    expect(report.synced, 3);
     expect(report.remaining, 0);
     expect(local.records['mutation-1']!.status, LocalSyncStatus.synced);
     expect(local.records['office:sample']!.status, LocalSyncStatus.synced);
-    expect(client.targets, ['asoud_erp.api.v1.setup.save_office']);
+    expect(
+        client.targets, List.filled(3, 'asoud_erp.api.v1.setup.save_office'));
+    expect(client.ids, ['mutation-1', 'mutation-2', 'mutation-3']);
+    expect(client.payloads, [
+      {'company_name': 'دفتر نمونه'},
+      {'company_name': 'دفتر 2'},
+      {'company_name': 'دفتر 3'},
+    ]);
+    expect(local.records['office:sample']!.remoteId, 'REMOTE-1');
   });
 
   test('خطای شبکه رکورد را pending نگه می‌دارد', () async {
@@ -80,7 +123,9 @@ void main() {
     ).syncNow();
 
     expect(report.failed, 1);
-    expect(report.remaining, 0);
+    // A rejected write stays counted as unsent until the user retries or
+    // discards it, but it is never replayed automatically.
+    expect(report.remaining, 1);
     expect(local.records['mutation-1']!.status, LocalSyncStatus.syncFailed);
   });
 
@@ -124,6 +169,8 @@ class _ReplayClient implements FrappeApiClient {
   final Future<void>? gate;
   int replayCalls = 0;
   final targets = <String>[];
+  final ids = <String>[];
+  final payloads = <Map<String, dynamic>>[];
 
   @override
   Future<dynamic> replayOfflineMutation({
@@ -134,6 +181,8 @@ class _ReplayClient implements FrappeApiClient {
   }) async {
     replayCalls++;
     targets.add(target);
+    ids.add(mutationId);
+    payloads.add(Map.of(data));
     if (gate != null) await gate;
     if (error != null) throw error!;
     return {'name': 'REMOTE-1'};

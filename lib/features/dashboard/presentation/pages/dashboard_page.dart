@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -12,12 +14,17 @@ import '../../../office_setup/domain/entities/office.dart';
 import '../../../office_setup/domain/repositories/office_repository.dart';
 import '../../../office_setup/presentation/pages/office_type_page.dart';
 import '../../../office_setup/presentation/pages/offices_page.dart';
+import '../../../parties/presentation/pages/party_management_page.dart';
 import '../../../workflows/presentation/pages/workflow_list_page.dart';
 import '../../../workflows/presentation/pages/workflow_tasks_page.dart';
 import '../../../workflows/presentation/pages/generic_request_page.dart';
 import '../../../workflows/presentation/pages/document_templates_page.dart';
+import '../../data/demo/dashboard_demo_data.dart';
 import 'first_office_card.dart';
 import 'settings_dashboard_content.dart';
+import 'sync_queue_page.dart';
+import 'sync_status_indicator.dart';
+import '../../../auth/presentation/pages/login_page.dart';
 
 class DashboardLandingPage extends StatefulWidget {
   const DashboardLandingPage({this.offlinePreview = false, super.key});
@@ -31,11 +38,19 @@ class DashboardLandingPage extends StatefulWidget {
 class _DashboardLandingPageState extends State<DashboardLandingPage> {
   late Future<Office?> _office;
   late final Future<String?> _employeeCompany = _loadEmployeeCompany();
+  StreamSubscription<void>? _syncChanges;
 
   @override
   void initState() {
     super.initState();
     _office = _loadOffice();
+    _syncChanges = syncServiceOf(context)?.changes.listen((_) => _reload());
+  }
+
+  @override
+  void dispose() {
+    unawaited(_syncChanges?.cancel());
+    super.dispose();
   }
 
   /// The company of a user who is only an employee, or null for everyone else.
@@ -58,9 +73,9 @@ class _DashboardLandingPageState extends State<DashboardLandingPage> {
       .getDefaultOffice()
       .timeout(const Duration(seconds: 8));
 
-  void _reload() => setState(
-        () => _office = _loadOffice(),
-      );
+  void _reload() => setState(() {
+        _office = _loadOffice();
+      });
 
   @override
   Widget build(BuildContext context) => FutureBuilder<String?>(
@@ -136,6 +151,10 @@ class _DashboardPageState extends State<DashboardPage> {
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                     children: [
+                      if (offlinePreview) ...[
+                        const OrganizationLoginBanner(),
+                        const SizedBox(height: 10),
+                      ],
                       if (!hasOffice && !loadError)
                         FirstOfficeCard(onCreated: onOfficeCreated)
                       else if (!hasOffice)
@@ -146,20 +165,22 @@ class _DashboardPageState extends State<DashboardPage> {
                       else ...[
                         _ConnectionBanner(offline: offlinePreview),
                         const SizedBox(height: 10),
-                        const _MetricsGrid(),
+                        _MetricsGrid(demo: offlinePreview),
                         const SizedBox(height: 10),
-                        _SetupProgress(
-                          offline: offlinePreview,
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => BaseAccountingSetupPage(
-                                officeName: officeName,
-                                offlinePreview: offlinePreview,
+                        if (office?.setupComplete != true) ...[
+                          _SetupProgress(
+                            offline: offlinePreview,
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => BaseAccountingSetupPage(
+                                  officeName: officeName,
+                                  offlinePreview: offlinePreview,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 10),
+                          const SizedBox(height: 10),
+                        ],
                         _InfoCards(office: office),
                         const SizedBox(height: 14),
                         const Text('عملیات سریع',
@@ -167,6 +188,20 @@ class _DashboardPageState extends State<DashboardPage> {
                                 fontSize: 14, fontWeight: FontWeight.w900)),
                         const SizedBox(height: 8),
                         _QuickActions(
+                          onPayments: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const _UnavailablePage(
+                                title: 'دریافت و پرداخت',
+                              ),
+                            ),
+                          ),
+                          onSalesInvoice: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const _UnavailablePage(
+                                title: 'فاکتور فروش',
+                              ),
+                            ),
+                          ),
                           onAccounting: () => Navigator.of(context).push(
                             MaterialPageRoute<void>(
                               builder: (_) => AccountingHomePage(
@@ -187,6 +222,15 @@ class _DashboardPageState extends State<DashboardPage> {
                                   company: officeName ?? ''),
                             ),
                           ),
+                          onParties: offlinePreview
+                              ? () => Navigator.of(context).push(
+                                    MaterialPageRoute<void>(
+                                      builder: (_) => PartyManagementPage(
+                                        company: officeName,
+                                      ),
+                                    ),
+                                  )
+                              : null,
                         ),
                       ],
                     ],
@@ -197,7 +241,7 @@ class _DashboardPageState extends State<DashboardPage> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: selectedIndex,
         onDestinationSelected: (index) {
-          if (index == 0 || index == 3 || index == 4) {
+          if (index == 0 || index == 4) {
             setState(() => selectedIndex = index);
             return;
           }
@@ -215,6 +259,10 @@ class _DashboardPageState extends State<DashboardPage> {
           } else if (index == 2) {
             Navigator.of(context).push(MaterialPageRoute<void>(
               builder: (_) => const WorkflowTasksPage(),
+            ));
+          } else if (index == 3) {
+            Navigator.of(context).push(MaterialPageRoute<void>(
+              builder: (_) => const _UnavailablePage(title: 'گزارش‌ها'),
             ));
           } else if (index != 0) {
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -390,35 +438,90 @@ class _Header extends StatelessWidget {
   const _Header({required this.officeName});
   final String? officeName;
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-        child: Row(children: [
-          Expanded(
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                const Text('دفتر کار',
-                    style:
-                        TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
-                Text(officeName ?? 'برای شروع، اطلاعات اولیه دفتر را ثبت کنید',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        fontSize: 11, color: AsoudColors.muted)),
-              ])),
-          const SizedBox(width: 10),
-          if (officeName?.trim().isNotEmpty == true)
-            OutlinedButton.icon(
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(builder: (_) => const OfficesPage()),
-              ),
-              icon: const Icon(Icons.business_outlined, size: 17),
-              label: const Text('تغییر دفتر'),
-              style: OutlinedButton.styleFrom(
-                visualDensity: VisualDensity.compact,
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-              ),
+  Widget build(BuildContext context) {
+    final sync = syncServiceOf(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      child: Row(children: [
+        Expanded(
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('دفتر کار',
+              style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
+          Text(officeName ?? 'برای شروع، اطلاعات اولیه دفتر را ثبت کنید',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 11, color: AsoudColors.muted)),
+        ])),
+        const SizedBox(width: 10),
+        if (sync != null) ...[
+          Flexible(
+              child: SyncStatusIndicator(
+                  service: sync, onOpen: () => openSyncQueue(context, sync))),
+          const SizedBox(width: 6),
+        ],
+        if (officeName?.trim().isNotEmpty == true)
+          OutlinedButton.icon(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const OfficesPage()),
             ),
+            icon: const Icon(Icons.business_outlined, size: 17),
+            label: const Text('تغییر دفتر'),
+            style: OutlinedButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+            ),
+          ),
+      ]),
+    );
+  }
+}
+
+class OrganizationLoginBanner extends StatelessWidget {
+  const OrganizationLoginBanner({super.key});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(13),
+        decoration: BoxDecoration(
+          color: AsoudColors.primary.withValues(alpha: .07),
+          border: Border.all(
+              color: AsoudColors.primary.withValues(alpha: .4), width: 1.2),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child:
+            Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          const Row(children: [
+            AsoudIconBox(
+                icon: Icons.business_rounded,
+                color: AsoudColors.primary,
+                size: 34),
+            SizedBox(width: 10),
+            Expanded(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                  Text('نسخه نمایشی آفلاین',
+                      style:
+                          TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
+                  Text('داده‌های شما فقط روی همین گوشی است.',
+                      style: TextStyle(fontSize: 9, color: AsoudColors.muted)),
+                ])),
+          ]),
+          const SizedBox(height: 10),
+          FilledButton(
+            onPressed: () {
+              final client = context.read<FrappeApiClient>();
+              final serverUrl =
+                  client is FrappeClient ? client.serverIdentity : null;
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => LoginPage(initialServerUrl: serverUrl),
+                ),
+              );
+            },
+            child: const Text('ورود به حساب سازمانی'),
+          ),
         ]),
       );
 }
@@ -463,7 +566,8 @@ class _ConnectionBanner extends StatelessWidget {
 }
 
 class _MetricsGrid extends StatelessWidget {
-  const _MetricsGrid();
+  const _MetricsGrid({this.demo = false});
+  final bool demo;
   static const items = [
     ('دریافتی امروز', Icons.payments_outlined, AsoudColors.success),
     ('فروش امروز', Icons.bar_chart_rounded, AsoudColors.primary),
@@ -471,41 +575,48 @@ class _MetricsGrid extends StatelessWidget {
     ('اسناد باز', Icons.description_outlined, AsoudColors.warning),
   ];
   @override
-  Widget build(BuildContext context) => GridView.count(
-        crossAxisCount: 2,
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        crossAxisSpacing: 8,
-        mainAxisSpacing: 8,
-        mainAxisExtent: 126,
-        children: items
-            .map((item) => Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(11),
-                    child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(children: [
-                            Expanded(
-                                child: Text(item.$1,
-                                    style: const TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w700))),
-                            AsoudIconBox(
-                                icon: item.$2, color: item.$3, size: 30)
-                          ]),
-                          const Text('—',
-                              style: TextStyle(
-                                  fontSize: 18, fontWeight: FontWeight.w900)),
-                          const Text('پس از اتصال سرور',
-                              style: TextStyle(
-                                  fontSize: 8, color: AsoudColors.muted)),
+  Widget build(BuildContext context) {
+    final demoValues = demo
+        ? {for (final metric in demoDashboardMetrics()) metric.title: metric}
+        : const <String, DemoMetric>{};
+    return GridView.count(
+      crossAxisCount: 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisSpacing: 8,
+      mainAxisSpacing: 8,
+      mainAxisExtent: demo ? 140 : 126,
+      children: items
+          .map((item) => Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(11),
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(children: [
+                          Expanded(
+                              child: Text(item.$1,
+                                  style: const TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700))),
+                          AsoudIconBox(icon: item.$2, color: item.$3, size: 30)
                         ]),
-                  ),
-                ))
-            .toList(),
-      );
+                        Text(demoValues[item.$1]?.value ?? '—',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                                fontSize: demo ? 15 : 18,
+                                fontWeight: FontWeight.w900)),
+                        Text(demoValues[item.$1]?.hint ?? 'پس از اتصال سرور',
+                            style: const TextStyle(
+                                fontSize: 8, color: AsoudColors.muted)),
+                      ]),
+                ),
+              ))
+          .toList(),
+    );
+  }
 }
 
 class _SetupProgress extends StatelessWidget {
@@ -538,7 +649,7 @@ class _SetupProgress extends StatelessWidget {
             Expanded(
                 child: Text(
                     offline
-                        ? '۱ مورد از ۳ مورد تکمیل شده است'
+                        ? '۳ مورد از ۳ مورد تکمیل شده است (نمایشی)'
                         : 'وضعیت از سرور دریافت می‌شود',
                     style: const TextStyle(
                         fontSize: 9, color: AsoudColors.muted))),
@@ -601,9 +712,17 @@ class _InfoCard extends StatelessWidget {
 class _QuickActions extends StatelessWidget {
   const _QuickActions(
       {required this.onAccounting,
+      required this.onPayments,
+      required this.onSalesInvoice,
       required this.onPurchaseRequest,
-      required this.onDocuments});
-  final VoidCallback onAccounting, onPurchaseRequest, onDocuments;
+      required this.onDocuments,
+      this.onParties});
+  final VoidCallback onAccounting,
+      onPayments,
+      onSalesInvoice,
+      onPurchaseRequest,
+      onDocuments;
+  final VoidCallback? onParties;
   @override
   Widget build(BuildContext context) {
     final items = <(String, String, IconData, Color, VoidCallback?)>[
@@ -612,14 +731,14 @@ class _QuickActions extends StatelessWidget {
         'Payment',
         Icons.payments_outlined,
         AsoudColors.success,
-        null
+        onPayments
       ),
       (
         'فاکتور فروش',
         'Sale Invoice',
         Icons.description_outlined,
         AsoudColors.primary,
-        null
+        onSalesInvoice
       ),
       (
         'ثبت درخواست',
@@ -647,7 +766,7 @@ class _QuickActions extends StatelessWidget {
         'Customer/Supplier',
         Icons.people_outline_rounded,
         AsoudColors.cyan,
-        null
+        onParties
       ),
     ];
     return GridView.count(
@@ -688,4 +807,15 @@ class _QuickActions extends StatelessWidget {
           .toList(),
     );
   }
+}
+
+class _UnavailablePage extends StatelessWidget {
+  const _UnavailablePage({required this.title});
+  final String title;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AsoudHeader(title: title),
+        body: const Center(child: Text('به‌زودی')),
+      );
 }

@@ -21,6 +21,9 @@ jobs:
       - name: Build debug APK
         if: github.event_name == 'push'
         run: flutter build apk --debug
+      - name: Build release APK
+        if: github.event_name == 'push'
+        run: flutter build apk --release
       - name: Read application version
         if: github.event_name == 'push'
         id: version
@@ -32,5 +35,13 @@ jobs:
         with:
           name: asoud-erp-${{ steps.version.outputs.value }}-debug
           path: build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
+      - name: Upload release APK artifact
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: asoud-erp-${{ steps.version.outputs.value }}-release
+          path: build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 30

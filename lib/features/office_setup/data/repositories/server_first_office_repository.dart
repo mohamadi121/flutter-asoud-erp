@@ -6,6 +6,7 @@ import '../../../../core/offline/local_record.dart';
 import '../../../../core/offline/offline_failure.dart';
 import '../../domain/entities/office.dart';
 import '../../domain/repositories/office_repository.dart';
+import '../demo/office_demo_data.dart';
 import '../models/office_model.dart';
 
 class ServerFirstOfficeRepository
@@ -79,7 +80,12 @@ class ServerFirstOfficeRepository
 
   @override
   Future<List<Office>> listOffices() async {
-    if (isLocalPreview) return _localOffices();
+    if (isLocalPreview) {
+      final local = await _localOffices();
+      // Fresh preview: offer the demo company so every screen can be tried.
+      // Never persisted; any created office replaces it.
+      return local.isEmpty ? [demoPreviewOffice()] : local;
+    }
     try {
       final remote = await _remote.listOffices();
       for (final office in remote) {
@@ -95,15 +101,19 @@ class ServerFirstOfficeRepository
   @override
   Future<Office?> getDefaultOffice() async {
     if (isLocalPreview) {
-      return await _localDefaultOffice() ?? (await _localOffices()).firstOrNull;
+      return await _localDefaultOffice() ??
+          (await _localOffices()).firstOrNull ??
+          demoPreviewOffice();
     }
     try {
       final office =
           await _remote.getDefaultOffice().timeout(defaultOfficeTimeout);
       if (office != null) await _cacheRemote(office);
-      if (office != null) await _saveDefaultName(office.name);
-      return await _localDefaultOffice() ??
-          office ??
+      if (office != null) {
+        await _saveDefaultName(office.name, status: LocalSyncStatus.synced);
+      }
+      return office ??
+          await _localDefaultOffice() ??
           (await _localOffices()).firstOrNull;
     } catch (error) {
       if (error is! TimeoutException && !isRetryableOfflineFailure(error)) {
@@ -134,7 +144,7 @@ class ServerFirstOfficeRepository
   }
 
   Future<void> _saveDefaultName(String name,
-          {LocalSyncStatus status = LocalSyncStatus.pendingSync}) =>
+          {LocalSyncStatus status = LocalSyncStatus.synced}) =>
       _local.save(
         id: _preferenceId,
         entityType: _preferenceEntityType,
@@ -214,6 +224,10 @@ class ServerFirstOfficeRepository
         'chart_template': office.chartTemplate,
         'description': office.description,
         'modified': office.lastSyncedAt?.toIso8601String(),
+        'complete': office.setupComplete,
+        'office_saved': office.setupComplete,
+        'accounting_saved': office.setupComplete,
+        'roles_saved': office.setupComplete,
       };
 }
 

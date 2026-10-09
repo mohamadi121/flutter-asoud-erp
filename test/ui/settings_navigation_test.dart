@@ -59,12 +59,9 @@ void main() {
       await tester.tap(find.text('گزارش‌ها'));
       await tester.pumpAndSettle();
       expect(find.byType(SettingsDashboardContent), findsNothing);
-      expect(find.text('دفتر کار'), findsOneWidget);
-      expect(
-          tester
-              .widget<NavigationBar>(find.byType(NavigationBar))
-              .selectedIndex,
-          3);
+      expect(find.text('گزارش‌ها'), findsOneWidget);
+      expect(find.text('به‌زودی'), findsOneWidget);
+      expect(find.byType(NavigationBar), findsNothing);
       expect(tester.takeException(), isNull);
     });
   }
@@ -81,6 +78,28 @@ void main() {
     expect(tester.takeException(), isNull);
     await tester.tap(find.text('گزارش‌ها'));
     await tester.pumpAndSettle();
-    expect(find.byType(SettingsDashboardContent), findsNothing);
+    expect(find.byType(SettingsDashboardContent), findsOneWidget);
+  });
+
+  testWidgets('payment and sales quick actions open their destinations',
+      (tester) async {
+    await tester.pumpWidget(
+      app(const DashboardPage(officeName: 'دفتر نمونه', offlinePreview: true)),
+    );
+    await tester.pumpAndSettle();
+
+    for (final title in ['دریافت و پرداخت', 'فاکتور فروش']) {
+      await tester.dragUntilVisible(
+        find.text(title),
+        find.byType(Scrollable).first,
+        const Offset(0, -180),
+      );
+      await tester.tap(find.text(title));
+      await tester.pumpAndSettle();
+      expect(find.text(title), findsOneWidget);
+      expect(find.text('به‌زودی'), findsOneWidget);
+      tester.state<NavigatorState>(find.byType(Navigator)).pop();
+      await tester.pumpAndSettle();
+    }
   });
 }

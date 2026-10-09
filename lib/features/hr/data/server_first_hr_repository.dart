@@ -260,5 +260,6 @@ class ServerFirstHrRepository implements HrRepository {
         'today_report': value.todayReportStatus == null
             ? null
             : {'status': value.todayReportStatus},
+        'manager_access': value.managerAccess,
       };
 }

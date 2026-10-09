@@ -170,4 +170,22 @@ void main() {
 
     expect(find.text('اطلاعات پایه فرایند را وارد کنید'), findsOneWidget);
   });
+
+  testWidgets('bottom reports destination opens a page instead of a snackbar',
+      (tester) async {
+    await tester.pumpWidget(
+      RepositoryProvider<WorkflowRepository>.value(
+        value: _WorkflowRepository(),
+        child: const MaterialApp(home: WorkflowListPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('گزارش‌ها'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('گزارش‌ها'), findsOneWidget);
+    expect(find.text('به‌زودی'), findsOneWidget);
+    expect(find.byType(SnackBar), findsNothing);
+  });
 }

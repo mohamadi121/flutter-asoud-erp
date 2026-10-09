@@ -26,6 +26,8 @@ class WorkflowDefinition extends Equatable {
     this.category,
     this.showInList = true,
     this.userSubmittable = true,
+    this.isSystemTemplate = false,
+    this.templateKey,
   });
 
   final String id, code, title, targetDoctype;
@@ -36,7 +38,8 @@ class WorkflowDefinition extends Equatable {
   final String? company, description, moduleKey, creationMode;
   final String? frappeWorkflow, pendingReason, iconKey, colorHex;
   final String? shortTitle, category;
-  final bool showInList, userSubmittable;
+  final String? templateKey;
+  final bool showInList, userSubmittable, isSystemTemplate;
   final List<String> missingRequirements;
 
   @override
@@ -63,6 +66,8 @@ class WorkflowDefinition extends Equatable {
         category,
         showInList,
         userSubmittable,
+        isSystemTemplate,
+        templateKey,
       ];
 }
 
@@ -270,6 +275,73 @@ class WorkflowFieldOption extends Equatable {
   List<Object> get props => [name, label, type, source];
 }
 
+/// `visible_when` of a form field: shown only while the controlling field's
+/// value equals [equals] or is one of [inList].
+class VisibleWhen extends Equatable {
+  const VisibleWhen({required this.field, this.equals, this.inList = const []});
+
+  factory VisibleWhen.fromMap(Map<dynamic, dynamic> map) => VisibleWhen(
+        field: map['field']?.toString() ?? '',
+        equals: map['equals'],
+        inList: map['in'] is List
+            ? List<Object?>.unmodifiable(map['in'] as List)
+            : const [],
+      );
+
+  final String field;
+  final Object? equals;
+  final List<Object?> inList;
+
+  bool get usesList => inList.isNotEmpty;
+
+  /// Whether [value] (the controlling field's current value) shows the field.
+  bool matches(Object? value) =>
+      usesList ? inList.any((item) => item == value) : equals == value;
+
+  Map<String, dynamic> toMap() => {
+        'field': field,
+        if (usesList) 'in': inList else 'equals': equals,
+      };
+
+  @override
+  List<Object?> get props => [field, equals, inList];
+}
+
+/// `row_options` of an «Item Table» field.
+class RowOptions extends Equatable {
+  const RowOptions({
+    this.itemScope = 'all',
+    this.note = false,
+    this.attachment = false,
+    this.minRows,
+    this.maxRows,
+  });
+
+  factory RowOptions.fromMap(Map<dynamic, dynamic> map) => RowOptions(
+        itemScope: map['item_scope']?.toString() ?? 'all',
+        note: map['note'] == true || map['note'] == 1,
+        attachment: map['attachment'] == true || map['attachment'] == 1,
+        minRows: (map['min_rows'] as num?)?.toInt(),
+        maxRows: (map['max_rows'] as num?)?.toInt(),
+      );
+
+  /// `purchase` limits the picker to purchase items; `all` allows any item.
+  final String itemScope;
+  final bool note, attachment;
+  final int? minRows, maxRows;
+
+  Map<String, dynamic> toMap() => {
+        'item_scope': itemScope,
+        'note': note,
+        'attachment': attachment,
+        if (minRows != null) 'min_rows': minRows,
+        if (maxRows != null) 'max_rows': maxRows,
+      };
+
+  @override
+  List<Object?> get props => [itemScope, note, attachment, minRows, maxRows];
+}
+
 class WorkflowFormFieldDefinition extends Equatable {
   const WorkflowFormFieldDefinition({
     required this.key,
@@ -281,6 +353,18 @@ class WorkflowFormFieldDefinition extends Equatable {
     this.helpText = '',
     this.showInList = false,
     this.columns = const [],
+    this.source,
+    this.auto,
+    this.visibleWhen,
+    this.optionLabels = const {},
+    this.widget,
+    this.defaultLabel,
+    this.editable = true,
+    this.minDate,
+    this.maxLength,
+    this.rowOptions,
+    this.defaultSource,
+    this.requiredBySetting,
   });
 
   factory WorkflowFormFieldDefinition.fromMap(Map<dynamic, dynamic> map) =>
@@ -303,7 +387,33 @@ class WorkflowFormFieldDefinition extends Equatable {
                 .map(WorkflowFormFieldDefinition.fromMap)
                 .toList(growable: false)
             : const [],
+        source: _text(map['source']),
+        auto: _text(map['auto']),
+        visibleWhen: map['visible_when'] is Map
+            ? VisibleWhen.fromMap(map['visible_when'] as Map)
+            : null,
+        optionLabels: map['option_labels'] is Map
+            ? Map<String, String>.unmodifiable({
+                for (final entry in (map['option_labels'] as Map).entries)
+                  entry.key.toString(): entry.value.toString()
+              })
+            : const {},
+        widget: _text(map['widget']),
+        defaultLabel: _text(map['default_label']),
+        editable: !(map['editable'] == false || map['editable'] == 0),
+        minDate: _text(map['min_date']),
+        maxLength: (map['max_length'] as num?)?.toInt(),
+        rowOptions: map['row_options'] is Map
+            ? RowOptions.fromMap(map['row_options'] as Map)
+            : null,
+        defaultSource: _text(map['default_source']),
+        requiredBySetting: _text(map['required_by_setting']),
       );
+
+  static String? _text(Object? value) {
+    final text = value?.toString() ?? '';
+    return text.isEmpty ? null : text;
+  }
 
   final String key, label, type;
   final bool required;
@@ -311,6 +421,36 @@ class WorkflowFormFieldDefinition extends Equatable {
   final String defaultValue, helpText;
   final bool showInList;
   final List<WorkflowFormFieldDefinition> columns;
+
+  /// `System Select` source (`cost_center`, `project`, `leave_type`, ...).
+  final String? source;
+
+  /// `Auto` kind (`request_number`, `request_date`, `leave_duration`).
+  final String? auto;
+  final VisibleWhen? visibleWhen;
+
+  /// `Choice`: stored value to Persian label.
+  final Map<String, String> optionLabels;
+
+  /// `segmented`, `chips`, `dropdown` or `textarea`.
+  final String? widget;
+
+  /// Label of [defaultValue], resolved by the server (`default_label`).
+  final String? defaultLabel;
+  final bool editable;
+
+  /// Only `today`: the date may not be earlier.
+  final String? minDate;
+  final int? maxLength;
+  final RowOptions? rowOptions;
+
+  /// Server-side `default_source`; replaced by [defaultValue] in
+  /// `request_options` responses, kept so definitions round-trip.
+  final String? defaultSource;
+  final String? requiredBySetting;
+
+  /// Persian label of a `Choice` value, falling back to the value itself.
+  String optionLabel(String value) => optionLabels[value] ?? value;
 
   Map<String, dynamic> toMap() => {
         'key': key,
@@ -323,6 +463,18 @@ class WorkflowFormFieldDefinition extends Equatable {
         if (showInList) 'show_in_list': true,
         if (type == 'Table')
           'columns': columns.map((column) => column.toMap()).toList(),
+        if (source != null) 'source': source,
+        if (auto != null) 'auto': auto,
+        if (visibleWhen != null) 'visible_when': visibleWhen!.toMap(),
+        if (optionLabels.isNotEmpty) 'option_labels': optionLabels,
+        if (widget != null) 'widget': widget,
+        if (defaultLabel != null) 'default_label': defaultLabel,
+        if (!editable) 'editable': false,
+        if (minDate != null) 'min_date': minDate,
+        if (maxLength != null) 'max_length': maxLength,
+        if (rowOptions != null) 'row_options': rowOptions!.toMap(),
+        if (defaultSource != null) 'default_source': defaultSource,
+        if (requiredBySetting != null) 'required_by_setting': requiredBySetting,
       };
 
   WorkflowFormFieldDefinition copyWith({
@@ -346,10 +498,22 @@ class WorkflowFormFieldDefinition extends Equatable {
         helpText: helpText ?? this.helpText,
         showInList: showInList ?? this.showInList,
         columns: columns ?? this.columns,
+        source: source,
+        auto: auto,
+        visibleWhen: visibleWhen,
+        optionLabels: optionLabels,
+        widget: widget,
+        defaultLabel: defaultLabel,
+        editable: editable,
+        minDate: minDate,
+        maxLength: maxLength,
+        rowOptions: rowOptions,
+        defaultSource: defaultSource,
+        requiredBySetting: requiredBySetting,
       );
 
   @override
-  List<Object> get props => [
+  List<Object?> get props => [
         key,
         label,
         type,
@@ -359,5 +523,17 @@ class WorkflowFormFieldDefinition extends Equatable {
         helpText,
         showInList,
         columns,
+        source,
+        auto,
+        visibleWhen,
+        optionLabels,
+        widget,
+        defaultLabel,
+        editable,
+        minDate,
+        maxLength,
+        rowOptions,
+        defaultSource,
+        requiredBySetting,
       ];
 }

@@ -15,13 +15,16 @@ part 'organization_chart_view.dart';
 part 'organization_position_form.dart';
 
 class OrganizationPage extends StatelessWidget {
-  const OrganizationPage({required this.company, super.key});
+  const OrganizationPage({required this.company, this.repository, super.key});
   final String company;
+  final OrganizationRepository? repository;
 
   @override
   Widget build(BuildContext context) => BlocProvider(
         create: (_) => OrganizationCubit(
-            OrganizationRepository(context.read<FrappeApiClient>()), company)
+            repository ??
+                OrganizationRepository(context.read<FrappeApiClient>()),
+            company)
           ..load(),
         child: const Directionality(
             textDirection: TextDirection.rtl,

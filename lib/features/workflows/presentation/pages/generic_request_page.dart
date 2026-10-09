@@ -1,21 +1,23 @@
-import 'dart:convert';
-import 'dart:async';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../../../core/network/api_exception.dart';
 import '../../../../core/network/frappe_client.dart';
+import '../../../../core/offline/queued_offline_exception.dart';
 import '../../../../core/theme/asoud_colors.dart';
-import '../../../../core/utils/jalali_date.dart';
 import '../../../../core/widgets/asoud_form.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../data/generic_request_repository.dart';
 import '../../../request_types/domain/request_type_catalog.dart';
 import '../../domain/entities/workflow_definition.dart';
-import '../widgets/request_link_fields.dart';
-import '../widgets/request_custom_table.dart';
+import '../request_screen_registry.dart';
+import '../widgets/request_status.dart';
+import '../widgets/request_attachments.dart';
+import '../widgets/request_field_widgets.dart';
+import '../widgets/request_form_controller.dart';
+import '../widgets/request_list_view.dart';
 import 'request_flow_pages.dart';
 
+/// «درخواست‌های من»: every request of the signed-in user, with a filter for
+/// the system templates. Built on [RequestListView].
 class GenericRequestsPage extends StatefulWidget {
   const GenericRequestsPage(
       {required this.company, this.repository, super.key});
@@ -28,125 +30,67 @@ class GenericRequestsPage extends StatefulWidget {
 class _GenericRequestsPageState extends State<GenericRequestsPage> {
   late final repository = widget.repository ??
       GenericRequestRepository(context.read<FrappeApiClient>(), widget.company);
-  late Future<List<Map<String, dynamic>>> future = repository.list();
-  Timer? _retryTimer;
-  bool _retrying = false;
-  @override
-  void initState() {
-    super.initState();
-    _retryTimer = Timer.periodic(const Duration(seconds: 20), (_) async {
-      if (_retrying || !mounted) return;
-      _retrying = true;
-      try {
-        if ((await repository.pending()).isNotEmpty) await reload();
-      } catch (_) {
-        // Keep durable pending requests; the next interval or manual refresh retries.
-      } finally {
-        _retrying = false;
-      }
-    });
-  }
+  final listKey = GlobalKey<RequestListViewState>();
+  late final Future<List<Map<String, dynamic>>> types = _types();
+  String? templateKey;
 
-  @override
-  void dispose() {
-    _retryTimer?.cancel();
-    if (widget.repository == null) repository.dispose();
-    super.dispose();
-  }
-
-  Future<void> reload({bool retry = false}) async {
-    if (retry) await repository.sync(retry: true);
-    if (mounted) {
-      setState(() {
-        future = repository.list();
-      });
+  Future<List<Map<String, dynamic>>> _types() async {
+    try {
+      return [
+        for (final row in await repository.options())
+          if ('${row['template_key'] ?? ''}'.isNotEmpty) row
+      ];
+    } catch (_) {
+      return const [];
     }
   }
 
   @override
-  Widget build(BuildContext context) => Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        appBar: const AsoudHeader(
-            title: 'درخواست‌های من', subtitle: 'ثبت و پیگیری درخواست‌ها'),
-        body: FutureBuilder<List<Map<String, dynamic>>>(
-            future: future,
-            builder: (context, snapshot) {
-              if (snapshot.hasError) {
-                return Center(
-                    child: TextButton(
-                        onPressed: reload,
-                        child: const Text('دریافت ناموفق؛ تلاش دوباره')));
-              }
-              if (!snapshot.hasData) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              return RefreshIndicator(
-                  onRefresh: reload,
-                  child: ListView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.all(16),
-                      children: [
-                        if (snapshot.data!
-                            .any((row) => row['pending_sync'] == true))
-                          TextButton(
-                              onPressed: () async {
-                                try {
-                                  await reload(retry: true);
-                                } catch (_) {
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(
-                                            content: Text(
-                                                'اتصال برقرار نشد؛ داده‌ها محفوظ‌اند.')));
-                                  }
-                                }
-                              },
-                              child: const Text('تلاش مجدد برای همگام‌سازی')),
-                        for (final row in snapshot.data!)
-                          Card(
-                              margin: const EdgeInsets.only(bottom: 8),
-                              child: ListTile(
-                                  title: Text('${row['subject']}',
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.w800)),
-                                  subtitle: Text([
-                                    '${row['request_type'] ?? ''}',
-                                    if ('${row['creation'] ?? ''}'.isNotEmpty)
-                                      formatJalaliIso('${row['creation']}'),
-                                  ]
-                                      .where((part) => part.isNotEmpty)
-                                      .join(' · ')),
-                                  trailing: RequestStatusChip(row),
-                                  onTap: () async {
-                                    await Navigator.push(
-                                        context,
-                                        MaterialPageRoute<void>(
-                                            builder: (_) => RequestDetailPage(
-                                                name: '${row['name']}',
-                                                repository: repository)));
-                                    await reload();
-                                  })),
-                        if (snapshot.data!.isEmpty)
-                          const Padding(
-                              padding: EdgeInsets.all(24),
-                              child: Text('هنوز درخواستی ثبت نشده است.')),
-                      ]));
-            }),
-        floatingActionButton: FloatingActionButton.extended(
-            icon: const Icon(Icons.add),
-            label: const Text('درخواست جدید'),
-            onPressed: () async {
-              final type = await pickRequestType(context, repository);
-              if (type == null || !context.mounted) return;
-              final saved = await Navigator.push<bool>(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => GenericRequestPage(
-                          repository: repository, definition: type)));
-              if (saved == true && mounted) await reload();
-            }),
-      ));
+  void dispose() {
+    if (widget.repository == null) repository.dispose();
+    super.dispose();
+  }
+
+  Future<void> _create() async {
+    final type = await pickRequestType(context, repository);
+    if (type == null || !mounted) return;
+    final saved =
+        await RequestScreenRegistry.openForm(context, repository, type);
+    if (saved == true) await listKey.currentState?.reload();
+  }
+
+  Widget _templateFilter() => FutureBuilder<List<Map<String, dynamic>>>(
+        future: types,
+        builder: (context, snapshot) {
+          final rows = snapshot.data ?? const [];
+          if (rows.isEmpty) return const SizedBox.shrink();
+          return Wrap(spacing: 6, runSpacing: 6, children: [
+            ChoiceChip(
+                label: const Text('همه انواع'),
+                selected: templateKey == null,
+                onSelected: (_) => setState(() => templateKey = null)),
+            for (final row in rows)
+              ChoiceChip(
+                  label: Text(
+                      '${row['workflow_title'] ?? row['short_title'] ?? ''}'),
+                  selected: templateKey == row['template_key'],
+                  onSelected: (_) =>
+                      setState(() => templateKey = '${row['template_key']}')),
+          ]);
+        },
+      );
+
+  @override
+  Widget build(BuildContext context) => RequestListView(
+        key: listKey,
+        repository: repository,
+        templateKey: templateKey,
+        title: 'درخواست‌های من',
+        subtitle: 'ثبت و پیگیری درخواست‌ها',
+        header: _templateFilter(),
+        createLabel: 'درخواست جدید',
+        onCreate: _create,
+      );
 }
 
 class GenericRequestPage extends StatefulWidget {
@@ -170,83 +114,83 @@ class _GenericRequestPageState extends State<GenericRequestPage> {
       department = TextEditingController(),
       requiredBy = TextEditingController(),
       priority = TextEditingController(text: 'Normal');
-  final definition = TextEditingController();
-  final fields = <String, TextEditingController>{};
-  final values = <String, dynamic>{};
-  final attachments = <Map<String, String>>[];
   late Future<List<Map<String, dynamic>>> options = widget.repository.options();
   Map<String, dynamic>? selected;
+  RequestFormController? form;
   String? error;
   bool saving = false;
   final requestId = GenericRequestRepository.requestId();
   bool get editing => widget.existing != null;
 
+  /// A system template shown by the generic form: the server derives its
+  /// priority, project and department.
+  bool get isTemplate => '${selected?['template_key'] ?? ''}'.isNotEmpty;
+
   @override
   void initState() {
     super.initState();
+    final existing = widget.existing;
+    if (existing != null) subject.text = '${existing['subject'] ?? ''}';
     final definition = widget.definition;
     if (definition != null) select(definition);
-    final existing = widget.existing;
-    if (existing != null) {
-      subject.text = '${existing['subject'] ?? ''}';
-      values
-        ..clear()
-        ..addAll(Map<String, dynamic>.from(existing['values'] as Map? ?? {}));
-    }
   }
 
-  /// Switches to a request type and applies its field defaults.
+  /// Switches to a request type: a new form controller with its defaults.
   void select(Map<String, dynamic> row) {
     selected = row;
-    for (final controller in fields.values) {
-      controller.clear();
-    }
-    values.clear();
-    for (final field in row['fields'] as List? ?? const []) {
-      // Defaults set in the request type builder.
-      final initial = '${field['default_value'] ?? ''}';
-      if (initial.isEmpty) continue;
-      if (field['type'] == 'Multi Choice') {
-        values[field['key']] = [initial];
-      } else if (field['type'] == 'Checkbox') {
-        values[field['key']] = initial == 'true' || initial == '1';
-      } else {
-        values[field['key']] = initial;
-        fields[field['key']]?.text = initial;
-      }
-    }
+    form?.dispose();
+    form = RequestFormController.fromType(row,
+        existing: editing ? widget.existing : null,
+        loadOptions: RequestFormController.loaderFor(widget.repository),
+        subject: subject);
   }
 
   @override
   void dispose() {
-    for (final c in [
-      subject,
-      project,
-      department,
-      requiredBy,
-      priority,
-      definition,
-      ...fields.values
-    ]) {
+    form?.dispose();
+    for (final c in [subject, project, department, requiredBy, priority]) {
       c.dispose();
     }
     super.dispose();
   }
 
+  bool _valid() {
+    // Both run so that every error is shown.
+    final fields = formKey.currentState!.validate();
+    final values = form!.validate();
+    return fields && values;
+  }
+
   Future<void> save() async {
-    if (saving || !formKey.currentState!.validate()) return;
+    if (saving || form == null || !_valid()) return;
     setState(() {
       saving = true;
       error = null;
     });
     try {
-      await widget.repository
-          .update('${widget.existing!['name']}', subject.text.trim(), values);
+      final name = '${widget.existing!['name']}';
+      final uploads = form!.attachmentUploads();
+      final removed = form!.removedAttachmentNames;
+      final values = form!.payloadValues();
+      final text = form!.subjectMode == 'input' ? subject.text.trim() : '';
+      if (uploads.isEmpty && removed.isEmpty) {
+        await widget.repository.update(name, text, values);
+      } else {
+        await widget.repository.update(name, text, values,
+            attachments: uploads, removeAttachments: removed);
+      }
       if (mounted) Navigator.pop(context, true);
+    } on QueuedOfflineException catch (e) {
+      // Safe on the device; the queue sends it when the connection returns.
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+        Navigator.pop(context, true);
+      }
     } catch (e) {
       if (mounted) {
-        setState(() =>
-            error = e is ApiException ? e.message : 'ذخیره تغییرات انجام نشد.');
+        setState(
+            () => error = requestErrorMessage(e, 'ذخیره تغییرات انجام نشد.'));
       }
     } finally {
       if (mounted) setState(() => saving = false);
@@ -255,23 +199,29 @@ class _GenericRequestPageState extends State<GenericRequestPage> {
 
   Future<void> submit() async {
     if (editing) return save();
-    if (saving || !formKey.currentState!.validate() || selected == null) return;
+    if (saving || selected == null || form == null || !_valid()) return;
+    final uploads = form!.attachmentUploads();
+    final templateKey = '${selected!['template_key'] ?? ''}';
     final payload = <String, dynamic>{
       'workflow_definition': selected!['name'],
-      'subject': subject.text.trim(),
-      'priority': priority.text,
-      'project': project.text.trim(),
-      'department': department.text.trim(),
-      if (requiredBy.text.isNotEmpty) 'required_by': requiredBy.text,
-      'values': values,
-      'attachments': attachments,
+      if (templateKey.isNotEmpty) 'template_key': templateKey,
+      'subject': form!.subjectMode == 'input' ? subject.text.trim() : '',
+      // A system template derives these from its values on the server.
+      if (!isTemplate) ...{
+        'priority': priority.text,
+        'project': project.text.trim(),
+        'department': department.text.trim(),
+        if (requiredBy.text.isNotEmpty) 'required_by': requiredBy.text,
+      },
+      'values': form!.payloadValues(),
+      'attachments': uploads,
     };
     final confirmed = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
                 title: const Text('بررسی درخواست'),
                 content: Text(
-                    '${subject.text}\n${selected!['workflow_title']}\nتعداد پیوست: ${attachments.length}'),
+                    '${subject.text}\n${selected!['workflow_title']}\nتعداد پیوست: ${uploads.length}'),
                 actions: [
                   TextButton(
                       onPressed: () => Navigator.pop(ctx, false),
@@ -311,208 +261,11 @@ class _GenericRequestPageState extends State<GenericRequestPage> {
     }
   }
 
-  Future<void> pickFiles() async {
-    try {
-      final result = await FilePicker.platform.pickFiles(
-          allowMultiple: true,
-          withData: true,
-          type: FileType.custom,
-          allowedExtensions: ['pdf', 'png', 'jpg', 'jpeg', 'xlsx', 'docx']);
-      if (result == null || !mounted) return;
-      final total = attachments.fold<int>(
-              0,
-              (sum, file) =>
-                  sum + base64Decode(file['content_base64']!).length) +
-          result.files.fold<int>(0, (sum, file) => sum + file.size);
-      if (attachments.length + result.files.length > 10 ||
-          total > 25 * 1024 * 1024 ||
-          result.files.any(
-              (file) => file.bytes == null || file.size > 10 * 1024 * 1024)) {
-        throw const FormatException();
-      }
-      if (result.files.any(
-          (file) => attachments.any((old) => old['filename'] == file.name))) {
-        throw const FormatException();
-      }
-      setState(() {
-        for (final file in result.files) {
-          attachments.add({
-            'filename': file.name,
-            'content_base64': base64Encode(file.bytes!)
-          });
-        }
-      });
-    } catch (_) {
-      if (mounted) {
-        setState(() => error =
-            'حداکثر ۱۰ فایل با نام متفاوت، هر فایل تا ۱۰ و مجموع تا ۲۵ مگابایت انتخاب کنید.');
-      }
-    }
-  }
-
-  Widget dynamicField(Map raw) {
-    final field = WorkflowFormFieldDefinition.fromMap(raw);
-    final controller = fields.putIfAbsent(field.key, () {
-      final initial = values[field.key];
-      final c = TextEditingController(text: initial is String ? initial : '');
-      c.addListener(() => values[field.key] = c.text);
-      return c;
-    });
-    String? validate(String? value) =>
-        field.required && (value == null || value.trim().isEmpty)
-            ? 'این فیلد الزامی است.'
-            : null;
-    if (field.type == 'Checkbox') {
-      return RequestBooleanField(
-          key: ValueKey('${selected!['name']}:${field.key}'),
-          label: field.label,
-          required: field.required,
-          enabled: !saving,
-          initialValue:
-              values[field.key] is bool ? values[field.key] as bool : null,
-          onChanged: (value) => values[field.key] = value);
-    }
-    if (field.type == 'Choice' || field.type == 'Attachment') {
-      final choices = (field.type == 'Choice'
-              ? field.options
-              : [
-                  for (final file in attachments)
-                    'attachment:${file['filename']}',
-                  if (editing)
-                    for (final file
-                        in (widget.existing!['attachments'] as List? ?? [])
-                            .whereType<Map>())
-                      if (file['file_url'] is String)
-                        file['file_url'] as String,
-                ])
-          .toSet()
-          .toList();
-      return DropdownButtonFormField<String>(
-          key: ValueKey(
-              '${selected!['name']}:${field.key}:${choices.join('|')}'),
-          initialValue: choices.contains(values[field.key])
-              ? values[field.key] as String
-              : null,
-          isExpanded: true,
-          decoration: InputDecoration(labelText: field.label),
-          validator: validate,
-          items: [
-            for (final option in choices)
-              DropdownMenuItem(
-                  value: option,
-                  child: Text(option.replaceFirst('attachment:', ''),
-                      overflow: TextOverflow.ellipsis))
-          ],
-          onChanged: saving
-              ? null
-              : (value) => setState(() => values[field.key] = value));
-    }
-    final key = ValueKey('${selected!['name']}:${field.key}');
-    if (field.type == 'Multi Choice') {
-      return RequestMultiChoiceField(
-          key: key,
-          label: field.label,
-          options: field.options,
-          required: field.required,
-          enabled: !saving,
-          initialValue: (values[field.key] as List?)?.cast<String>(),
-          onChanged: (value) => values[field.key] = value);
-    }
-    if (field.type == 'User' || field.type == 'Department') {
-      return RequestLinkField(
-          key: key,
-          label: field.label,
-          required: field.required,
-          enabled: !saving,
-          loader: (txt) => widget.repository.fieldOptions(field.type, txt: txt),
-          initialValue: values[field.key] as String?,
-          onChanged: (value) => values[field.key] = value);
-    }
-    if (field.type == 'Table') {
-      return RequestCustomTable(
-          key: key,
-          field: field,
-          enabled: !saving,
-          initialValue: (values[field.key] as List?)
-                  ?.whereType<Map>()
-                  .map((row) => Map<String, dynamic>.from(row))
-                  .toList() ??
-              const [],
-          attachments: [
-            for (final file in attachments) 'attachment:${file['filename']}',
-            if (editing)
-              for (final file
-                  in (widget.existing!['attachments'] as List? ?? const [])
-                      .whereType<Map>())
-                if (file['file_url'] is String) file['file_url'] as String,
-          ],
-          onChanged: (rows) => values[field.key] = rows);
-    }
-    if (field.type == 'Item Table') {
-      return RequestItemTableField(
-          key: key,
-          label: field.label,
-          required: field.required,
-          enabled: !saving,
-          items: (txt) => widget.repository.fieldOptions('Item', txt: txt),
-          initialValue: (values[field.key] as List?)
-                  ?.whereType<Map>()
-                  .map((row) => Map<String, dynamic>.from(row))
-                  .toList() ??
-              const [],
-          uoms: (itemCode) =>
-              widget.repository.fieldOptions('UOM', itemCode: itemCode),
-          onChanged: (rows) => values[field.key] = rows);
-    }
-    if (field.type == 'Date') {
-      return AsoudFormDateField(
-          controller: controller,
-          label: field.label,
-          required: field.required,
-          enabled: !saving);
-    }
-    return TextFormField(
-        key: ValueKey('${selected!['name']}:${field.key}'),
-        controller: controller,
-        enabled: !saving,
-        maxLines: field.type == 'Long Text' ? 4 : 1,
-        decoration: InputDecoration(labelText: field.label),
-        keyboardType: ['Number', 'Currency'].contains(field.type)
-            ? TextInputType.number
-            : null,
-        onChanged: (value) => values[field.key] = value,
-        validator: (value) {
-          final missing = validate(value);
-          if (missing != null) return missing;
-          if (['Number', 'Currency'].contains(field.type) &&
-              (value ?? '').isNotEmpty) {
-            final number = num.tryParse(value!);
-            if (number == null || !number.isFinite) {
-              return 'عدد معتبر وارد کنید.';
-            }
-          }
-          return null;
-        });
-  }
-
-  List<Map> get _fieldDefs =>
-      [for (final raw in selected?['fields'] as List? ?? const []) raw as Map];
+  List<WorkflowFormFieldDefinition> get _fields => form?.fields ?? const [];
 
   /// A section card; item tables carry their own title, so [title] may be empty.
-  Widget _card(String title, List<Widget> children) => Card(
-        margin: AsoudFormStyle.sectionMargin,
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child:
-              Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            if (title.isNotEmpty) ...[
-              Text(title, style: AsoudFormStyle.sectionTitle),
-              const SizedBox(height: 12),
-            ],
-            ...children,
-          ]),
-        ),
-      );
+  Widget _card(String title, List<Widget> children) =>
+      RequestFormCard(title: title, children: children);
 
   Widget _banner(Map<String, dynamic> type) {
     final icon = requestIconFor('${type['icon_key']}');
@@ -542,33 +295,6 @@ class _GenericRequestPageState extends State<GenericRequestPage> {
     );
   }
 
-  Widget _dropzone() => InkWell(
-        onTap: saving ? null : pickFiles,
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-              color: AsoudColors.primary.withValues(alpha: .04),
-              border:
-                  Border.all(color: AsoudColors.primary.withValues(alpha: .35)),
-              borderRadius: BorderRadius.circular(14)),
-          child: const Column(children: [
-            AsoudIconBox(
-                icon: Icons.attach_file_rounded,
-                color: AsoudColors.primary,
-                size: 44),
-            SizedBox(height: 8),
-            Text('فایل یا فایل‌ها را انتخاب کنید',
-                style: TextStyle(fontWeight: FontWeight.w800)),
-            SizedBox(height: 4),
-            Text('فرمت‌های مجاز: PDF، JPG، PNG، XLSX، DOCX',
-                style: TextStyle(fontSize: 11, color: AsoudColors.muted)),
-            Text('حداکثر حجم هر فایل: ۱۰ مگابایت',
-                style: TextStyle(fontSize: 11, color: AsoudColors.muted)),
-          ]),
-        ),
-      );
-
   @override
   Widget build(BuildContext context) => FutureBuilder<
           List<Map<String, dynamic>>>(
@@ -576,7 +302,8 @@ class _GenericRequestPageState extends State<GenericRequestPage> {
       builder: (context, snapshot) {
         final type = selected;
         final chooseType = widget.definition == null;
-        final all = _fieldDefs;
+        final all = _fields;
+        final controller = form;
         return AsoudFormPage(
           title:
               type == null ? 'ثبت درخواست جدید' : '${type['workflow_title']}',
@@ -623,91 +350,86 @@ class _GenericRequestPageState extends State<GenericRequestPage> {
                       'گردش‌کار عمومی آماده‌ای برای این دفتر تعریف نشده است.'),
                 const SizedBox(height: 12),
               ],
-              AsoudFormField(
-                  controller: subject,
-                  label: 'عنوان درخواست *',
-                  enabled: !saving,
-                  validator: (value) => (value?.trim().length ?? 0) < 3 ||
-                          (value?.length ?? 0) > 140
-                      ? 'عنوان ۳ تا ۱۴۰ نویسه باشد.'
-                      : null),
-              for (final raw in all)
-                if (raw['type'] != 'Item Table' && raw['type'] != 'Attachment')
-                  Padding(
-                      padding: const EdgeInsets.only(top: 12),
-                      child: dynamicField(raw)),
+              if (controller == null || controller.subjectMode == 'input')
+                AsoudFormField(
+                    controller: subject,
+                    label: 'عنوان درخواست *',
+                    enabled: !saving,
+                    validator: (value) => (value?.trim().length ?? 0) < 3 ||
+                            (value?.length ?? 0) > 140
+                        ? 'عنوان ۳ تا ۱۴۰ نویسه باشد.'
+                        : null),
+              if (controller != null)
+                for (final field in all)
+                  if (field.type != 'Item Table' && field.type != 'Attachment')
+                    RequestFieldWidget(
+                        controller: controller, field: field, enabled: !saving),
             ]),
-            for (final raw in all)
-              if (raw['type'] == 'Item Table') _card('', [dynamicField(raw)]),
-            if (!editing)
+            if (controller != null)
+              for (final field in all)
+                if (field.type == 'Item Table')
+                  _card('', [
+                    RequestFieldWidget(
+                        controller: controller, field: field, enabled: !saving)
+                  ]),
+            if (controller != null && !editing)
               _card('پیوست‌ها', [
-                _dropzone(),
-                for (final file in attachments)
-                  ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.insert_drive_file_outlined,
-                          color: AsoudColors.warning),
-                      title: Text(file['filename']!,
-                          style: const TextStyle(fontSize: 12)),
-                      subtitle: Text(
-                          '${toPersianDigits((base64Decode(file['content_base64']!).length / 1024).ceil())} کیلوبایت',
-                          style: const TextStyle(fontSize: 10)),
-                      trailing: IconButton(
-                          tooltip: 'حذف فایل',
-                          icon: const Icon(Icons.close),
-                          onPressed: saving
-                              ? null
-                              : () => setState(() {
-                                    values.removeWhere((key, value) =>
-                                        value ==
-                                        'attachment:${file['filename']}');
-                                    attachments.remove(file);
-                                  }))),
-                for (final raw in all)
-                  if (raw['type'] == 'Attachment')
+                RequestAttachmentsPicker(
+                    controller: controller,
+                    enabled: !saving,
+                    onMessage: (text) => setState(() => error = text)),
+                for (final field in all)
+                  if (field.type == 'Attachment')
                     Padding(
                         padding: const EdgeInsets.only(top: 12),
-                        child: dynamicField(raw)),
+                        child: RequestFieldWidget(
+                            controller: controller,
+                            field: field,
+                            enabled: !saving)),
               ]),
-            if (editing)
-              for (final raw in all)
-                if (raw['type'] == 'Attachment')
-                  _card('فایل پیوست', [dynamicField(raw)]),
-            Card(
-              margin: AsoudFormStyle.sectionMargin,
-              child: ExpansionTile(
-                initiallyExpanded: false,
-                maintainState: true,
-                tilePadding: const EdgeInsets.symmetric(horizontal: 12),
-                childrenPadding: AsoudFormStyle.sectionPadding,
-                title: const Text('اطلاعات تکمیلی (اختیاری)',
-                    style: AsoudFormStyle.sectionTitle),
-                children: [
-                  AsoudFormDropdown(
-                      controller: priority,
-                      label: 'اولویت',
-                      enabled: !saving && !editing,
-                      options: const {
-                        'Low': 'پایین',
-                        'Normal': 'متوسط',
-                        'High': 'بالا',
-                        'Urgent': 'فوری'
-                      }),
-                  AsoudFormField(
-                      controller: project,
-                      label: 'شناسه پروژه',
-                      enabled: !saving && !editing),
-                  AsoudFormField(
-                      controller: department,
-                      label: 'شناسه واحد سازمانی',
-                      enabled: !saving && !editing),
-                  AsoudFormDateField(
-                      controller: requiredBy,
-                      label: 'تاریخ نیاز',
-                      enabled: !saving && !editing),
-                ],
+            if (controller != null && editing)
+              for (final field in all)
+                if (field.type == 'Attachment')
+                  _card('فایل پیوست', [
+                    RequestFieldWidget(
+                        controller: controller, field: field, enabled: !saving)
+                  ]),
+            if (!isTemplate)
+              Card(
+                margin: AsoudFormStyle.sectionMargin,
+                child: ExpansionTile(
+                  initiallyExpanded: false,
+                  maintainState: true,
+                  tilePadding: const EdgeInsets.symmetric(horizontal: 12),
+                  childrenPadding: AsoudFormStyle.sectionPadding,
+                  title: const Text('اطلاعات تکمیلی (اختیاری)',
+                      style: AsoudFormStyle.sectionTitle),
+                  children: [
+                    AsoudFormDropdown(
+                        controller: priority,
+                        label: 'اولویت',
+                        enabled: !saving && !editing,
+                        options: const {
+                          'Low': 'پایین',
+                          'Normal': 'متوسط',
+                          'High': 'بالا',
+                          'Urgent': 'فوری'
+                        }),
+                    AsoudFormField(
+                        controller: project,
+                        label: 'شناسه پروژه',
+                        enabled: !saving && !editing),
+                    AsoudFormField(
+                        controller: department,
+                        label: 'شناسه واحد سازمانی',
+                        enabled: !saving && !editing),
+                    AsoudFormDateField(
+                        controller: requiredBy,
+                        label: 'تاریخ نیاز',
+                        enabled: !saving && !editing),
+                  ],
+                ),
               ),
-            ),
           ],
         );
       });

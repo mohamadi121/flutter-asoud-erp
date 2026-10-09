@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/jalali_date.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../domain/entities/workflow_task.dart';
 import '../../domain/repositories/workflow_task_repository.dart';
@@ -325,10 +326,14 @@ class _TaskCard extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              Text(
-                '${task.dueOn!.toLocal().year}/${task.dueOn!.toLocal().month.toString().padLeft(2, '0')}/${task.dueOn!.toLocal().day.toString().padLeft(2, '0')} '
-                '${task.dueOn!.toLocal().hour.toString().padLeft(2, '0')}:${task.dueOn!.toLocal().minute.toString().padLeft(2, '0')}',
-                style: const TextStyle(fontSize: 9, color: AsoudColors.muted),
+              Flexible(
+                child: Text(
+                  formatJalaliDateTimeIso(
+                      task.dueOn!.toLocal().toIso8601String()),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 9, color: AsoudColors.muted),
+                ),
               ),
             ]),
             const SizedBox(height: 10),

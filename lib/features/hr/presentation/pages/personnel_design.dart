@@ -27,8 +27,32 @@ AppBar _personnelHeader(BuildContext context, String title, {Widget? action}) =>
     );
 
 String _valueOf(Map profile, String key, [String fallback = '—']) {
+  if (key == 'employee_code') {
+    return capEmployeeCode('${profile['employee_code'] ?? ''}');
+  }
   final value = '${profile[key] ?? ''}'.trim();
-  return value.isEmpty ? fallback : value;
+  if (value.isEmpty ||
+      isLocalPersonnelId(value) ||
+      value.contains('LOCAL-') ||
+      value.contains('personnel-import-')) {
+    return fallback;
+  }
+  if (key == 'birth_date' || key == 'date_of_joining') {
+    return formatJalaliIso(value);
+  }
+  if (key == 'employment_type') {
+    return const {
+          'Full-time': 'تمام وقت',
+          'Part-time': 'پاره وقت',
+          'Contract': 'قراردادی',
+          'Intern': 'کارآموز',
+        }[value] ??
+        value;
+  }
+  if (key == 'marital_status') {
+    return const {'Married': 'متأهل', 'Single': 'مجرد'}[value] ?? value;
+  }
+  return value;
 }
 
 class _PersonnelList extends StatelessWidget {
@@ -218,9 +242,9 @@ class _PersonnelList extends StatelessWidget {
                             await Navigator.push(
                                 context,
                                 MaterialPageRoute<void>(
-                                    builder: (_) => PersonnelFilePage(
-                                        profileId: '${person['id']}',
-                                        personnel: cubit.repository)));
+                                    builder: (_) => PersonnelDetailPage(
+                                        id: '${person['id']}',
+                                        repository: cubit.repository)));
                             if (context.mounted) await cubit.load();
                           }),
                   ])),
@@ -280,79 +304,17 @@ class _PersonnelRow extends StatelessWidget {
                             Text(_valueOf(profile, 'department'),
                                 style: const TextStyle(
                                     color: Color(0xFF7A8DBB), fontSize: 10)),
-                            Text(
-                                _valueOf(profile, 'employee_code',
-                                    _valueOf(profile, 'id')),
+                            capValueText(
+                                capEmployeeCode(profile['employee_code']),
                                 maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                textDirection: TextDirection.ltr,
                                 style: const TextStyle(
                                     color: Color(0xFF7A8DBB), fontSize: 10)),
                           ])),
                       const SizedBox(width: 5),
                       _EmploymentStatus(disabled: profile['disabled'] == true),
                       if (canManage)
-                        PopupMenuButton<String>(
-                            tooltip: 'مدیریت دسترسی',
-                            icon: const Icon(Icons.more_vert_rounded,
-                                color: _ink, size: 20),
-                            onSelected: (value) {
-                              if (value == 'access' || value == 'account') {
-                                Navigator.push<void>(
-                                    context,
-                                    MaterialPageRoute(
-                                        builder: (_) =>
-                                            _EmployeeUserDetailsPage(
-                                                profile: profile,
-                                                repository: repository)));
-                              } else if (value == 'invite') {
-                                Navigator.push<void>(
-                                    context,
-                                    MaterialPageRoute(
-                                        builder: (_) =>
-                                            _EmployeeInvitationsPage(
-                                                profile: profile,
-                                                repository: repository)));
-                              } else {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                        content: Text(
-                                            'این قابلیت هنوز API فعال ندارد.')));
-                              }
-                            },
-                            itemBuilder: (_) => const [
-                                  PopupMenuItem(
-                                      value: 'access',
-                                      child: ListTile(
-                                          leading: Icon(Icons
-                                              .admin_panel_settings_outlined),
-                                          title: Text('مدیریت دسترسی'))),
-                                  PopupMenuItem(
-                                      value: 'account',
-                                      child: ListTile(
-                                          leading: Icon(Icons.person_outline),
-                                          title:
-                                              Text('ایجاد/تغییر حساب کاربری'))),
-                                  PopupMenuItem(
-                                      value: 'invite',
-                                      child: ListTile(
-                                          leading: Icon(Icons.mail_outline),
-                                          title: Text('ارسال مجدد دعوت'))),
-                                  PopupMenuItem(
-                                      value: 'logs',
-                                      child: ListTile(
-                                          leading:
-                                              Icon(Icons.description_outlined),
-                                          title: Text('مشاهده سوابق ورود'))),
-                                  PopupMenuItem(
-                                      value: 'delete',
-                                      child: ListTile(
-                                          leading: Icon(Icons.delete_outline,
-                                              color: Colors.red),
-                                          title: Text('حذف حساب کاربری',
-                                              style: TextStyle(
-                                                  color: Colors.red)))),
-                                ]),
+                        _PersonnelAccountMenu(
+                            profile: profile, repository: repository),
                     ])),
           )));
 }
@@ -485,10 +447,8 @@ class _EmployeeUserDetailsPageState extends State<_EmployeeUserDetailsPage> {
                               builder: (_) => PersonnelRolesPage(
                                   employeeName:
                                       _valueOf(widget.profile, 'display_name'),
-                                  employeeCode: _valueOf(
-                                      widget.profile,
-                                      'employee_code',
-                                      _valueOf(widget.profile, 'id')),
+                                  employeeCode: capEmployeeCode(
+                                      widget.profile['employee_code']),
                                   mobile: _valueOf(widget.profile, 'mobile'),
                                   initialValue:
                                       (data['roles'] as List? ?? const [])
@@ -629,8 +589,7 @@ class _InviteReviewPageState extends State<_InviteReviewPage> {
         MaterialPageRoute(
             builder: (_) => PersonnelRolesPage(
                 employeeName: _valueOf(widget.profile, 'display_name'),
-                employeeCode: _valueOf(widget.profile, 'employee_code',
-                    _valueOf(widget.profile, 'id')),
+                employeeCode: capEmployeeCode(widget.profile['employee_code']),
                 mobile: _valueOf(widget.profile, 'mobile'),
                 onConfirm: (value, selected) async {
                   roles = value;
@@ -894,8 +853,7 @@ class _PersonnelAccessPageState extends State<_PersonnelAccessPage> {
             builder: (_) => PersonnelRolesPage(
                 initialValue: roles,
                 employeeName: _valueOf(widget.profile, 'display_name'),
-                employeeCode: _valueOf(widget.profile, 'employee_code',
-                    _valueOf(widget.profile, 'id')),
+                employeeCode: capEmployeeCode(widget.profile['employee_code']),
                 mobile: _valueOf(widget.profile, 'mobile'),
                 onConfirm: (value, matrix) async {
                   roles = value;
@@ -1063,10 +1021,14 @@ class _PersonnelOverview extends StatefulWidget {
       required this.canEdit,
       required this.onProfile,
       required this.onRecords,
-      required this.onRecord});
+      required this.onRecord,
+      this.file,
+      this.fileRepository});
   final Map<String, dynamic> profile;
   final List<Map> records;
   final PersonnelRepository repository;
+  final PersonnelFile? file;
+  final PersonnelFileRepository? fileRepository;
   final bool canEdit;
   final void Function(String, Map<String, String>) onProfile;
   final ValueChanged<String> onRecords;
@@ -1078,11 +1040,10 @@ class _PersonnelOverview extends StatefulWidget {
 class _PersonnelOverviewState extends State<_PersonnelOverview> {
   int tab = 0;
   void selectTab(int value) => setState(() => tab = value);
+
   @override
   Widget build(BuildContext context) {
     final p = widget.profile;
-    final recent = [...widget.records]
-      ..sort((a, b) => '${b['record_date']}'.compareTo('${a['record_date']}'));
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Container(
           height: 168,
@@ -1124,6 +1085,8 @@ class _PersonnelOverviewState extends State<_PersonnelOverview> {
                               fontWeight: FontWeight.w900)),
                       const SizedBox(height: 3),
                       Text(_valueOf(p, 'job_title'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(color: _ink, fontSize: 12)),
                       Text(_valueOf(p, 'department'),
                           style: const TextStyle(
@@ -1148,7 +1111,7 @@ class _PersonnelOverviewState extends State<_PersonnelOverview> {
                 subtitle: 'واحد سازمانی'),
             _ProfileMetric(
                 icon: Icons.badge_outlined,
-                title: _valueOf(p, 'employee_code', _valueOf(p, 'id')),
+                title: capEmployeeCode(p['employee_code']),
                 subtitle: 'کد پرسنلی'),
           ])),
       Container(
@@ -1228,22 +1191,15 @@ class _PersonnelOverviewState extends State<_PersonnelOverview> {
                   onTap: () => widget.onProfile('اطلاعات پرسنلی', _personal))),
         ]),
         const SizedBox(height: 10),
-        Row(children: [
-          const Expanded(
-              child: Text('آخرین فعالیت‌ها',
-                  style: TextStyle(
-                      color: _ink, fontSize: 14, fontWeight: FontWeight.w900))),
-          TextButton(
-              onPressed: () => widget.onRecords('all'),
-              child: const Text('مشاهده همه', style: TextStyle(fontSize: 10)))
-        ]),
-        if (recent.isEmpty)
-          const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text('هنوز فعالیتی ثبت نشده است.',
-                  style: TextStyle(fontSize: 11, color: Color(0xFF8193BA)))),
-        for (final record in recent.take(4))
-          _ActivityRow(record: record, onTap: () => widget.onRecord(record)),
+        PersonnelManagerAndTenureSlot(
+            file: widget.file,
+            repository: widget.repository,
+            fileRepository: widget.fileRepository),
+        PersonnelActivityFeedSlot(
+            file: widget.file,
+            records: widget.records,
+            onRecord: widget.onRecord,
+            onRecords: widget.onRecords),
       ],
       if (tab == 1) ...[
         _SummaryTile(
@@ -1267,7 +1223,7 @@ class _PersonnelOverviewState extends State<_PersonnelOverview> {
           Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: _SummaryTile(
-                  title: _sections[kind]!,
+                  title: personnelRecordKindLabel(kind),
                   value:
                       '${widget.records.where((r) => r['kind'] == kind).length} مورد ثبت‌شده',
                   icon: kind == 'photo'
@@ -1275,6 +1231,8 @@ class _PersonnelOverviewState extends State<_PersonnelOverview> {
                       : Icons.folder_outlined,
                   color: _blue,
                   onTap: () => widget.onRecords(kind))),
+      if (tab == 3)
+        PersonnelDocumentsSlot(file: widget.file, personnel: widget.repository),
       const SizedBox(height: 10),
       Row(children: [
         if (widget.canEdit)
@@ -1343,11 +1301,11 @@ class _SummaryTile extends StatelessWidget {
       required this.value,
       required this.icon,
       required this.color,
-      required this.onTap});
+      this.onTap});
   final String title, value;
   final IconData icon;
   final Color color;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   @override
   Widget build(BuildContext context) => Material(
       color: color.withValues(alpha: .055),
@@ -1415,4 +1373,67 @@ class _ActivityRow extends StatelessWidget {
             Text('${record['record_date'] ?? ''}',
                 style: const TextStyle(fontSize: 10, color: Color(0xFF8392B8))),
           ])));
+}
+
+class _PersonnelAccountMenu extends StatelessWidget {
+  const _PersonnelAccountMenu(
+      {required this.profile, required this.repository});
+  final Map<String, dynamic> profile;
+  final PersonnelRepository repository;
+  @override
+  Widget build(BuildContext context) => buildPersonnelAccountMenu(
+      context: context, profile: profile, repository: repository);
+}
+
+/// Account actions available from each personnel list row.
+const personnelAccountMenuEntries =
+    <({String value, String title, IconData icon})>[
+  (
+    value: 'access',
+    title: 'مدیریت دسترسی',
+    icon: Icons.admin_panel_settings_outlined
+  ),
+  (
+    value: 'account',
+    title: 'ایجاد/تغییر حساب کاربری',
+    icon: Icons.person_outline
+  ),
+  (value: 'invite', title: 'ارسال مجدد دعوت', icon: Icons.mail_outline),
+  (value: 'logs', title: 'مشاهده سوابق ورود', icon: Icons.description_outlined),
+];
+
+Widget buildPersonnelAccountMenu({
+  required BuildContext context,
+  required Map<String, dynamic> profile,
+  required PersonnelRepository repository,
+}) {
+  return PopupMenuButton<String>(
+    tooltip: 'مدیریت دسترسی',
+    icon: const Icon(Icons.more_vert_rounded, color: _ink, size: 20),
+    onSelected: (value) {
+      if (value == 'access' || value == 'account') {
+        Navigator.push<void>(
+            context,
+            MaterialPageRoute(
+                builder: (_) => _EmployeeUserDetailsPage(
+                    profile: profile, repository: repository)));
+      } else if (value == 'invite') {
+        Navigator.push<void>(
+            context,
+            MaterialPageRoute(
+                builder: (_) => _EmployeeInvitationsPage(
+                    profile: profile, repository: repository)));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('این قابلیت هنوز به سرویس متصل نشده است.')));
+      }
+    },
+    itemBuilder: (_) => [
+      for (final entry in personnelAccountMenuEntries)
+        PopupMenuItem(
+            value: entry.value,
+            child:
+                ListTile(leading: Icon(entry.icon), title: Text(entry.title))),
+    ],
+  );
 }

@@ -1,0 +1,30 @@
+{
+ "ok": true,
+ "data": {
+  "valid": false,
+  "errors": [
+   {
+    "code": "INSUFFICIENT_LEAVE_BALANCE",
+    "field": "leave_type",
+    "message": "مانده مرخصی کافی نیست."
+   }
+  ],
+  "duration": {
+   "unit": "hour",
+   "days": null,
+   "hours": 4.0,
+   "day_equivalent": 0.5
+  },
+  "balance": {
+   "leave_type": "Casual Leave",
+   "remaining_before": 12.5,
+   "requested_days": 0.5,
+   "remaining_after": 12.0,
+   "available_after": 11.5
+  },
+  "holidays_excluded": 0
+ },
+ "meta": {
+  "api_version": "v1"
+ }
+}

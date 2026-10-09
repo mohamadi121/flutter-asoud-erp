@@ -7,6 +7,7 @@ import '../../../core/config/app_config.dart';
 import '../../../core/offline/local_database_store.dart';
 import '../../../core/offline/local_record.dart';
 import '../domain/personnel_record.dart';
+import 'demo/hr_demo_data.dart';
 
 bool _same(Object? a, Object? b) {
   if (a is Map && b is Map) {
@@ -55,10 +56,13 @@ const personnelFields = [
 ];
 
 class PersonnelRepository {
-  PersonnelRepository(this.client, {LocalRecordStore? local})
-      : local = local ?? LocalDatabaseStore.instance;
+  PersonnelRepository(this.client,
+      {LocalRecordStore? local, HrDemoData? demoData})
+      : local = local ?? LocalDatabaseStore.instance,
+        demoData = demoData ?? HrDemoData.at(DateTime.now());
   final FrappeApiClient client;
   final LocalRecordStore local;
+  final HrDemoData demoData;
   String? _company;
   String? _user;
   bool _canHr = false;
@@ -269,7 +273,7 @@ class PersonnelRepository {
       } catch (error) {
         if (_offline(error)) return;
         await local.setStatus(item.id, LocalSyncStatus.syncFailed,
-            error: error.toString());
+            error: offlineFailureMessage(error));
         // Do not replay subsequent edits across a rejected revision/permission boundary.
         return;
       }
@@ -291,7 +295,8 @@ class PersonnelRepository {
         status: status,
         payload: {
           for (final entry in person.payload.entries)
-            if (!financialPersonnelFields.contains(entry.key)) entry.key: entry.value,
+            if (!financialPersonnelFields.contains(entry.key))
+              entry.key: entry.value,
           for (final field in personnelFields
               .where((field) => !financialPersonnelFields.contains(field)))
             if (profile.containsKey(field))
@@ -308,7 +313,8 @@ class PersonnelRepository {
               r.payload['owner'] == _user &&
               r.payload['server'] == _server &&
               r.payload['company'] == _company)
-          .toList();
+          .toList()
+        ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
 
   Future<Map<String, dynamic>> _overlay(String action,
       Map<String, dynamic> data, Map<String, dynamic> result) async {
@@ -600,16 +606,27 @@ class PersonnelRepository {
       };
   Future<Map<String, dynamic>> _demo(
       String action, Map<String, dynamic> data) async {
+    final id = '${data['name'] ?? ''}';
+    if (demoData.isSeeded(id)) return _demoProfile(action, id);
     if (action == 'list_personnel') {
       final rows = (await local.list(entityType: 'party_profile')).where((r) =>
           '${r.payload['id']}'.startsWith('LOCAL-') &&
           r.payload['company'] == _company &&
           (r.payload['roles'] as List? ?? []).contains('employee'));
       return {
-        'rows': await Future.wait(
-            rows.map((r) async => await _withPhoto(_profile(r.payload)))),
+        'rows': [
+          for (final row in demoData.rows())
+            if (row['company'] == _company) row,
+          ...await Future.wait(
+              rows.map((r) async => await _withPhoto(_profile(r.payload)))),
+        ],
         'can_edit': true
       };
+    }
+    if (action == 'get_record' && demoData.isDemoRecord('${data['name']}')) {
+      final record = demoData.record('${data['name']}');
+      if (record == null) throw StateError('سابقه یافت نشد');
+      return {...record, '_can_edit': false};
     }
     if (action == 'get_record') {
       final record = await local.get('${data['name']}');
@@ -661,7 +678,8 @@ class PersonnelRepository {
           entityType: person.entityType,
           payload: {
             for (final entry in person.payload.entries)
-            if (!financialPersonnelFields.contains(entry.key)) entry.key: entry.value,
+              if (!financialPersonnelFields.contains(entry.key))
+                entry.key: entry.value,
             for (final e in values.entries)
               (e.key == 'address_line' ? 'address' : e.key): e.value,
           },
@@ -747,6 +765,18 @@ class PersonnelRepository {
       return {'id': key};
     }
     throw StateError('عملیات ناشناخته');
+  }
+
+  /// Sample profiles are read-only mirrors of the server payload: they can be
+  /// browsed and their files opened, but never edited or added to.
+  Map<String, dynamic> _demoProfile(String action, String id) {
+    if (action == 'get_personnel') return demoData.detail(id);
+    if (action == 'get_record') {
+      final record = demoData.record(id);
+      if (record == null) throw StateError('سابقه یافت نشد');
+      return {...record, '_can_edit': false};
+    }
+    throw StateError('پرونده‌های نمونه فقط برای مشاهده هستند.');
   }
 
   Future<Map<String, dynamic>> _withPhoto(Map<String, dynamic> profile) async {

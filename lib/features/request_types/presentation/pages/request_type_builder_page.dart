@@ -76,7 +76,16 @@ class _BuilderViewState extends State<_BuilderView> {
                       ? 'ویرایش نوع درخواست'
                       : 'ایجاد نوع درخواست جدید'),
               body: Column(children: [
-                RequestStepIndicator(step: state.step),
+                RequestStepIndicator(
+                  step: state.step,
+                  onStepSelected: (target) {
+                    if (target < state.step) {
+                      cubit.goToStep(target);
+                    } else if (target == state.step + 1) {
+                      _primary(cubit, state.step);
+                    }
+                  },
+                ),
                 Expanded(
                   child: state.loading
                       ? const Center(child: CircularProgressIndicator())
@@ -110,8 +119,10 @@ class _BuilderViewState extends State<_BuilderView> {
 }
 
 class RequestStepIndicator extends StatelessWidget {
-  const RequestStepIndicator({required this.step, super.key});
+  const RequestStepIndicator(
+      {required this.step, this.onStepSelected, super.key});
   final int step;
+  final ValueChanged<int>? onStepSelected;
 
   static const labels = ['اطلاعات کلی', 'فرم درخواست', 'پیش‌نمایش'];
 
@@ -121,11 +132,17 @@ class RequestStepIndicator extends StatelessWidget {
         child: Row(children: [
           for (var index = 0; index < labels.length; index++)
             Expanded(
-              child: _StepDot(
-                  index: index,
-                  step: step,
-                  label: labels[index],
-                  last: index == labels.length - 1),
+              child: InkWell(
+                onTap: index == step || index > step + 1
+                    ? null
+                    : () => onStepSelected?.call(index),
+                borderRadius: BorderRadius.circular(12),
+                child: _StepDot(
+                    index: index,
+                    step: step,
+                    label: labels[index],
+                    last: index == labels.length - 1),
+              ),
             ),
         ]),
       );

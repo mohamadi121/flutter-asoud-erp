@@ -15,13 +15,37 @@ import '../../../parties/domain/entities/party_profile.dart';
 import '../../../hr/presentation/pages/hr_home_page.dart';
 import '../../../workflows/presentation/pages/workflow_list_page.dart';
 import '../../../purchase/presentation/pages/purchase_requests_page.dart';
+import '../../../office_setup/domain/entities/office.dart';
+import '../../../office_setup/domain/repositories/office_repository.dart';
 
-class BaseAccountingSetupPage extends StatelessWidget {
+class BaseAccountingSetupPage extends StatefulWidget {
   const BaseAccountingSetupPage(
       {this.officeName, this.offlinePreview = false, super.key});
 
   final String? officeName;
   final bool offlinePreview;
+
+  @override
+  State<BaseAccountingSetupPage> createState() =>
+      _BaseAccountingSetupPageState();
+}
+
+class _BaseAccountingSetupPageState extends State<BaseAccountingSetupPage> {
+  late Future<Office?> _setupStatus;
+
+  @override
+  void initState() {
+    super.initState();
+    _setupStatus = _loadSetupStatus();
+  }
+
+  Future<Office?> _loadSetupStatus() => widget.offlinePreview
+      ? Future<Office?>.value(null)
+      : context.read<OfficeRepository>().getDefaultOffice();
+
+  void _retrySetupStatus() => setState(() {
+        _setupStatus = _loadSetupStatus();
+      });
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -35,8 +59,17 @@ class BaseAccountingSetupPage extends StatelessWidget {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
             children: [
-              _SetupOverview(
-                  officeName: officeName, offlinePreview: offlinePreview),
+              FutureBuilder<Office?>(
+                future: _setupStatus,
+                builder: (context, snapshot) => _SetupOverview(
+                  officeName: widget.officeName,
+                  offlinePreview: widget.offlinePreview,
+                  status: snapshot.data,
+                  loading: snapshot.connectionState == ConnectionState.waiting,
+                  loadFailed: snapshot.hasError,
+                  onRetry: _retrySetupStatus,
+                ),
+              ),
               const SizedBox(height: 18),
               Card(
                   child: ListTile(
@@ -45,10 +78,11 @@ class BaseAccountingSetupPage extends StatelessWidget {
                 title: const Text('طراح گردش‌کار و فرم درخواست'),
                 subtitle: const Text('بررسی فرایندهای قبلی و طراحی مراحل'),
                 trailing: const Icon(Icons.chevron_left),
-                onTap: officeName == null
+                onTap: widget.officeName == null
                     ? null
                     : () => Navigator.of(context).push(MaterialPageRoute<void>(
-                          builder: (_) => WorkflowListPage(company: officeName),
+                          builder: (_) =>
+                              WorkflowListPage(company: widget.officeName),
                         )),
               )),
               Card(
@@ -59,11 +93,11 @@ class BaseAccountingSetupPage extends StatelessWidget {
                 title: const Text('درخواست‌های خرید'),
                 subtitle: const Text('ثبت و مشاهده درخواست‌های موجود'),
                 trailing: const Icon(Icons.chevron_left),
-                onTap: officeName == null
+                onTap: widget.officeName == null
                     ? null
                     : () => Navigator.of(context).push(MaterialPageRoute<void>(
                           builder: (_) =>
-                              PurchaseRequestsPage(company: officeName!),
+                              PurchaseRequestsPage(company: widget.officeName!),
                         )),
               )),
               const Text('ماژول‌های تنظیمات پایه',
@@ -85,34 +119,46 @@ class BaseAccountingSetupPage extends StatelessWidget {
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute<void>(
                           builder: (_) => AccountingBaseSetupPage(
-                                officeName: officeName,
-                                offlinePreview: offlinePreview,
+                                officeName: widget.officeName,
+                                offlinePreview: widget.offlinePreview,
                               )),
                     ),
                   ),
-                  const _ModuleGridTile(
+                  _ModuleGridTile(
                     title: 'مالی و خزانه',
                     subtitle: 'بانک، صندوق و پرداخت‌ها',
                     icon: Icons.account_balance_wallet_outlined,
                     color: AsoudColors.success,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) =>
+                            const _UnavailableModulePage(title: 'مالی و خزانه'),
+                      ),
+                    ),
                   ),
-                  const _ModuleGridTile(
+                  _ModuleGridTile(
                     title: 'انبار و کالا',
                     subtitle: 'کالا، واحد سنجش و انبارها',
                     icon: Icons.inventory_2_outlined,
                     color: AsoudColors.purple,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) =>
+                            const _UnavailableModulePage(title: 'انبار و کالا'),
+                      ),
+                    ),
                   ),
                   _ModuleGridTile(
                     title: 'منابع انسانی',
                     subtitle: 'پرسنل، نقش‌ها و ساختار سازمانی',
                     icon: Icons.badge_outlined,
                     color: const Color(0xFFEF6C5B),
-                    onTap: officeName == null
+                    onTap: widget.officeName == null
                         ? null
                         : () => Navigator.of(context).push(
                               MaterialPageRoute<void>(
                                   builder: (_) =>
-                                      HrHomePage(company: officeName!)),
+                                      HrHomePage(company: widget.officeName!)),
                             ),
                   ),
                   _ModuleGridTile(
@@ -123,7 +169,8 @@ class BaseAccountingSetupPage extends StatelessWidget {
                     onTap: () =>
                         Navigator.of(context).push(MaterialPageRoute<void>(
                       builder: (_) => PartyManagementPage(
-                          company: officeName, initialRole: PartyRole.supplier),
+                          company: widget.officeName,
+                          initialRole: PartyRole.supplier),
                     )),
                   ),
                   _ModuleGridTile(
@@ -134,7 +181,8 @@ class BaseAccountingSetupPage extends StatelessWidget {
                     onTap: () =>
                         Navigator.of(context).push(MaterialPageRoute<void>(
                       builder: (_) => PartyManagementPage(
-                          company: officeName, initialRole: PartyRole.customer),
+                          company: widget.officeName,
+                          initialRole: PartyRole.customer),
                     )),
                   ),
                 ],
@@ -153,112 +201,129 @@ class BaseAccountingSetupPage extends StatelessWidget {
 
 class AccountingBaseSetupPage extends StatelessWidget {
   const AccountingBaseSetupPage(
-      {this.officeName, this.offlinePreview = false, super.key});
+      {this.officeName, this.offlinePreview = false, this.status, super.key});
 
   final String? officeName;
   final bool offlinePreview;
+  final Office? status;
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: const AsoudHeader(
-          title: 'تنظیمات پایه حسابداری',
-          subtitle: 'راه‌اندازی و پیکربندی مالی دفتر',
-          action: AsoudIconBox(
-              icon: Icons.tune_rounded, color: AsoudColors.primary),
-        ),
-        body: SafeArea(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-            children: [
-              _SetupOverview(
-                  officeName: officeName, offlinePreview: offlinePreview),
-              const SizedBox(height: 16),
-              const Text('مراحل راه‌اندازی',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900)),
-              const SizedBox(height: 9),
-              _SetupTile(
-                icon: Icons.account_balance_rounded,
-                color: AsoudColors.primary,
-                title: 'تنظیمات مالی و کدینگ',
-                subtitle: 'واحد پول، سال مالی و الگوی سرفصل‌ها',
-                status: 'در انتظار تکمیل',
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => AccountingPreferencesPage(
-                      officeName: officeName,
-                      repository: context.read<BaseSetupRepository>(),
-                      offlinePreview: offlinePreview,
-                    ),
+  Widget build(BuildContext context) {
+    final statusFuture = status != null
+        ? Future<Office?>.value(status)
+        : (offlinePreview
+            ? Future<Office?>.value(null)
+            : context.read<OfficeRepository>().getDefaultOffice());
+
+    return Scaffold(
+      appBar: const AsoudHeader(
+        title: 'تنظیمات پایه حسابداری',
+        subtitle: 'راه‌اندازی و پیکربندی مالی دفتر',
+        action:
+            AsoudIconBox(icon: Icons.tune_rounded, color: AsoudColors.primary),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          children: [
+            FutureBuilder<Office?>(
+              future: statusFuture,
+              builder: (context, snapshot) => _SetupOverview(
+                officeName: officeName,
+                offlinePreview: offlinePreview,
+                status: snapshot.data ?? status,
+                loading: snapshot.connectionState == ConnectionState.waiting &&
+                    status == null,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text('مراحل راه‌اندازی',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 9),
+            _SetupTile(
+              icon: Icons.account_balance_rounded,
+              color: AsoudColors.primary,
+              title: 'تنظیمات مالی و کدینگ',
+              subtitle: 'واحد پول، سال مالی و الگوی سرفصل‌ها',
+              status: 'در انتظار تکمیل',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => AccountingPreferencesPage(
+                    officeName: officeName,
+                    repository: context.read<BaseSetupRepository>(),
+                    offlinePreview: offlinePreview,
                   ),
                 ),
               ),
-              const SizedBox(height: 9),
-              _SetupTile(
-                icon: Icons.manage_accounts_rounded,
-                color: AsoudColors.purple,
-                title: 'مدیریت نقش‌ها',
-                subtitle: 'دسترسی‌های مدیر، حسابدار و کاربران',
-                status: 'الگوی آماده یا ایجاد دستی',
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => RolesSetupPage(
-                      officeName: officeName,
-                      offlinePreview: offlinePreview,
-                    ),
+            ),
+            const SizedBox(height: 9),
+            _SetupTile(
+              icon: Icons.manage_accounts_rounded,
+              color: AsoudColors.purple,
+              title: 'مدیریت نقش‌ها',
+              subtitle: 'دسترسی‌های مدیر، حسابدار و کاربران',
+              status: 'الگوی آماده یا ایجاد دستی',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => RolesSetupPage(
+                    officeName: officeName,
+                    offlinePreview: offlinePreview,
                   ),
                 ),
               ),
-              const SizedBox(height: 9),
-              _SetupTile(
-                icon: Icons.account_tree_outlined,
-                color: AsoudColors.warning,
-                title: 'سرفصل‌های حسابداری',
-                subtitle: 'ایجاد و مرور گروه، کل، معین و تفصیلی',
-                status: officeName == null
-                    ? 'ابتدا دفتر فعال را انتخاب کنید'
-                    : 'انتخاب قالب یا ایجاد دستی',
-                onTap: officeName == null
-                    ? null
-                    : () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => ChartSetupPage(
-                              company: officeName!,
-                            ),
+            ),
+            const SizedBox(height: 9),
+            _SetupTile(
+              icon: Icons.account_tree_outlined,
+              color: AsoudColors.warning,
+              title: 'سرفصل‌های حسابداری',
+              subtitle: 'ایجاد و مرور گروه، کل، معین و تفصیلی',
+              status: officeName == null
+                  ? 'ابتدا دفتر فعال را انتخاب کنید'
+                  : 'انتخاب قالب یا ایجاد دستی',
+              onTap: officeName == null
+                  ? null
+                  : () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => ChartSetupPage(
+                            company: officeName!,
                           ),
                         ),
-              ),
-              const SizedBox(height: 9),
-              _SetupTile(
-                icon: Icons.people_outline_rounded,
-                color: AsoudColors.primary,
-                title: 'اشخاص و شرکت‌ها',
-                subtitle: 'تعریف اشخاص، شرکت‌ها و کد تفصیلی',
-                status: 'اطلاعات پایه حسابداری',
-                onTap: officeName == null
-                    ? null
-                    : () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                              builder: (_) =>
-                                  PartyManagementPage(company: officeName)),
-                        ),
-              ),
-              const SizedBox(height: 9),
-              _SetupTile(
-                icon: Icons.hub_outlined,
-                color: AsoudColors.cyan,
-                title: 'گروه تفصیلی شناور',
-                subtitle: 'مشتریان، تأمین‌کنندگان، پروژه‌ها و مراکز هزینه',
-                status: 'مدیریت گروه‌های تفصیلی ASOUD ERP',
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const DetailGroupsPage(),
-                  ),
+                      ),
+            ),
+            const SizedBox(height: 9),
+            _SetupTile(
+              icon: Icons.people_outline_rounded,
+              color: AsoudColors.primary,
+              title: 'اشخاص و شرکت‌ها',
+              subtitle: 'تعریف اشخاص، شرکت‌ها و کد تفصیلی',
+              status: 'اطلاعات پایه حسابداری',
+              onTap: officeName == null
+                  ? null
+                  : () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                            builder: (_) =>
+                                PartyManagementPage(company: officeName)),
+                      ),
+            ),
+            const SizedBox(height: 9),
+            _SetupTile(
+              icon: Icons.hub_outlined,
+              color: AsoudColors.cyan,
+              title: 'گروه تفصیلی شناور',
+              subtitle: 'مشتریان، تأمین‌کنندگان، پروژه‌ها و مراکز هزینه',
+              status: 'مدیریت گروه‌های تفصیلی ASOUD ERP',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const DetailGroupsPage(),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-      );
+      ),
+    );
+  }
 }
 
 class _ModuleGridTile extends StatelessWidget {
@@ -336,10 +401,35 @@ class AccountingPreferencesPage extends StatelessWidget {
 }
 
 class _SetupOverview extends StatelessWidget {
-  const _SetupOverview(
-      {required this.officeName, required this.offlinePreview});
+  const _SetupOverview({
+    required this.officeName,
+    required this.offlinePreview,
+    this.status,
+    this.loading = false,
+    this.loadFailed = false,
+    this.onRetry,
+  });
   final String? officeName;
   final bool offlinePreview;
+  final Office? status;
+  final bool loading;
+  final bool loadFailed;
+  final VoidCallback? onRetry;
+
+  double? get _progress {
+    if (offlinePreview) return 1 / 3;
+    if (loading) return null;
+    if (loadFailed) return 0;
+    return status?.setupComplete == true ? 1 : 1 / 3;
+  }
+
+  String get _statusText {
+    if (offlinePreview) return 'پیش‌نمایش آفلاین • ۱ مورد از ۳ مورد';
+    if (loading) return 'در حال دریافت وضعیت راه‌اندازی…';
+    if (status?.setupComplete == true) return 'راه‌اندازی دفتر کامل شده است.';
+    return 'راه‌اندازی دفتر هنوز کامل نیست.';
+  }
+
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.all(14),
@@ -378,17 +468,30 @@ class _SetupOverview extends StatelessWidget {
             ),
           ]),
           const SizedBox(height: 12),
-          Text(officeName ?? 'دفتر کار',
+          Text(status?.name ?? officeName ?? 'دفتر کار',
               style: const TextStyle(fontWeight: FontWeight.w900)),
           const SizedBox(height: 5),
-          Text(
-            offlinePreview
-                ? 'پیش‌نمایش آفلاین • ۱ مورد از ۳ مورد'
-                : 'وضعیت تکمیل از ASOUD ERP دریافت می‌شود',
-            style: const TextStyle(color: AsoudColors.muted, fontSize: 10),
-          ),
+          if (loadFailed && !offlinePreview)
+            Row(children: [
+              const Expanded(
+                child: Text(
+                  'دریافت وضعیت راه‌اندازی ناموفق بود.',
+                  style: TextStyle(color: AsoudColors.warning, fontSize: 10),
+                ),
+              ),
+              TextButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh_rounded, size: 18),
+                label: const Text('تلاش دوباره'),
+              ),
+            ])
+          else
+            Text(
+              _statusText,
+              style: const TextStyle(color: AsoudColors.muted, fontSize: 10),
+            ),
           const SizedBox(height: 10),
-          const LinearProgressIndicator(value: 1 / 3, minHeight: 7),
+          LinearProgressIndicator(value: _progress, minHeight: 7),
         ]),
       );
 }
@@ -441,6 +544,17 @@ class _SetupTile extends StatelessWidget {
             ]),
           ),
         ),
+      );
+}
+
+class _UnavailableModulePage extends StatelessWidget {
+  const _UnavailableModulePage({required this.title});
+  final String title;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AsoudHeader(title: title),
+        body: const Center(child: Text('به‌زودی')),
       );
 }
 

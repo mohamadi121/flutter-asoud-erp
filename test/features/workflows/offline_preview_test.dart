@@ -21,6 +21,14 @@ class _Offline extends Fake implements WorkflowRepository {
   static const error =
       ApiException(kind: ApiFailureKind.network, message: 'offline');
   @override
+  Future<List<WorkflowDefinition>> getWorkflows({
+    String? search,
+    WorkflowDefinitionStatus? status,
+    String? company,
+    String orderBy = 'modified desc',
+  }) async =>
+      throw error;
+  @override
   Future<WorkflowDesign> getDesign(String definition) async => throw error;
   @override
   Future<WorkflowDesign> addStage(
@@ -126,6 +134,10 @@ void main() {
 
   test('stage routes are saved on the local design', () async {
     final repository = PreviewFallbackWorkflowRepository(_Offline());
+    final listed = (await repository.getWorkflows())
+        .firstWhere((item) => item.id == 'PREVIEW-WF-001');
+    final initial = await repository.getDesign('PREVIEW-WF-001');
+    expect(listed.stepsCount, initial.stages.length);
     var design = await repository.addStage(
         definition: 'PREVIEW-WF-001',
         afterStage: 'PREVIEW-WF-001-START',
@@ -192,8 +204,8 @@ void main() {
     final repository =
         GenericRequestRepository(client, 'دفتر نمونه', store: store);
     final types = await repository.options();
-    final sample = types.last;
-    expect(sample['workflow_title'], 'درخواست خرید (نمونه آفلاین)');
+    final sample = types.firstWhere((row) => row['name'] == 'DEMO-WF-MISSION');
+    expect(sample['workflow_title'], 'درخواست مأموریت');
     expect((await repository.fieldOptions('Item')).first['label'], 'لپ‌تاپ');
     expect(
         (await repository.fieldOptions('UOM', itemCode: 'PREVIEW-PAPER'))
@@ -204,7 +216,7 @@ void main() {
       'workflow_definition': sample['name'],
       'subject': 'خرید لپ‌تاپ',
       'values': {
-        'category': 'تجهیزات IT',
+        'destination': 'تهران',
         'items': [
           {'item_code': 'PREVIEW-LAPTOP', 'qty': 2, 'uom': 'عدد'}
         ]
@@ -221,7 +233,7 @@ void main() {
     expect(rows.single['subject'], 'خرید لپ‌تاپ');
     expect(rows.single['local_preview'], isTrue);
     final detail = await repository.detail('${created['name']}');
-    expect(detail['values']['category'], 'تجهیزات IT');
+    expect(detail['values']['destination'], 'تهران');
     await repository.sync(retry: true);
     verifyNever(() => client.callAsoudMethod(any(), data: any(named: 'data')));
     verifyNever(() => client.getCurrentUser());

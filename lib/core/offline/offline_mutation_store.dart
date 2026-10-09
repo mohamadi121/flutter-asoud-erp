@@ -1,5 +1,6 @@
 import 'local_database_store.dart';
 import 'local_record.dart';
+import 'offline_failure.dart';
 
 class OfflineMutationStore {
   OfflineMutationStore._();
@@ -39,17 +40,21 @@ class OfflineMutationStore {
       LocalDatabaseStore.instance.setStatus(
         id,
         LocalSyncStatus.syncFailed,
-        error: error.toString(),
+        error: offlineFailureMessage(error),
       );
 
   Future<void> remove(String id) => LocalDatabaseStore.instance.delete(id);
 
   Future<List<Map<String, dynamic>>> pending() async {
-    final records = await LocalDatabaseStore.instance.list(statuses: {
-      LocalSyncStatus.localOnly,
-      LocalSyncStatus.pendingSync,
-      LocalSyncStatus.syncFailed,
-    });
+    final records = [
+      ...await LocalDatabaseStore.instance.list(statuses: {
+        LocalSyncStatus.localOnly,
+        LocalSyncStatus.pendingSync,
+        LocalSyncStatus.syncFailed,
+      }),
+    ];
+    // Oldest first, whatever order the store lists in.
+    records.sort((a, b) => a.createdAt.compareTo(b.createdAt));
     return records
         .map((record) => {
               'id': record.id,

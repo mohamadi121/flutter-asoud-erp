@@ -41,13 +41,19 @@ class RequestFormStep extends StatelessWidget {
       BlocBuilder<RequestTypeBuilderCubit, RequestTypeBuilderState>(
         builder: (context, state) {
           final fields = state.fields;
-          final VoidCallback? add = fields.length >= 30 || state.saving
-              ? null
-              : () => _edit(context, fields, null);
+          final systemManaged = state.definition?.isSystemTemplate == true;
+          final VoidCallback? add =
+              fields.length >= 30 || state.saving || systemManaged
+                  ? null
+                  : () => _edit(context, fields, null);
           return ReorderableListView.builder(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
             buildDefaultDragHandles: false,
             header: Column(children: [
+              if (systemManaged) ...[
+                const _SystemManagedNotice(),
+                const SizedBox(height: 12),
+              ],
               _AddFieldButton(onPressed: add),
               const SizedBox(height: 12),
               _BaseFieldsHeader(state: state),
@@ -57,7 +63,7 @@ class RequestFormStep extends StatelessWidget {
                 : const SizedBox(height: 8),
             itemCount: fields.length,
             onReorderItem: (from, to) {
-              if (state.saving) return;
+              if (state.saving || systemManaged) return;
               final updated = [...fields];
               updated.insert(to, updated.removeAt(from));
               context
@@ -68,7 +74,7 @@ class RequestFormStep extends StatelessWidget {
               key: ValueKey(fields[index].key),
               field: fields[index],
               index: index,
-              enabled: !state.saving,
+              enabled: !state.saving && !systemManaged,
               onTap: () => _edit(context, fields, index),
               onDelete: () => context
                   .read<RequestTypeBuilderCubit>()
@@ -76,6 +82,25 @@ class RequestFormStep extends StatelessWidget {
             ),
           );
         },
+      );
+}
+
+class _SystemManagedNotice extends StatelessWidget {
+  const _SystemManagedNotice();
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AsoudColors.primary.withValues(alpha: .06),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AsoudColors.primary.withValues(alpha: .2)),
+        ),
+        child: const Text(
+          'فیلدهای این نوع درخواست توسط سیستم مدیریت می‌شوند و فقط قابل پیش‌نمایش هستند.',
+          style: TextStyle(fontSize: 11, color: AsoudColors.primary),
+        ),
       );
 }
 
@@ -253,7 +278,8 @@ class _FieldRow extends StatelessWidget {
   final VoidCallback onTap, onDelete;
   @override
   Widget build(BuildContext context) {
-    final type = requestFieldTypeFor(field.type);
+    final type = requestFieldTypeFor(
+        field.label.trim() == 'تاریخ ثبت' ? 'Date' : field.type);
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
       decoration: BoxDecoration(

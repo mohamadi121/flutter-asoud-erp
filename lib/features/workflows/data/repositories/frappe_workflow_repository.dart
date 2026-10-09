@@ -1,10 +1,11 @@
 import '../../../../core/network/frappe_client.dart';
+import '../../../../core/utils/persian_server_values.dart';
 import '../../domain/entities/workflow_definition.dart';
 import '../../domain/repositories/workflow_repository.dart';
 
 class FrappeWorkflowRepository implements WorkflowRepository {
   const FrappeWorkflowRepository(this._client);
-  final FrappeClient _client;
+  final FrappeApiClient _client;
 
   Future<dynamic> _call(String method, {Map<String, dynamic>? data}) async {
     return _client.callAsoudMethod(method, data: data);
@@ -339,9 +340,13 @@ class FrappeWorkflowRepository implements WorkflowRepository {
       moduleKey: item['module_key']?.toString(),
       creationMode: item['creation_mode']?.toString(),
       frappeWorkflow: item['frappe_workflow']?.toString(),
-      pendingReason: item['pending_reason']?.toString(),
+      pendingReason: item['pending_reason'] == null
+          ? null
+          : persianServerMessage(item['pending_reason'].toString()),
       missingRequirements: missing is List
-          ? missing.map((value) => value.toString()).toList(growable: false)
+          ? missing
+              .map((value) => persianServerMessage(value.toString()))
+              .toList(growable: false)
           : const [],
       iconKey: item['icon_key']?.toString(),
       colorHex: item['color_hex']?.toString(),
@@ -351,6 +356,9 @@ class FrappeWorkflowRepository implements WorkflowRepository {
           item['show_in_request_list'] != false,
       userSubmittable: item['allow_user_submission'] != 0 &&
           item['allow_user_submission'] != false,
+      isSystemTemplate:
+          item['is_system_template'] == 1 || item['is_system_template'] == true,
+      templateKey: item['template_key']?.toString(),
     );
   }
 
@@ -372,7 +380,7 @@ class FrappeWorkflowRepository implements WorkflowRepository {
           id: value['name']?.toString() ?? '',
           fromStage: value['from_stage']?.toString() ?? '',
           toStage: value['to_stage']?.toString() ?? '',
-          label: value['transition_label']?.toString(),
+          label: persianTransitionLabel(value['transition_label']?.toString()),
           condition: value['condition'] is Map
               ? Map<String, dynamic>.from(value['condition'] as Map)
               : const {},
@@ -389,7 +397,7 @@ class FrappeWorkflowRepository implements WorkflowRepository {
       key: item['stage_key']?.toString() ?? '',
       type: _parseStageType(item['stage_type']?.toString()),
       subtype: item['stage_subtype']?.toString(),
-      title: item['stage_title']?.toString() ?? '',
+      title: persianWorkflowStageTitle(item['stage_title']?.toString() ?? ''),
       sequence: int.tryParse(item['sequence_no']?.toString() ?? '') ?? 0,
       configurationComplete: item['configuration_status'] == 'Complete',
       config: config is Map ? Map<String, dynamic>.from(config) : const {},

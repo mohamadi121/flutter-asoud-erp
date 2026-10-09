@@ -444,6 +444,7 @@ class PersonnelDocument {
         'valid' => 'معتبر',
         'expiring' => 'رو به انقضا',
         'expired' => 'منقضی',
+        'pending' => 'در انتظار تأیید',
         'no_expiry' => 'بدون تاریخ انقضا',
         _ => status,
       };
@@ -524,15 +525,20 @@ class LeaveBalance {
 
 class ActivityItem {
   const ActivityItem(
-      {this.date = '', this.title = '', this.details = '', this.by = ''});
+      {this.date = '',
+      this.title = '',
+      this.details = '',
+      this.by = '',
+      this.kind = ''});
 
   factory ActivityItem.fromJson(Map<String, dynamic> json) => ActivityItem(
       date: _string(json['date']),
       title: _string(json['title']),
       details: _string(json['details']),
-      by: _string(json['by']));
+      by: _string(json['by']),
+      kind: _string(json['kind']));
 
-  final String date, title, details, by;
+  final String date, title, details, by, kind;
 }
 
 class EmployeeHome {
@@ -705,6 +711,15 @@ PersonnelFile personnelFileFromLegacy(Map<String, dynamic> detail,
       'department_name': value('department'),
       'designation': value('job_title'),
       'branch': value('branch'),
+      if (profile['reports_to'] != null && value('reports_to').isNotEmpty)
+        'reports_to': profile['reports_to'] is Map
+            ? profile['reports_to']
+            : {
+                'employee': value('reports_to'),
+                'name': value('reports_to_name').isNotEmpty
+                    ? value('reports_to_name')
+                    : value('reports_to'),
+              },
     },
     'employment': {
       'employment_type': value('employment_type'),

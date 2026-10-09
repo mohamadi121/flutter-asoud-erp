@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/persian_server_values.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../domain/entities/workflow_definition.dart';
 import 'document_template_visuals.dart';
@@ -9,26 +10,7 @@ import 'document_template_visuals.dart';
 const directManagerRole = '__direct_manager__';
 const initiatorRole = '__initiator__';
 
-const _roleLabels = {
-  directManagerRole: 'مدیر مستقیم',
-  initiatorRole: 'درخواست‌کننده',
-  'System Manager': 'مدیر سیستم',
-  'Accounts Manager': 'مدیر مالی',
-  'Accounts User': 'کارشناس مالی',
-  'Purchase Manager': 'مدیر خرید',
-  'Purchase User': 'کارشناس خرید',
-  'Stock Manager': 'مدیر انبار',
-  'Stock User': 'کارشناس انبار',
-  'Sales Manager': 'مدیر فروش',
-  'Sales User': 'کارشناس فروش',
-  'HR Manager': 'مدیر منابع انسانی',
-  'HR User': 'کارشناس منابع انسانی',
-  'Support Team': 'کارشناس پشتیبانی',
-  'Projects Manager': 'مدیر پروژه',
-  'Employee': 'کارمند',
-};
-
-String roleLabel(String role) => _roleLabels[role] ?? role;
+String roleLabel(String role) => persianRoleLabel(role);
 
 TemplateVisual roleVisual(String role) => switch (role) {
       directManagerRole => (

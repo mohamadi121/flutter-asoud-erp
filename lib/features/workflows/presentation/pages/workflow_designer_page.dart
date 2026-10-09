@@ -79,8 +79,11 @@ class _DesignerView extends StatelessWidget {
                 ),
               ),
             ]),
+            floatingActionButtonLocation:
+                FloatingActionButtonLocation.centerFloat,
             floatingActionButton: canAdd
                 ? SizedBox(
+                    width: MediaQuery.sizeOf(context).width - 32,
                     height: 48,
                     child: FilledButton.icon(
                       onPressed: () => _showStagePicker(context),

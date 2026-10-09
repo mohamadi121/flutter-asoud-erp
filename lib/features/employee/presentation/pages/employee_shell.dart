@@ -2,19 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/network/frappe_client.dart';
+import '../../../../core/config/app_config.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../hr/data/personnel_file_repository.dart';
 import '../../../hr/presentation/pages/hr_home_page.dart';
-import '../../../hr/presentation/pages/personnel_page.dart';
+import 'my_info_page.dart';
 import '../../../workflows/presentation/pages/generic_request_page.dart';
 import '../../../workflows/presentation/pages/workflow_notifications_page.dart';
 import '../../../workflows/presentation/pages/workflow_tasks_page.dart';
+import '../../data/demo/employee_demo_data.dart';
 import '../../data/self_service_repository.dart';
 import 'employee_home_page.dart';
 import 'my_attendance_page.dart';
 
-/// The employee's own panel: خانه · کارتابل · درخواست‌ها · مکاتبات · بیشتر.
+/// The employee's own panel: خانه · درخواست‌ها · مکاتبات · بیشتر.
 class EmployeeShell extends StatefulWidget {
   const EmployeeShell({
     required this.company,
@@ -42,16 +44,30 @@ class _EmployeeShellState extends State<EmployeeShell> {
 
   void _open(int index) => setState(() => tab = index);
 
+  bool _previewFiles() {
+    if (widget.files != null) return false;
+    try {
+      return AppConfig.offlineDemoMode &&
+          !context.read<FrappeApiClient>().isAuthenticated;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Widget _body() => switch (tab) {
         1 => const WorkflowTasksPage(),
         2 => GenericRequestsPage(company: widget.company),
         3 => HrCommunicationsPage(company: widget.company),
         4 => _MoreTab(
-            company: widget.company, files: files, selfService: selfService),
+            company: widget.company,
+            files: files,
+            selfService: selfService,
+            previewDemo: _previewFiles()),
         _ => EmployeeHomePage(
             company: widget.company,
             files: files,
             selfService: selfService,
+            demoPreview: _previewFiles(),
             onOpenTab: _open),
       };
 
@@ -61,15 +77,13 @@ class _EmployeeShellState extends State<EmployeeShell> {
         child: Scaffold(
           body: _body(),
           bottomNavigationBar: NavigationBar(
-            selectedIndex: tab,
-            onDestinationSelected: _open,
+            selectedIndex: tab == 1 ? 3 : const [0, 2, 3, 4].indexOf(tab),
+            onDestinationSelected: (index) => _open(const [0, 2, 3, 4][index]),
             destinations: const [
               NavigationDestination(
                   icon: Icon(Icons.home_outlined),
                   selectedIcon: Icon(Icons.home_rounded),
                   label: 'خانه'),
-              NavigationDestination(
-                  icon: Icon(Icons.assignment_ind_outlined), label: 'کارتابل'),
               NavigationDestination(
                   icon: Icon(Icons.description_outlined), label: 'درخواست‌ها'),
               NavigationDestination(
@@ -84,10 +98,14 @@ class _EmployeeShellState extends State<EmployeeShell> {
 
 class _MoreTab extends StatelessWidget {
   const _MoreTab(
-      {required this.company, required this.files, required this.selfService});
+      {required this.company,
+      required this.files,
+      required this.selfService,
+      this.previewDemo = false});
   final String company;
   final PersonnelFileRepository files;
   final SelfServiceRepository selfService;
+  final bool previewDemo;
 
   @override
   Widget build(BuildContext context) {
@@ -95,16 +113,22 @@ class _MoreTab extends StatelessWidget {
         .push(MaterialPageRoute<void>(builder: (_) => page));
     final items = <(String, IconData, Color, VoidCallback)>[
       (
+        'کارتابل',
+        Icons.assignment_ind_outlined,
+        AsoudColors.primary,
+        () => push(const WorkflowTasksPage())
+      ),
+      (
         'اطلاعات من',
         Icons.badge_outlined,
         AsoudColors.cyan,
-        () => push(PersonnelFilePage.mine(repository: files))
+        () => push(MyInfoPage(repository: files))
       ),
       (
         'مدارک من',
         Icons.folder_outlined,
         AsoudColors.danger,
-        () => push(PersonnelFilePage.mine(repository: files, initialTab: 2))
+        () => push(MyInfoPage(repository: files, showDocuments: true))
       ),
       (
         'حضور و غیاب',
@@ -128,7 +152,9 @@ class _MoreTab extends StatelessWidget {
         'اطلاعیه‌ها',
         Icons.campaign_outlined,
         AsoudColors.purple,
-        () => push(AnnouncementsPage(repository: files))
+        () => push(AnnouncementsPage(
+            repository: files,
+            demoItems: previewDemo ? demoAnnouncements() : null))
       ),
     ];
     return SafeArea(

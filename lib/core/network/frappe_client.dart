@@ -7,6 +7,7 @@ import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 
 import '../config/app_config.dart';
 import '../offline/offline_mutation_store.dart';
+import '../offline/queued_offline_exception.dart';
 import 'api_exception.dart';
 import 'session_vault.dart';
 import '../offline/offline_failure.dart';
@@ -121,6 +122,7 @@ class FrappeClient implements FrappeApiClient {
     Dio? dio,
     CookieJar? cookieJar,
     SessionVault? sessionVault,
+    ServerAddressStore? serverAddressStore,
   }) {
     final normalizedBaseUrl = baseUrl.endsWith('/')
         ? baseUrl.substring(0, baseUrl.length - 1)
@@ -158,17 +160,61 @@ class FrappeClient implements FrappeApiClient {
       memoryCookies,
       Uri.parse(normalizedBaseUrl),
       sessionVault,
+      serverAddressStore,
     );
   }
 
-  FrappeClient._(this._dio, this._cookies, this._baseUri, this._vault);
+  FrappeClient._(
+      this._dio, this._cookies, this._baseUri, this._vault, this._serverStore);
 
+  final Dio _dio;
+  final CookieJar _cookies;
+  Uri _baseUri;
   final SessionVault? _vault;
+  final ServerAddressStore? _serverStore;
   FrappeUserContext? _knownUser;
   DateTime? _offlineUntil;
   int _sessionGeneration = 0;
   Future<void> _vaultWrites = Future<void>.value();
   String get serverIdentity => _baseUri.toString();
+
+  Future<String?> getRememberedServer() async => _serverStore?.read();
+
+  static String normalizeBaseUrl(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      throw const FormatException('Server URL is empty');
+    }
+    final withScheme = RegExp(r'^[a-zA-Z][a-zA-Z0-9+.-]*://').hasMatch(trimmed)
+        ? trimmed
+        : 'http://$trimmed';
+    final uri = Uri.parse(withScheme);
+    if (!uri.hasScheme ||
+        uri.host.isEmpty ||
+        (uri.scheme != 'http' && uri.scheme != 'https')) {
+      throw const FormatException('Server URL must be http or https');
+    }
+    final normalized = withScheme.endsWith('/')
+        ? withScheme.substring(0, withScheme.length - 1)
+        : withScheme;
+    return normalized;
+  }
+
+  Future<void> useServer(String baseUrl) async {
+    final normalized = normalizeBaseUrl(baseUrl);
+    if (normalized == _baseUri.toString()) {
+      await _serverStore?.write(normalized);
+      return;
+    }
+    _sessionGeneration++;
+    _knownUser = null;
+    _offlineUntil = null;
+    await _cookies.deleteAll();
+    _dio.options.baseUrl = normalized;
+    _baseUri = Uri.parse(normalized);
+    await _serverStore?.write(normalized);
+  }
+
   Future<void> _writeVault(Future<void> Function() action) {
     final next =
         _vaultWrites.then((_) => action(), onError: (Object _) => action());
@@ -179,6 +225,16 @@ class FrappeClient implements FrappeApiClient {
   static const offlineSessionLifetime = Duration(hours: 24);
 
   Future<bool> restoreSession() async {
+    final rememberedServer = await _serverStore?.read();
+    if (rememberedServer != null && rememberedServer.trim().isNotEmpty) {
+      try {
+        final normalized = normalizeBaseUrl(rememberedServer);
+        _dio.options.baseUrl = normalized;
+        _baseUri = Uri.parse(normalized);
+      } on FormatException {
+        // Keep the configured default and fail closed for any bad vault data.
+      }
+    }
     final generation = _sessionGeneration;
     final encoded = await _vault?.read(_baseUri.toString());
     if (generation != _sessionGeneration) return false;
@@ -242,9 +298,6 @@ class FrappeClient implements FrappeApiClient {
     });
   }
 
-  final Dio _dio;
-  final CookieJar _cookies;
-  final Uri _baseUri;
   final _authenticationController = StreamController<bool>.broadcast();
 
   bool _isAuthenticated = false;
@@ -478,6 +531,16 @@ class FrappeClient implements FrappeApiClient {
     if (message is! Map) throw const ApiException.protocol();
 
     final envelope = Map<String, dynamic>.from(message);
+    if (envelope['ok'] != true && _errorCode(envelope) == _requestInProgress) {
+      // The first send of this key is still running (typically after a client
+      // timeout). The same key replays later, so it is retried with backoff
+      // instead of being parked as a validation failure.
+      throw ApiException(
+        kind: ApiFailureKind.server,
+        message: _errorMessage(envelope) ??
+            'این درخواست هنوز در حال پردازش در سرور است.',
+      );
+    }
     if (envelope['ok'] != true || !envelope.containsKey('data')) {
       throw const ApiException(
         kind: ApiFailureKind.validation,
@@ -490,6 +553,22 @@ class FrappeClient implements FrappeApiClient {
       throw const ApiException.protocol();
     }
     return envelope['data'];
+  }
+
+  /// Error code of the backend's `failure()` envelope
+  /// (`{ok: false, error: {code, message}}`), when it has one.
+  static const _requestInProgress = 'REQUEST_IN_PROGRESS';
+
+  static String? _errorCode(Map<String, dynamic> envelope) {
+    final error = envelope['error'];
+    final code = error is Map ? error['code'] : null;
+    return code is String ? code : null;
+  }
+
+  static String? _errorMessage(Map<String, dynamic> envelope) {
+    final error = envelope['error'];
+    final message = error is Map ? error['message'] : null;
+    return message is String && message.trim().isNotEmpty ? message : null;
   }
 
   Future<Map<String, dynamic>> _requestAsoudMutation({
@@ -508,11 +587,24 @@ class FrappeClient implements FrappeApiClient {
         headers: {'X-ASOUD-Idempotency-Key': mutationId},
       );
 
-  bool _isReadOnlyAsoudMethod(String method) {
+  static bool isReadOnlyMethod(String method) {
     final action = method.split('.').last;
     if (action == 'options' ||
+        action == 'catalog' ||
+        action == 'organization_tree' ||
+        action == 'permission_preview' ||
+        action == 'directory' ||
+        action == 'editor' ||
+        action == 'stock_balance' ||
+        action == 'components' ||
+        action == 'run_financial_report' ||
+        action == 'tree' ||
         action.endsWith('_options') ||
-        action.endsWith('_fields')) {
+        action.endsWith('_fields') ||
+        action.endsWith('_tree') ||
+        action.endsWith('_report') ||
+        action.endsWith('_summary') ||
+        action.endsWith('_preview')) {
       return true;
     }
     return const <String>[
@@ -525,6 +617,8 @@ class FrappeClient implements FrappeApiClient {
       'purchase_request_options',
     ].any(action.startsWith);
   }
+
+  bool _isReadOnlyAsoudMethod(String method) => isReadOnlyMethod(method);
 
   Future<T> _queuedMutation<T>({
     required String operation,
@@ -544,13 +638,13 @@ class FrappeClient implements FrappeApiClient {
       await OfflineMutationStore.instance.markSynced(id);
       return response;
     } on ApiException catch (error) {
-      if (error.kind == ApiFailureKind.network ||
-          error.kind == ApiFailureKind.timeout ||
-          error.kind == ApiFailureKind.server) {
+      if (isRetryableOfflineFailure(error)) {
         await OfflineMutationStore.instance.markPending(id);
-      } else {
-        await OfflineMutationStore.instance.markFailed(id, error);
+        // The write is safe on this device; the queue sends it after the
+        // connection returns, so the caller reports "saved", not "failed".
+        throw QueuedOfflineException(localId: id);
       }
+      await OfflineMutationStore.instance.markFailed(id, error);
       rethrow;
     } catch (error) {
       await OfflineMutationStore.instance.markFailed(id, error);
@@ -598,6 +692,24 @@ class FrappeClient implements FrappeApiClient {
         message: isLoginRequest
             ? 'نام کاربری یا رمز عبور نادرست است.'
             : 'نشست شما منقضی شده است. دوباره وارد شوید.',
+        statusCode: statusCode,
+      );
+    }
+    if (statusCode == 417) {
+      // Business validation (`frappe.throw`): the first server message is
+      // written for the user. Nothing is read from any other status.
+      final server = _serverMessage(error.response?.data);
+      if (server != null) {
+        return ApiException(
+          kind: ApiFailureKind.validation,
+          message: server.message,
+          statusCode: statusCode,
+          code: server.code,
+        );
+      }
+      return ApiException(
+        kind: ApiFailureKind.validation,
+        message: 'اطلاعات ارسال‌شده معتبر نیست.',
         statusCode: statusCode,
       );
     }
@@ -655,6 +767,37 @@ class FrappeClient implements FrappeApiClient {
         ),
     };
   }
+
+  /// The first entry of a Frappe `_server_messages` field (a JSON string of a
+  /// list of JSON strings): its text without markup and its `title` as code.
+  static ({String message, String? code})? _serverMessage(Object? body) {
+    if (body is! Map) return null;
+    try {
+      var raw = body['_server_messages'];
+      if (raw is String) raw = jsonDecode(raw);
+      if (raw is! List || raw.isEmpty) return null;
+      var first = raw.first;
+      if (first is String) first = jsonDecode(first);
+      if (first is! Map) return null;
+      final message = _plainText('${first['message'] ?? ''}');
+      if (message.isEmpty) return null;
+      final title = '${first['title'] ?? ''}'.trim();
+      return (message: message, code: title.isEmpty ? null : title);
+    } on Object {
+      return null;
+    }
+  }
+
+  static String _plainText(String html) => html
+      .replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n')
+      .replaceAll(RegExp(r'<[^>]*>'), '')
+      .replaceAll('&nbsp;', ' ')
+      .replaceAll('&lt;', '<')
+      .replaceAll('&gt;', '>')
+      .replaceAll('&quot;', '"')
+      .replaceAll('&#39;', "'")
+      .replaceAll('&amp;', '&')
+      .trim();
 
   Future<bool> _hasValidSessionCookie() async {
     final cookies = await _cookies.loadForRequest(_baseUri);

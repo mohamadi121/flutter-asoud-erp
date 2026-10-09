@@ -9,6 +9,7 @@ import '../../../core/offline/local_database_store.dart';
 import '../../../core/offline/local_record.dart';
 import '../../../core/offline/offline_failure.dart';
 import '../domain/entities/document_template.dart';
+import 'demo/template_demo_data.dart';
 import 'offline_preview_data.dart';
 
 class AutomaticActionOptions {
@@ -291,12 +292,16 @@ class WorkflowAutomationRepository {
     String search = '',
   }) async {
     if (isLocal) {
+      final stored = await _localRows();
       final rows = kind == 'ready'
           ? [
               for (final preset in offlinePresets)
                 {...preset, 'name': preset['key'], 'kind': 'ready'}
             ]
-          : await _localRows();
+          // Fresh preview: three demo templates built from the presets so
+          // the flow can be tried. Once a template is saved on the device,
+          // only the saved rows are listed.
+          : [...stored, if (stored.isEmpty) ...demoTemplateRows()];
       return rows
           .map(DocumentTemplate.fromJson)
           .where((row) => _matches(row, module, documentType, search))
@@ -376,6 +381,9 @@ class WorkflowAutomationRepository {
 
   Future<DocumentTemplate> setTemplateStatus(String name, String status) async {
     if (isLocal) {
+      if (name.startsWith('LOCAL-DEMO-TPL-')) {
+        throw StateError('الگوی نمایشی قابل تغییر وضعیت نیست.');
+      }
       final rows = await _localRows();
       final index = rows.indexWhere((row) => row['name'] == name);
       if (index < 0) throw StateError('این الگو روی گوشی یافت نشد.');

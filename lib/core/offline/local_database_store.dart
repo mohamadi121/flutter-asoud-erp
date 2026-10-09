@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:path/path.dart' as path;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
@@ -12,6 +13,8 @@ abstract interface class LocalRecordStore {
     required String entityType,
     required Map<String, dynamic> payload,
     LocalSyncStatus status = LocalSyncStatus.localOnly,
+    int? attempts,
+    DateTime? nextAttemptAt,
   });
 
   Future<LocalRecord?> get(String id);
@@ -21,29 +24,44 @@ abstract interface class LocalRecordStore {
     Set<LocalSyncStatus>? statuses,
   });
 
+  /// Stores the new [status]. [attempts] and [nextAttemptAt] carry the retry
+  /// schedule of a queued write: a null [attempts] keeps the stored count and a
+  /// null [nextAttemptAt] clears the deadline, so the row is due immediately.
   Future<void> setStatus(
     String id,
     LocalSyncStatus status, {
     String? remoteId,
     String? error,
+    int? attempts,
+    DateTime? nextAttemptAt,
   });
 
   Future<void> delete(String id);
 }
 
 class LocalDatabaseStore implements LocalRecordStore {
-  LocalDatabaseStore._();
+  LocalDatabaseStore._([this._databasePath]);
+
+  /// A store backed by the database file at [databasePath], so tests can open
+  /// a database that already exists on disk.
+  @visibleForTesting
+  factory LocalDatabaseStore.forPath(String databasePath) =>
+      LocalDatabaseStore._(databasePath);
+
   static final instance = LocalDatabaseStore._();
   static const _legacyKey = 'asoud_offline_mutations_v1';
+  static const _schemaVersion = 2;
+  final String? _databasePath;
   Database? _database;
 
   Future<Database> get database async => _database ??= await _open();
 
   Future<Database> _open() async {
-    final root = await getDatabasesPath();
+    final databasePath = _databasePath ??
+        path.join(await getDatabasesPath(), 'asoud_erp_local_v1.db');
     final database = await openDatabase(
-      path.join(root, 'asoud_erp_local_v1.db'),
-      version: 1,
+      databasePath,
+      version: _schemaVersion,
       onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
       onCreate: (db, _) async {
         await db.execute('''
@@ -55,7 +73,9 @@ class LocalDatabaseStore implements LocalRecordStore {
             remote_id TEXT,
             last_error TEXT,
             created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL
+            updated_at TEXT NOT NULL,
+            attempts INTEGER NOT NULL DEFAULT 0,
+            next_attempt_at TEXT
           )
         ''');
         await db.execute(
@@ -65,9 +85,32 @@ class LocalDatabaseStore implements LocalRecordStore {
           'CREATE INDEX idx_local_records_sync ON local_records(sync_status)',
         );
       },
+      onUpgrade: (db, oldVersion, _) async {
+        if (oldVersion < 2) await _addRetryColumns(db);
+      },
     );
     await _migrateLegacyQueue(database);
     return database;
+  }
+
+  /// Adds the retry-schedule columns to a table created before schema v2. Only
+  /// missing columns are added, because a build may already have them while
+  /// still reporting version 1.
+  Future<void> _addRetryColumns(Database db) async {
+    final columns = (await db.rawQuery('PRAGMA table_info(local_records)'))
+        .map((column) => column['name'])
+        .toSet();
+    if (!columns.contains('attempts')) {
+      await db.execute(
+        'ALTER TABLE local_records '
+        'ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0',
+      );
+    }
+    if (!columns.contains('next_attempt_at')) {
+      await db.execute(
+        'ALTER TABLE local_records ADD COLUMN next_attempt_at TEXT',
+      );
+    }
   }
 
   @override
@@ -76,6 +119,8 @@ class LocalDatabaseStore implements LocalRecordStore {
     required String entityType,
     required Map<String, dynamic> payload,
     LocalSyncStatus status = LocalSyncStatus.localOnly,
+    int? attempts,
+    DateTime? nextAttemptAt,
   }) async {
     final db = await database;
     final now = DateTime.now();
@@ -89,6 +134,8 @@ class LocalDatabaseStore implements LocalRecordStore {
       createdAt: old?.createdAt ?? now,
       updatedAt: now,
       remoteId: old?.remoteId,
+      attempts: attempts ?? old?.attempts ?? 0,
+      nextAttemptAt: nextAttemptAt ?? old?.nextAttemptAt,
     );
     await db.insert('local_records', record.toRow(),
         conflictAlgorithm: ConflictAlgorithm.replace);
@@ -133,15 +180,20 @@ class LocalDatabaseStore implements LocalRecordStore {
     LocalSyncStatus status, {
     String? remoteId,
     String? error,
+    int? attempts,
+    DateTime? nextAttemptAt,
   }) async {
+    final values = <String, Object?>{
+      'sync_status': status.name,
+      'remote_id': remoteId,
+      'last_error': error,
+      'next_attempt_at': nextAttemptAt?.toIso8601String(),
+      'updated_at': DateTime.now().toIso8601String(),
+      if (attempts != null) 'attempts': attempts,
+    };
     await (await database).update(
       'local_records',
-      {
-        'sync_status': status.name,
-        'remote_id': remoteId,
-        'last_error': error,
-        'updated_at': DateTime.now().toIso8601String(),
-      },
+      values,
       where: 'id = ?',
       whereArgs: [id],
     );

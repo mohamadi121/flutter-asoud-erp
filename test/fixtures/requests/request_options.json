@@ -1,0 +1,430 @@
+[
+ {
+  "name": "SYS-PURCHASE-WP",
+  "workflow_code": "SYS-PURCHASE-WP",
+  "workflow_title": "درخواست خرید کالا",
+  "short_title": "ثبت درخواست خرید کالا",
+  "company": "Wind Power LLC",
+  "module_key": "Purchase",
+  "request_category": "Purchase",
+  "icon_key": "purchase",
+  "color_hex": "#1769F6",
+  "show_in_request_list": 1,
+  "template_key": "purchase",
+  "template_version": 1,
+  "subject_mode": "input",
+  "subject_label": "عنوان درخواست",
+  "number_prefix": "PR",
+  "settings": {
+   "cost_center_required": true,
+   "daily_working_hours": 8
+  },
+  "attachments": {
+   "max_files": 10,
+   "max_mb": 10,
+   "extensions": [
+    "pdf",
+    "jpg",
+    "jpeg",
+    "png",
+    "xls",
+    "xlsx",
+    "doc",
+    "docx"
+   ]
+  },
+  "fields": [
+   {
+    "key": "request_number",
+    "label": "شماره درخواست",
+    "type": "Auto",
+    "auto": "request_number"
+   },
+   {
+    "key": "request_date",
+    "label": "تاریخ درخواست",
+    "type": "Auto",
+    "auto": "request_date"
+   },
+   {
+    "key": "requester",
+    "label": "درخواست‌کننده",
+    "type": "User",
+    "required": true,
+    "editable": false,
+    "default_value": "sara@x",
+    "default_label": "سارا محمدی"
+   },
+   {
+    "key": "org_unit",
+    "label": "واحد درخواست‌کننده",
+    "type": "Department",
+    "required": true,
+    "default_value": "ICU - WP",
+    "default_label": "ICU"
+   },
+   {
+    "key": "cost_center",
+    "label": "مرکز هزینه",
+    "type": "System Select",
+    "source": "cost_center",
+    "required": true
+   },
+   {
+    "key": "project",
+    "label": "پروژه",
+    "type": "System Select",
+    "source": "project"
+   },
+   {
+    "key": "needed_date",
+    "label": "تاریخ مورد نیاز",
+    "type": "Date",
+    "required": true,
+    "min_date": "today"
+   },
+   {
+    "key": "priority",
+    "label": "اولویت",
+    "type": "Choice",
+    "required": true,
+    "options": [
+     "Normal",
+     "High",
+     "Urgent"
+    ],
+    "option_labels": {
+     "Normal": "عادی",
+     "High": "مهم",
+     "Urgent": "فوری"
+    },
+    "widget": "segmented",
+    "default_value": "Normal",
+    "show_in_list": true
+   },
+   {
+    "key": "reason",
+    "label": "دلیل درخواست",
+    "type": "Long Text",
+    "required": true,
+    "max_length": 2000
+   },
+   {
+    "key": "items",
+    "label": "اقلام",
+    "type": "Item Table",
+    "required": true,
+    "row_options": {
+     "item_scope": "purchase",
+     "note": true,
+     "attachment": true,
+     "min_rows": 1,
+     "max_rows": 100
+    }
+   }
+  ]
+ },
+ {
+  "name": "SYS-SUPPLY-WP",
+  "workflow_code": "SYS-SUPPLY-WP",
+  "workflow_title": "درخواست تأمین کالا / خدمت",
+  "short_title": "ثبت درخواست تأمین",
+  "company": "Wind Power LLC",
+  "module_key": "Inventory",
+  "request_category": "Purchase",
+  "icon_key": "purchase",
+  "color_hex": "#1769F6",
+  "show_in_request_list": 1,
+  "template_key": "supply",
+  "template_version": 1,
+  "subject_mode": "input",
+  "subject_label": "عنوان درخواست",
+  "number_prefix": "SP",
+  "settings": {
+   "cost_center_required": true,
+   "daily_working_hours": 8
+  },
+  "attachments": {
+   "max_files": 10,
+   "max_mb": 10,
+   "extensions": [
+    "pdf",
+    "jpg",
+    "jpeg",
+    "png",
+    "xls",
+    "xlsx",
+    "doc",
+    "docx"
+   ]
+  },
+  "fields": [
+   {
+    "key": "request_number",
+    "label": "شماره درخواست",
+    "type": "Auto",
+    "auto": "request_number"
+   },
+   {
+    "key": "request_date",
+    "label": "تاریخ ثبت",
+    "type": "Auto",
+    "auto": "request_date"
+   },
+   {
+    "key": "requester",
+    "label": "درخواست‌کننده",
+    "type": "User",
+    "required": true,
+    "editable": false,
+    "default_value": "sara@x",
+    "default_label": "سارا محمدی"
+   },
+   {
+    "key": "org_unit",
+    "label": "واحد سازمانی",
+    "type": "Department",
+    "required": true,
+    "default_value": "ICU - WP",
+    "default_label": "ICU"
+   },
+   {
+    "key": "delivery_location",
+    "label": "محل تحویل",
+    "type": "System Select",
+    "source": "delivery_location",
+    "required": true
+   },
+   {
+    "key": "needed_date",
+    "label": "تاریخ مورد نیاز",
+    "type": "Date",
+    "required": true,
+    "min_date": "today"
+   },
+   {
+    "key": "supply_method",
+    "label": "روش تأمین پیشنهادی",
+    "type": "Choice",
+    "options": [
+     "Warehouse",
+     "Purchase",
+     "Transfer",
+     "Contract",
+     "Unspecified"
+    ],
+    "option_labels": {
+     "Warehouse": "از انبار",
+     "Purchase": "خرید",
+     "Transfer": "انتقال",
+     "Contract": "قرارداد",
+     "Unspecified": "نامشخص"
+    },
+    "widget": "chips",
+    "default_value": "Unspecified"
+   },
+   {
+    "key": "suggested_supplier",
+    "label": "تأمین‌کننده پیشنهادی",
+    "type": "System Select",
+    "source": "supplier",
+    "help_text": "فقط پیشنهاد است"
+   },
+   {
+    "key": "priority",
+    "label": "اولویت",
+    "type": "Choice",
+    "options": [
+     "Normal",
+     "High",
+     "Urgent"
+    ],
+    "option_labels": {
+     "Normal": "عادی",
+     "High": "مهم",
+     "Urgent": "فوری"
+    },
+    "widget": "segmented",
+    "default_value": "Normal",
+    "show_in_list": true
+   },
+   {
+    "key": "reason",
+    "label": "توضیحات / دلیل درخواست",
+    "type": "Long Text",
+    "max_length": 2000,
+    "help_text": "توصیه می‌شود"
+   },
+   {
+    "key": "items",
+    "label": "کالا / خدمت",
+    "type": "Item Table",
+    "required": true,
+    "row_options": {
+     "item_scope": "all",
+     "note": false,
+     "attachment": true,
+     "min_rows": 1,
+     "max_rows": 100
+    }
+   }
+  ]
+ },
+ {
+  "name": "SYS-LEAVE-WP",
+  "workflow_code": "SYS-LEAVE-WP",
+  "workflow_title": "درخواست مرخصی",
+  "short_title": "ثبت درخواست مرخصی",
+  "company": "Wind Power LLC",
+  "module_key": "HR",
+  "request_category": "HR",
+  "icon_key": "leave",
+  "color_hex": "#EF3340",
+  "show_in_request_list": 1,
+  "template_key": "leave",
+  "template_version": 1,
+  "subject_mode": "generated",
+  "subject_label": "",
+  "number_prefix": "LV",
+  "settings": {
+   "cost_center_required": true,
+   "daily_working_hours": 8
+  },
+  "attachments": {
+   "max_files": 10,
+   "max_mb": 10,
+   "extensions": [
+    "jpg",
+    "jpeg",
+    "png",
+    "pdf",
+    "docx"
+   ]
+  },
+  "fields": [
+   {
+    "key": "request_number",
+    "label": "شماره درخواست",
+    "type": "Auto",
+    "auto": "request_number"
+   },
+   {
+    "key": "request_date",
+    "label": "تاریخ ثبت",
+    "type": "Auto",
+    "auto": "request_date"
+   },
+   {
+    "key": "requester",
+    "label": "درخواست‌کننده",
+    "type": "User",
+    "required": true,
+    "editable": false,
+    "default_value": "sara@x",
+    "default_label": "سارا محمدی"
+   },
+   {
+    "key": "org_unit",
+    "label": "واحد سازمانی",
+    "type": "Department",
+    "required": true,
+    "default_value": "ICU - WP",
+    "default_label": "ICU"
+   },
+   {
+    "key": "leave_type",
+    "label": "نوع مرخصی",
+    "type": "System Select",
+    "source": "leave_type",
+    "required": true
+   },
+   {
+    "key": "request_kind",
+    "label": "نوع درخواست",
+    "type": "Choice",
+    "required": true,
+    "options": [
+     "Daily",
+     "Hourly"
+    ],
+    "option_labels": {
+     "Daily": "روزانه",
+     "Hourly": "ساعتی"
+    },
+    "widget": "segmented",
+    "default_value": "Daily"
+   },
+   {
+    "key": "start_date",
+    "label": "تاریخ شروع",
+    "type": "Date",
+    "required": true,
+    "visible_when": {
+     "field": "request_kind",
+     "equals": "Daily"
+    }
+   },
+   {
+    "key": "end_date",
+    "label": "تاریخ پایان",
+    "type": "Date",
+    "required": true,
+    "visible_when": {
+     "field": "request_kind",
+     "equals": "Daily"
+    }
+   },
+   {
+    "key": "leave_date",
+    "label": "تاریخ مرخصی",
+    "type": "Date",
+    "required": true,
+    "visible_when": {
+     "field": "request_kind",
+     "equals": "Hourly"
+    }
+   },
+   {
+    "key": "start_time",
+    "label": "ساعت شروع",
+    "type": "Time",
+    "required": true,
+    "visible_when": {
+     "field": "request_kind",
+     "equals": "Hourly"
+    }
+   },
+   {
+    "key": "end_time",
+    "label": "ساعت پایان",
+    "type": "Time",
+    "required": true,
+    "visible_when": {
+     "field": "request_kind",
+     "equals": "Hourly"
+    }
+   },
+   {
+    "key": "duration",
+    "label": "مدت مرخصی",
+    "type": "Auto",
+    "auto": "leave_duration"
+   },
+   {
+    "key": "location",
+    "label": "محل خدمت",
+    "type": "System Select",
+    "source": "branch",
+    "default_value": "Tehran",
+    "default_label": "تهران"
+   },
+   {
+    "key": "reason",
+    "label": "دلیل مرخصی",
+    "type": "Long Text",
+    "required": true,
+    "max_length": 2000
+   }
+  ]
+ }
+]

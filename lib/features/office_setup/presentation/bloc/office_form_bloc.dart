@@ -6,6 +6,7 @@ import 'package:equatable/equatable.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/config/app_config.dart';
 import '../../../../core/offline/offline_failure.dart';
+import '../../../../core/offline/queued_offline_exception.dart';
 import '../../domain/entities/office.dart';
 import '../../domain/repositories/office_repository.dart';
 
@@ -167,7 +168,15 @@ class OfficeFormBloc extends Bloc<OfficeFormEvent, OfficeFormState> {
           message: local
               ? 'دفتر روی همین دستگاه ذخیره شد؛ هنوز روی سرور ثبت نشده است.'
               : 'دفتر کار با موفقیت ذخیره شد.'));
-    } on ApiException catch (error) {
+    } catch (error) {
+      if (error is QueuedOfflineException) {
+        emit(state.copyWith(
+          status: OfficeFormStatus.offlinePreview,
+          createdOffice: _draftOffice(),
+          message: error.message,
+        ));
+        return;
+      }
       if (allowOfflinePreview && isRetryableOfflineFailure(error)) {
         emit(state.copyWith(
           status: OfficeFormStatus.offlinePreview,
@@ -177,12 +186,10 @@ class OfficeFormBloc extends Bloc<OfficeFormEvent, OfficeFormState> {
         ));
         return;
       }
-      emit(state.copyWith(
-          status: OfficeFormStatus.failure, message: error.message));
-    } catch (_) {
-      emit(state.copyWith(
-          status: OfficeFormStatus.failure,
-          message: 'خطای غیرمنتظره‌ای رخ داد. دوباره تلاش کنید.'));
+      final message = error is ApiException
+          ? error.message
+          : 'خطای غیرمنتظره‌ای رخ داد. دوباره تلاش کنید.';
+      emit(state.copyWith(status: OfficeFormStatus.failure, message: message));
     }
   }
 

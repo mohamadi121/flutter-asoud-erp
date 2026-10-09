@@ -2,28 +2,90 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/config/app_config.dart';
 import '../../../../core/network/api_exception.dart';
+import '../../../../core/network/frappe_client.dart';
+import '../../data/demo_choice_store.dart';
+import '../../data/demo_transfer_service.dart';
 import '../../domain/repositories/auth_repository.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../dashboard/presentation/pages/dashboard_page.dart';
+import '../../../workflows/data/generic_request_repository.dart';
+import '../../../workflows/data/workflow_automation_repository.dart';
+import '../../../workflows/domain/entities/document_template.dart';
+import 'demo_transfer_page.dart';
 
-/// Preview builds remain usable without a server; connected builds sign in.
+/// Server sign-in. The offline demo preview is a secondary, explicit choice.
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+  const LoginPage(
+      {super.key,
+      bool? showDemoButton,
+      this.transferService,
+      this.initialServerUrl})
+      : showDemoButton = showDemoButton ?? AppConfig.offlineDemoMode;
+
+  /// `OFFLINE_DEMO_MODE` only decides whether the demo entry exists.
+  /// Exposed as a parameter so widget tests can cover both values even
+  /// though the flag itself is compile-time.
+  final bool showDemoButton;
+
+  /// Overridable for tests; defaults to the on-device preview stores.
+  final DemoTransferService? transferService;
+
+  final String? initialServerUrl;
 
   @override
   State<LoginPage> createState() => _LoginPageState();
 }
 
 class _LoginPageState extends State<LoginPage> {
+  late final TextEditingController _serverUrl;
   final _username = TextEditingController();
   final _password = TextEditingController();
   bool _obscurePassword = true;
   bool _busy = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    String? initial = widget.initialServerUrl;
+    if (initial == null || initial.trim().isEmpty) {
+      try {
+        final client = context.read<FrappeApiClient>();
+        if (client is FrappeClient && client.serverIdentity.trim().isNotEmpty) {
+          initial = client.serverIdentity;
+        }
+      } catch (_) {}
+    }
+    _serverUrl = TextEditingController(
+        text: initial?.trim().isNotEmpty == true
+            ? initial!
+            : AppConfig.erpNextBaseUrl);
+    _loadRememberedServer();
+  }
+
+  Future<void> _loadRememberedServer() async {
+    if (widget.initialServerUrl != null) return;
+    try {
+      final client = context.read<FrappeApiClient>();
+      if (client is FrappeClient) {
+        final saved = await client.getRememberedServer();
+        if (saved != null &&
+            saved.trim().isNotEmpty &&
+            mounted &&
+            (_serverUrl.text == AppConfig.erpNextBaseUrl ||
+                _serverUrl.text.trim().isEmpty)) {
+          setState(() {
+            _serverUrl.text = saved.trim();
+          });
+        }
+      }
+    } catch (_) {}
+  }
+
   Future<void> _login() async {
-    if (_busy || AppConfig.offlineDemoMode) return;
+    if (_busy) return;
     if (_username.text.trim().isEmpty || _password.text.isEmpty) {
       setState(() => _error = 'نام کاربری و رمز عبور را وارد کنید.');
       return;
@@ -33,26 +95,90 @@ class _LoginPageState extends State<LoginPage> {
       _error = null;
     });
     try {
-      await context
-          .read<AuthRepository>()
-          .signIn(username: _username.text.trim(), password: _password.text);
+      final client = context.read<FrappeApiClient>();
+      final auth = context.read<AuthRepository>();
+      if (client is FrappeClient) {
+        await client.useServer(_serverUrl.text);
+        _serverUrl.text = client.serverIdentity;
+      }
+      await auth.signIn(
+          username: _username.text.trim(), password: _password.text);
       _password.clear();
       if (!mounted) return;
-      Navigator.of(context).pushReplacement(MaterialPageRoute<void>(
-          builder: (_) => const DashboardLandingPage()));
+      await _afterLogin();
     } catch (error) {
       if (mounted) {
-        setState(() => _error = error is ApiException
-            ? error.message
-            : 'ورود ممکن نشد؛ اتصال و ذخیره امن گوشی را بررسی کنید.');
+        setState(() => _error = error is FormatException
+            ? 'نشانی سرور را درست وارد کنید؛ مثل http://91.108.140.180:8080'
+            : error is ApiException
+                ? error.message
+                : 'ورود ممکن نشد؛ اتصال و ذخیره امن گوشی را بررسی کنید.');
       }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
+  /// A demo user signing into a real account is offered the one-time
+  /// transfer of rows created in the preview.
+  Future<void> _afterLogin() async {
+    final client = context.read<FrappeApiClient>();
+    await DemoChoiceStore.setDemoChosen(false);
+    final service = widget.transferService ?? DemoTransferService();
+    final candidates = await service.listCandidates();
+    final seen = await DemoTransferService.isTransferSeen();
+    if (!mounted) return;
+    if (candidates.isNotEmpty && !seen) {
+      Navigator.of(context).pushReplacement(MaterialPageRoute<void>(
+          builder: (_) => DemoTransferPage(
+                service: service,
+                submitRequest: (data) => _submitRequest(client, data),
+                submitTemplate: (template) => _submitTemplate(client, template),
+              )));
+      return;
+    }
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute<void>(builder: (_) => const DashboardLandingPage()),
+      (_) => false,
+    );
+  }
+
+  Future<void> _submitRequest(
+      FrappeApiClient client, Map<String, dynamic> data) async {
+    final company = '${data['company'] ?? ''}';
+    final payload = Map<String, dynamic>.from(data)
+      ..remove('company')
+      ..remove('request_id')
+      ..remove('is_sample');
+    // The transfer service derives a stable id from the preview row, so a
+    // second tap on the same row is an idempotent replay, not a new request.
+    final requestId = '${data['request_id'] ?? ''}';
+    await GenericRequestRepository(client, company).create(
+        {...payload, 'company': company},
+        requestId.isEmpty ? GenericRequestRepository.requestId() : requestId);
+  }
+
+  Future<void> _submitTemplate(
+      FrappeApiClient client, Map<String, dynamic> template) async {
+    final row = Map<String, dynamic>.from(template)..remove('is_sample');
+    await WorkflowAutomationRepository(client).saveTemplate(
+      company: '${row['company'] ?? ''}',
+      template: DocumentTemplate.fromJson(row),
+    );
+  }
+
+  Future<void> _openDemo() async {
+    await DemoChoiceStore.setDemoChosen(true);
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement(MaterialPageRoute<void>(
+        builder: (_) => const DashboardLandingPage(
+              offlinePreview: true,
+            )));
+  }
+
   @override
   void dispose() {
+    _serverUrl.dispose();
     _username.dispose();
     _password.dispose();
     super.dispose();
@@ -81,16 +207,24 @@ class _LoginPageState extends State<LoginPage> {
                             fontWeight: FontWeight.w900,
                             color: AsoudColors.text)),
                     const SizedBox(height: 7),
-                    const Text(
-                        AppConfig.offlineDemoMode
-                            ? 'ورود به حساب کاربری پس از آماده‌شدن سرور ASOUD ERP فعال می‌شود.'
-                            : 'ورود به حساب کاربری ASOUD ERP',
+                    const Text('ورود به حساب کاربری ASOUD ERP',
                         style:
                             TextStyle(fontSize: 11, color: AsoudColors.muted)),
                     const SizedBox(height: 30),
                     TextField(
+                      controller: _serverUrl,
+                      enabled: !_busy,
+                      keyboardType: TextInputType.url,
+                      textDirection: TextDirection.ltr,
+                      decoration: const InputDecoration(
+                        labelText: 'نشانی سرور',
+                        prefixIcon: Icon(Icons.cloud_outlined),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
                       controller: _username,
-                      enabled: !AppConfig.offlineDemoMode && !_busy,
+                      enabled: !_busy,
                       keyboardType: TextInputType.emailAddress,
                       textDirection: TextDirection.ltr,
                       decoration: const InputDecoration(
@@ -101,7 +235,7 @@ class _LoginPageState extends State<LoginPage> {
                     const SizedBox(height: 14),
                     TextField(
                       controller: _password,
-                      enabled: !AppConfig.offlineDemoMode && !_busy,
+                      enabled: !_busy,
                       obscureText: _obscurePassword,
                       textDirection: TextDirection.ltr,
                       decoration: InputDecoration(
@@ -120,62 +254,30 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                     ),
                     const SizedBox(height: 14),
-                    if (AppConfig.offlineDemoMode) const _LoginUnavailable(),
                     if (_error != null)
                       Text(_error!, style: const TextStyle(color: Colors.red)),
                     const SizedBox(height: 22),
                     SizedBox(
                       height: 52,
                       child: FilledButton(
-                        onPressed:
-                            AppConfig.offlineDemoMode || _busy ? null : _login,
-                        child: Text(AppConfig.offlineDemoMode
-                            ? 'ورود تا آماده‌شدن سرور غیرفعال است'
-                            : _busy
-                                ? 'در حال ورود…'
-                                : 'ورود'),
+                        onPressed: _busy ? null : _login,
+                        child: Text(_busy ? 'در حال ورود…' : 'ورود'),
                       ),
                     ),
-                    const SizedBox(height: 10),
-                    SizedBox(
-                      height: 48,
-                      child: OutlinedButton.icon(
-                        onPressed: () => Navigator.of(context).pushReplacement(
-                          MaterialPageRoute<void>(
-                              builder: (_) => const DashboardLandingPage(
-                                    offlinePreview: true,
-                                  )),
+                    if (widget.showDemoButton) ...[
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        height: 48,
+                        child: OutlinedButton.icon(
+                          onPressed: _openDemo,
+                          icon: const Icon(Icons.visibility_outlined),
+                          label: const Text('ورود به نسخه نمایشی (آفلاین)'),
                         ),
-                        icon: const Icon(Icons.arrow_back_rounded),
-                        label: const Text('ادامه موقت بدون ورود'),
                       ),
-                    ),
+                    ],
                   ]),
             ),
           ),
         ),
-      );
-}
-
-class _LoginUnavailable extends StatelessWidget {
-  const _LoginUnavailable();
-
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(11),
-        decoration: BoxDecoration(
-          color: AsoudColors.warning.withValues(alpha: .08),
-          border: Border.all(color: AsoudColors.warning.withValues(alpha: .3)),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: const Row(children: [
-          Icon(Icons.cloud_off_rounded, color: AsoudColors.warning, size: 19),
-          SizedBox(width: 8),
-          Expanded(
-            child: Text(
-                'سرور ASOUD ERP هنوز برای اتصال آماده نیست؛ ورود عمداً غیرفعال است.',
-                style: TextStyle(fontSize: 9)),
-          ),
-        ]),
       );
 }

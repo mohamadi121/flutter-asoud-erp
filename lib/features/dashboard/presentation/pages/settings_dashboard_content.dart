@@ -2,9 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/network/frappe_client.dart';
+import '../../../../core/offline/local_database_store.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/jalali_date.dart';
+import '../../../../core/utils/persian_server_values.dart';
 import '../../../../core/widgets/asoud_ui.dart';
+import '../../../auth/data/unsent_offline_count.dart';
+import '../../../auth/domain/repositories/auth_repository.dart';
+import '../../../auth/presentation/pages/login_page.dart';
 import '../../../base_setup/presentation/pages/base_accounting_setup_page.dart';
 import '../../../base_setup/presentation/pages/roles_setup_page.dart';
 import '../../../hr/presentation/pages/hr_home_page.dart';
@@ -15,13 +20,22 @@ import '../../../workflows/presentation/pages/generic_request_page.dart';
 import '../../../workflows/presentation/pages/workflow_form_page.dart';
 import '../../../workflows/presentation/pages/workflow_notifications_page.dart';
 import '../../../workflows/presentation/pages/workflow_tasks_page.dart';
+import 'sync_queue_page.dart';
+import 'sync_status_indicator.dart';
+import '../../data/demo/dashboard_demo_data.dart';
 
 /// Administrative entry points. Unavailable telemetry is never presented as live.
 class SettingsDashboardContent extends StatefulWidget {
   const SettingsDashboardContent(
-      {this.company, this.offlinePreview = false, super.key});
+      {this.company,
+      this.offlinePreview = false,
+      this.offlineStore,
+      super.key});
   final String? company;
   final bool offlinePreview;
+
+  /// Injected for tests; defaults to the on-device offline store.
+  final LocalRecordStore? offlineStore;
 
   @override
   State<SettingsDashboardContent> createState() =>
@@ -51,11 +65,55 @@ class _SettingsDashboardContentState extends State<SettingsDashboardContent> {
   void _open(Widget page) =>
       Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
 
+  void _openLogin() {
+    final client = context.read<FrappeApiClient>();
+    final serverUrl = client is FrappeClient ? client.serverIdentity : null;
+    _open(LoginPage(initialServerUrl: serverUrl));
+  }
+
+  /// Signs out without deleting queued rows: they are owner-scoped and
+  /// replay when the same user signs in again.
+  Future<void> _confirmLogout() async {
+    final unsent = await countUnsentOfflineRows(store: widget.offlineStore);
+    if (!mounted) return;
+    final leave = await showDialog<bool>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: const Text('خروج از حساب'),
+        content: Text(unsent > 0
+            ? '${toPersianDigits(unsent)} مورد هنوز به سرور ارسال نشده؛ با خروج، این موارد تا ورود دوباره همین کاربر ارسال نمی‌شوند'
+            : 'از حساب سازمانی خارج می‌شوید؟'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialog).pop(false),
+            child: const Text('انصراف'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialog).pop(true),
+            child: const Text('خروج'),
+          ),
+        ],
+      ),
+    );
+    if (leave != true || !mounted) return;
+    final client = context.read<FrappeApiClient>();
+    final serverUrl = client is FrappeClient ? client.serverIdentity : null;
+    await context.read<AuthRepository>().signOut();
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute<void>(
+          builder: (_) => LoginPage(initialServerUrl: serverUrl)),
+      (_) => false,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final company = widget.company;
     final hasOffice = company?.trim().isNotEmpty == true;
+    final demo = widget.offlinePreview;
     final now = DateTime.now();
+    final sync = syncServiceOf(context);
     return Directionality(
         textDirection: TextDirection.rtl,
         child: SafeArea(
@@ -77,6 +135,11 @@ class _SettingsDashboardContentState extends State<SettingsDashboardContent> {
                       style: TextStyle(
                           color: AsoudColors.primary,
                           fontWeight: FontWeight.w900))),
+              if (sync != null)
+                Flexible(
+                    child: SyncStatusIndicator(
+                        service: sync,
+                        onOpen: () => openSyncQueue(context, sync))),
               IconButton(
                   tooltip: 'اعلان‌ها',
                   onPressed: hasOffice
@@ -109,7 +172,7 @@ class _SettingsDashboardContentState extends State<SettingsDashboardContent> {
                           Text(
                               profile == null
                                   ? 'اطلاعات دسترسی دریافت نشده است'
-                                  : profile.roles.join('، '),
+                                  : formatUserGreetingRoles(profile.roles),
                               style: const TextStyle(
                                   fontSize: 11, color: AsoudColors.muted)),
                         ])),
@@ -155,29 +218,56 @@ class _SettingsDashboardContentState extends State<SettingsDashboardContent> {
                       mainAxisExtent: 126,
                       children: [
                         _StatusCard('کاربران فعال', Icons.people_outline,
-                            AsoudColors.primary),
-                        _StatusCard(
-                            'کاربران آنلاین',
-                            Icons.desktop_windows_outlined,
-                            AsoudColors.success),
+                            AsoudColors.primary,
+                            value:
+                                demo ? demoSystemStatus('کاربران فعال') : null,
+                            demo: demo),
+                        _StatusCard('کاربران آنلاین',
+                            Icons.desktop_windows_outlined, AsoudColors.success,
+                            value: demo
+                                ? demoSystemStatus('کاربران آنلاین')
+                                : null,
+                            demo: demo),
                         _StatusCard('فضای ذخیره‌سازی', Icons.storage_outlined,
-                            AsoudColors.primary),
+                            AsoudColors.primary,
+                            value: demo
+                                ? demoSystemStatus('فضای ذخیره‌سازی')
+                                : null,
+                            demo: demo),
                         _StatusCard('درخواست‌های در انتظار',
                             Icons.pending_actions, AsoudColors.warning,
+                            value: demo
+                                ? demoSystemStatus('درخواست‌های در انتظار')
+                                : null,
+                            demo: demo,
                             onTap: hasOffice
                                 ? () => _open(const WorkflowTasksPage())
                                 : null),
                         _StatusCard('خطاهای سیستم', Icons.bug_report_outlined,
-                            AsoudColors.purple),
-                        _StatusCard('وضعیت همگام‌سازی', Icons.sync,
-                            AsoudColors.success),
+                            AsoudColors.purple,
+                            value:
+                                demo ? demoSystemStatus('خطاهای سیستم') : null,
+                            demo: demo),
+                        _StatusCard(
+                            'وضعیت همگام‌سازی', Icons.sync, AsoudColors.success,
+                            value: demo
+                                ? demoSystemStatus('وضعیت همگام‌سازی')
+                                : null,
+                            demo: demo,
+                            note: sync == null ? null : 'صف ارسال به سرور',
+                            onTap: sync == null
+                                ? null
+                                : () => openSyncQueue(context, sync)),
                       ],
                     )),
-            const Padding(
-                padding: EdgeInsets.only(top: 8),
+            Padding(
+                padding: const EdgeInsets.only(top: 8),
                 child: Text(
-                    'آمار سیستم هنوز به منبع داده متصل نیست؛ خط تیره به معنی صفر نیست.',
-                    style: TextStyle(fontSize: 11, color: AsoudColors.muted))),
+                    demo
+                        ? 'آمار نمایشی برای پیش‌نمایش آفلاین است و روی سرور ذخیره نمی‌شود.'
+                        : 'آمار سیستم هنوز به منبع داده متصل نیست؛ خط تیره به معنی صفر نیست.',
+                    style: const TextStyle(
+                        fontSize: 11, color: AsoudColors.muted))),
             const SizedBox(height: 18),
             const Text('عملیات سریع',
                 style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
@@ -249,17 +339,45 @@ class _SettingsDashboardContentState extends State<SettingsDashboardContent> {
                                 : null),
                       ],
                     )),
+            const SizedBox(height: 18),
+            const Text('حساب کاربری',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 10),
+            if (widget.offlinePreview)
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: _openLogin,
+                  icon: const Icon(Icons.business_rounded),
+                  label: const Text('ورود به حساب سازمانی'),
+                ),
+              )
+            else
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _confirmLogout,
+                  icon: const Icon(Icons.logout_rounded),
+                  label: const Text('خروج از حساب'),
+                ),
+              ),
           ]),
         ));
   }
 }
 
 class _StatusCard extends StatelessWidget {
-  const _StatusCard(this.title, this.icon, this.color, {this.onTap});
+  const _StatusCard(this.title, this.icon, this.color,
+      {this.onTap, this.note, this.value, this.demo = false});
   final String title;
   final IconData icon;
   final Color color;
   final VoidCallback? onTap;
+  final String? note;
+
+  /// Demo figure for the offline preview; null keeps the «—» placeholder.
+  final String? value;
+  final bool demo;
   @override
   Widget build(BuildContext context) => Card(
       child: InkWell(
@@ -280,12 +398,18 @@ class _StatusCard extends StatelessWidget {
                             height: 1.3,
                             fontWeight: FontWeight.w700)),
                     const Spacer(),
-                    const Text('—',
-                        style: TextStyle(
+                    Text(value ?? '—',
+                        style: const TextStyle(
                             fontSize: 18,
                             height: 1.1,
                             fontWeight: FontWeight.w800)),
-                    Text(onTap == null ? 'داده موجود نیست' : 'مشاهده کارتابل',
+                    Text(
+                        note ??
+                            (onTap == null
+                                ? (demo ? 'نمایشی' : 'داده موجود نیست')
+                                : (demo
+                                    ? 'نمایشی · مشاهده کارتابل'
+                                    : 'مشاهده کارتابل')),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(

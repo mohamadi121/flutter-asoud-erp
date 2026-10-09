@@ -1,5 +1,71 @@
 # Changelog
 
+## 0.26.2+46
+
+- The app remembers the server address and the signed-in session after it is closed, so users no longer have to re-enter them.
+- The first-run setup card is hidden once the server reports the office as complete, and refreshes after sync.
+- Dashboard quick actions and workflow tabs (dashboard, notifications, more) now open real destinations; reports show a clear "coming soon" page.
+- Jalali dates for personnel, tasks, daily reports and notifications; Persian labels for status, priority, marital status, employment type and leave types in the preview data.
+- Expired contracts show «منقضی»; offline leave requests get a proper title; workflow step counts match their designs; the offline organization chart shows preview data; local-only requests are reflected in the sync status.
+- Settings → Human Resources opens for managers and Administrator who have no employee profile; a failed load shows a Persian reason instead of a blank page.
+- Request-type editor: «ادامه» and the step chips work on system templates; missing fields are named.
+- Role management and the organization chart parse the real server responses (they showed zero roles before); read-only server calls are never queued as offline writes (removes the false «نوشته ارسال نشده» notice).
+- Setup status resolves from the server; the request picker lists the active server request types; offices page shows the correct empty text and a working top menu; server dates, genders, roles and stage types are shown in Persian/Jalali.
+- Creating an office works: the chart template is sent with the values the server accepts, and a write that was queued offline is reported instead of leaving the form unchanged.
+- The first-run setup card and the base-setup progress use the real setup status; module tiles without a backend yet show «به‌زودی»; sync-queue errors, greeting roles and workflow connector labels are in Persian; after signing out the login screen keeps the last server address.
+- Requires backend 0.15.0.
+
+## 0.26.1+45
+
+- Fixes the release APK: it had no INTERNET permission and blocked plain-HTTP servers, so every sign-in failed with «ارتباط با سرور برقرار نشد». Release builds can now reach the server (debug builds were not affected).
+- Adds a test that keeps the permission in the main Android manifest.
+- Requires backend 0.15.0.
+
+## 0.26.0+44
+
+- Personnel: the single personnel detail page now also shows contracts, promotion, documents, manager and tenure, and recent activities.
+- Offline and demo mode: workflow, request, dashboard and login flows work on the device without a session; local ids are never shown as employee codes.
+- HR Manager screens open with read-only access.
+- Merged the latest `main` (user access editor, workflow stage and end settings).
+- Requires backend 0.15.0 (automatic actions, access assignments, HR read access).
+
+## 0.25.3+43
+
+- After a successful organization login, the app clears the remembered offline demo choice so the next launch does not reopen the demo/offline dashboard by mistake.
+- Keeps the editable login server address fix and latest `main` workflow/offline updates.
+- Requires backend 0.14.0.
+
+## 0.25.2+42
+
+- Merged the latest `main` workflow/offline updates into the test release.
+- Keeps the editable login server address fix from 0.25.1+41.
+- Requires backend 0.14.0.
+
+## 0.25.1+41
+
+- Login server address is editable again. Entering an address without a scheme, such as `91.108.140.180:8080`, is normalized to `http://91.108.140.180:8080` before signing in.
+- Requires backend 0.14.0.
+
+## 0.25.0+40
+
+- Purchase, supply and leave requests are system templates served by the backend: shared request form, list and detail pages (status tabs, search, filters, files with thumbnails, comments, edit and cancel), the leave form with a live preview and balance panel, and quick actions on the employee home.
+- The offline preview shows the three templates with demo requests that follow the mockups; the old client-side leave and purchase demo types are gone.
+- The offline leave preview follows the server's rounding and messages.
+- Requires backend 0.14.0 (`docs/api/request_templates.md`, `docs/api/leave_request.md`).
+
+## 0.24.1+39
+
+- Existing offline databases now migrate to schema v2 by adding the retry columns (`attempts`, `next_attempt_at`), so queued writes and status updates keep working on devices that already had a v1 database.
+- Requires backend 0.13.1.
+
+## 0.24.0+38
+
+- Offline preview now includes a richer demo app: office dashboard figures, request/cartable samples, workflow notifications, employee home, attendance, HR rows, parties, and three preset document templates.
+- Unified personnel file preview into the four-tab page and seeded 12 realistic personnel files with documents, contracts, attendance, leave, salary visibility rules, and history.
+- Added MyInfo, employee self-service home, demo transfer, restored login/demo choice/logout flows, and safer offline queue behavior with retry/backoff and ownership guards.
+- Queued offline writes now cover roles, organization chart, purchase, attendance and generic requests, with a send-queue screen and rejected writes kept visible.
+- Requires backend 0.13.0.
+
 ## 0.23.0+37
 
 - Offline preview (no server): document templates, stage exit routes and requests are saved on the

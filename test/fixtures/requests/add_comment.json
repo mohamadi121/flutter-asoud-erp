@@ -1,0 +1,14 @@
+{
+ "ok": true,
+ "data": {
+  "name": "abc124",
+  "content": "پیش‌فاکتور پیوست شد.",
+  "author": "sara@x",
+  "author_name": "سارا محمدی",
+  "creation": "2026-10-05 10:00:00",
+  "is_mine": true
+ },
+ "meta": {
+  "api_version": "v1"
+ }
+}
