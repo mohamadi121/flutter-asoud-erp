@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -36,11 +38,19 @@ class DashboardLandingPage extends StatefulWidget {
 class _DashboardLandingPageState extends State<DashboardLandingPage> {
   late Future<Office?> _office;
   late final Future<String?> _employeeCompany = _loadEmployeeCompany();
+  StreamSubscription<void>? _syncChanges;
 
   @override
   void initState() {
     super.initState();
     _office = _loadOffice();
+    _syncChanges = syncServiceOf(context)?.changes.listen((_) => _reload());
+  }
+
+  @override
+  void dispose() {
+    unawaited(_syncChanges?.cancel());
+    super.dispose();
   }
 
   /// The company of a user who is only an employee, or null for everyone else.
@@ -63,9 +73,9 @@ class _DashboardLandingPageState extends State<DashboardLandingPage> {
       .getDefaultOffice()
       .timeout(const Duration(seconds: 8));
 
-  void _reload() => setState(
-        () => _office = _loadOffice(),
-      );
+  void _reload() => setState(() {
+        _office = _loadOffice();
+      });
 
   @override
   Widget build(BuildContext context) => FutureBuilder<String?>(
@@ -157,18 +167,20 @@ class _DashboardPageState extends State<DashboardPage> {
                         const SizedBox(height: 10),
                         _MetricsGrid(demo: offlinePreview),
                         const SizedBox(height: 10),
-                        _SetupProgress(
-                          offline: offlinePreview,
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => BaseAccountingSetupPage(
-                                officeName: officeName,
-                                offlinePreview: offlinePreview,
+                        if (office?.setupComplete != true) ...[
+                          _SetupProgress(
+                            offline: offlinePreview,
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => BaseAccountingSetupPage(
+                                  officeName: officeName,
+                                  offlinePreview: offlinePreview,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 10),
+                          const SizedBox(height: 10),
+                        ],
                         _InfoCards(office: office),
                         const SizedBox(height: 14),
                         const Text('عملیات سریع',
@@ -698,8 +710,11 @@ class _QuickActions extends StatelessWidget {
       required this.onPurchaseRequest,
       required this.onDocuments,
       this.onParties});
-  final VoidCallback onAccounting, onPayments, onSalesInvoice,
-      onPurchaseRequest, onDocuments;
+  final VoidCallback onAccounting,
+      onPayments,
+      onSalesInvoice,
+      onPurchaseRequest,
+      onDocuments;
   final VoidCallback? onParties;
   @override
   Widget build(BuildContext context) {

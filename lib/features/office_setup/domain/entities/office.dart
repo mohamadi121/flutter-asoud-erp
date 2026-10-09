@@ -26,6 +26,7 @@ class Office extends Equatable {
     this.chartTemplate,
     this.description,
     this.lastSyncedAt,
+    this.setupComplete = false,
   });
 
   final String name;
@@ -42,6 +43,7 @@ class Office extends Equatable {
   final String? phone, email, website, province, city, address, postalCode;
   final String? fiscalYear, chartTemplate, description;
   final DateTime? lastSyncedAt;
+  final bool setupComplete;
 
   @override
   List<Object?> get props => [
@@ -67,5 +69,6 @@ class Office extends Equatable {
         chartTemplate,
         description,
         lastSyncedAt,
+        setupComplete,
       ];
 }

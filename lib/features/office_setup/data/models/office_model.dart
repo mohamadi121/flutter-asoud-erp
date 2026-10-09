@@ -24,6 +24,7 @@ class OfficeModel extends Office {
     super.chartTemplate,
     super.description,
     super.lastSyncedAt,
+    super.setupComplete,
   });
 
   factory OfficeModel.fromEntity(Office office) => OfficeModel(
@@ -49,6 +50,7 @@ class OfficeModel extends Office {
         chartTemplate: office.chartTemplate,
         description: office.description,
         lastSyncedAt: office.lastSyncedAt,
+        setupComplete: office.setupComplete,
       );
 
   factory OfficeModel.fromJson(Map<String, dynamic> json) => OfficeModel(
@@ -90,6 +92,12 @@ class OfficeModel extends Office {
         chartTemplate: json['chart_template'] as String?,
         description: json['description'] as String?,
         lastSyncedAt: DateTime.tryParse(json['modified']?.toString() ?? ''),
+        setupComplete: json['complete'] == true ||
+            json['complete'] == 1 ||
+            json['setup_complete'] == true ||
+            json['setup_complete'] == 1 ||
+            json['is_setup_complete'] == true ||
+            json['is_setup_complete'] == 1,
       );
 
   Map<String, dynamic> toJson() => {
