@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/jalali_date.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../domain/entities/office.dart';
 import '../../domain/repositories/office_repository.dart';
@@ -480,9 +481,7 @@ class _OfficeCard extends StatelessWidget {
 
   static String _syncLabel(DateTime? value) {
     if (value == null) return 'زمان ثبت نشده';
-    final local = value.toLocal();
-    String two(int number) => number.toString().padLeft(2, '0');
-    return '${two(local.hour)}:${two(local.minute)}، ${local.year}/${two(local.month)}/${two(local.day)}';
+    return formatJalaliDateTime(value);
   }
 }
 

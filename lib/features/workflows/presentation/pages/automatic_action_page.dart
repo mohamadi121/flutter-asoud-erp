@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/persian_server_values.dart';
 import '../../../../core/widgets/asoud_form.dart';
 import '../../../../core/utils/jalali_date.dart';
 import '../../data/workflow_automation_repository.dart';
@@ -631,7 +632,7 @@ class _AutomaticActionPageState extends State<AutomaticActionPage> {
                           child: ListView(children: [
                         for (final user in users)
                           CheckboxListTile(
-                              title: Text('${user['label']}'),
+                              title: Text(persianRoleLabel('${user['label']}')),
                               value: picked.contains(user['id']),
                               onChanged: (value) => change(() {
                                     value == true

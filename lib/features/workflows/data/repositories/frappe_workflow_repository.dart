@@ -1,4 +1,5 @@
 import '../../../../core/network/frappe_client.dart';
+import '../../../../core/utils/persian_server_values.dart';
 import '../../domain/entities/workflow_definition.dart';
 import '../../domain/repositories/workflow_repository.dart';
 
@@ -339,9 +340,13 @@ class FrappeWorkflowRepository implements WorkflowRepository {
       moduleKey: item['module_key']?.toString(),
       creationMode: item['creation_mode']?.toString(),
       frappeWorkflow: item['frappe_workflow']?.toString(),
-      pendingReason: item['pending_reason']?.toString(),
+      pendingReason: item['pending_reason'] == null
+          ? null
+          : persianServerMessage(item['pending_reason'].toString()),
       missingRequirements: missing is List
-          ? missing.map((value) => value.toString()).toList(growable: false)
+          ? missing
+              .map((value) => persianServerMessage(value.toString()))
+              .toList(growable: false)
           : const [],
       iconKey: item['icon_key']?.toString(),
       colorHex: item['color_hex']?.toString(),
@@ -389,7 +394,7 @@ class FrappeWorkflowRepository implements WorkflowRepository {
       key: item['stage_key']?.toString() ?? '',
       type: _parseStageType(item['stage_type']?.toString()),
       subtype: item['stage_subtype']?.toString(),
-      title: item['stage_title']?.toString() ?? '',
+      title: persianWorkflowStageTitle(item['stage_title']?.toString() ?? ''),
       sequence: int.tryParse(item['sequence_no']?.toString() ?? '') ?? 0,
       configurationComplete: item['configuration_status'] == 'Complete',
       config: config is Map ? Map<String, dynamic>.from(config) : const {},

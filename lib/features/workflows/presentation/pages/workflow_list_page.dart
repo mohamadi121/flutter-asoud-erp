@@ -375,8 +375,8 @@ class _WorkflowCard extends StatelessWidget {
     }
     final date = item.modified == null
         ? 'ثبت نشده'
-        : JalaliDate.fromDateTime(item.modified!).format();
-    return '${item.stepsCount} مرحله • آخرین ویرایش: $date';
+        : toPersianDigits(JalaliDate.fromDateTime(item.modified!).format());
+    return '${toPersianDigits(item.stepsCount)} مرحله • آخرین ویرایش: $date';
   }
 
   Future<void> _showDetails(BuildContext context) => showDialog<void>(
@@ -482,8 +482,8 @@ class _WorkflowBottomNavigation extends StatelessWidget {
             Navigator.push(
               context,
               MaterialPageRoute<void>(
-                  builder: (_) => const DashboardLandingPage(
-                      offlinePreview: true)),
+                  builder: (_) =>
+                      const DashboardLandingPage(offlinePreview: true)),
             );
             return;
           }

@@ -123,6 +123,14 @@ String formatJalaliIso(String iso) {
   return toPersianDigits(JalaliDate.fromDateTime(date).format());
 }
 
+String formatJalaliDateTime(DateTime value) {
+  final local = value.toLocal();
+  final date = toPersianDigits(JalaliDate.fromDateTime(local).format());
+  final time = '${local.hour.toString().padLeft(2, '0')}:'
+      '${local.minute.toString().padLeft(2, '0')}';
+  return '${toPersianDigits(time)}، $date';
+}
+
 String formatJalaliDateTimeIso(String iso) {
   final date = DateTime.tryParse(iso);
   if (date == null) return '';

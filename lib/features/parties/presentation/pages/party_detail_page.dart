@@ -3,11 +3,15 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/jalali_date.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../domain/entities/party_profile.dart';
 import '../../domain/repositories/party_repository.dart';
 import 'party_form_page.dart';
 import 'party_links_page.dart';
+
+String? _jalaliDate(String? value) =>
+    value == null || value.trim().isEmpty ? value : formatJalaliIso(value);
 
 class PartyDetailPage extends StatefulWidget {
   const PartyDetailPage({required this.profile, super.key});
@@ -144,9 +148,9 @@ class _PartyDetailPageState extends State<PartyDetailPage> {
         ('کد اقتصادی', profile.economicCode, _ValueAction.copy),
       (
         'تاریخ تولد / تأسیس',
-        profile.kind == PartyKind.individual
+        _jalaliDate(profile.kind == PartyKind.individual
             ? profile.birthDate
-            : profile.foundingDate,
+            : profile.foundingDate),
         _ValueAction.none
       ),
     ];

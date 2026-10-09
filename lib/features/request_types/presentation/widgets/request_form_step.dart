@@ -253,7 +253,8 @@ class _FieldRow extends StatelessWidget {
   final VoidCallback onTap, onDelete;
   @override
   Widget build(BuildContext context) {
-    final type = requestFieldTypeFor(field.type);
+    final type = requestFieldTypeFor(
+        field.label.trim() == 'تاریخ ثبت' ? 'Date' : field.type);
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
       decoration: BoxDecoration(
