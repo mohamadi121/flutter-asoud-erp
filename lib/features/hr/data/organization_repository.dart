@@ -147,6 +147,9 @@ class OrganizationRepository {
   }
 
   Future<OrganizationSnapshot> load(String company) async {
+    if (!client.isAuthenticated) {
+      return const OrganizationSnapshot(standardOrganization, 0, false);
+    }
     final (key, epoch) = await _scope(company);
     final cached = await local.get(key);
     final draft = await local.get('$key:draft');

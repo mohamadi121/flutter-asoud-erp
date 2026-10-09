@@ -1,5 +1,10 @@
+import 'package:asoud_erp/core/network/frappe_client.dart';
+import 'package:asoud_erp/features/hr/data/organization_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:asoud_erp/features/hr/domain/organization_chart.dart';
+import 'package:mocktail/mocktail.dart';
+
+class _PreviewClient extends Mock implements FrappeApiClient {}
 
 void main() {
   test('template permits vacant positions', () {
@@ -34,5 +39,19 @@ void main() {
         employee: 'E');
     final decoded = OrgPosition.fromJson(row.toJson());
     expect(decoded.toJson(), row.toJson());
+  });
+  test('offline preview loads the seeded organization chart', () async {
+    final client = _PreviewClient();
+    when(() => client.isAuthenticated).thenReturn(false);
+    when(() => client.authenticationChanges)
+        .thenAnswer((_) => const Stream.empty());
+    final repository = OrganizationRepository(client);
+    addTearDown(repository.dispose);
+
+    final snapshot = await repository.load('شرکت نمونه آسود');
+
+    expect(snapshot.rows, hasLength(standardOrganization.length));
+    expect(snapshot.rows.first.title, 'مدیرعامل');
+    expect(snapshot.pending, isFalse);
   });
 }
