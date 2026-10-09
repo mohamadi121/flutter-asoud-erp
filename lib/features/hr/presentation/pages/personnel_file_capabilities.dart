@@ -2,12 +2,21 @@ part of 'personnel_page.dart';
 
 /// Empty values always read as «ثبت نشده»; a dash is never shown.
 const capEmpty = 'ثبت نشده';
+const capPendingRegistration = 'در انتظار ثبت';
 
-String capText(String? value) {
+String capText(String? value, {String fallback = capEmpty}) {
   final text = value?.trim() ?? '';
-  if (text.isEmpty || text.contains('LOCAL-')) return capEmpty;
+  if (text.isEmpty ||
+      isLocalPersonnelId(text) ||
+      text.contains('LOCAL-') ||
+      text.contains('personnel-import-')) {
+    return fallback;
+  }
   return text;
 }
+
+String capEmployeeCode(String? code) =>
+    capText(code, fallback: capPendingRegistration);
 
 /// Latin/ASCII-number values (O+, emails, codes) are laid out LTR; anything
 /// with Persian/Arabic script, including Persian digits, stays RTL.

@@ -27,8 +27,17 @@ AppBar _personnelHeader(BuildContext context, String title, {Widget? action}) =>
     );
 
 String _valueOf(Map profile, String key, [String fallback = '—']) {
+  if (key == 'employee_code') {
+    return capEmployeeCode('${profile['employee_code'] ?? ''}');
+  }
   final value = '${profile[key] ?? ''}'.trim();
-  return value.isEmpty ? fallback : value;
+  if (value.isEmpty ||
+      isLocalPersonnelId(value) ||
+      value.contains('LOCAL-') ||
+      value.contains('personnel-import-')) {
+    return fallback;
+  }
+  return value;
 }
 
 class _PersonnelList extends StatelessWidget {
@@ -280,12 +289,9 @@ class _PersonnelRow extends StatelessWidget {
                             Text(_valueOf(profile, 'department'),
                                 style: const TextStyle(
                                     color: Color(0xFF7A8DBB), fontSize: 10)),
-                            Text(
-                                _valueOf(profile, 'employee_code',
-                                    _valueOf(profile, 'id')),
+                            capValueText(
+                                capEmployeeCode(profile['employee_code']),
                                 maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                textDirection: TextDirection.ltr,
                                 style: const TextStyle(
                                     color: Color(0xFF7A8DBB), fontSize: 10)),
                           ])),
@@ -426,10 +432,8 @@ class _EmployeeUserDetailsPageState extends State<_EmployeeUserDetailsPage> {
                               builder: (_) => PersonnelRolesPage(
                                   employeeName:
                                       _valueOf(widget.profile, 'display_name'),
-                                  employeeCode: _valueOf(
-                                      widget.profile,
-                                      'employee_code',
-                                      _valueOf(widget.profile, 'id')),
+                                  employeeCode: capEmployeeCode(
+                                      widget.profile['employee_code']),
                                   mobile: _valueOf(widget.profile, 'mobile'),
                                   initialValue:
                                       (data['roles'] as List? ?? const [])
@@ -570,8 +574,7 @@ class _InviteReviewPageState extends State<_InviteReviewPage> {
         MaterialPageRoute(
             builder: (_) => PersonnelRolesPage(
                 employeeName: _valueOf(widget.profile, 'display_name'),
-                employeeCode: _valueOf(widget.profile, 'employee_code',
-                    _valueOf(widget.profile, 'id')),
+                employeeCode: capEmployeeCode(widget.profile['employee_code']),
                 mobile: _valueOf(widget.profile, 'mobile'),
                 onConfirm: (value, selected) async {
                   roles = value;
@@ -835,8 +838,7 @@ class _PersonnelAccessPageState extends State<_PersonnelAccessPage> {
             builder: (_) => PersonnelRolesPage(
                 initialValue: roles,
                 employeeName: _valueOf(widget.profile, 'display_name'),
-                employeeCode: _valueOf(widget.profile, 'employee_code',
-                    _valueOf(widget.profile, 'id')),
+                employeeCode: capEmployeeCode(widget.profile['employee_code']),
                 mobile: _valueOf(widget.profile, 'mobile'),
                 onConfirm: (value, matrix) async {
                   roles = value;
@@ -1094,7 +1096,7 @@ class _PersonnelOverviewState extends State<_PersonnelOverview> {
                 subtitle: 'واحد سازمانی'),
             _ProfileMetric(
                 icon: Icons.badge_outlined,
-                title: _valueOf(p, 'employee_code', _valueOf(p, 'id')),
+                title: capEmployeeCode(p['employee_code']),
                 subtitle: 'کد پرسنلی'),
           ])),
       Container(

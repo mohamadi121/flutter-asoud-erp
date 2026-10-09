@@ -497,7 +497,7 @@ class _PersonnelInfoMetrics extends StatelessWidget {
             subtitle: 'واحد سازمانی'),
         _ProfileMetric(
             icon: Icons.badge_outlined,
-            title: _valueOf(profile, 'employee_code', _valueOf(profile, 'id')),
+            title: capEmployeeCode(profile['employee_code']),
             subtitle: 'کد پرسنلی'),
       ]));
 }
@@ -773,8 +773,7 @@ class _EmploymentCategory extends StatelessWidget {
               'تاریخ شروع همکاری': _valueOf(profile, 'date_of_joining'),
               'سمت شغلی': _valueOf(profile, 'job_title'),
               'واحد سازمانی': _valueOf(profile, 'department'),
-              'کد پرسنلی':
-                  _valueOf(profile, 'employee_code', _valueOf(profile, 'id')),
+              'کد پرسنلی': capEmployeeCode(profile['employee_code']),
             }),
         const SizedBox(height: 10),
         _CategoryCard(
@@ -1055,7 +1054,7 @@ class _ProfileMetricStrip extends StatelessWidget {
             subtitle: 'واحد سازمانی'),
         _ProfileMetric(
             icon: Icons.badge_outlined,
-            title: _valueOf(profile, 'employee_code', _valueOf(profile, 'id')),
+            title: capEmployeeCode(profile['employee_code']),
             subtitle: 'کد پرسنلی'),
       ]));
 }

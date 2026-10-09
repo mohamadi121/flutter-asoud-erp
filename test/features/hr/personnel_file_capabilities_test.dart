@@ -415,10 +415,10 @@ void main() {
       expect(find.text('سابقه خدمت'), findsOneWidget);
       // Both tiles show «ثبت نشده»
       expect(find.text('ثبت نشده'), findsAtLeast(2));
-      expect(
-          find.widgetWithText(PersonnelManagerAndTenureSlot, '—'), findsNothing);
-      expect(
-          find.widgetWithText(PersonnelManagerAndTenureSlot, '-'), findsNothing);
+      expect(find.widgetWithText(PersonnelManagerAndTenureSlot, '—'),
+          findsNothing);
+      expect(find.widgetWithText(PersonnelManagerAndTenureSlot, '-'),
+          findsNothing);
 
       // Tapping manager tile when employee ID is empty does NOT push route
       observer.routes.clear();
@@ -448,6 +448,82 @@ void main() {
 
       expect(find.text('LOCAL-مدیر موقت'), findsNothing);
       expect(find.text('ثبت نشده'), findsAtLeast(1));
+    });
+
+    testWidgets(
+        'local person fixture never shows LOCAL- or personnel-import- anywhere and shows در انتظار ثبت for employee code',
+        (tester) async {
+      final localProfile = <String, dynamic>{
+        'id': 'LOCAL-person',
+        'display_name': 'علی رضایی',
+        'job_title': 'کارشناس منابع انسانی',
+        'department': 'منابع انسانی',
+        'employee_code': 'LOCAL-person',
+        'mobile': '09121234567',
+        'employee_gender': 'Male',
+        'birth_date': '1992-05-11',
+        'date_of_joining': '2024-04-21',
+        'employment_type': 'تمام وقت',
+        'city': 'تهران',
+      };
+      final people = _FakePeopleRepo()
+        ..customDetail = {
+          'profile': localProfile,
+          'records': <Map<String, dynamic>>[],
+          'revision': 'rev-local-1',
+          'can_edit': true,
+        };
+      final fileRepo = _FakeFileRepo();
+
+      await _pumpDetail(tester, people: people, fileRepo: fileRepo);
+
+      void assertNoLocalText(String screen) {
+        final texts = tester
+            .widgetList<Text>(find.byType(Text))
+            .map((t) => t.data ?? t.textSpan?.toPlainText() ?? '')
+            .toList();
+        expect(
+            texts.where((t) =>
+                t.startsWith('LOCAL-') ||
+                t.startsWith('personnel-import-') ||
+                t.contains('LOCAL-person')),
+            isEmpty,
+            reason: '$screen contains local ID leak: $texts');
+      }
+
+      // Overview page
+      assertNoLocalText('overview');
+      expect(find.text('در انتظار ثبت'), findsWidgets);
+
+      // Personal info page
+      await _tapText(tester, 'اطلاعات پرسنلی');
+      assertNoLocalText('personal info page');
+      expect(find.text('در انتظار ثبت'), findsWidgets);
+
+      // Section: اطلاعات فردی
+      await _tapText(tester, 'اطلاعات فردی');
+      assertNoLocalText('personal details');
+      tester.state<NavigatorState>(find.byType(Navigator)).pop();
+      await tester.pumpAndSettle();
+
+      // Section: اطلاعات سازمانی
+      await _tapText(tester, 'اطلاعات سازمانی');
+      assertNoLocalText('organization details');
+      tester.state<NavigatorState>(find.byType(Navigator)).pop();
+      await tester.pumpAndSettle();
+
+      // Section: اطلاعات استخدامی
+      await _tapText(tester, 'اطلاعات استخدامی');
+      assertNoLocalText('employment category');
+      expect(find.text('در انتظار ثبت'), findsWidgets);
+      tester.state<NavigatorState>(find.byType(Navigator)).pop();
+      await tester.pumpAndSettle();
+
+      // Section: قراردادها
+      await _tapText(tester, 'قراردادها');
+      assertNoLocalText('contracts category');
+      tester.state<NavigatorState>(find.byType(Navigator)).pop();
+      await tester.pumpAndSettle();
     });
   });
 
@@ -683,7 +759,8 @@ void main() {
           .text = '2026-03-20';
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.widgetWithText(TextFormField, 'شرح قرارداد *'),
+      await tester.enterText(
+          find.widgetWithText(TextFormField, 'شرح قرارداد *'),
           'قرارداد آزمایشی جدید');
 
       // Toggle signed switch
@@ -925,7 +1002,8 @@ void main() {
       expect(file.header.name, 'امیر موفق');
     });
 
-    test('returns null when fileRepository is null (skipping file-only capabilities)',
+    test(
+        'returns null when fileRepository is null (skipping file-only capabilities)',
         () async {
       final people = _FakePeopleRepo();
 
