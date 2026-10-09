@@ -158,8 +158,8 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      expect(find.text('150 دقیقه • Draft'), findsOneWidget);
-      expect(find.text('300 دقیقه • Submitted'), findsOneWidget);
+      expect(find.text('150 دقیقه • پیش‌نویس'), findsOneWidget);
+      expect(find.text('300 دقیقه • ارسال‌شده'), findsOneWidget);
       expect(find.text('هنوز گزارش کاری ثبت نشده است'), findsNothing);
       expect(tester.takeException(), isNull);
     });

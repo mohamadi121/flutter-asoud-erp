@@ -59,12 +59,9 @@ void main() {
       await tester.tap(find.text('گزارش‌ها'));
       await tester.pumpAndSettle();
       expect(find.byType(SettingsDashboardContent), findsNothing);
-      expect(find.text('دفتر کار'), findsOneWidget);
-      expect(
-          tester
-              .widget<NavigationBar>(find.byType(NavigationBar))
-              .selectedIndex,
-          3);
+      expect(find.text('گزارش‌ها'), findsOneWidget);
+      expect(find.text('به‌زودی'), findsOneWidget);
+      expect(find.byType(NavigationBar), findsNothing);
       expect(tester.takeException(), isNull);
     });
   }
@@ -81,6 +78,6 @@ void main() {
     expect(tester.takeException(), isNull);
     await tester.tap(find.text('گزارش‌ها'));
     await tester.pumpAndSettle();
-    expect(find.byType(SettingsDashboardContent), findsNothing);
+    expect(find.byType(SettingsDashboardContent), findsOneWidget);
   });
 }
