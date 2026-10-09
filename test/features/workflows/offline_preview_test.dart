@@ -21,6 +21,14 @@ class _Offline extends Fake implements WorkflowRepository {
   static const error =
       ApiException(kind: ApiFailureKind.network, message: 'offline');
   @override
+  Future<List<WorkflowDefinition>> getWorkflows({
+    String? search,
+    WorkflowDefinitionStatus? status,
+    String? company,
+    String orderBy = 'modified desc',
+  }) async =>
+      throw error;
+  @override
   Future<WorkflowDesign> getDesign(String definition) async => throw error;
   @override
   Future<WorkflowDesign> addStage(
@@ -126,6 +134,10 @@ void main() {
 
   test('stage routes are saved on the local design', () async {
     final repository = PreviewFallbackWorkflowRepository(_Offline());
+    final listed = (await repository.getWorkflows())
+        .firstWhere((item) => item.id == 'PREVIEW-WF-001');
+    final initial = await repository.getDesign('PREVIEW-WF-001');
+    expect(listed.stepsCount, initial.stages.length);
     var design = await repository.addStage(
         definition: 'PREVIEW-WF-001',
         afterStage: 'PREVIEW-WF-001-START',
