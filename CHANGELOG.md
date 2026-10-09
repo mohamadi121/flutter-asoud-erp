@@ -11,6 +11,8 @@
 - Request-type editor: «ادامه» and the step chips work on system templates; missing fields are named.
 - Role management and the organization chart parse the real server responses (they showed zero roles before); read-only server calls are never queued as offline writes (removes the false «نوشته ارسال نشده» notice).
 - Setup status resolves from the server; the request picker lists the active server request types; offices page shows the correct empty text and a working top menu; server dates, genders, roles and stage types are shown in Persian/Jalali.
+- Creating an office works: the chart template is sent with the values the server accepts, and a write that was queued offline is reported instead of leaving the form unchanged.
+- The first-run setup card and the base-setup progress use the real setup status; module tiles without a backend yet show «به‌زودی»; sync-queue errors, greeting roles and workflow connector labels are in Persian; after signing out the login screen keeps the last server address.
 - Requires backend 0.15.0.
 
 ## 0.26.1+45
