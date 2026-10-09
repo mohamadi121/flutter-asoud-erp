@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.26.0+44
+
+- Personnel: the single personnel detail page now also shows contracts, promotion, documents, manager and tenure, and recent activities.
+- Offline and demo mode: workflow, request, dashboard and login flows work on the device without a session; local ids are never shown as employee codes.
+- HR Manager screens open with read-only access.
+- Merged the latest `main` (user access editor, workflow stage and end settings).
+- Requires backend 0.15.0 (automatic actions, access assignments, HR read access).
+
 ## 0.25.3+43
 
 - After a successful organization login, the app clears the remembered offline demo choice so the next launch does not reopen the demo/offline dashboard by mistake.
