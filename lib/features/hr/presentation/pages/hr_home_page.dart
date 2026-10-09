@@ -318,8 +318,8 @@ class WorkReportsPage extends StatelessWidget {
                                             leading: const AsoudIconBox(
                                                 icon: Icons.fact_check_outlined,
                                                 color: AsoudColors.success),
-                                            title: Text(
-                                                formatJalaliIso(report.date.toIso8601String())),
+                                            title: Text(formatJalaliIso(
+                                                report.date.toIso8601String())),
                                             subtitle: Text(
                                                 '${report.totalMinutes} دقیقه • ${_hrLabel(report.status)}'))))
                                     .toList(),
@@ -404,7 +404,7 @@ class HrCommunicationsPage extends StatelessWidget {
                                                 color: AsoudColors.purple),
                                             title: Text(item.subject),
                                             subtitle: Text(
-                                                '${item.sender} • ${item.priority}'))))
+                                                '${item.sender} • ${_hrLabel(item.priority)}'))))
                                     .toList(),
                           )),
                 )),
@@ -468,17 +468,20 @@ class HrNotificationsPage extends StatelessWidget {
                     padding: const EdgeInsets.all(16),
                     children: state.notifications.isEmpty
                         ? const [_Empty('اعلان جدیدی وجود ندارد')]
-                        : state.notifications.map((item) => Card(
-                              child: ListTile(
-                                leading: const AsoudIconBox(
-                                    icon: Icons.notifications_active_outlined,
-                                    color: AsoudColors.warning),
-                                title:
-                                    Text(item['subject']?.toString() ?? ''),
-                                subtitle: Text(formatJalaliDateTimeIso(
-                                    item['creation']?.toString() ?? '')),
-                              ),
-                            )).toList()))),
+                        : state.notifications
+                            .map((item) => Card(
+                                  child: ListTile(
+                                    leading: const AsoudIconBox(
+                                        icon:
+                                            Icons.notifications_active_outlined,
+                                        color: AsoudColors.warning),
+                                    title:
+                                        Text(item['subject']?.toString() ?? ''),
+                                    subtitle: Text(formatJalaliDateTimeIso(
+                                        item['creation']?.toString() ?? '')),
+                                  ),
+                                ))
+                            .toList()))),
       );
 }
 

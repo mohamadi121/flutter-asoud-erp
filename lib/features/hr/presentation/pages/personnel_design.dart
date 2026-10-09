@@ -40,6 +40,18 @@ String _valueOf(Map profile, String key, [String fallback = '—']) {
   if (key == 'birth_date' || key == 'date_of_joining') {
     return formatJalaliIso(value);
   }
+  if (key == 'employment_type') {
+    return const {
+          'Full-time': 'تمام وقت',
+          'Part-time': 'پاره وقت',
+          'Contract': 'قراردادی',
+          'Intern': 'کارآموز',
+        }[value] ??
+        value;
+  }
+  if (key == 'marital_status') {
+    return const {'Married': 'متأهل', 'Single': 'مجرد'}[value] ?? value;
+  }
   return value;
 }
 

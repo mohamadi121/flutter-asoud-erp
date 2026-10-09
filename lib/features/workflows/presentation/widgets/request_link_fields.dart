@@ -272,7 +272,9 @@ class _OptionPickerState extends State<_OptionPicker> {
                   Widget tile(Map<String, dynamic> row) => ListTile(
                         title: Text(_label(row)),
                         subtitle: _label(row) == '${row['value']}' ||
-                                row['kind'] != null
+                                row['kind'] != null ||
+                                '${row['value']}'.contains('- DEMO') ||
+                                '${row['value']}'.startsWith('PREVIEW-')
                             ? null
                             : Text('${row['value']}',
                                 textDirection: TextDirection.ltr,
@@ -434,6 +436,7 @@ class _ItemTableViewState extends State<_ItemTableView> {
     setState(() {
       rows.add({
         'item_code': '${row['value']}',
+        'item_name': _label(row),
         'qty': 1,
         'uom': row['stock_uom'],
         // Template tables keep it so a form can check stock rules early; the

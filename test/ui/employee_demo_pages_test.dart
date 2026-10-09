@@ -177,6 +177,7 @@ void main() {
 
       expect(find.text('جلسه هماهنگی فروش'), findsOneWidget);
       expect(find.text('تحویل اسناد تنخواه'), findsOneWidget);
+      expect(find.text('احمد رضایی • زیاد'), findsOneWidget);
       expect(find.text('مکاتبه‌ای برای نمایش وجود ندارد'), findsNothing);
       expect(tester.takeException(), isNull);
     });
