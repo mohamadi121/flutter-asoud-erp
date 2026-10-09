@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../../core/config/app_config.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../dashboard/presentation/pages/dashboard_page.dart';
@@ -12,15 +13,22 @@ import '../../domain/repositories/office_repository.dart';
 import '../bloc/office_form_bloc.dart';
 
 class OfficeFormPage extends StatelessWidget {
-  const OfficeFormPage({required this.officeType, this.office, super.key});
+  const OfficeFormPage({
+    required this.officeType,
+    this.office,
+    this.allowOfflinePreview = AppConfig.offlineDemoMode,
+    super.key,
+  });
   final OfficeType officeType;
   final Office? office;
+  final bool allowOfflinePreview;
   @override
   Widget build(BuildContext context) => BlocProvider(
         create: (context) => OfficeFormBloc(
           officeType: officeType,
           repository: context.read<OfficeRepository>(),
           office: office,
+          allowOfflinePreview: allowOfflinePreview,
         ),
         child: _OfficeFormView(editing: office != null),
       );

@@ -1,3 +1,4 @@
+import '../../../../core/utils/jalali_date.dart';
 import '../../domain/entities/office.dart';
 
 class OfficeModel extends Office {
@@ -84,12 +85,13 @@ class OfficeModel extends Office {
         phone: json['phone'] as String?,
         email: json['email'] as String?,
         website: json['website'] as String?,
-        province: json['province'] as String?,
-        city: json['city'] as String?,
+        province: _provinceToPersian(json['province'] as String?),
+        city: _cityToPersian(json['city'] as String?),
         address: json['address'] as String?,
         postalCode: json['postal_code'] as String?,
-        fiscalYear: json['fiscal_year']?.toString(),
-        chartTemplate: json['chart_template'] as String?,
+        fiscalYear: _fiscalYearToPersian(json['fiscal_year']),
+        chartTemplate:
+            _chartTemplateToPersian(json['chart_template'] as String?),
         description: json['description'] as String?,
         lastSyncedAt: DateTime.tryParse(json['modified']?.toString() ?? ''),
         setupComplete: json['complete'] == true ||
@@ -103,6 +105,49 @@ class OfficeModel extends Office {
                     json['accounting_saved'] == 1) &&
                 (json['roles_saved'] == true || json['roles_saved'] == 1)),
       );
+
+  static String? _chartTemplateToPersian(String? value) => switch (value) {
+        'Iran Standard' || 'استاندارد ایران' => 'استاندارد ایران',
+        'Service' || 'خدماتی' => 'خدماتی',
+        'Commercial' || 'بازرگانی' => 'بازرگانی',
+        'Manufacturing' || 'تولیدی' => 'تولیدی',
+        _ => value,
+      };
+
+  static String? _provinceToPersian(String? value) => switch (value) {
+        'Tehran' => 'تهران',
+        'Isfahan' => 'اصفهان',
+        'Fars' => 'فارس',
+        'Razavi Khorasan' => 'خراسان رضوی',
+        'East Azerbaijan' => 'آذربایجان شرقی',
+        _ => value,
+      };
+
+  static String? _cityToPersian(String? value) => switch (value) {
+        'Tehran' => 'تهران',
+        'Rey' => 'ری',
+        'Shemiranat' => 'شمیرانات',
+        'Isfahan' => 'اصفهان',
+        'Kashan' => 'کاشان',
+        'Najafabad' => 'نجف‌آباد',
+        'Shiraz' => 'شیراز',
+        'Marvdasht' => 'مرودشت',
+        'Kazerun' => 'کازرون',
+        'Mashhad' => 'مشهد',
+        'Neyshabur' => 'نیشابور',
+        'Sabzevar' => 'سبزوار',
+        'Tabriz' => 'تبریز',
+        'Maragheh' => 'مراغه',
+        'Marand' => 'مرند',
+        _ => value,
+      };
+
+  static String? _fiscalYearToPersian(dynamic value) {
+    if (value == null) return null;
+    final str = value.toString().trim();
+    if (str.isEmpty) return null;
+    return toPersianDigits(str);
+  }
 
   Map<String, dynamic> toJson() => {
         'company_name': name,

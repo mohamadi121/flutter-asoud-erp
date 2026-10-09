@@ -58,8 +58,16 @@ class FrappeOfficeRepository implements OfficeRepository {
         'address': office.address,
         'postal_code': office.postalCode,
         'fiscal_year': office.fiscalYear,
-        'chart_template': office.chartTemplate,
+        'chart_template': _chartTemplateToBackend(office.chartTemplate),
         'description': office.description,
+      };
+
+  static String? _chartTemplateToBackend(String? value) => switch (value) {
+        'استاندارد ایران' || 'Iran Standard' => 'Iran Standard',
+        'خدماتی' || 'Service' => 'Service',
+        'بازرگانی' || 'Commercial' => 'Commercial',
+        'تولیدی' || 'Manufacturing' => 'Manufacturing',
+        _ => value == null || value.isEmpty ? null : value,
       };
 
   @override
