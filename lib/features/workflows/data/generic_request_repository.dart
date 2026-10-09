@@ -370,7 +370,14 @@ class GenericRequestRepository {
         : local
             ? 'ذخیره روی گوشی'
             : 'در انتظار همگام‌سازی';
-    final title = '${ui['request_type_title'] ?? ''}';
+    final title = '${ui['request_type_title'] ?? ''}'.trim().isNotEmpty
+        ? '${ui['request_type_title']}'
+        : switch ('${ui['template_key'] ?? data['template_key'] ?? ''}') {
+            'leave' => 'درخواست مرخصی',
+            'purchase' => 'درخواست خرید کالا',
+            'supply' => 'درخواست تأمین کالا / خدمت',
+            _ => '${data['workflow_definition'] ?? ''}',
+          };
     return {
       ...data,
       'name': item.id,
@@ -378,7 +385,9 @@ class GenericRequestRepository {
       if (local) 'local_number': _localNumber(item),
       'template_key': '${ui['template_key'] ?? data['template_key'] ?? ''}',
       'request_type': title.isNotEmpty ? title : data['workflow_definition'],
-      'subject': '${data['subject'] ?? ui['subject'] ?? ''}',
+      'subject': '${data['subject'] ?? ui['subject'] ?? ''}'.trim().isNotEmpty
+          ? '${data['subject'] ?? ui['subject'] ?? ''}'
+          : title,
       'status': failed ? 'نیازمند بررسی' : 'در انتظار همگام‌سازی',
       'status_key': failed ? 'failed' : 'submitted',
       'status_label': label,

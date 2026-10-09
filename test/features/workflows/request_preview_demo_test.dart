@@ -145,6 +145,22 @@ void main() {
     }
   });
 
+  test('offline leave saved without a typed subject keeps its request title',
+      () async {
+    final repository = GenericRequestRepository(client, 'شرکت نمونه آسود',
+        store: FakeLocalRecordStore());
+
+    await repository.create({
+      'template_key': 'leave',
+      'values': const {'request_kind': 'Daily'},
+      'attachments': const [],
+    }, 'request-preview-leave');
+
+    final page = await repository.listPage(templateKey: 'leave');
+    expect(page.items.single.subject, 'درخواست مرخصی');
+    expect(page.items.single.requestType, 'درخواست مرخصی');
+  });
+
   test('a demo request has values, an attachment and a timeline', () async {
     final tasks = PreviewWorkflowTaskRepository(_OfflineTasks());
     final repository = GenericRequestRepository(client, 'شرکت نمونه آسود',
