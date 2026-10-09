@@ -4,16 +4,19 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../domain/repositories/workflow_repository.dart';
+import '../../domain/entities/workflow_definition.dart';
 import '../cubit/workflow_form_cubit.dart';
 import 'workflow_designer_page.dart';
 
 class WorkflowFormPage extends StatelessWidget {
-  const WorkflowFormPage({super.key});
+  const WorkflowFormPage({this.existing, super.key});
+  final WorkflowDefinition? existing;
 
   @override
   Widget build(BuildContext context) => BlocProvider(
         create: (_) => WorkflowFormCubit(
           repository: context.read<WorkflowRepository>(),
+          existing: existing,
         )..load(),
         child: const _WorkflowFormView(),
       );
@@ -31,6 +34,10 @@ class _WorkflowFormView extends StatelessWidget {
         listener: (context, state) {
           if (state.status == WorkflowFormStatus.success &&
               state.createdDraft != null) {
+            if (context.read<WorkflowFormCubit>().existing != null) {
+              Navigator.of(context).pop();
+              return;
+            }
             Navigator.of(context).pushReplacement(MaterialPageRoute<void>(
               builder: (_) =>
                   WorkflowDesignerPage(definition: state.createdDraft!.id),
@@ -55,12 +62,15 @@ class _WorkflowFormView extends StatelessWidget {
                     : () => Navigator.maybePop(context),
                 icon: const Icon(Icons.chevron_right_rounded),
               ),
-              title: const Column(children: [
-                Text('ایجاد گردش کار',
-                    style:
-                        TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
-                SizedBox(height: 5),
-                Text('اطلاعات پایه فرایند را وارد کنید',
+              title: Column(children: [
+                Text(
+                    context.read<WorkflowFormCubit>().existing == null
+                        ? 'ایجاد گردش کار'
+                        : 'تنظیمات گردش کار',
+                    style: const TextStyle(
+                        fontSize: 17, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 5),
+                const Text('اطلاعات پایه فرایند را وارد کنید',
                     style: TextStyle(fontSize: 10, color: AsoudColors.muted)),
               ]),
             ),
@@ -110,9 +120,10 @@ class _FormContent extends StatelessWidget {
         value: cubit,
         child: Directionality(
           textDirection: TextDirection.rtl,
-          child: FractionallySizedBox(
-            heightFactor: .82,
-            child: Column(children: [
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+                maxHeight: MediaQuery.sizeOf(sheetContext).height * .85),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Row(children: [
@@ -127,7 +138,7 @@ class _FormContent extends StatelessWidget {
                 ]),
               ),
               const Divider(height: 1),
-              Expanded(
+              Flexible(
                   child: BlocBuilder<WorkflowFormCubit, WorkflowFormState>(
                       builder: (context, state) =>
                           _MoreSettingsContent(state: state))),
@@ -239,14 +250,8 @@ class _MoreSettingsContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cubit = context.read<WorkflowFormCubit>();
-    final module = state.options?.modules
-        .where((item) => item.key == state.moduleKey)
-        .firstOrNull;
-    final available =
-        module?.doctypes.where((item) => item.available).toList() ?? const [];
-    final unavailable =
-        module?.doctypes.where((item) => !item.available).toList() ?? const [];
     return ListView(
+      shrinkWrap: true,
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
       children: [
         const Text('آیکون گردش کار',
@@ -304,51 +309,11 @@ class _MoreSettingsContent extends StatelessWidget {
               'قالب اولیه از مسیر فعلی پروژه ایجاد می‌شود؛ مراحل در صفحه بعد قابل تکمیل‌اند.',
               style: TextStyle(fontSize: 11)),
           value: state.creationMode == 'Template',
-          onChanged: (value) =>
-              cubit.changeCreationMode(value ? 'Template' : 'Custom'),
+          onChanged: cubit.existing != null
+              ? null
+              : (value) =>
+                  cubit.changeCreationMode(value ? 'Template' : 'Custom'),
         ),
-        const Divider(height: 32),
-        const _FieldLabel('دامنه و سند مقصد'),
-        DropdownButtonFormField<String>(
-          isExpanded: true,
-          initialValue: state.company.isEmpty ? null : state.company,
-          decoration: const InputDecoration(
-              labelText: 'دفتر / شرکت',
-              prefixIcon: Icon(Icons.business_outlined)),
-          items: state.options!.companies
-              .map((company) => DropdownMenuItem(
-                    value: company,
-                    child: Text(company, overflow: TextOverflow.ellipsis),
-                  ))
-              .toList(growable: false),
-          onChanged: cubit.changeCompany,
-        ),
-        const SizedBox(height: 10),
-        DropdownButtonFormField<String>(
-          isExpanded: true,
-          key: ValueKey(
-              'workflow-doctype-${state.moduleKey}-${state.targetDoctype}'),
-          initialValue:
-              state.targetDoctype.isEmpty ? null : state.targetDoctype,
-          decoration: const InputDecoration(labelText: 'نوع سند *'),
-          items: available
-              .map((item) => DropdownMenuItem(
-                    value: item.name,
-                    child: Text(_doctypeLabel(item.name),
-                        overflow: TextOverflow.ellipsis),
-                  ))
-              .toList(growable: false),
-          onChanged: cubit.changeDoctype,
-        ),
-        if (unavailable.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          _InfoBanner(
-            icon: Icons.lock_clock_outlined,
-            text:
-                '${unavailable.map((item) => _doctypeLabel(item.name)).join('، ')} فعلاً نصب نیست و برای مرحله بعد قفل می‌ماند.',
-            color: AsoudColors.warning,
-          ),
-        ],
         const SizedBox(height: 14),
         const _InfoBanner(
           icon: Icons.lock_outline_rounded,
@@ -477,19 +442,4 @@ String _moduleLabel(String key) => switch (key) {
       'Support' => 'پشتیبانی',
       'HR' => 'منابع انسانی',
       _ => key,
-    };
-
-String _doctypeLabel(String value) => switch (value) {
-      'Material Request' => 'درخواست کالا',
-      'Purchase Order' => 'سفارش خرید',
-      'Payment Request' => 'درخواست پرداخت',
-      'Expense Claim' => 'مطالبه هزینه',
-      'Journal Entry' => 'سند حسابداری',
-      'Quotation' => 'پیش‌فاکتور',
-      'Sales Order' => 'سفارش فروش',
-      'Stock Entry' => 'ورود و خروج انبار',
-      'Issue' => 'درخواست پشتیبانی',
-      'Leave Application' => 'درخواست مرخصی',
-      'Job Applicant' => 'متقاضی استخدام',
-      _ => value,
     };

@@ -569,7 +569,11 @@ class FrappeClient implements FrappeApiClient {
 
   bool _isReadOnlyAsoudMethod(String method) {
     final action = method.split('.').last;
-    if (action.endsWith('_options') || action.endsWith('_fields')) return true;
+    if (action == 'options' ||
+        action.endsWith('_options') ||
+        action.endsWith('_fields')) {
+      return true;
+    }
     return const <String>[
       'current_',
       'get_',

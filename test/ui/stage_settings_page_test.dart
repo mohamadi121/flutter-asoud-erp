@@ -205,8 +205,12 @@ void main() {
       expect(find.text('تأیید / رد'), findsWidgets);
       expect(find.text('مدیر مستقیم'), findsOneWidget);
       expect(find.text('امکان تأیید'), findsOneWidget);
-      await _tap(tester, find.text('الزام ثبت توضیح هنگام رد'));
+      await _tap(tester, find.text('تنظیمات اضافی (اختیاری)'));
+      await _tap(tester, find.text('الزام توضیح هنگام رد'));
+      await _tap(tester, find.text('تنظیمات اضافی (اختیاری)'));
       await _tap(tester, find.text('پایان فرایند (رد درخواست)'));
+      // The route sheet selects the stage type before the concrete stage.
+      await _tap(tester, find.text('پایان فرایند'));
       await _tap(tester, find.text('رد درخواست'));
       await _tap(tester, find.text('ذخیره'));
       final config = workflows.saved.single;

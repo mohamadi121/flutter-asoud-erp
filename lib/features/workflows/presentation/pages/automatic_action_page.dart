@@ -54,7 +54,11 @@ class _AutomaticActionPageState extends State<AutomaticActionPage> {
   AutomaticActionType type = AutomaticActionType.createRequest;
   Map<String, dynamic>? metadata;
   String? error;
-  bool loading = true, saving = false, linkOriginal = true;
+  bool draftLoaded = false;
+  bool loading = true,
+      saving = false,
+      linkOriginal = true,
+      metadataFromCache = false;
   String destination = '', targetStage = '', field = '', transition = '';
   String method = 'sum',
       initialState = 'Draft',
@@ -71,9 +75,22 @@ class _AutomaticActionPageState extends State<AutomaticActionPage> {
     super.initState();
     success = widget.initialRoutes['Success'] ?? '';
     failure = widget.initialRoutes['Error'] ?? '';
-    final config = widget.stage.config;
+    _restoreConfig(widget.stage.config);
+    for (final controller in _controllers) {
+      controller.addListener(_changed);
+    }
+    _load();
+  }
+
+  void _restoreConfig(Map<String, dynamic> config,
+      {Map<String, dynamic>? routes}) {
+    title.text = (config['title'] ?? widget.stage.title).toString();
+    description.text = (config['description'] ?? '').toString();
+    final exits = routes ?? const <String, dynamic>{};
+    success = (exits['Success'] ?? success).toString();
+    failure = (exits['Error'] ?? failure).toString();
     if (config['schema_version'] == 2) {
-      type = AutomaticActionType.parse(config['action_type'] as String);
+      type = AutomaticActionType.parse(config['action_type'].toString());
       final op = _map(config['operation']);
       destination = (op['request_type'] ?? op['doctype'] ?? '').toString();
       targetStage = _map(op['target'])['stage']?.toString() ?? '';
@@ -101,10 +118,6 @@ class _AutomaticActionPageState extends State<AutomaticActionPage> {
       interval.text = '${policy['retry_seconds'] ?? 60}';
       timeout.text = '${policy['timeout_seconds'] ?? 120}';
     }
-    for (final controller in _controllers) {
-      controller.addListener(_changed);
-    }
-    _load();
   }
 
   List<TextEditingController> get _controllers =>
@@ -128,24 +141,48 @@ class _AutomaticActionPageState extends State<AutomaticActionPage> {
       loading = true;
       error = null;
     });
+    Map<String, dynamic>? localDraft;
+    try {
+      localDraft = await widget.repository
+          .automaticActionDraft(widget.design.workflow.id, widget.stage.id);
+      if (!draftLoaded && localDraft != null && mounted) {
+        _restoreConfig(_map(localDraft['config']),
+            routes: _map(localDraft['routes']));
+        draftLoaded = true;
+      }
+    } catch (_) {
+      // A missing session or corrupt draft must not hide the editor or replace its current values.
+    }
     try {
       final result = await widget.repository
-          .automaticActionOptions(widget.design.workflow.id, widget.stage.id);
-      if (result['schema_version'] != 2) {
+          .automaticActionOptions(widget.design.workflow.id, widget.stage.id)
+          .timeout(const Duration(seconds: 12));
+      if (result.data['schema_version'] != 2) {
         throw StateError('نسخه سرور از این فرم پشتیبانی نمی‌کند.');
       }
       if (mounted) {
         setState(() {
-          metadata = result;
+          metadata = result.data;
+          metadataFromCache = result.fromCache;
+          error = result.connectionError;
+          final draft = result.pendingDraft;
+          if (!draftLoaded && draft != null) {
+            _restoreConfig(_map(draft['config']),
+                routes: _map(draft['routes']));
+            draftLoaded = true;
+          }
           loading = false;
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          error = e is ApiException
+          error = e is ApiException &&
+                  e.kind != ApiFailureKind.network &&
+                  e.kind != ApiFailureKind.timeout &&
+                  e.kind != ApiFailureKind.server
               ? e.message
-              : 'دریافت تنظیمات از سرور ناموفق بود.';
+              : 'دریافت تنظیمات از سرور ناموفق بود؛ اتصال، دسترسی یا نسخهٔ API را بررسی کنید.';
           loading = false;
         });
       }
@@ -380,6 +417,7 @@ class _AutomaticActionPageState extends State<AutomaticActionPage> {
       error = null;
     });
     try {
+      await _persistDraft();
       await widget.repository.saveAutomaticAction(
           definition: widget.design.workflow.id,
           stage: widget.stage.id,
@@ -395,6 +433,8 @@ class _AutomaticActionPageState extends State<AutomaticActionPage> {
             'Success': success,
             'Error': failure
           });
+      await widget.repository.clearAutomaticActionDraft(
+          widget.design.workflow.id, widget.stage.id);
       await widget.onSaved();
       if (mounted) {
         Navigator.pop(context);
@@ -402,14 +442,76 @@ class _AutomaticActionPageState extends State<AutomaticActionPage> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          error = e is ApiException
-              ? e.message
-              : 'ذخیره ناموفق بود؛ تنظیمات شما حفظ شده‌اند.';
+          error = e is ApiException &&
+                  (e.kind == ApiFailureKind.network ||
+                      e.kind == ApiFailureKind.timeout ||
+                      e.kind == ApiFailureKind.server)
+              ? 'ارتباط با سرور برقرار نشد؛ پیش‌نویس روی دستگاه ذخیره است. پس از اتصال، دوباره اعتبارسنجی و ذخیره کنید.'
+              : e is ApiException
+                  ? e.message
+                  : 'ذخیره ناموفق بود؛ تنظیمات شما حفظ شده‌اند.';
           saving = false;
         });
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(error!)));
       }
+    }
+  }
+
+  Future<void> _persistDraft() => widget.repository.saveAutomaticActionDraft(
+          widget.design.workflow.id, widget.stage.id, {
+        'config': {
+          'title': title.text,
+          'description': description.text,
+          'schema_version': 2,
+          'action_type': type.key,
+          'operation': {
+            'request_type': destination,
+            'doctype': destination,
+            'target': target.toJson(),
+            'field': field,
+            'lookup_field': field,
+            'transition': transition,
+            'method': method,
+            'initial_state': initialState,
+            'relationship': relationship,
+            'missing': missing,
+            'link_original': linkOriginal,
+            'message': message.text,
+            'formula': formula.text,
+            'mapping':
+                mapping.map((key, value) => MapEntry(key, value.toJson())),
+            'inputs': inputs.map((key, value) => MapEntry(key, value.toJson())),
+            'lookup': lookup?.toJson(),
+            'recipients': recipients.toList(),
+            'channels': channels.toList(),
+          },
+          'execution': {
+            'extra_attempts': extra.text,
+            'retry_seconds': interval.text,
+            'timeout_seconds': timeout.text
+          },
+        },
+        'routes': {'Success': success, 'Error': failure},
+      });
+
+  Future<void> _saveDraft() async {
+    setState(() => saving = true);
+    try {
+      await _persistDraft();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text(
+                'پیش‌نویس روی دستگاه ذخیره شد؛ هنوز روی سرور ثبت یا اجرا نشده است.')));
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text(
+                'ذخیره محلی انجام نشد؛ وضعیت نشست و فضای دستگاه را بررسی کنید.')));
+      }
+    } finally {
+      if (mounted) setState(() => saving = false);
     }
   }
 
@@ -723,11 +825,16 @@ class _AutomaticActionPageState extends State<AutomaticActionPage> {
             child: Padding(
                 padding: EdgeInsets.fromLTRB(
                     16, 16, 16, 16 + MediaQuery.viewInsetsOf(context).bottom),
-                child: FilledButton(
-                    onPressed:
-                        loading || saving || problem != null ? null : _save,
-                    child: Text(
-                        saving ? 'در حال ذخیره…' : 'اعتبارسنجی و ذخیره')))),
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  OutlinedButton(
+                      onPressed: loading || saving ? null : _saveDraft,
+                      child: const Text('ذخیره پیش‌نویس روی دستگاه')),
+                  FilledButton(
+                      onPressed:
+                          loading || saving || problem != null ? null : _save,
+                      child:
+                          Text(saving ? 'در حال ذخیره…' : 'اعتبارسنجی و ذخیره'))
+                ]))),
         body: loading
             ? const Center(child: CircularProgressIndicator())
             : ListView(
@@ -735,14 +842,18 @@ class _AutomaticActionPageState extends State<AutomaticActionPage> {
                     16, 8, 16, 24 + MediaQuery.viewInsetsOf(context).bottom),
                 children: [
                     if (error != null) _notice(error!, warning: true),
+                    if (metadataFromCache)
+                      _notice(
+                          'اطلاعات گزینه‌ها از آخرین دریافت موفق روی همین حساب و سرور خوانده شده است. سرور هنگام همگام‌سازی مجدداً مجوزها و اعتبار تنظیمات را بررسی می‌کند.',
+                          warning: true),
                     if (metadata == null)
                       OutlinedButton(
                           onPressed: _load,
                           child: const Text('دریافت دوباره از سرور')),
-                    if (metadata != null) ...[
-                      if (metadata!['execution_ready'] != true)
+                    ...[
+                      if (metadata?['execution_ready'] != true)
                         _notice(
-                            'اجرا متوقف است: مدیر باید کاربر سیستمی محدود و شرکت‌های مجاز را در سرور معرفی کند. ذخیرهٔ تنظیمات، به معنی اجرای عملیات نیست.',
+                            'اجرای خودکار آماده نیست. ${metadata?['blocked_reason'] ?? 'دریافت تنظیمات معتبر و معرفی کاربر سیستمی محدود لازم است.'} ذخیرهٔ پیش‌نویس به معنی اجرای عملیات نیست.',
                             warning: true),
                       TextField(
                           controller: title,

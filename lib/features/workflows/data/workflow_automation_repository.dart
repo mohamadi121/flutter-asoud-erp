@@ -3,10 +3,28 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/config/app_config.dart';
+import '../../../core/network/api_exception.dart';
 import '../../../core/network/frappe_client.dart';
+import '../../../core/offline/local_database_store.dart';
+import '../../../core/offline/local_record.dart';
+import '../../../core/offline/offline_failure.dart';
 import '../domain/entities/document_template.dart';
 import 'demo/template_demo_data.dart';
 import 'offline_preview_data.dart';
+
+class AutomaticActionOptions {
+  const AutomaticActionOptions({
+    required this.data,
+    required this.fromCache,
+    this.connectionError,
+    this.pendingDraft,
+  });
+
+  final Map<String, dynamic> data;
+  final bool fromCache;
+  final String? connectionError;
+  final Map<String, dynamic>? pendingDraft;
+}
 
 /// Server calls for stage exit routes and document templates
 /// (`asoud_erp.api.v1.workflow.save_stage_routes`,
@@ -15,17 +33,143 @@ import 'offline_preview_data.dart';
 /// In the offline preview (no session), templates are kept on this device so
 /// the screens can be tried; nothing is queued for the server.
 class WorkflowAutomationRepository {
-  const WorkflowAutomationRepository(this.client);
+  const WorkflowAutomationRepository(this.client, {LocalRecordStore? local})
+      : _local = local;
 
   final FrappeApiClient client;
+  final LocalRecordStore? _local;
 
-  /// No local-success fallback: capabilities and permissions belong to the server.
-  Future<Map<String, dynamic>> automaticActionOptions(
-          String definition, String stage) async =>
-      _object(await _call('asoud_erp.api.v1.automatic_actions.options', {
-        'definition': definition,
-        'stage': stage,
-      }));
+  static const _automaticActionOptionsPrefix =
+      'asoud_automatic_action_options_v2_';
+  static const _automaticActionSave = 'asoud_erp.api.v1.automatic_actions.save';
+
+  Future<String> _draftKey(String definition, String stage) async {
+    final owner = isLocal
+        ? '__offline_preview__'
+        : (await client.getCurrentUser()).userId;
+    return '${_automaticActionCacheKey(definition: definition, stage: stage, userId: owner)}_draft';
+  }
+
+  Future<Map<String, dynamic>?> automaticActionDraft(
+      String definition, String stage) async {
+    final key = await _draftKey(definition, stage);
+    final raw = (await SharedPreferences.getInstance()).getString(key);
+    return raw == null ? null : _object(jsonDecode(raw));
+  }
+
+  Future<void> saveAutomaticActionDraft(
+      String definition, String stage, Map<String, dynamic> draft) async {
+    final key = await _draftKey(definition, stage);
+    final saved = await (await SharedPreferences.getInstance())
+        .setString(key, jsonEncode(draft));
+    if (!saved) throw StateError('ذخیرهٔ پیش‌نویس روی دستگاه ناموفق بود.');
+  }
+
+  Future<void> clearAutomaticActionDraft(
+      String definition, String stage) async {
+    final key = await _draftKey(definition, stage);
+    await (await SharedPreferences.getInstance()).remove(key);
+  }
+
+  /// Uses only previously authorized options for this user, server and stage
+  /// during a network outage; the server still validates every save.
+  Future<AutomaticActionOptions> automaticActionOptions(
+      String definition, String stage) async {
+    final user = await client.getCurrentUser();
+    final key = _automaticActionCacheKey(
+        definition: definition, stage: stage, userId: user.userId);
+    try {
+      final result = _object(await _call(
+          'asoud_erp.api.v1.automatic_actions.options',
+          {'definition': definition, 'stage': stage}));
+      if (result['schema_version'] != 2) {
+        throw StateError('نسخه سرور از این فرم پشتیبانی نمی‌کند.');
+      }
+      final prefs = await SharedPreferences.getInstance();
+      final stored = await prefs.setString(key, jsonEncode(result));
+      if (!stored) {
+        throw StateError('ذخیرهٔ اطلاعات فرم روی دستگاه ناموفق بود.');
+      }
+      return AutomaticActionOptions(
+        data: result,
+        fromCache: false,
+        pendingDraft: await _pendingAutomaticActionDraft(
+          definition: definition,
+          stage: stage,
+          userId: user.userId,
+        ),
+      );
+    } on ApiException catch (error) {
+      if (!isRetryableOfflineFailure(error)) rethrow;
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(key);
+      if (raw == null) rethrow;
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map || decoded['schema_version'] != 2) {
+        throw StateError('اطلاعات ذخیره‌شدهٔ فرم اقدام خودکار معتبر نیست.');
+      }
+      return AutomaticActionOptions(
+        data: Map<String, dynamic>.from(decoded),
+        fromCache: true,
+        connectionError: error.message,
+        pendingDraft: await _pendingAutomaticActionDraft(
+          definition: definition,
+          stage: stage,
+          userId: user.userId,
+        ),
+      );
+    }
+  }
+
+  Future<Map<String, dynamic>?> _pendingAutomaticActionDraft({
+    required String definition,
+    required String stage,
+    required String userId,
+  }) async {
+    final server = _serverIdentity;
+    final records = await (_local ?? LocalDatabaseStore.instance).list(
+      entityType: _automaticActionSave,
+      statuses: const {
+        LocalSyncStatus.localOnly,
+        LocalSyncStatus.pendingSync,
+      },
+    );
+    for (final record in records) {
+      final payload = record.payload;
+      if (payload['operation'] != 'asoud_method' ||
+          payload['_asoud_owner'] != userId ||
+          payload['_asoud_server'] != server ||
+          payload['definition'] != definition ||
+          payload['stage'] != stage) {
+        continue;
+      }
+      return {
+        'config': payload['config'],
+        'routes': payload['routes'],
+      };
+    }
+    return null;
+  }
+
+  String get _serverIdentity {
+    final identity =
+        client is FrappeClient ? (client as FrappeClient).serverIdentity : null;
+    return identity is String && identity.isNotEmpty
+        ? identity
+        : AppConfig.erpNextBaseUrl;
+  }
+
+  String _automaticActionCacheKey({
+    required String definition,
+    required String stage,
+    required String userId,
+  }) =>
+      '$_automaticActionOptionsPrefix${base64Url.encode(utf8.encode(jsonEncode([
+            _serverIdentity,
+            userId,
+            definition,
+            stage,
+          ])))}';
 
   Future<void> saveAutomaticAction(
       {required String definition,
@@ -42,6 +186,23 @@ class WorkflowAutomationRepository {
 
   static const _templates = 'asoud_erp.api.v1.document_templates';
   static const _localKey = 'asoud_document_templates_local_v1';
+
+  Future<List<Map<String, dynamic>>> userTaskRequests(String company) async {
+    final key = '${await _draftKey(company, 'request-types')}_options';
+    final prefs = await SharedPreferences.getInstance();
+    try {
+      final rows = _list(await _call(
+          'asoud_erp.api.v1.workflow_request.request_options',
+          {'company': company}));
+      await prefs.setString(key, jsonEncode(rows));
+      return rows;
+    } catch (error) {
+      if (!isRetryableOfflineFailure(error)) rethrow;
+      final cached = prefs.getString(key);
+      if (cached == null) rethrow;
+      return _list(jsonDecode(cached));
+    }
+  }
 
   /// True in the offline preview: templates are read and saved locally.
   bool get isLocal => AppConfig.offlineDemoMode && !client.isAuthenticated;

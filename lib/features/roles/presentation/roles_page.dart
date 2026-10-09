@@ -1,7 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:excel/excel.dart' hide Border;
 import 'package:file_picker/file_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/network/asoud_api_response.dart';
 import '../../../core/network/frappe_client.dart';
 import '../../../core/theme/asoud_colors.dart';
 import '../../../core/widgets/asoud_ui.dart';
@@ -13,6 +17,7 @@ part 'role_form_page.dart';
 part 'role_templates_page.dart';
 part 'role_setup_page.dart';
 part 'role_excel_page.dart';
+part 'user_access_page.dart';
 
 class RolesPage extends StatelessWidget {
   const RolesPage({super.key});
@@ -265,6 +270,8 @@ class _RolesViewState extends State<_RolesView> {
                           value: 'child', child: Text('افزودن زیرمجموعه')),
                       const PopupMenuItem(
                           value: 'edit', child: Text('ویرایش نقش')),
+                      const PopupMenuItem(
+                          value: 'users', child: Text('کاربران و دسترسی‌ها')),
                       PopupMenuItem(
                           value: 'status',
                           child: Text(role.enabled
@@ -277,6 +284,8 @@ class _RolesViewState extends State<_RolesView> {
                         _RoleForm(category: role.category, parent: role.code));
                   } else if (action == 'edit') {
                     _roleRoute<bool>(context, _RoleForm(role: role));
+                  } else if (action == 'users') {
+                    _roleRoute<void>(context, _RoleUsersPage(role: role));
                   } else {
                     _changeStatus(role);
                   }

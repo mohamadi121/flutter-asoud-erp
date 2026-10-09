@@ -66,8 +66,8 @@ class WorkflowDefinition extends Equatable {
       ];
 }
 
-/// Presentation metadata of a request type (a workflow on
-/// `ASOUD Workflow Request`).
+/// Workflow presentation metadata. Request-only flags are ignored by the server
+/// for workflows referencing native business documents.
 class RequestTypeInfo extends Equatable {
   const RequestTypeInfo({
     required this.title,
@@ -78,13 +78,15 @@ class RequestTypeInfo extends Equatable {
     this.colorHex = '#1769F6',
     this.showInList = true,
     this.userSubmittable = true,
+    this.moduleKey,
   });
 
   final String title, shortTitle, description, category, iconKey, colorHex;
+  final String? moduleKey;
   final bool showInList, userSubmittable;
 
   @override
-  List<Object> get props => [
+  List<Object?> get props => [
         title,
         shortTitle,
         description,
@@ -93,6 +95,7 @@ class RequestTypeInfo extends Equatable {
         colorHex,
         showInList,
         userSubmittable,
+        moduleKey,
       ];
 }
 

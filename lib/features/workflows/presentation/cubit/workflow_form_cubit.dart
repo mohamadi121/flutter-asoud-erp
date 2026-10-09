@@ -7,9 +7,10 @@ import '../../domain/repositories/workflow_repository.dart';
 part 'workflow_form_state.dart';
 
 class WorkflowFormCubit extends Cubit<WorkflowFormState> {
-  WorkflowFormCubit({required this.repository})
+  WorkflowFormCubit({required this.repository, this.existing})
       : super(const WorkflowFormState());
   final WorkflowRepository repository;
+  final WorkflowDefinition? existing;
 
   Future<void> load() async {
     emit(
@@ -17,14 +18,17 @@ class WorkflowFormCubit extends Cubit<WorkflowFormState> {
     try {
       final options = await repository.getFormOptions();
       final firstModule = options.modules.firstOrNull;
-      final firstDoctype =
-          firstModule?.doctypes.where((item) => item.available).firstOrNull;
       emit(state.copyWith(
         status: WorkflowFormStatus.ready,
         options: options,
-        company: options.companies.firstOrNull ?? '',
-        moduleKey: firstModule?.key ?? '',
-        targetDoctype: firstDoctype?.name ?? '',
+        company: existing?.company ?? options.companies.firstOrNull ?? '',
+        moduleKey: existing?.moduleKey ?? firstModule?.key ?? '',
+        targetDoctype: existing?.targetDoctype ?? 'ASOUD Workflow Request',
+        title: existing?.title ?? '',
+        description: existing?.description ?? '',
+        iconKey: existing?.iconKey ?? 'hub',
+        colorHex: existing?.colorHex ?? '#315CF5',
+        creationMode: existing?.creationMode ?? 'Custom',
         offlinePreview: repository is OfflinePreviewAware &&
             (repository as OfflinePreviewAware).isOfflinePreview,
       ));
@@ -49,11 +53,7 @@ class WorkflowFormCubit extends Cubit<WorkflowFormState> {
 
   void changeModule(String? value) {
     final key = value ?? '';
-    final module =
-        state.options?.modules.where((item) => item.key == key).firstOrNull;
-    final doctype =
-        module?.doctypes.where((item) => item.available).firstOrNull;
-    emit(state.copyWith(moduleKey: key, targetDoctype: doctype?.name ?? ''));
+    emit(state.copyWith(moduleKey: key));
   }
 
   void changeDoctype(String? value) =>
@@ -66,22 +66,38 @@ class WorkflowFormCubit extends Cubit<WorkflowFormState> {
       return;
     }
     if (state.moduleKey.isEmpty || state.targetDoctype.isEmpty) {
-      emit(state.copyWith(message: 'ماژول و نوع سند مقصد را انتخاب کنید.'));
+      emit(state.copyWith(message: 'ماژول گردش کار را انتخاب کنید.'));
       return;
     }
     emit(state.copyWith(
         status: WorkflowFormStatus.submitting, clearMessage: true));
     try {
-      final draft = await repository.createDraft(
-        title: state.title.trim(),
-        description: state.description.trim(),
-        company: state.company,
-        moduleKey: state.moduleKey,
-        targetDoctype: state.targetDoctype,
-        creationMode: state.creationMode,
-        iconKey: state.iconKey,
-        colorHex: state.colorHex,
-      );
+      final old = existing;
+      final draft = old != null
+          ? await repository.saveRequestTypeInfo(
+              definition: old.id,
+              info: RequestTypeInfo(
+                title: state.title.trim(),
+                description: state.description.trim(),
+                moduleKey: state.moduleKey,
+                iconKey: state.iconKey,
+                colorHex: state.colorHex,
+                shortTitle: old.shortTitle ?? '',
+                category: old.category ?? '',
+                showInList: old.showInList,
+                userSubmittable: old.userSubmittable,
+              ),
+            )
+          : await repository.createDraft(
+              title: state.title.trim(),
+              description: state.description.trim(),
+              company: state.company,
+              moduleKey: state.moduleKey,
+              targetDoctype: state.targetDoctype,
+              creationMode: state.creationMode,
+              iconKey: state.iconKey,
+              colorHex: state.colorHex,
+            );
       emit(state.copyWith(
         status: WorkflowFormStatus.success,
         createdDraft: draft,
@@ -89,8 +105,8 @@ class WorkflowFormCubit extends Cubit<WorkflowFormState> {
             (repository as OfflinePreviewAware).isOfflinePreview,
         message: repository is OfflinePreviewAware &&
                 (repository as OfflinePreviewAware).isOfflinePreview
-            ? 'پیش‌نمایش محلی ایجاد شد؛ هنوز با ASOUD ERP همگام نشده است.'
-            : 'پیش‌نویس فرایند ایجاد شد.',
+            ? 'اطلاعات روی دستگاه ذخیره شد؛ همگام‌سازی با سرور تأیید نشده است.'
+            : 'اطلاعات گردش کار ذخیره شد.',
       ));
     } catch (_) {
       emit(state.copyWith(

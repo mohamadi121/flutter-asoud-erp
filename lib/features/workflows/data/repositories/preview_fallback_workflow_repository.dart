@@ -42,9 +42,11 @@ class PreviewFallbackWorkflowRepository
         jsonEncode(_designs.values.map(_designToMap).toList(growable: false));
     final write = _persistTail.then((_) async {
       final preferences = await SharedPreferences.getInstance();
-      await preferences.setString(_storageKey, snapshot);
+      if (!await preferences.setString(_storageKey, snapshot)) {
+        throw StateError('ذخیره گردش کار روی دستگاه انجام نشد.');
+      }
     });
-    _persistTail = write;
+    _persistTail = write.catchError((Object _) {});
     return write;
   }
 
@@ -56,6 +58,8 @@ class PreviewFallbackWorkflowRepository
           'target_doctype': design.workflow.targetDoctype,
           'company': design.workflow.company,
           'description': design.workflow.description,
+          'module_key': design.workflow.moduleKey,
+          'creation_mode': design.workflow.creationMode,
           'icon_key': design.workflow.iconKey,
           'color_hex': design.workflow.colorHex,
           'short_title': design.workflow.shortTitle,
@@ -135,6 +139,8 @@ class PreviewFallbackWorkflowRepository
         modified: null,
         company: workflow['company']?.toString(),
         description: workflow['description']?.toString(),
+        moduleKey: workflow['module_key']?.toString(),
+        creationMode: workflow['creation_mode']?.toString(),
         pendingReason: 'ذخیره محلی؛ در انتظار همگام‌سازی با ASOUD ERP',
         iconKey: workflow['icon_key']?.toString(),
         colorHex: workflow['color_hex']?.toString(),
@@ -333,7 +339,7 @@ class PreviewFallbackWorkflowRepository
             modified: DateTime.now(),
             company: old.company,
             description: info.description,
-            moduleKey: old.moduleKey,
+            moduleKey: info.moduleKey ?? old.moduleKey,
             creationMode: old.creationMode,
             frappeWorkflow: old.frappeWorkflow,
             pendingReason: old.pendingReason,
@@ -425,7 +431,7 @@ class PreviewFallbackWorkflowRepository
             positionX: 180,
             positionY: 60,
           );
-          _remember(
+          await _remember(
             id,
             WorkflowDesign(
               workflow: workflow,
