@@ -5,6 +5,7 @@ import '../../../../core/network/frappe_client.dart';
 import '../../../../core/offline/local_database_store.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/jalali_date.dart';
+import '../../../../core/utils/persian_server_values.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../auth/data/unsent_offline_count.dart';
 import '../../../auth/domain/repositories/auth_repository.dart';
@@ -164,7 +165,9 @@ class _SettingsDashboardContentState extends State<SettingsDashboardContent> {
                           Text(
                               profile == null
                                   ? 'اطلاعات دسترسی دریافت نشده است'
-                                  : profile.roles.join('، '),
+                                  : profile.roles
+                                      .map(persianRoleLabel)
+                                      .join('، '),
                               style: const TextStyle(
                                   fontSize: 11, color: AsoudColors.muted)),
                         ])),

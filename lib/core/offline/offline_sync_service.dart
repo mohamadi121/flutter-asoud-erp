@@ -32,8 +32,15 @@ const unsentQueueStatuses = {
 
 /// Whether [record] is a queued mutation (it has an `operation`), as opposed to
 /// a local mirror or cache row. Shared by the queue, its screen and the counts.
-bool isQueuedMutation(LocalRecord record) =>
-    record.payload['operation'] is String;
+bool isQueuedMutation(LocalRecord record) {
+  final op = record.payload['operation'];
+  if (op is! String) return false;
+  if (op == 'asoud_method' &&
+      FrappeClient.isReadOnlyMethod(record.entityType)) {
+    return false;
+  }
+  return true;
+}
 
 class OfflineSyncService {
   OfflineSyncService(

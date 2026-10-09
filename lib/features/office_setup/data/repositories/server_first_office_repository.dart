@@ -109,7 +109,9 @@ class ServerFirstOfficeRepository
       final office =
           await _remote.getDefaultOffice().timeout(defaultOfficeTimeout);
       if (office != null) await _cacheRemote(office);
-      if (office != null) await _saveDefaultName(office.name);
+      if (office != null) {
+        await _saveDefaultName(office.name, status: LocalSyncStatus.synced);
+      }
       return await _localDefaultOffice() ??
           office ??
           (await _localOffices()).firstOrNull;
@@ -142,7 +144,7 @@ class ServerFirstOfficeRepository
   }
 
   Future<void> _saveDefaultName(String name,
-          {LocalSyncStatus status = LocalSyncStatus.pendingSync}) =>
+          {LocalSyncStatus status = LocalSyncStatus.synced}) =>
       _local.save(
         id: _preferenceId,
         entityType: _preferenceEntityType,

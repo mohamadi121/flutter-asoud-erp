@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/jalali_date.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../domain/entities/office.dart';
 import '../../domain/repositories/office_repository.dart';
@@ -57,10 +58,26 @@ class _OfficesView extends StatelessWidget {
           appBar: AsoudHeader(
             title: 'دفترهای من',
             subtitle: 'مدیریت و انتخاب دفترهای کاری',
-            action: IconButton(
+            action: PopupMenuButton<String>(
               tooltip: 'منوی بیشتر',
-              onPressed: () => _unavailable(context),
               icon: const Icon(Icons.more_vert_rounded),
+              onSelected: (action) {
+                if (action == 'create') {
+                  _create(context);
+                } else if (action == 'refresh') {
+                  context.read<OfficesCubit>().retry();
+                }
+              },
+              itemBuilder: (_) => const [
+                PopupMenuItem(
+                  value: 'create',
+                  child: Text('ایجاد دفتر کار جدید'),
+                ),
+                PopupMenuItem(
+                  value: 'refresh',
+                  child: Text('به‌روزرسانی فهرست'),
+                ),
+              ],
             ),
           ),
           body: SafeArea(child: _body(context, state)),
@@ -175,10 +192,14 @@ class _OfficesView extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         if (state.filteredOffices.isEmpty)
-          const Padding(
-            padding: EdgeInsets.all(24),
-            child: Text('دفتری با این عبارت پیدا نشد.',
-                textAlign: TextAlign.center),
+          Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+              state.query.trim().isNotEmpty
+                  ? 'دفتری با این عبارت پیدا نشد.'
+                  : 'دفتر دیگری ثبت نشده است.',
+              textAlign: TextAlign.center,
+            ),
           )
         else
           ...state.filteredOffices.map((office) => Padding(
@@ -480,9 +501,7 @@ class _OfficeCard extends StatelessWidget {
 
   static String _syncLabel(DateTime? value) {
     if (value == null) return 'زمان ثبت نشده';
-    final local = value.toLocal();
-    String two(int number) => number.toString().padLeft(2, '0');
-    return '${two(local.hour)}:${two(local.minute)}، ${local.year}/${two(local.month)}/${two(local.day)}';
+    return formatJalaliDateTime(value);
   }
 }
 
