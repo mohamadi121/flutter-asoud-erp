@@ -124,17 +124,29 @@ class _BaseAccountingSetupPageState extends State<BaseAccountingSetupPage> {
                               )),
                     ),
                   ),
-                  const _ModuleGridTile(
+                  _ModuleGridTile(
                     title: 'مالی و خزانه',
                     subtitle: 'بانک، صندوق و پرداخت‌ها',
                     icon: Icons.account_balance_wallet_outlined,
                     color: AsoudColors.success,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) =>
+                            const _UnavailableModulePage(title: 'مالی و خزانه'),
+                      ),
+                    ),
                   ),
-                  const _ModuleGridTile(
+                  _ModuleGridTile(
                     title: 'انبار و کالا',
                     subtitle: 'کالا، واحد سنجش و انبارها',
                     icon: Icons.inventory_2_outlined,
                     color: AsoudColors.purple,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) =>
+                            const _UnavailableModulePage(title: 'انبار و کالا'),
+                      ),
+                    ),
                   ),
                   _ModuleGridTile(
                     title: 'منابع انسانی',
@@ -532,6 +544,17 @@ class _SetupTile extends StatelessWidget {
             ]),
           ),
         ),
+      );
+}
+
+class _UnavailableModulePage extends StatelessWidget {
+  const _UnavailableModulePage({required this.title});
+  final String title;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AsoudHeader(title: title),
+        body: const Center(child: Text('به‌زودی')),
       );
 }
 

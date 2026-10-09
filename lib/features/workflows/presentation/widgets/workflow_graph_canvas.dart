@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/persian_server_values.dart';
 import '../../domain/entities/workflow_definition.dart';
 
 class WorkflowGraphCanvas extends StatelessWidget {
@@ -167,7 +168,9 @@ class _GraphNode extends StatelessWidget {
                   if (outgoing.isNotEmpty) ...[
                     const SizedBox(height: 6),
                     Text(
-                      outgoing.map((e) => '${e.label ?? 'ادامه'} ←').join('  '),
+                      outgoing
+                          .map((e) => '${persianTransitionLabel(e.label)} ←')
+                          .join('  '),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(fontSize: 8, color: visual.color),

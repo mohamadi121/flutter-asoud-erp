@@ -165,9 +165,7 @@ class _SettingsDashboardContentState extends State<SettingsDashboardContent> {
                           Text(
                               profile == null
                                   ? 'اطلاعات دسترسی دریافت نشده است'
-                                  : profile.roles
-                                      .map(persianRoleLabel)
-                                      .join('، '),
+                                  : formatUserGreetingRoles(profile.roles),
                               style: const TextStyle(
                                   fontSize: 11, color: AsoudColors.muted)),
                         ])),

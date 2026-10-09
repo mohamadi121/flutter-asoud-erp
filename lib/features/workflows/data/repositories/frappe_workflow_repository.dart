@@ -380,7 +380,7 @@ class FrappeWorkflowRepository implements WorkflowRepository {
           id: value['name']?.toString() ?? '',
           fromStage: value['from_stage']?.toString() ?? '',
           toStage: value['to_stage']?.toString() ?? '',
-          label: value['transition_label']?.toString(),
+          label: persianTransitionLabel(value['transition_label']?.toString()),
           condition: value['condition'] is Map
               ? Map<String, dynamic>.from(value['condition'] as Map)
               : const {},
