@@ -2,9 +2,9 @@ class RoleCategory {
   const RoleCategory(
       {required this.code, required this.title, required this.style});
   factory RoleCategory.fromJson(Map<String, dynamic> json) => RoleCategory(
-      code: json['code'] as String,
-      title: json['title'] as String,
-      style: json['style'] as String);
+      code: json['code']?.toString() ?? '',
+      title: json['title']?.toString() ?? '',
+      style: json['style']?.toString() ?? 'system');
   final String code, title, style;
 }
 
@@ -21,15 +21,18 @@ class ManagedRole {
       this.profileModified,
       this.assignedUsers = 0});
   factory ManagedRole.fromJson(Map<String, dynamic> json) => ManagedRole(
-      code: json['code'] as String,
-      title: json['title'] as String,
-      category: json['category'] as String,
-      baseRoles: List<String>.from(json['base_roles'] as List),
-      parent: json['parent'] as String? ?? '',
-      description: json['description'] as String? ?? '',
-      enabled: json['enabled'] == true,
-      modified: json['modified'] as String?,
-      profileModified: json['profile_modified'] as String?,
+      code: json['code']?.toString() ?? '',
+      title: json['title']?.toString() ?? '',
+      category: json['category']?.toString() ?? '',
+      baseRoles: (json['base_roles'] as List?)
+              ?.map((e) => e.toString())
+              .toList(growable: false) ??
+          const [],
+      parent: json['parent']?.toString() ?? '',
+      description: json['description']?.toString() ?? '',
+      enabled: json['enabled'] == true || json['enabled'] == 1,
+      modified: json['modified']?.toString(),
+      profileModified: json['profile_modified']?.toString(),
       assignedUsers: (json['assigned_users'] as num?)?.toInt() ?? 0);
   final String code, title, category, parent, description;
   final List<String> baseRoles;
@@ -56,10 +59,10 @@ class BaseAccessRole {
       required this.description,
       required this.available});
   factory BaseAccessRole.fromJson(Map<String, dynamic> json) => BaseAccessRole(
-      name: json['name'] as String,
-      title: json['title'] as String,
-      description: json['description'] as String,
-      available: json['available'] == true);
+      name: json['name']?.toString() ?? '',
+      title: json['title']?.toString() ?? '',
+      description: json['description']?.toString() ?? '',
+      available: json['available'] == true || json['available'] == 1);
   final String name, title, description;
   final bool available;
 }
@@ -74,12 +77,15 @@ class AccessRoleTemplate {
       required this.exists});
   factory AccessRoleTemplate.fromJson(Map<String, dynamic> json) =>
       AccessRoleTemplate(
-          code: json['code'] as String,
-          title: json['title'] as String,
-          category: json['category'] as String,
-          baseRoles: List<String>.from(json['base_roles'] as List),
-          available: json['available'] == true,
-          exists: json['exists'] == true);
+          code: json['code']?.toString() ?? '',
+          title: json['title']?.toString() ?? '',
+          category: json['category']?.toString() ?? '',
+          baseRoles: (json['base_roles'] as List?)
+                  ?.map((e) => e.toString())
+                  .toList(growable: false) ??
+              const [],
+          available: json['available'] == true || json['available'] == 1,
+          exists: json['exists'] == true || json['exists'] == 1);
   final String code, title, category;
   final List<String> baseRoles;
   final bool available, exists;
@@ -94,8 +100,9 @@ class RoleCatalog {
       this.templateCategories = const []});
   factory RoleCatalog.fromJson(Map<String, dynamic> json) {
     List<T> parse<T>(String key, T Function(Map<String, dynamic>) decode) =>
-        (json[key] as List)
-            .map((row) => decode(Map<String, dynamic>.from(row as Map)))
+        ((json[key] as List?) ?? const [])
+            .whereType<Map>()
+            .map((row) => decode(Map<String, dynamic>.from(row)))
             .toList();
     return RoleCatalog(
         categories: parse('categories', RoleCategory.fromJson),
@@ -120,11 +127,14 @@ class RolePermissionRow {
       required this.actions});
   factory RolePermissionRow.fromJson(Map<String, dynamic> json) =>
       RolePermissionRow(
-          doctype: json['doctype'] as String,
-          role: json['role'] as String,
-          level: (json['level'] as num).toInt(),
-          ownerOnly: json['owner_only'] == true,
-          actions: List<String>.from(json['actions'] as List));
+          doctype: json['doctype']?.toString() ?? '',
+          role: json['role']?.toString() ?? '',
+          level: (json['level'] as num?)?.toInt() ?? 0,
+          ownerOnly: json['owner_only'] == true || json['owner_only'] == 1,
+          actions: (json['actions'] as List?)
+                  ?.map((e) => e.toString())
+                  .toList(growable: false) ??
+              const []);
   final String doctype, role;
   final int level;
   final bool ownerOnly;

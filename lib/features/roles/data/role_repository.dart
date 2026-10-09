@@ -191,17 +191,37 @@ class RoleRepository {
   RoleCatalog _view() {
     final raw = Map<String, dynamic>.from(
         _data['catalog'] as Map? ?? _encode(bundledRoleCatalog));
-    if (offline && (raw['templates'] as List).isEmpty) {
+    if (offline && (raw['templates'] as List? ?? const []).isEmpty) {
       final bundled = _encode(bundledRoleCatalog);
       raw['templates'] = bundled['templates'];
       raw['template_categories'] = bundled['template_categories'];
     }
-    final categories = (raw['categories'] as List)
-        .map((e) => Map<String, dynamic>.from(e as Map))
+    final categories = ((raw['categories'] as List?) ?? const [])
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
         .toList();
-    final roles = (raw['roles'] as List)
-        .map((e) => Map<String, dynamic>.from(e as Map))
+    final roles = ((raw['roles'] as List?) ?? const [])
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
         .toList();
+    final templateCategories =
+        ((raw['template_categories'] as List?) ?? const [])
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+    for (final role in roles) {
+      final catCode = role['category']?.toString() ?? '';
+      if (catCode.isNotEmpty && !categories.any((c) => c['code'] == catCode)) {
+        final tCat =
+            templateCategories.where((c) => c['code'] == catCode).firstOrNull;
+        if (tCat != null) {
+          categories.add(Map<String, dynamic>.from(tCat));
+        } else {
+          categories
+              .add({'code': catCode, 'title': catCode, 'style': 'system'});
+        }
+      }
+    }
     for (final draft in _drafts) {
       final values = Map<String, dynamic>.from(draft['values'] as Map);
       if (draft['kind'] == 'template') {
