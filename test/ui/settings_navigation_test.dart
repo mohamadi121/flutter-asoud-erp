@@ -80,4 +80,26 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(SettingsDashboardContent), findsOneWidget);
   });
+
+  testWidgets('payment and sales quick actions open their destinations',
+      (tester) async {
+    await tester.pumpWidget(
+      app(const DashboardPage(officeName: 'دفتر نمونه', offlinePreview: true)),
+    );
+    await tester.pumpAndSettle();
+
+    for (final title in ['دریافت و پرداخت', 'فاکتور فروش']) {
+      await tester.dragUntilVisible(
+        find.text(title),
+        find.byType(Scrollable).first,
+        const Offset(0, -180),
+      );
+      await tester.tap(find.text(title));
+      await tester.pumpAndSettle();
+      expect(find.text(title), findsOneWidget);
+      expect(find.text('به‌زودی'), findsOneWidget);
+      tester.state<NavigatorState>(find.byType(Navigator)).pop();
+      await tester.pumpAndSettle();
+    }
+  });
 }

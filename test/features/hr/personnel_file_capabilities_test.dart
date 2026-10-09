@@ -700,7 +700,7 @@ void main() {
       // State chips
       expect(find.text('در جریان'), findsOneWidget);
       expect(find.text('آینده'), findsOneWidget);
-      expect(find.text('منقضی'), findsOneWidget);
+      expect(find.text('منقضی'), findsNWidgets(2));
       expect(find.text('امضا نشده'), findsOneWidget);
 
       // Remaining days in Persian digits
@@ -924,7 +924,7 @@ void main() {
 
       expect(contractStateLabel(expired), 'منقضی');
       expect(contractStateColor(expired), AsoudColors.danger);
-      expect(daysRemainingLabel(expired), capEmpty);
+      expect(daysRemainingLabel(expired), 'منقضی');
 
       expect(contractStateLabel(unsigned), 'امضا نشده');
       expect(contractStateColor(unsigned), AsoudColors.warning);

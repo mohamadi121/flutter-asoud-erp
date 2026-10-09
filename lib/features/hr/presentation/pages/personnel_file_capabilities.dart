@@ -62,11 +62,13 @@ ContractSummary? currentContract(PersonnelFile file) {
 }
 
 String daysRemainingLabel(ContractSummary contract) =>
-    contract.daysRemaining == null
-        ? capEmpty
-        : contract.daysRemaining! < 0 || contract.status == 'expired'
-            ? 'منقضی'
-        : '${toPersianDigits(contract.daysRemaining!)} روز مانده';
+    contract.state == 'expired' || contract.status == 'expired'
+        ? 'منقضی'
+        : contract.daysRemaining == null
+            ? capEmpty
+            : contract.daysRemaining! < 0
+                ? 'منقضی'
+                : '${toPersianDigits(contract.daysRemaining!)} روز مانده';
 
 String serviceLengthLabel(PersonnelFile file) =>
     file.employment.serviceLength?.label ??
