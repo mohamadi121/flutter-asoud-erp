@@ -585,11 +585,24 @@ class FrappeClient implements FrappeApiClient {
         headers: {'X-ASOUD-Idempotency-Key': mutationId},
       );
 
-  bool _isReadOnlyAsoudMethod(String method) {
+  static bool isReadOnlyMethod(String method) {
     final action = method.split('.').last;
     if (action == 'options' ||
+        action == 'catalog' ||
+        action == 'organization_tree' ||
+        action == 'permission_preview' ||
+        action == 'directory' ||
+        action == 'editor' ||
+        action == 'stock_balance' ||
+        action == 'components' ||
+        action == 'run_financial_report' ||
+        action == 'tree' ||
         action.endsWith('_options') ||
-        action.endsWith('_fields')) {
+        action.endsWith('_fields') ||
+        action.endsWith('_tree') ||
+        action.endsWith('_report') ||
+        action.endsWith('_summary') ||
+        action.endsWith('_preview')) {
       return true;
     }
     return const <String>[
@@ -602,6 +615,8 @@ class FrappeClient implements FrappeApiClient {
       'purchase_request_options',
     ].any(action.startsWith);
   }
+
+  bool _isReadOnlyAsoudMethod(String method) => isReadOnlyMethod(method);
 
   Future<T> _queuedMutation<T>({
     required String operation,

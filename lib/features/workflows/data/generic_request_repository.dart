@@ -9,6 +9,7 @@ import '../../../core/network/frappe_client.dart';
 import '../../../core/offline/local_database_store.dart';
 import '../../../core/offline/local_record.dart';
 import '../../../core/offline/offline_failure.dart';
+import '../../request_templates/data/system_templates.dart';
 import '../domain/entities/request_models.dart';
 import 'demo/request_demo_data.dart';
 import 'offline_preview_data.dart';
@@ -154,11 +155,75 @@ class GenericRequestRepository {
     }
   }
 
-  Future<List<Map<String, dynamic>>> options() async => isLocal
-      ? offlineRequestTypes()
-      : (await read('request_options', {'company': company}) as List)
-          .map((row) => Map<String, dynamic>.from(row as Map))
-          .toList();
+  Future<List<Map<String, dynamic>>> options() async {
+    if (isLocal) return offlineRequestTypes();
+    final items = (await read('request_options', {'company': company}) as List)
+        .map((row) => Map<String, dynamic>.from(row as Map))
+        .toList();
+
+    try {
+      final active = await client.callAsoudMethod(
+        'asoud_erp.api.v1.workflow.list_workflows',
+        data: {
+          if (company.trim().isNotEmpty) 'company': company,
+          'status': 'Active',
+        },
+      );
+      if (active is List) {
+        final existingNames = items
+            .map((r) => r['name']?.toString() ?? r['workflow_code']?.toString())
+            .whereType<String>()
+            .toSet();
+        for (final row in active.whereType<Map>()) {
+          final target = row['target_doctype']?.toString();
+          if (target != null && target != 'ASOUD Workflow Request') continue;
+          if (row['allow_user_submission'] == false) continue;
+          final name = row['name']?.toString() ?? '';
+          final code = row['workflow_code']?.toString() ?? name;
+          if (existingNames.contains(name) || existingNames.contains(code)) {
+            continue;
+          }
+          final templateKey = row['template_key']?.toString() ??
+              (code.startsWith('SYS-PURCHASE')
+                  ? 'purchase'
+                  : code.startsWith('SYS-LEAVE')
+                      ? 'leave'
+                      : code.startsWith('SYS-SUPPLY')
+                          ? 'supply'
+                          : null);
+          Map<String, dynamic>? systemType;
+          if (templateKey != null) {
+            try {
+              systemType = systemRequestType(templateKey, company: company);
+            } catch (_) {}
+          }
+          items.add({
+            if (systemType != null) ...systemType,
+            'name': name,
+            'workflow_code': code,
+            'workflow_title': row['workflow_title']?.toString() ??
+                systemType?['workflow_title'] ??
+                code,
+            'short_title': row['short_title']?.toString() ??
+                systemType?['short_title'] ??
+                '',
+            'icon_key': row['icon_key']?.toString() ??
+                systemType?['icon_key'] ??
+                'task',
+            'color_hex': row['color_hex']?.toString() ??
+                systemType?['color_hex'] ??
+                '#1769F6',
+            if (templateKey != null) 'template_key': templateKey,
+            'fields': systemType?['fields'] ?? const [],
+          });
+          existingNames.add(name);
+          existingNames.add(code);
+        }
+      }
+    } catch (_) {}
+
+    return items;
+  }
 
   /// Choices for User, Department, Item Table and System Select fields
   /// ([fieldType]: `User`, `Department`, `Item`, `UOM` with [itemCode],

@@ -58,10 +58,26 @@ class _OfficesView extends StatelessWidget {
           appBar: AsoudHeader(
             title: 'دفترهای من',
             subtitle: 'مدیریت و انتخاب دفترهای کاری',
-            action: IconButton(
+            action: PopupMenuButton<String>(
               tooltip: 'منوی بیشتر',
-              onPressed: () => _unavailable(context),
               icon: const Icon(Icons.more_vert_rounded),
+              onSelected: (action) {
+                if (action == 'create') {
+                  _create(context);
+                } else if (action == 'refresh') {
+                  context.read<OfficesCubit>().retry();
+                }
+              },
+              itemBuilder: (_) => const [
+                PopupMenuItem(
+                  value: 'create',
+                  child: Text('ایجاد دفتر کار جدید'),
+                ),
+                PopupMenuItem(
+                  value: 'refresh',
+                  child: Text('به‌روزرسانی فهرست'),
+                ),
+              ],
             ),
           ),
           body: SafeArea(child: _body(context, state)),
@@ -176,10 +192,14 @@ class _OfficesView extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         if (state.filteredOffices.isEmpty)
-          const Padding(
-            padding: EdgeInsets.all(24),
-            child: Text('دفتری با این عبارت پیدا نشد.',
-                textAlign: TextAlign.center),
+          Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+              state.query.trim().isNotEmpty
+                  ? 'دفتری با این عبارت پیدا نشد.'
+                  : 'دفتر دیگری ثبت نشده است.',
+              textAlign: TextAlign.center,
+            ),
           )
         else
           ...state.filteredOffices.map((office) => Padding(
