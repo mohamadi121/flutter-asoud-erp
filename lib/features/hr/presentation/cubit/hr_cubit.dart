@@ -1,5 +1,6 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import '../../../../core/network/api_exception.dart';
 import '../../domain/hr_models.dart';
 import '../../domain/hr_repository.dart';
 
@@ -59,11 +60,34 @@ class HrCubit extends Cubit<HrState> {
       emit(state.copyWith(
           status: HrStatus.success,
           dashboard: await repository.dashboard(company)));
-    } catch (_) {
+    } catch (error) {
       emit(state.copyWith(
-          status: HrStatus.failure,
-          message: 'دریافت داشبورد منابع انسانی ممکن نشد.'));
+          status: HrStatus.failure, message: _dashboardErrorMessage(error)));
     }
+  }
+
+  String _dashboardErrorMessage(Object error) {
+    if (error is ApiException &&
+        error.message.contains('No active Employee is linked')) {
+      return 'دریافت خدمات منابع انسانی ممکن نشد. دلیل: حساب کاربری شما به پرسنل فعال متصل نیست.';
+    }
+    if (error is ApiException) {
+      final reason = switch (error.kind) {
+        ApiFailureKind.invalidCredentials => 'اطلاعات ورود معتبر نیست.',
+        ApiFailureKind.unauthenticated => 'نشست کاربری معتبر نیست.',
+        ApiFailureKind.validation => 'اطلاعات یا دسترسی لازم کامل نیست.',
+        ApiFailureKind.forbidden => 'دسترسی لازم برای این بخش وجود ندارد.',
+        ApiFailureKind.conflict => 'اطلاعات سرور با درخواست تداخل دارد.',
+        ApiFailureKind.rateLimited => 'تعداد درخواست‌ها بیش از حد مجاز است.',
+        ApiFailureKind.timeout => 'پاسخ سرور بیش از حد طول کشید.',
+        ApiFailureKind.network => 'ارتباط با سرور برقرار نشد.',
+        ApiFailureKind.server => 'سرور هنگام پردازش با خطا روبه‌رو شد.',
+        ApiFailureKind.protocol => 'پاسخ سرور قابل پردازش نیست.',
+        ApiFailureKind.cancelled => 'دریافت اطلاعات لغو شد.',
+      };
+      return 'دریافت خدمات منابع انسانی ممکن نشد. دلیل: $reason';
+    }
+    return 'دریافت خدمات منابع انسانی ممکن نشد. دلیل: خطای پیش‌بینی‌نشده رخ داد.';
   }
 
   Future<void> loadTeam() async {

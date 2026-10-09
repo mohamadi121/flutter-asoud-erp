@@ -13,6 +13,9 @@ import '../cubit/hr_cubit.dart';
 import 'personnel_page.dart';
 import '../../../../core/network/frappe_client.dart';
 import '../../data/personnel_repository.dart';
+import '../../../employee/data/self_service_repository.dart';
+import '../../../employee/presentation/pages/my_attendance_page.dart';
+import '../../../request_templates/presentation/pages/request_list_pages.dart';
 
 class HrHomePage extends StatelessWidget {
   const HrHomePage({required this.company, super.key});
@@ -39,9 +42,15 @@ class _HrHome extends StatelessWidget {
               return const Center(child: CircularProgressIndicator());
             }
             if (state.dashboard == null) {
-              return _Error(onRetry: context.read<HrCubit>().loadDashboard);
+              return _Error(
+                  message: state.message ??
+                      'دریافت خدمات منابع انسانی ممکن نشد. دلیل خطا مشخص نیست.',
+                  onRetry: context.read<HrCubit>().loadDashboard);
             }
             final data = state.dashboard!;
+            if (data.managerAccess && data.employee.id.isEmpty) {
+              return _ManagerHrHome(company: company);
+            }
             if (data.employee.id.isEmpty) {
               return _OfflineHrHome(company: company);
             }
@@ -129,6 +138,69 @@ class _HrHome extends StatelessWidget {
           },
         )),
       );
+  void _push(BuildContext context, Widget page) =>
+      Navigator.push(context, MaterialPageRoute<void>(builder: (_) => page));
+}
+
+class _ManagerHrHome extends StatelessWidget {
+  const _ManagerHrHome({required this.company});
+  final String company;
+
+  @override
+  Widget build(BuildContext context) => ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AsoudColors.primary.withValues(alpha: .07),
+              border:
+                  Border.all(color: AsoudColors.primary.withValues(alpha: .25)),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Text(
+              'این حساب به پرونده پرسنلی متصل نیست؛ خدمات مدیریتی منابع انسانی همچنان در دسترس است.',
+            ),
+          ),
+          const SizedBox(height: 16),
+          const AsoudSectionTitle(title: 'خدمات منابع انسانی'),
+          _Action(
+              'لیست پرسنل',
+              'مشاهده، ایجاد و ویرایش اطلاعات پرسنلی',
+              Icons.people_alt_outlined,
+              AsoudColors.warning,
+              () => _push(context, PersonnelPage(company: company))),
+          _Action(
+              'درخواست‌های مرخصی',
+              'مشاهده درخواست‌ها و وضعیت مرخصی',
+              Icons.beach_access_outlined,
+              AsoudColors.cyan,
+              () => _push(context, LeaveRequestsListPage(company: company))),
+          _Action(
+              'حضور و غیاب',
+              'مشاهده سوابق حضور و ثبت ورود و خروج',
+              Icons.schedule_rounded,
+              AsoudColors.success,
+              () => _push(
+                  context,
+                  MyAttendancePage(
+                      repository: SelfServiceRepository(
+                          context.read<FrappeApiClient>())))),
+          _Action(
+              'گزارش کار روزانه',
+              'فعالیت‌ها، پیش‌نویس و بازخورد',
+              Icons.fact_check_outlined,
+              AsoudColors.success,
+              () => _push(context, WorkReportsPage(company: company))),
+          _Action(
+              'اعلان‌های منابع انسانی',
+              'رویدادها و مهلت‌های مهم',
+              Icons.notifications_active_outlined,
+              AsoudColors.warning,
+              () => _push(context, HrNotificationsPage(company: company))),
+        ],
+      );
+
   void _push(BuildContext context, Widget page) =>
       Navigator.push(context, MaterialPageRoute<void>(builder: (_) => page));
 }
@@ -585,10 +657,22 @@ class _Empty extends StatelessWidget {
 }
 
 class _Error extends StatelessWidget {
-  const _Error({required this.onRetry});
+  const _Error({required this.message, required this.onRetry});
+  final String message;
   final VoidCallback onRetry;
   @override
   Widget build(BuildContext context) => Center(
-      child:
-          OutlinedButton(onPressed: onRetry, child: const Text('تلاش دوباره')));
+      child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const AsoudIconBox(
+                icon: Icons.error_outline_rounded,
+                color: AsoudColors.danger,
+                size: 48),
+            const SizedBox(height: 12),
+            Text(message, textAlign: TextAlign.center),
+            const SizedBox(height: 12),
+            OutlinedButton(
+                onPressed: onRetry, child: const Text('تلاش دوباره')),
+          ])));
 }
