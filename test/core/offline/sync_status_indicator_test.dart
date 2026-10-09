@@ -95,6 +95,20 @@ void main() {
     expect(icon.color, AsoudColors.success);
   });
 
+  testWidgets('درخواست محلی مانع پیام ارسال کامل می‌شود', (tester) async {
+    await store.save(
+        id: 'local-request',
+        entityType: 'generic_request_outbox',
+        payload: const {},
+        status: LocalSyncStatus.localOnly);
+
+    await tester.pumpWidget(_app(SyncStatusIndicator(service: service)));
+    await _settle(tester);
+
+    expect(find.text('۱ داده روی گوشی'), findsOneWidget);
+    expect(find.text('همه داده‌ها ارسال شده'), findsNothing);
+  });
+
   testWidgets('هنگام ارسال، نشانگر چرخان است و پس از پایان به‌روز می‌شود',
       (tester) async {
     await _queue(store, 'one');

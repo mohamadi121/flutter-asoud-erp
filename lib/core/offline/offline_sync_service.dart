@@ -99,6 +99,14 @@ class OfflineSyncService {
 
   Future<int> unsentCount() async => (await unsent()).length;
 
+  /// Records deliberately kept only on this device (such as offline-demo
+  /// requests) are not replayable mutations, but they still mean the phone
+  /// holds data and the dashboard must not report a fully sent queue.
+  Future<int> localOnlyCount() async =>
+      (await _local.list(statuses: {LocalSyncStatus.localOnly}))
+          .where((row) => row.entityType == 'generic_request_outbox')
+          .length;
+
   /// A manual retry of one row: it clears the backoff and is sent right away.
   Future<void> retry(String id) async {
     if (await _local.get(id) == null) return;

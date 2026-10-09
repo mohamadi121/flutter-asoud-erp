@@ -23,6 +23,7 @@ class SyncStatusIndicator extends StatefulWidget {
 class _SyncStatusIndicatorState extends State<SyncStatusIndicator> {
   StreamSubscription<void>? _changes;
   int? _unsent;
+  int _localOnly = 0;
   bool _syncing = false;
 
   @override
@@ -37,8 +38,10 @@ class _SyncStatusIndicatorState extends State<SyncStatusIndicator> {
     // run the user is waiting for.
     final syncing = widget.service.isSyncing;
     int? unsent;
+    int localOnly;
     try {
       unsent = await widget.service.unsentCount();
+      localOnly = await widget.service.localOnlyCount();
     } catch (_) {
       // The queue store is unavailable; the badge stays hidden rather than
       // claiming the phone holds nothing.
@@ -47,6 +50,7 @@ class _SyncStatusIndicatorState extends State<SyncStatusIndicator> {
     if (!mounted) return;
     setState(() {
       _unsent = unsent;
+      _localOnly = localOnly;
       _syncing = syncing || widget.service.isSyncing;
     });
   }
@@ -61,11 +65,13 @@ class _SyncStatusIndicatorState extends State<SyncStatusIndicator> {
   Widget build(BuildContext context) {
     final unsent = _unsent;
     if (unsent == null) return const SizedBox.shrink();
-    final clear = unsent == 0;
+    final clear = unsent == 0 && _localOnly == 0;
     final color = clear ? AsoudColors.success : AsoudColors.warning;
     final label = clear
         ? 'همه داده‌ها ارسال شده'
-        : '${toPersianDigits(unsent)} نوشته ارسال نشده';
+        : unsent > 0
+            ? '${toPersianDigits(unsent)} نوشته ارسال نشده'
+            : '${toPersianDigits(_localOnly)} داده روی گوشی';
     final badge = Material(
       color: Colors.transparent,
       child: InkWell(
