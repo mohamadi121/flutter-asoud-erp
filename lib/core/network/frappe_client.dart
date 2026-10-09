@@ -122,6 +122,7 @@ class FrappeClient implements FrappeApiClient {
     Dio? dio,
     CookieJar? cookieJar,
     SessionVault? sessionVault,
+    ServerAddressStore? serverAddressStore,
   }) {
     final normalizedBaseUrl = baseUrl.endsWith('/')
         ? baseUrl.substring(0, baseUrl.length - 1)
@@ -159,15 +160,18 @@ class FrappeClient implements FrappeApiClient {
       memoryCookies,
       Uri.parse(normalizedBaseUrl),
       sessionVault,
+      serverAddressStore,
     );
   }
 
-  FrappeClient._(this._dio, this._cookies, this._baseUri, this._vault);
+  FrappeClient._(
+      this._dio, this._cookies, this._baseUri, this._vault, this._serverStore);
 
   final Dio _dio;
   final CookieJar _cookies;
   Uri _baseUri;
   final SessionVault? _vault;
+  final ServerAddressStore? _serverStore;
   FrappeUserContext? _knownUser;
   DateTime? _offlineUntil;
   int _sessionGeneration = 0;
@@ -196,13 +200,17 @@ class FrappeClient implements FrappeApiClient {
 
   Future<void> useServer(String baseUrl) async {
     final normalized = normalizeBaseUrl(baseUrl);
-    if (normalized == _baseUri.toString()) return;
+    if (normalized == _baseUri.toString()) {
+      await _serverStore?.write(normalized);
+      return;
+    }
     _sessionGeneration++;
     _knownUser = null;
     _offlineUntil = null;
     await _cookies.deleteAll();
     _dio.options.baseUrl = normalized;
     _baseUri = Uri.parse(normalized);
+    await _serverStore?.write(normalized);
   }
 
   Future<void> _writeVault(Future<void> Function() action) {
@@ -215,6 +223,16 @@ class FrappeClient implements FrappeApiClient {
   static const offlineSessionLifetime = Duration(hours: 24);
 
   Future<bool> restoreSession() async {
+    final rememberedServer = await _serverStore?.read();
+    if (rememberedServer != null && rememberedServer.trim().isNotEmpty) {
+      try {
+        final normalized = normalizeBaseUrl(rememberedServer);
+        _dio.options.baseUrl = normalized;
+        _baseUri = Uri.parse(normalized);
+      } on FormatException {
+        // Keep the configured default and fail closed for any bad vault data.
+      }
+    }
     final generation = _sessionGeneration;
     final encoded = await _vault?.read(_baseUri.toString());
     if (generation != _sessionGeneration) return false;

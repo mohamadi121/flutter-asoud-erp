@@ -53,8 +53,9 @@ class AsoudErpApp extends StatefulWidget {
 }
 
 class _AsoudErpAppState extends State<AsoudErpApp> {
-  late final FrappeClient client =
-      FrappeClient(sessionVault: const SecureSessionVault());
+  late final FrappeClient client = FrappeClient(
+      sessionVault: const SecureSessionVault(),
+      serverAddressStore: const SecureServerAddressStore());
   late final OfflineSyncService syncService =
       OfflineSyncService(client, afterSync: _syncPersonnel);
 
