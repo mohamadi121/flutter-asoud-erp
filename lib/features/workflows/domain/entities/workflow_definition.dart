@@ -26,6 +26,8 @@ class WorkflowDefinition extends Equatable {
     this.category,
     this.showInList = true,
     this.userSubmittable = true,
+    this.isSystemTemplate = false,
+    this.templateKey,
   });
 
   final String id, code, title, targetDoctype;
@@ -36,7 +38,8 @@ class WorkflowDefinition extends Equatable {
   final String? company, description, moduleKey, creationMode;
   final String? frappeWorkflow, pendingReason, iconKey, colorHex;
   final String? shortTitle, category;
-  final bool showInList, userSubmittable;
+  final String? templateKey;
+  final bool showInList, userSubmittable, isSystemTemplate;
   final List<String> missingRequirements;
 
   @override
@@ -63,6 +66,8 @@ class WorkflowDefinition extends Equatable {
         category,
         showInList,
         userSubmittable,
+        isSystemTemplate,
+        templateKey,
       ];
 }
 

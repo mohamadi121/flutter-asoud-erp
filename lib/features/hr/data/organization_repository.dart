@@ -45,8 +45,16 @@ class OrganizationRepository {
     final user =
         await client.getCurrentUser().timeout(const Duration(seconds: 40));
     _check(epoch);
-    final allowed = {'System Manager', 'HR Manager', if (!write) 'HR User'};
-    if (user.userId.isEmpty || !user.roles.any(allowed.contains)) {
+    final allowed = {
+      'System Manager',
+      'HR Manager',
+      'Administrator',
+      if (!write) 'HR User'
+    };
+    final isAllowed = user.userId == 'Administrator' ||
+        user.hasRole('Administrator') ||
+        user.roles.any(allowed.contains);
+    if (user.userId.isEmpty || !isAllowed) {
       throw const ApiException(
           kind: ApiFailureKind.forbidden,
           message: 'دسترسی به ساختار سازمانی مجاز نیست.');
@@ -75,15 +83,20 @@ class OrganizationRepository {
 
   OrganizationSnapshot decode(Map<String, dynamic> data, bool pending,
       {OrganizationSnapshot? server, bool rejected = false}) {
-    if (data['rows'] is! List || data['revision'] is! num) {
+    final rawRevision = data['revision'];
+    final revision = rawRevision is num
+        ? rawRevision.toInt()
+        : int.tryParse(rawRevision?.toString() ?? '0') ?? 0;
+    final rawRows = data['rows'];
+    if (rawRows != null && rawRows is! List) {
       throw const ApiException.protocol();
     }
-    final rows = (data['rows'] as List)
-        .map((e) => OrgPosition.fromJson(Map<String, dynamic>.from(e as Map)))
+    final rows = (rawRows is List ? rawRows : const [])
+        .whereType<Map>()
+        .map((e) => OrgPosition.fromJson(Map<String, dynamic>.from(e)))
         .toList();
     validateOrganization(rows);
-    return OrganizationSnapshot(
-        rows, (data['revision'] as num).toInt(), pending,
+    return OrganizationSnapshot(rows, revision, pending,
         server: server,
         rejected: rejected,
         warnings: (data['warnings'] as List? ?? const [])

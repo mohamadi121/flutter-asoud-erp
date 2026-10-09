@@ -37,7 +37,7 @@ class _RoleSetupView extends StatelessWidget {
                       const SizedBox(width: 12),
                       Expanded(
                           child: Text(
-                              '${state.catalog.categories.length} دسته · ${state.catalog.roles.length} نقش',
+                              '${toPersianDigits(state.catalog.categories.length)} دسته · ${toPersianDigits(state.catalog.roles.length)} نقش',
                               style: const TextStyle(
                                   fontWeight: FontWeight.w800))),
                     ]))),

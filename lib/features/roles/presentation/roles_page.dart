@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/network/asoud_api_response.dart';
 import '../../../core/network/frappe_client.dart';
 import '../../../core/theme/asoud_colors.dart';
+import '../../../core/utils/jalali_date.dart';
 import '../../../core/widgets/asoud_ui.dart';
 import '../data/role_repository.dart';
 import '../domain/role_catalog.dart';
@@ -20,11 +21,13 @@ part 'role_excel_page.dart';
 part 'user_access_page.dart';
 
 class RolesPage extends StatelessWidget {
-  const RolesPage({super.key});
+  const RolesPage({this.repository, super.key});
+  final RoleRepository? repository;
   @override
   Widget build(BuildContext context) => BlocProvider(
-        create: (_) =>
-            RoleCubit(RoleRepository(context.read<FrappeApiClient>()))..load(),
+        create: (_) => RoleCubit(
+            repository ?? RoleRepository(context.read<FrappeApiClient>()))
+          ..load(),
         child: const Directionality(
             textDirection: TextDirection.rtl,
             child: _RoleSessionGuard(child: _RoleSetupView())),
@@ -144,7 +147,9 @@ class _RolesViewState extends State<_RolesView> {
                         hintText: 'جست‌وجو در نقش‌ها…',
                         prefixIcon: Icon(Icons.search))),
                 const SizedBox(height: 14),
-                if (state.loaded && state.catalog.categories.isEmpty)
+                if (state.loaded &&
+                    state.catalog.categories.isEmpty &&
+                    state.catalog.roles.isEmpty)
                   const _RoleHint(
                       'هنوز دسته یا نقشی ثبت نشده است؛ از الگوهای آماده استفاده کنید یا ابتدا یک دسته بسازید.'),
                 for (final category in state.catalog.categories)
