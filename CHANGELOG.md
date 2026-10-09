@@ -7,6 +7,10 @@
 - Dashboard quick actions and workflow tabs (dashboard, notifications, more) now open real destinations; reports show a clear "coming soon" page.
 - Jalali dates for personnel, tasks, daily reports and notifications; Persian labels for status, priority, marital status, employment type and leave types in the preview data.
 - Expired contracts show «منقضی»; offline leave requests get a proper title; workflow step counts match their designs; the offline organization chart shows preview data; local-only requests are reflected in the sync status.
+- Settings → Human Resources opens for managers and Administrator who have no employee profile; a failed load shows a Persian reason instead of a blank page.
+- Request-type editor: «ادامه» and the step chips work on system templates; missing fields are named.
+- Role management and the organization chart parse the real server responses (they showed zero roles before); read-only server calls are never queued as offline writes (removes the false «نوشته ارسال نشده» notice).
+- Setup status resolves from the server; the request picker lists the active server request types; offices page shows the correct empty text and a working top menu; server dates, genders, roles and stage types are shown in Persian/Jalali.
 - Requires backend 0.15.0.
 
 ## 0.26.1+45
