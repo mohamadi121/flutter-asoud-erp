@@ -67,7 +67,7 @@ class FrappeOfficeRepository implements OfficeRepository {
     final rows =
         await _client.getResourceList('ASOUD Company Setup', queryParameters: {
       'fields':
-          '["company","office_type","national_id","economic_code","owner_full_name","registration_number","activity_type","company_type","parent_office","phone","email","website","province","city","address","postal_code","fiscal_year","fiscal_year_start_month","chart_template","description","auto_generate_detail_code","modified"]',
+          '["company","office_type","national_id","economic_code","owner_full_name","registration_number","activity_type","company_type","parent_office","phone","email","website","province","city","address","postal_code","fiscal_year","fiscal_year_start_month","chart_template","description","auto_generate_detail_code","modified","office_saved","accounting_saved","roles_saved"]',
       'limit_page_length': 100,
       'order_by': 'modified desc',
     });

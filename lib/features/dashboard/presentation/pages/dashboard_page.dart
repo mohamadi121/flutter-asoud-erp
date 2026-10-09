@@ -510,9 +510,16 @@ class OrganizationLoginBanner extends StatelessWidget {
           ]),
           const SizedBox(height: 10),
           FilledButton(
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const LoginPage()),
-            ),
+            onPressed: () {
+              final client = context.read<FrappeApiClient>();
+              final serverUrl =
+                  client is FrappeClient ? client.serverIdentity : null;
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => LoginPage(initialServerUrl: serverUrl),
+                ),
+              );
+            },
             child: const Text('ورود به حساب سازمانی'),
           ),
         ]),

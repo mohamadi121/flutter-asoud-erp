@@ -97,7 +97,11 @@ class OfficeModel extends Office {
             json['setup_complete'] == true ||
             json['setup_complete'] == 1 ||
             json['is_setup_complete'] == true ||
-            json['is_setup_complete'] == 1,
+            json['is_setup_complete'] == 1 ||
+            ((json['office_saved'] == true || json['office_saved'] == 1) &&
+                (json['accounting_saved'] == true ||
+                    json['accounting_saved'] == 1) &&
+                (json['roles_saved'] == true || json['roles_saved'] == 1)),
       );
 
   Map<String, dynamic> toJson() => {

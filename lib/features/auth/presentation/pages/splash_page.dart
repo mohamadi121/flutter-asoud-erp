@@ -54,11 +54,13 @@ class _SplashPageState extends State<SplashPage> {
           ? await widget.hasDemoChoice!()
           : await DemoChoiceStore.isDemoChosen();
       if (!mounted) return;
+      final client = context.read<FrappeApiClient>();
+      final serverUrl = client is FrappeClient ? client.serverIdentity : null;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(
             builder: (_) => demoChosen
                 ? const DashboardLandingPage(offlinePreview: true)
-                : const LoginPage()),
+                : LoginPage(initialServerUrl: serverUrl)),
       );
     } catch (_) {
       if (mounted) {

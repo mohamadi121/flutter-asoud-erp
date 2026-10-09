@@ -112,8 +112,8 @@ class ServerFirstOfficeRepository
       if (office != null) {
         await _saveDefaultName(office.name, status: LocalSyncStatus.synced);
       }
-      return await _localDefaultOffice() ??
-          office ??
+      return office ??
+          await _localDefaultOffice() ??
           (await _localOffices()).firstOrNull;
     } catch (error) {
       if (error is! TimeoutException && !isRetryableOfflineFailure(error)) {
@@ -224,6 +224,10 @@ class ServerFirstOfficeRepository
         'chart_template': office.chartTemplate,
         'description': office.description,
         'modified': office.lastSyncedAt?.toIso8601String(),
+        'complete': office.setupComplete,
+        'office_saved': office.setupComplete,
+        'accounting_saved': office.setupComplete,
+        'roles_saved': office.setupComplete,
       };
 }
 

@@ -45,11 +45,47 @@ const erpNextRoleLabels = <String, String>{
   'Customer': 'مشتری',
   'Supplier': 'تأمین‌کننده',
   'Desk User': 'کاربر میزکار',
+  'Academics User': 'کاربر آموزش',
+  'Agriculture User': 'کارشناس کشاورزی',
+  'Dashboard Manager': 'مدیر داشبورد',
+  'Delivery Manager': 'مدیر تحویل',
+  'Delivery User': 'کارشناس تحویل',
+  'Fulfillment User': 'کارشناس پردازش سفارش',
+  'Inbox User': 'کاربر صندوق پیام',
+  'Interviewer': 'مصاحبه‌کننده',
+  'Knowledge Base Editor': 'ویرایشگر پایگاه دانش',
+  'Purchase Master Manager': 'مدیر اطلاعات پایه خرید',
+  'Stock Master Manager': 'مدیر اطلاعات پایه انبار',
+  'Purchase Master User': 'کارشناس اطلاعات پایه خرید',
+  'Sales Master User': 'کارشناس اطلاعات پایه فروش',
+  'Loan Manager': 'مدیر وام',
+  'Payroll Manager': 'مدیر حقوق و دستمزد',
+  'Payroll User': 'کارشناس حقوق و دستمزد',
+  'Attendance Tool User': 'کاربر ابزار حضور و غیاب',
   'All': 'همه',
   'Guest': 'مهمان',
 };
 
 String persianRoleLabel(String role) => erpNextRoleLabels[role] ?? role;
+
+bool isInternalRole(String role) =>
+    role.trim().toUpperCase().startsWith('ASOUD-ACCESS-USER-');
+
+String formatUserGreetingRoles(Iterable<String> roles) {
+  final filtered = roles
+      .where((role) => !isInternalRole(role))
+      .map(persianRoleLabel)
+      .where((label) => label.trim().isNotEmpty)
+      .toList(growable: false);
+  return filtered.isEmpty ? 'کاربر سامانه' : filtered.join('، ');
+}
+
+String persianTransitionLabel(String? label) {
+  if (label == null || label.trim().isEmpty) return 'ادامه';
+  final trimmed = label.trim();
+  if (trimmed.toLowerCase() == 'continue') return 'ادامه';
+  return trimmed;
+}
 
 String persianGenderLabel(String? gender) => switch (gender) {
       'Male' => 'مرد',

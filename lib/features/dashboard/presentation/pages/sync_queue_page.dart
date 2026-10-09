@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/network/frappe_client.dart';
 import '../../../../core/offline/local_record.dart';
+import '../../../../core/offline/offline_failure.dart';
 import '../../../../core/offline/offline_sync_service.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/jalali_date.dart';
@@ -95,7 +96,7 @@ class _SyncQueuePageState extends State<SyncQueuePage> {
                         separatorBuilder: (_, __) => const SizedBox(height: 8),
                         itemBuilder: (context, index) {
                           final row = rows[index];
-                          return _QueueTile(
+                          return SyncQueueItemCard(
                             row: row,
                             enabled: !_busy,
                             onRetry: () =>
@@ -149,12 +150,13 @@ class _QueueSummary extends StatelessWidget {
       );
 }
 
-class _QueueTile extends StatelessWidget {
-  const _QueueTile({
+class SyncQueueItemCard extends StatelessWidget {
+  const SyncQueueItemCard({
     required this.row,
     required this.enabled,
     required this.onRetry,
     required this.onDiscard,
+    super.key,
   });
 
   final LocalRecord row;
@@ -165,7 +167,7 @@ class _QueueTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final failed = row.status == LocalSyncStatus.syncFailed;
-    final message = (row.lastError ?? '').trim();
+    final message = persianSyncErrorMessage(row.lastError);
     return Card(
       margin: EdgeInsets.zero,
       child: Padding(

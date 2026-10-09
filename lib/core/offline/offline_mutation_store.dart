@@ -1,5 +1,6 @@
 import 'local_database_store.dart';
 import 'local_record.dart';
+import 'offline_failure.dart';
 
 class OfflineMutationStore {
   OfflineMutationStore._();
@@ -39,7 +40,7 @@ class OfflineMutationStore {
       LocalDatabaseStore.instance.setStatus(
         id,
         LocalSyncStatus.syncFailed,
-        error: error.toString(),
+        error: offlineFailureMessage(error),
       );
 
   Future<void> remove(String id) => LocalDatabaseStore.instance.delete(id);
