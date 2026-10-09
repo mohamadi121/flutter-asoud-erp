@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.26.2+46
+
+- The app remembers the server address and the signed-in session after it is closed, so users no longer have to re-enter them.
+- The first-run setup card is hidden once the server reports the office as complete, and refreshes after sync.
+- Dashboard quick actions and workflow tabs (dashboard, notifications, more) now open real destinations; reports show a clear "coming soon" page.
+- Jalali dates for personnel, tasks, daily reports and notifications; Persian labels for status, priority, marital status, employment type and leave types in the preview data.
+- Expired contracts show «منقضی»; offline leave requests get a proper title; workflow step counts match their designs; the offline organization chart shows preview data; local-only requests are reflected in the sync status.
+- Requires backend 0.15.0.
+
 ## 0.26.1+45
 
 - Fixes the release APK: it had no INTERNET permission and blocked plain-HTTP servers, so every sign-in failed with «ارتباط با سرور برقرار نشد». Release builds can now reach the server (debug builds were not affected).
