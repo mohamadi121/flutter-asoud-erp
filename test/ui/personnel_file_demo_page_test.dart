@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:asoud_erp/core/network/frappe_client.dart';
 import 'package:asoud_erp/core/theme/asoud_theme.dart';
+import 'package:asoud_erp/core/utils/jalali_date.dart';
 import 'package:asoud_erp/features/hr/data/demo/hr_demo_data.dart';
 import 'package:asoud_erp/features/hr/data/personnel_file_repository.dart';
 import 'package:asoud_erp/features/hr/data/personnel_repository.dart';
@@ -91,6 +92,8 @@ void main() {
         _filled(tester, '$code sections');
         await _tap(tester, 'اطلاعات فردی');
         expect(find.text(profile['national_id'] as String), findsOneWidget);
+        expect(find.text(formatJalaliIso(profile['birth_date'] as String)),
+            findsOneWidget);
         expect(find.text(profile['mobile'] as String), findsOneWidget);
         expect(find.text(profile['father_name'] as String), findsOneWidget);
         expect(find.text(profile['company_email'] as String), findsOneWidget);
@@ -105,7 +108,8 @@ void main() {
         await _pop(tester);
         await _tap(tester, 'اطلاعات استخدامی');
         expect(find.text(code), findsNWidgets(2));
-        expect(find.text(profile['date_of_joining'] as String), findsOneWidget);
+        expect(find.text(formatJalaliIso(profile['date_of_joining'] as String)),
+            findsOneWidget);
         _filled(tester, '$code employment');
         await _pop(tester);
         await _tap(tester, 'قراردادها');

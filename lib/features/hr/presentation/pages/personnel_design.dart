@@ -37,6 +37,9 @@ String _valueOf(Map profile, String key, [String fallback = '—']) {
       value.contains('personnel-import-')) {
     return fallback;
   }
+  if (key == 'birth_date' || key == 'date_of_joining') {
+    return formatJalaliIso(value);
+  }
   return value;
 }
 
