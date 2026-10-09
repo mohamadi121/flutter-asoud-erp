@@ -169,13 +169,20 @@ class OfficeFormBloc extends Bloc<OfficeFormEvent, OfficeFormState> {
               ? 'دفتر روی همین دستگاه ذخیره شد؛ هنوز روی سرور ثبت نشده است.'
               : 'دفتر کار با موفقیت ذخیره شد.'));
     } catch (error) {
-      if (isRetryableOfflineFailure(error)) {
+      if (error is QueuedOfflineException) {
         emit(state.copyWith(
           status: OfficeFormStatus.offlinePreview,
           createdOffice: _draftOffice(),
-          message: error is QueuedOfflineException
-              ? error.message
-              : 'اتصال برقرار نیست؛ دفتر روی گوشی ذخیره شد و در انتظار همگام‌سازی است.',
+          message: error.message,
+        ));
+        return;
+      }
+      if (allowOfflinePreview && isRetryableOfflineFailure(error)) {
+        emit(state.copyWith(
+          status: OfficeFormStatus.offlinePreview,
+          createdOffice: _draftOffice(),
+          message:
+              'اتصال برقرار نیست؛ دفتر روی گوشی ذخیره شد و در انتظار همگام‌سازی است.',
         ));
         return;
       }

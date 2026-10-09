@@ -164,7 +164,7 @@ void main() {
   });
 
   testWidgets(
-      'مسیر ایجاد دفتر: در زمان آفلاین بودن، دفتر در صف ثبت شده و کاربر به داشبورد آفلاین هدایت می‌شود',
+      'مسیر ایجاد دفتر: QueuedOfflineException به offlinePreview با پیام صف هدایت می‌شود',
       (tester) async {
     final client = _FakeSetupClient(
       saveOfficeHandler: (_) async =>
@@ -197,6 +197,46 @@ void main() {
     expect(find.text('دفتر کار آفلاین'), findsWidgets);
     expect(find.text('حالت موقت آفلاین'), findsOneWidget);
     expect(find.text(QueuedOfflineException.queuedFeedback), findsOneWidget);
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets(
+      'مسیر ایجاد دفتر: خطای شبکه با allowOfflinePreview=false وضعیت failure نشان می‌دهد',
+      (tester) async {
+    final client = _FakeSetupClient(
+      saveOfficeHandler: (_) async => throw const ApiException(
+        kind: ApiFailureKind.network,
+        message: 'ارتباط با سرور برقرار نشد.',
+      ),
+    );
+    final localStore = FakeLocalRecordStore();
+    final repository = ServerFirstOfficeRepository(
+      FrappeOfficeRepository(client),
+      local: localStore,
+    );
+
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    await tester.pumpWidget(_wrap(
+      const OfficeTypePage(allowOfflinePreview: false),
+      client: client,
+      repository: repository,
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey('office-officeName-0')),
+      'دفتر شبکه قطع',
+    );
+    await tester.pump();
+
+    final submitButton = find.widgetWithText(FilledButton, 'ایجاد دفتر کار');
+    await tester.ensureVisible(submitButton);
+    await tester.tap(submitButton);
+    await tester.pumpAndSettle();
+
+    // Remains on form and shows the error message
+    expect(find.byType(DashboardPage), findsNothing);
+    expect(find.text('ارتباط با سرور برقرار نشد.'), findsOneWidget);
     await tester.binding.setSurfaceSize(null);
   });
 
