@@ -13,6 +13,13 @@ const erpNextRoleLabels = <String, String>{
   'Sales User': 'کارشناس فروش',
   'HR Manager': 'مدیر منابع انسانی',
   'HR User': 'کارشناس منابع انسانی',
+  'HR_MANAGER': 'مدیر منابع انسانی',
+  'HR_USER': 'کارشناس منابع انسانی',
+  'SYSTEM_ADMIN': 'مدیر سیستم',
+  'SYS_ADMIN': 'مدیر سیستم',
+  'FINANCE_MANAGER': 'مدیر مالی',
+  'FIN_MGR': 'مدیر مالی',
+  'ACCOUNTANT': 'حسابدار',
   'Support Team': 'کارشناس پشتیبانی',
   'Projects Manager': 'مدیر پروژه',
   'Employee': 'کارمند',
@@ -78,7 +85,23 @@ String persianRoleLabel(String role) {
       return entry.value;
     }
   }
-  return role;
+  return _humanizeRoleCode(trimmed);
+}
+
+/// Unknown machine codes (for example `FIELD_OPS`) are not translated, but
+/// they must never reach the UI as `ALL_CAPS_WITH_UNDERSCORES`.
+String _humanizeRoleCode(String value) {
+  final machine = RegExp(r'^[A-Z0-9 _\-/]+$').hasMatch(value) &&
+      RegExp(r'[A-Z]').hasMatch(value);
+  if (!machine) return value;
+  final words = value
+      .replaceAll(RegExp(r'[-_]+'), ' ')
+      .split(' ')
+      .where((word) => word.isNotEmpty)
+      .map((word) => word.length == 1
+          ? word.toUpperCase()
+          : '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}');
+  return words.join(' ');
 }
 
 const erpNextLeaveTypes = <String, String>{

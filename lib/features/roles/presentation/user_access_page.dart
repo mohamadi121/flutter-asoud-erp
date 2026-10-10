@@ -101,7 +101,7 @@ class _RoleUsersPageState extends State<_RoleUsersPage> {
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AsoudHeader(
-            title: 'کاربران و دسترسی‌ها', subtitle: widget.role.title),
+            title: 'کاربران و دسترسی‌ها', subtitle: persianRoleLabel(widget.role.title)),
         body: ListView(padding: const EdgeInsets.all(16), children: [
           Card(
               child: ListTile(
@@ -397,7 +397,7 @@ class _AccessWizardState extends State<_AccessWizard> {
               : step == 2
                   ? 'بررسی و ارسال'
                   : 'تعیین نقش و دسترسی',
-          subtitle: widget.role.title),
+          subtitle: persianRoleLabel(widget.role.title)),
       body: ListView(padding: const EdgeInsets.all(16), children: [
         if (success) ...[
           const SizedBox(height: 60),

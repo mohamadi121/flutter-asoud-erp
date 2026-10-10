@@ -2,6 +2,7 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
 import '../../../../core/network/api_exception.dart';
+import '../../../../core/utils/failure_message.dart';
 import '../../domain/request_templates.dart';
 import '../../domain/request_form_layout.dart';
 import '../../../workflows/domain/entities/workflow_definition.dart';
@@ -333,9 +334,7 @@ class RequestTypeBuilderCubit extends Cubit<RequestTypeBuilderState> {
   }
 
   String _error(Object error, String fallback) =>
-      error is ApiException && error.message.isNotEmpty
-          ? error.message
-          : fallback;
+      error is ApiException ? failureMessage(error) : fallback;
 }
 
 WorkflowStage? _startStage(WorkflowDesign design) => design.stages

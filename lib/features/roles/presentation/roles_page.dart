@@ -352,7 +352,7 @@ class _RolesViewState extends State<_RolesView> {
         builder: (dialogContext) => AlertDialog(
               title: Text(role.enabled ? 'غیرفعال‌کردن نقش' : 'فعال‌کردن نقش'),
               content: Text(
-                  'وضعیت نقش «${role.title}» تغییر کند؟ دسترسی‌های تعریف‌شده تغییر نمی‌کنند.'),
+                  'وضعیت نقش «${persianRoleLabel(role.title)}» تغییر کند؟ دسترسی‌های تعریف‌شده تغییر نمی‌کنند.'),
               actions: [
                 TextButton(
                     onPressed: () => Navigator.pop(dialogContext, false),

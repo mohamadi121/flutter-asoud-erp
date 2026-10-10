@@ -171,7 +171,7 @@ class _RoleFormState extends State<_RoleForm> {
                               .where((role) => !blocked.contains(role.code))
                               .map((role) => DropdownMenuItem(
                                   value: role.code,
-                                  child: Text(role.title,
+                                  child: Text(persianRoleLabel(role.title),
                                       overflow: TextOverflow.ellipsis)))
                         ],
                         onChanged: busy
