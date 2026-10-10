@@ -282,12 +282,22 @@ void main() {
     await store.save(
         id: 'a',
         entityType: 'asoud_erp.api.v1.setup.save_office',
-        payload: const {'operation': 'asoud_method', 'company_name': 'الف'},
+        payload: const {
+          'operation': 'asoud_method',
+          '_asoud_owner': 'user',
+          '_asoud_server': 'injected-client',
+          'company_name': 'الف',
+        },
         status: LocalSyncStatus.pendingSync);
     await store.save(
         id: 'b',
         entityType: 'asoud_erp.api.v1.party.save_party',
-        payload: const {'operation': 'asoud_method', 'name': 'ب'},
+        payload: const {
+          'operation': 'asoud_method',
+          '_asoud_owner': 'user',
+          '_asoud_server': 'injected-client',
+          'name': 'ب',
+        },
         status: LocalSyncStatus.syncFailed);
 
     await _pump(tester, svc);
@@ -307,7 +317,12 @@ void main() {
     await store.save(
         id: 'a',
         entityType: 'asoud_erp.api.v1.setup.save_office',
-        payload: const {'operation': 'asoud_method', 'company_name': 'الف'},
+        payload: const {
+          'operation': 'asoud_method',
+          '_asoud_owner': 'user',
+          '_asoud_server': 'injected-client',
+          'company_name': 'الف',
+        },
         status: LocalSyncStatus.pendingSync);
 
     await _pump(tester, svc);

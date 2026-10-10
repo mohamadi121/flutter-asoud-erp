@@ -7,6 +7,10 @@ const _genericFailure = 'دریافت اطلاعات ممکن نشد. دوبار
 /// an authorization failure (see [failureIsForbidden]).
 const forbiddenFailureMessage = 'اجازه دسترسی به این بخش را ندارید';
 
+/// The reason shown when the server sends a body larger than the client will
+/// buffer (see the response-size cap in `frappe_client.dart`).
+const oversizedResponseFailureMessage = 'پاسخ سرور بیش از حد بزرگ است.';
+
 /// A user-facing explanation for failures returned by the server or network.
 ///
 /// Accepts an [ApiException] or a non-empty string. Strings are passed through
@@ -37,6 +41,7 @@ String failureMessage(Object? failure) {
     ApiFailureKind.protocol =>
       'اطلاعات موردنظر پیدا نشد یا پاسخ سرور قابل پردازش نیست.',
     ApiFailureKind.cancelled => 'عملیات لغو شد.',
+    ApiFailureKind.responseTooLarge => oversizedResponseFailureMessage,
   };
 }
 

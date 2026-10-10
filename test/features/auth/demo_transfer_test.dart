@@ -11,7 +11,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../helpers/fake_local_record_store.dart';
 
-class _NoClient extends Fake implements FrappeApiClient {}
+class _NoClient extends Fake implements FrappeApiClient {
+  @override
+  bool get isAuthenticated => true;
+
+  @override
+  Future<FrappeUserContext> getCurrentUser() async =>
+      const FrappeUserContext(userId: 'user', fullName: 'کاربر آزمون', roles: []);
+}
 
 void main() {
   setUp(() {
@@ -31,7 +38,11 @@ void main() {
     await store.save(
         id: 'p1',
         entityType: 'm',
-        payload: const {'operation': 'asoud_method'},
+        payload: const {
+          'operation': 'asoud_method',
+          '_asoud_owner': 'user',
+          '_asoud_server': 'injected-client',
+        },
         status: LocalSyncStatus.pendingSync);
     // A local mirror row has no operation: it is not a queued write.
     await store.save(
@@ -47,19 +58,31 @@ void main() {
     await store.save(
         id: 'f1',
         entityType: 'm',
-        payload: const {'operation': 'asoud_method'},
+        payload: const {
+          'operation': 'asoud_method',
+          '_asoud_owner': 'user',
+          '_asoud_server': 'injected-client',
+        },
         status: LocalSyncStatus.syncFailed);
     await store.save(
         id: 's1',
         entityType: 'm',
-        payload: const {'operation': 'asoud_method'},
+        payload: const {
+          'operation': 'asoud_method',
+          '_asoud_owner': 'user',
+          '_asoud_server': 'injected-client',
+        },
         status: LocalSyncStatus.synced);
     // The queue screen lists localOnly writes that carry an operation, but
     // not preview rows (no operation).
     await store.save(
         id: 'l1',
         entityType: 'm',
-        payload: const {'operation': 'asoud_method'},
+        payload: const {
+          'operation': 'asoud_method',
+          '_asoud_owner': 'user',
+          '_asoud_server': 'injected-client',
+        },
         status: LocalSyncStatus.localOnly);
     await store.save(
         id: 'preview',
