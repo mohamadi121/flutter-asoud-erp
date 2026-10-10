@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/network/frappe_client.dart';
+import '../../../../core/utils/persian_format.dart';
 import '../../data/repositories/frappe_reports_repository.dart';
 import '../../domain/entities/trial_balance.dart';
 import '../cubit/trial_balance_cubit.dart';
@@ -59,7 +60,7 @@ class _TrialTable extends StatelessWidget {
               ],
               rows: [...report.rows, report.totals].map((row) => DataRow(cells: [
                 DataCell(Text(row.account, style: row == report.totals ? const TextStyle(fontWeight: FontWeight.w800) : null)),
-                ...[row.openingDebit, row.openingCredit, row.periodDebit, row.periodCredit, row.closingDebit, row.closingCredit].map((value) => DataCell(Text(value.toStringAsFixed(0)))),
+                ...[row.openingDebit, row.openingCredit, row.periodDebit, row.periodCredit, row.closingDebit, row.closingCredit].map((value) => DataCell(Text(formatNumber(value.round())))),
               ])).toList(),
             ),
           ),

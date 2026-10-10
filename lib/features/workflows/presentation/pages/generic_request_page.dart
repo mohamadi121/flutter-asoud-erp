@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/network/frappe_client.dart';
 import '../../../../core/offline/queued_offline_exception.dart';
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/persian_format.dart';
 import '../../../../core/widgets/asoud_form.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../data/generic_request_repository.dart';
@@ -221,7 +222,7 @@ class _GenericRequestPageState extends State<GenericRequestPage> {
         builder: (ctx) => AlertDialog(
                 title: const Text('بررسی درخواست'),
                 content: Text(
-                    '${subject.text}\n${selected!['workflow_title']}\nتعداد پیوست: ${uploads.length}'),
+                    '${subject.text}\n${selected!['workflow_title']}\nتعداد پیوست: ${formatCount(uploads.length)}'),
                 actions: [
                   TextButton(
                       onPressed: () => Navigator.pop(ctx, false),

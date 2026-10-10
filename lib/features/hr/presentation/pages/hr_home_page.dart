@@ -5,7 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/widgets/asoud_ui.dart';
-import '../../../../core/utils/jalali_date.dart';
+import '../../../../core/utils/persian_format.dart';
 import '../../domain/hr_models.dart';
 import 'organization_page.dart';
 import '../../domain/hr_repository.dart';
@@ -74,14 +74,14 @@ class _HrHome extends StatelessWidget {
                           data.todayReportStatus ?? 'ثبت نشده',
                           Icons.today_outlined,
                           AsoudColors.primary),
-                      _Metric('کارتابل من', '${data.pendingTasks} مورد',
+                      _Metric('کارتابل من', formatCount(data.pendingTasks, 'مورد'),
                           Icons.assignment_ind_outlined, AsoudColors.warning),
                       _Metric(
                           'مکاتبات جدید',
-                          '${data.unreadCommunications} مورد',
+                          formatCount(data.unreadCommunications, 'مورد'),
                           Icons.mail_outline,
                           AsoudColors.purple),
-                      _Metric('اعلان‌ها', '${data.unreadNotifications} مورد',
+                      _Metric('اعلان‌ها', formatCount(data.unreadNotifications, 'مورد'),
                           Icons.notifications_none, AsoudColors.success),
                     ],
                   ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/persian_format.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../workflows/domain/entities/workflow_definition.dart';
 import '../../../workflows/domain/repositories/workflow_repository.dart';
@@ -192,7 +193,7 @@ class _RequestTypeCard extends StatelessWidget {
                           style: TextStyle(fontSize: 11, color: visual.color)),
                       const SizedBox(height: 3),
                       Text(
-                          'نسخه ${item.version} · ${item.stepsCount} مرحله${item.status == WorkflowDefinitionStatus.active ? '' : ' · پیش‌نویس / غیرفعال'}',
+                          'نسخه ${toPersianDigits(item.version)} · ${formatCount(item.stepsCount, 'مرحله')}${item.status == WorkflowDefinitionStatus.active ? '' : ' · پیش‌نویس / غیرفعال'}',
                           style: const TextStyle(
                               fontSize: 10, color: AsoudColors.muted)),
                     ])),

@@ -213,7 +213,7 @@ class _RoleFormState extends State<_RoleForm> {
                         subtitle: _baseline?.assignedUsers != null &&
                                 _baseline!.assignedUsers > 0
                             ? Text(
-                                '${_baseline!.assignedUsers} کاربر متصل؛ غیرفعال‌سازی نیازمند تغییر تخصیص است.')
+                                '${formatCount(_baseline!.assignedUsers, 'کاربر')} متصل؛ غیرفعال‌سازی نیازمند تغییر تخصیص است.')
                             : null,
                         onChanged: busy || (_baseline?.assignedUsers ?? 0) > 0
                             ? null

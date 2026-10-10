@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/persian_format.dart';
 import '../../domain/entities/workflow_definition.dart';
 import '../../../request_types/presentation/pages/request_field_editor_page.dart';
 
@@ -23,7 +24,7 @@ class WorkflowFormBuilder extends StatelessWidget {
               child: Text('فیلدهای فرم',
                   style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900)),
             ),
-            Text('${fields.length}/۳۰',
+            Text(formatCounter(fields.length, 30),
                 style: const TextStyle(fontSize: 10, color: AsoudColors.muted)),
           ]),
           const SizedBox(height: 8),

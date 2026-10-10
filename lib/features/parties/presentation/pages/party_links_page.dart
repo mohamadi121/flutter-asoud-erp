@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/persian_format.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../domain/entities/party_profile.dart';
 import '../../domain/repositories/party_repository.dart';
@@ -86,7 +87,7 @@ class _PartyLinksPageState extends State<PartyLinksPage> {
                         style: TextStyle(
                             fontSize: 14, fontWeight: FontWeight.w900)),
                   ),
-                  Text('${details.length} کد',
+                  Text(formatCount(details.length, 'کد'),
                       style: const TextStyle(
                           fontSize: 10, color: AsoudColors.muted)),
                 ]),

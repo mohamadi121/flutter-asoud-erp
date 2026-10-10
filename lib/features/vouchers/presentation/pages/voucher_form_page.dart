@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/utils/persian_format.dart';
 import '../../domain/entities/accounting_voucher.dart';
 import '../../domain/repositories/vouchers_repository.dart';
 import '../cubit/voucher_form_cubit.dart';
@@ -89,7 +90,7 @@ class _VoucherFormPageState extends State<VoucherFormPage> {
     ])));
   }
 
-  Widget _totalRow(String title, double value) => Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(title), Text(value.toStringAsFixed(0), style: const TextStyle(fontWeight: FontWeight.w800))]);
+  Widget _totalRow(String title, double value) => Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(title), Text(formatNumber(value.round()), style: const TextStyle(fontWeight: FontWeight.w800))]);
   double _number(String value) => double.tryParse(value.replaceAll(',', '')) ?? 0;
   void _sync() {
     _cubit.updateHeader(description: _description.text);
