@@ -33,7 +33,7 @@ Widget settingsApp(List<String> roles) => RepositoryProvider<FrappeApiClient>.va
             textDirection: TextDirection.rtl,
             child: SettingsDashboardContent(company: 'دفتر نمونه'))));
 
-Widget app(Widget page, {FakeRoleClient? client}) =>
+Widget app(Widget page, {FrappeApiClient? client}) =>
     RepositoryProvider<FrappeApiClient>.value(
         value: client ?? FakeRoleClient(),
         child: MaterialApp(
@@ -91,7 +91,14 @@ void main() {
 
   testWidgets('settings remains accessible before office creation',
       (tester) async {
-    await tester.pumpWidget(app(const DashboardPage()));
+    await tester.pumpWidget(app(
+        const DashboardPage(),
+        client: _SettingsClient(const [
+          'System Manager',
+          'Accounts Manager',
+          'HR Manager',
+          'Employee',
+        ])));
     await tester.tap(find.text('تنظیمات'));
     await tester.pumpAndSettle();
     expect(find.byType(SettingsDashboardContent), findsOneWidget);
