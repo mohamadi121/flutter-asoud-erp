@@ -478,36 +478,39 @@ class _Header extends StatelessWidget {
     final sync = syncServiceOf(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-      child: Row(children: [
-        Expanded(
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('دفتر کار',
-              style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
-          Text(officeName ?? 'برای شروع، اطلاعات اولیه دفتر را ثبت کنید',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 11, color: AsoudColors.muted)),
-        ])),
-        const SizedBox(width: 10),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                const Text('دفتر کار',
+                    style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
+                Text(officeName ?? 'برای شروع، اطلاعات اولیه دفتر را ثبت کنید',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 11, color: AsoudColors.muted)),
+              ])),
+          const SizedBox(width: 10),
+          if (officeName?.trim().isNotEmpty == true)
+            OutlinedButton.icon(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const OfficesPage()),
+              ),
+              icon: const Icon(Icons.business_outlined, size: 17),
+              label: const Text('تغییر دفتر'),
+              style: OutlinedButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+              ),
+            ),
+        ]),
         if (sync != null) ...[
-          Flexible(
-              child: SyncStatusIndicator(
-                  service: sync, onOpen: () => openSyncQueue(context, sync))),
-          const SizedBox(width: 6),
+          const SizedBox(height: 10),
+          SyncStatusIndicator(
+              service: sync, onOpen: () => openSyncQueue(context, sync)),
         ],
-        if (officeName?.trim().isNotEmpty == true)
-          OutlinedButton.icon(
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const OfficesPage()),
-            ),
-            icon: const Icon(Icons.business_outlined, size: 17),
-            label: const Text('تغییر دفتر'),
-            style: OutlinedButton.styleFrom(
-              visualDensity: VisualDensity.compact,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-            ),
-          ),
       ]),
     );
   }
