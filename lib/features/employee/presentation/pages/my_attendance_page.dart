@@ -6,7 +6,9 @@ import '../../../../core/network/api_exception.dart';
 import '../../../../core/offline/offline_failure.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/jalali_date.dart';
+import '../../../../core/utils/failure_message.dart';
 import '../../../../core/widgets/asoud_ui.dart';
+import '../../../../core/widgets/states.dart';
 import '../../data/self_service_repository.dart';
 
 const attendanceStatusLabels = {
@@ -90,7 +92,7 @@ class _MyAttendancePageState extends State<MyAttendancePage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(error is ApiException
-              ? error.message
+              ? failureMessage(error)
               : 'ثبت انجام نشد؛ اتصال را بررسی کنید.')));
     } finally {
       if (mounted) setState(() => saving = false);
@@ -169,32 +171,39 @@ class _MyAttendancePageState extends State<MyAttendancePage> {
                 ),
                 const SizedBox(height: 12),
                 if (snapshot.hasError)
-                  TextButton(
-                      onPressed: () => setState(() {
+                  ErrorState(
+                      failure: snapshot.error ?? 'دریافت حضور ممکن نشد.',
+                      onRetry: () => setState(() {
                             future = _load();
-                          }),
-                      child: Text(snapshot.error is ApiException
-                          ? '${(snapshot.error as ApiException).message} · تلاش دوباره'
-                          : 'دریافت حضور ممکن نشد؛ تلاش دوباره'))
+                          }))
                 else if (!snapshot.hasData)
                   const Center(child: CircularProgressIndicator())
                 else ...[
                   const AsoudSectionTitle(title: 'حضور این ماه'),
                   if (snapshot.data!.days.isEmpty)
-                    const Text('هنوز حضوری برای این ماه ثبت نشده است.',
-                        style: TextStyle(color: AsoudColors.muted)),
-                  for (final day in snapshot.data!.days)
-                    ListTile(
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(formatJalaliIso('${day['attendance_date']}')),
-                      trailing: Text(
-                          attendanceStatusLabels['${day['status']}'] ??
-                              '${day['status']}',
-                          style: const TextStyle(fontWeight: FontWeight.w700)),
-                    ),
+                    const EmptyState(
+                        icon: Icons.event_busy_outlined,
+                        title: 'حضوری ثبت نشده',
+                        description:
+                            'هنوز حضوری برای این ماه ثبت نشده است.')
+                  else
+                    for (final day in snapshot.data!.days)
+                      ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        title:
+                            Text(formatJalaliIso('${day['attendance_date']}')),
+                        trailing: Text(
+                            attendanceStatusLabels['${day['status']}'] ??
+                                '${day['status']}',
+                            style:
+                                const TextStyle(fontWeight: FontWeight.w700)),
+                      ),
                   const SizedBox(height: 12),
                   const AsoudSectionTitle(title: 'ثبت‌های اخیر'),
+                  if (logs.isEmpty)
+                    const Text('ثبتی برای نمایش وجود ندارد.',
+                        style: TextStyle(color: AsoudColors.muted)),
                   for (final log in logs.take(20))
                     ListTile(
                       dense: true,

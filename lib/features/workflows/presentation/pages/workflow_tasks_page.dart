@@ -5,6 +5,7 @@ import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/jalali_date.dart';
 import '../../../../core/utils/persian_server_values.dart';
 import '../../../../core/widgets/asoud_ui.dart';
+import '../../../../core/widgets/states.dart';
 import '../../domain/entities/workflow_task.dart';
 import '../../domain/repositories/workflow_task_repository.dart';
 import '../cubit/workflow_tasks_cubit.dart';
@@ -71,12 +72,10 @@ class _WorkflowTasksViewState extends State<_WorkflowTasksView> {
                       }
                       if (state.status == WorkflowTasksStatus.failure &&
                           state.tasks.isEmpty) {
-                        return Center(
-                          child: OutlinedButton.icon(
-                            onPressed: context.read<WorkflowTasksCubit>().load,
-                            icon: const Icon(Icons.refresh_rounded),
-                            label: const Text('تلاش دوباره'),
-                          ),
+                        return ErrorState(
+                          failure: state.message ?? 'دریافت کارتابل ممکن نشد.',
+                          onRetry:
+                              context.read<WorkflowTasksCubit>().load,
                         );
                       }
                       return Column(children: [
@@ -141,16 +140,16 @@ class _SentInstances extends StatelessWidget {
             return const Center(child: CircularProgressIndicator());
           }
           if (state.status == WorkflowInstancesStatus.failure) {
-            return Center(
-              child: OutlinedButton.icon(
-                onPressed: context.read<WorkflowInstancesCubit>().load,
-                icon: const Icon(Icons.refresh_rounded),
-                label: const Text('تلاش دوباره'),
-              ),
+            return ErrorState(
+              failure: state.message ?? 'دریافت درخواست‌ها ممکن نشد.',
+              onRetry: context.read<WorkflowInstancesCubit>().load,
             );
           }
           if (state.instances.isEmpty) {
-            return const Center(child: Text('هنوز درخواستی ارسال نکرده‌اید.'));
+            return const EmptyState(
+                icon: Icons.outbox_outlined,
+                title: 'درخواستی ارسال نکرده‌اید',
+                description: 'پس از ارسال درخواست، وضعیت آن اینجا نمایش داده می‌شود.');
           }
           return Column(children: [
             if (state.offline) const AsoudOfflinePreviewBanner(),

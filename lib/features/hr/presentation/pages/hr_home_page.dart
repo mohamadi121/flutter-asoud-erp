@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/widgets/asoud_ui.dart';
+import '../../../../core/widgets/states.dart';
 import '../../../../core/utils/jalali_date.dart';
 import '../../../../core/utils/persian_server_values.dart';
 import '../../domain/hr_models.dart';
@@ -43,8 +44,8 @@ class _HrHome extends StatelessWidget {
               return const Center(child: CircularProgressIndicator());
             }
             if (state.dashboard == null) {
-              return _Error(
-                  message: state.message ??
+              return ErrorState(
+                  failure: state.message ??
                       'دریافت خدمات منابع انسانی ممکن نشد. دلیل خطا مشخص نیست.',
                   onRetry: context.read<HrCubit>().loadDashboard);
             }
@@ -687,25 +688,4 @@ class _Empty extends StatelessWidget {
         const SizedBox(height: 9),
         Text(title, style: const TextStyle(color: AsoudColors.muted))
       ]));
-}
-
-class _Error extends StatelessWidget {
-  const _Error({required this.message, required this.onRetry});
-  final String message;
-  final VoidCallback onRetry;
-  @override
-  Widget build(BuildContext context) => Center(
-      child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const AsoudIconBox(
-                icon: Icons.error_outline_rounded,
-                color: AsoudColors.danger,
-                size: 48),
-            const SizedBox(height: 12),
-            Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 12),
-            OutlinedButton(
-                onPressed: onRetry, child: const Text('تلاش دوباره')),
-          ])));
 }

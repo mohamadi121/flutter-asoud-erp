@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/widgets/asoud_ui.dart';
+import '../../../../core/widgets/states.dart';
 import '../../domain/entities/party_profile.dart';
 import '../../domain/repositories/party_repository.dart';
 import '../cubit/parties_cubit.dart';
@@ -184,16 +185,18 @@ class _PartyManagementViewState extends State<_PartyManagementView> {
                 if (state.status == PartiesStatus.offlineSaved)
                   const _OfflineNotice(),
                 if (state.status == PartiesStatus.failure) ...[
-                  Text(state.message ?? 'دریافت اطلاعات انجام نشد.'),
-                  TextButton(
-                      onPressed: () =>
-                          context.read<PartiesCubit>().load(role: role),
-                      child: const Text('تلاش دوباره')),
+                  ErrorState(
+                      failure: state.message ?? 'دریافت اطلاعات انجام نشد.',
+                      onRetry: () =>
+                          context.read<PartiesCubit>().load(role: role)),
                 ],
                 if (state.items.where(_matches).isEmpty &&
                     [PartiesStatus.success, PartiesStatus.empty]
                         .contains(state.status))
-                  const _EmptyParties(),
+                  const EmptyState(
+                      icon: Icons.people_outline_rounded,
+                      title: 'شخصی برای نمایش نیست',
+                      description: 'با ثبت شخص جدید، فهرست اینجا کامل می‌شود.'),
                 ...state.items.where(_matches).map((item) =>
                     _PartyCard(profile: item, onTap: () => _details(item))),
               ],
@@ -274,22 +277,5 @@ class _OfflineNotice extends StatelessWidget {
         padding: EdgeInsets.only(bottom: 10),
         child: Text('اطلاعات روی گوشی ذخیره شده و در انتظار همگام‌سازی است.',
             style: TextStyle(fontSize: 9, color: AsoudColors.warning)),
-      );
-}
-
-class _EmptyParties extends StatelessWidget {
-  const _EmptyParties();
-  @override
-  Widget build(BuildContext context) => const Padding(
-        padding: EdgeInsets.symmetric(vertical: 56),
-        child: Column(children: [
-          AsoudIconBox(
-              icon: Icons.people_outline_rounded,
-              color: AsoudColors.muted,
-              size: 56),
-          SizedBox(height: 12),
-          Text('هنوز شخصی در این بخش ثبت نشده است.',
-              style: TextStyle(color: AsoudColors.muted)),
-        ]),
       );
 }

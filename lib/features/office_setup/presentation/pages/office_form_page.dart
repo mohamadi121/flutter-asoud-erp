@@ -383,7 +383,7 @@ class _FinancialSection extends StatelessWidget {
                       SizedBox(width: 8),
                       Expanded(
                           child: Text(
-                              'راهنما\nالگوی کدینگ بر اساس نوع فعالیت انتخاب می‌شود؛ تولید کد نهایی فقط در Backend انجام خواهد شد.',
+                              'راهنما\nالگوی کدینگ بر اساس نوع فعالیت انتخاب می‌شود؛ تولید کد نهایی فقط در سرور انجام خواهد شد.',
                               style: TextStyle(
                                   fontSize: 9,
                                   height: 1.6,

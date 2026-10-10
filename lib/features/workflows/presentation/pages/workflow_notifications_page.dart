@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/persian_server_values.dart';
 import '../../../../core/widgets/asoud_ui.dart';
+import '../../../../core/widgets/states.dart';
 import '../../domain/entities/workflow_notification.dart';
 import '../../domain/repositories/workflow_notification_repository.dart';
 import '../cubit/workflow_notifications_cubit.dart';
@@ -38,13 +39,9 @@ class _View extends StatelessWidget {
             return const Center(child: CircularProgressIndicator());
           }
           if (state.status == WorkflowNotificationsStatus.failure) {
-            return Center(
-              child: OutlinedButton.icon(
-                onPressed: context.read<WorkflowNotificationsCubit>().load,
-                icon: const Icon(Icons.refresh_rounded),
-                label: const Text('تلاش دوباره'),
-              ),
-            );
+            return ErrorState(
+                failure: state.message ?? 'دریافت اعلان‌ها ممکن نشد.',
+                onRetry: context.read<WorkflowNotificationsCubit>().load);
           }
           return RefreshIndicator(
             onRefresh: context.read<WorkflowNotificationsCubit>().load,

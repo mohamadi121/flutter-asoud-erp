@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/jalali_date.dart';
 import '../../../../core/widgets/asoud_ui.dart';
+import '../../../../core/widgets/states.dart';
 import '../../domain/entities/office.dart';
 import '../../domain/repositories/office_repository.dart';
 import '../cubit/offices_cubit.dart';
@@ -108,21 +109,17 @@ class _OfficesView extends StatelessWidget {
       return const Center(child: CircularProgressIndicator());
     }
     if (state.status == OfficesStatus.error) {
-      return _MessageState(
-        icon: Icons.cloud_off_rounded,
-        title: 'دریافت دفترها ممکن نشد',
-        message: state.message ?? 'خطای ناشناخته',
-        actionLabel: 'تلاش مجدد',
-        onAction: context.read<OfficesCubit>().retry,
-      );
+      return ErrorState(
+          failure: state.message ?? 'خطای ناشناخته',
+          onRetry: context.read<OfficesCubit>().retry);
     }
     if (state.status == OfficesStatus.empty || state.offices.isEmpty) {
-      return _MessageState(
+      return EmptyState(
         icon: Icons.business_outlined,
         title: 'هنوز دفتری ندارید',
-        message: 'برای شروع، اولین دفتر کاری خود را ایجاد کنید.',
-        actionLabel: 'ایجاد دفتر کار جدید',
-        onAction: () => _create(context),
+        description: 'برای شروع، اولین دفتر کاری خود را ایجاد کنید.',
+        primaryActionLabel: 'ایجاد دفتر کار جدید',
+        onPrimaryAction: () => _create(context),
       );
     }
     return ListView(
@@ -223,7 +220,7 @@ class _OfficesView extends StatelessWidget {
 
   void _unavailable(BuildContext context) =>
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('این قابلیت هنوز به Backend متصل نشده است.')));
+          content: Text('این قابلیت هنوز به سرور متصل نشده است.')));
 
   Future<void> _showActions(BuildContext context, Office office) =>
       showModalBottomSheet<void>(
@@ -518,35 +515,4 @@ class _Badge extends StatelessWidget {
       child: Text(label,
           style: TextStyle(
               color: color, fontSize: 9, fontWeight: FontWeight.w700)));
-}
-
-class _MessageState extends StatelessWidget {
-  const _MessageState(
-      {required this.icon,
-      required this.title,
-      required this.message,
-      required this.actionLabel,
-      required this.onAction});
-  final IconData icon;
-  final String title, message, actionLabel;
-  final VoidCallback onAction;
-  @override
-  Widget build(BuildContext context) => Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Column(children: [
-            AsoudIconBox(icon: icon, color: AsoudColors.primary, size: 56),
-            const SizedBox(height: 16),
-            Text(title,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontWeight: FontWeight.w800)),
-            const SizedBox(height: 6),
-            Text(message,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: AsoudColors.muted, fontSize: 11)),
-            const SizedBox(height: 18),
-            FilledButton(onPressed: onAction, child: Text(actionLabel)),
-          ]),
-        ),
-      );
 }

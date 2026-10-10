@@ -162,7 +162,7 @@ class _ErrorCard extends StatelessWidget {
           child: ListTile(
         leading:
             const Icon(Icons.cloud_off_rounded, color: AsoudColors.warning),
-        title: const Text('دریافت پیش‌نمایش از Backend انجام نشد.'),
+        title: const Text('دریافت پیش‌نمایش از سرور انجام نشد.'),
         trailing:
             TextButton(onPressed: onRetry, child: const Text('تلاش مجدد')),
       ));

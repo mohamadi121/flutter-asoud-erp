@@ -401,12 +401,12 @@ class _EmployeeUserDetailsPageState extends State<_EmployeeUserDetailsPage> {
               future: future,
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
-                  return Center(
-                      child: TextButton(
-                          onPressed: () => setState(() {
-                                future = _load();
-                              }),
-                          child: const Text('دریافت ناموفق؛ تلاش دوباره')));
+                  return ErrorState(
+                      failure:
+                          snapshot.error ?? 'دریافت جزئیات کاربر ممکن نشد.',
+                      onRetry: () => setState(() {
+                            future = _load();
+                          }));
                 }
                 if (!snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
@@ -518,12 +518,12 @@ class _EmployeeInvitationsPageState extends State<_EmployeeInvitationsPage> {
               future: future,
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
-                  return Center(
-                      child: TextButton(
-                          onPressed: () => setState(() {
-                                future = _load();
-                              }),
-                          child: const Text('دریافت ناموفق؛ تلاش دوباره')));
+                  return ErrorState(
+                      failure: snapshot.error ??
+                          'دریافت دعوت‌ها ممکن نشد.',
+                      onRetry: () => setState(() {
+                            future = _load();
+                          }));
                 }
                 if (!snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());

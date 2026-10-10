@@ -1,3 +1,5 @@
+import 'package:asoud_erp/core/network/api_exception.dart';
+import 'package:asoud_erp/core/utils/failure_message.dart';
 import 'package:asoud_erp/features/accounting/domain/entities/detail_group.dart';
 import 'package:asoud_erp/features/accounting/domain/repositories/detail_group_repository.dart';
 import 'package:asoud_erp/features/accounting/presentation/cubit/detail_groups_cubit.dart';
@@ -19,6 +21,20 @@ void main() {
           id: 'saved', code: invocation.namedArguments[#code] as String,
           title: invocation.namedArguments[#title] as String,
         ));
+  });
+
+  test('a forbidden load surfaces no retry affordance', () async {
+    when(() => repository.getGroups()).thenThrow(const ApiException(
+        kind: ApiFailureKind.forbidden,
+        message: 'raw forbidden payload',
+        statusCode: 403));
+    final cubit = DetailGroupsCubit(repository);
+    await cubit.load();
+    expect(cubit.state.status, DetailGroupsStatus.failure);
+    expect(cubit.state.message, forbiddenFailureMessage);
+    expect(cubit.state.message, isNot(contains('ApiException')));
+    expect(cubit.state.canRetry, isFalse);
+    await cubit.close();
   });
 
   test('Persian Arabic and ASCII digits preserve leading zeros', () async {

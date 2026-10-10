@@ -135,7 +135,7 @@ class _AccountLevelPageState extends State<AccountLevelPage> {
                         color: const Color(0xFFFFF6E4),
                         borderRadius: BorderRadius.circular(12)),
                     child: const Text(
-                        'کد حساب توسط Backend و براساس الگوی دفتر تولید می‌شود.',
+                        'کد حساب توسط سرور و براساس الگوی دفتر تولید می‌شود.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                             fontSize: 9, color: AsoudColors.warning))),
