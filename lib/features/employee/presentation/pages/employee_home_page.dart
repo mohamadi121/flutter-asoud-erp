@@ -5,6 +5,7 @@ import '../../../../core/network/api_exception.dart';
 import '../../../../core/network/frappe_client.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/jalali_date.dart';
+import '../../../../core/utils/persian_server_values.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../hr/data/personnel_file_repository.dart';
 import '../../../hr/domain/personnel_file.dart';
@@ -208,7 +209,7 @@ class _EmployeeHomePageState extends State<EmployeeHomePage> {
                                 child: ListTile(
                               onTap: () =>
                                   _push(const WorkflowNotificationsPage()),
-                              title: Text(item.title,
+                              title: Text(persianNotificationTitle(item.title),
                                   maxLines: 1, overflow: TextOverflow.ellipsis),
                               subtitle: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,

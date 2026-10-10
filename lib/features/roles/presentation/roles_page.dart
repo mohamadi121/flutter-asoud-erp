@@ -9,6 +9,7 @@ import '../../../core/network/asoud_api_response.dart';
 import '../../../core/network/frappe_client.dart';
 import '../../../core/theme/asoud_colors.dart';
 import '../../../core/utils/jalali_date.dart';
+import '../../../core/utils/persian_server_values.dart';
 import '../../../core/widgets/asoud_ui.dart';
 import '../data/role_repository.dart';
 import '../domain/role_catalog.dart';
@@ -258,9 +259,16 @@ class _RolesViewState extends State<_RolesView> {
           leading: Icon(
               hasChildren ? Icons.folder_outlined : Icons.badge_outlined,
               color: AsoudColors.primary),
-          title: Text(role.title),
+          title: Text(persianRoleLabel(role.title.isNotEmpty ? role.title : role.code)),
           subtitle: Text(
-              '${role.code}${context.read<RoleCubit>().repository.isDraft(role.code) ? ' · محلی' : ''}${role.enabled ? '' : ' · غیرفعال'}',
+              [
+                if (role.description.isNotEmpty)
+                  role.description
+                else if (persianRoleLabel(role.code) != persianRoleLabel(role.title))
+                  persianRoleLabel(role.code),
+                if (context.read<RoleCubit>().repository.isDraft(role.code)) 'محلی',
+                if (!role.enabled) 'غیرفعال',
+              ].join(' · '),
               style: const TextStyle(fontSize: 12)),
           trailing: Row(mainAxisSize: MainAxisSize.min, children: [
             if (hasChildren)

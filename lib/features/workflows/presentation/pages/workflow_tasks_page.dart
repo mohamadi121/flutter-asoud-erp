@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/jalali_date.dart';
+import '../../../../core/utils/persian_server_values.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../domain/entities/workflow_task.dart';
 import '../../domain/repositories/workflow_task_repository.dart';
@@ -203,10 +204,10 @@ class _InstanceCard extends StatelessWidget {
               ]),
               const Divider(height: 20),
               Text(
-                  'مرحله فعلی: ${item.currentStageTitle.isEmpty ? 'پایان‌یافته' : item.currentStageTitle}',
+                  'مرحله فعلی: ${item.currentStageTitle.isEmpty ? 'پایان‌یافته' : persianWorkflowStageTitle(item.currentStageTitle)}',
                   style: const TextStyle(fontSize: 10)),
               Text(
-                'مسئول فعلی: ${item.currentAssignees.isEmpty ? 'بدون مسئول باز' : item.currentAssignees.join('، ')}',
+                'مسئول فعلی: ${item.currentAssignees.isEmpty ? 'بدون مسئول باز' : item.currentAssignees.map(persianRoleLabel).join('، ')}',
                 style: const TextStyle(fontSize: 9, color: AsoudColors.muted),
               ),
             ]),
@@ -215,13 +216,7 @@ class _InstanceCard extends StatelessWidget {
       );
 }
 
-String _instanceStatus(String value) => switch (value) {
-      'Running' => 'در حال گردش',
-      'Completed' => 'تکمیل‌شده',
-      'Rejected' => 'ردشده',
-      'Cancelled' => 'لغوشده',
-      _ => value,
-    };
+String _instanceStatus(String value) => persianWorkflowStatus(value);
 
 class _TaskFilters extends StatelessWidget {
   const _TaskFilters({required this.selected, required this.onChanged});
@@ -298,7 +293,7 @@ class _TaskCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(task.title,
+                  Text(persianWorkflowStageTitle(task.title),
                       style: const TextStyle(fontWeight: FontWeight.w800)),
                   Text(task.instance,
                       style: const TextStyle(

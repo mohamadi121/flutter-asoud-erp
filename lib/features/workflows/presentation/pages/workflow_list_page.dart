@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/jalali_date.dart';
+import '../../../../core/utils/persian_server_values.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../domain/entities/workflow_definition.dart';
 import '../../domain/repositories/workflow_repository.dart';
@@ -388,7 +389,7 @@ class _WorkflowCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('کد: ${item.code}'),
-                Text('سند مقصد: ${item.targetDoctype}'),
+                Text('سند مقصد: ${persianDoctypeLabel(item.targetDoctype)}'),
                 Text('نسخه: ${item.version}'),
                 if (item.isLocked) ...[
                   const SizedBox(height: 12),

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/jalali_date.dart';
+import '../../../../core/utils/persian_server_values.dart';
 import '../../../../core/widgets/asoud_form.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../domain/entities/workflow_definition.dart';
@@ -590,13 +591,14 @@ class _LinkFieldView extends StatelessWidget {
             load == null ? const [] : load(_fieldType, txt: txt));
     if (row == null) return;
     controller.setValue(field.key, '${row['value']}',
-        label: '${row['label'] ?? row['value']}');
+        label: persianLeaveTypeLabel('${row['label'] ?? row['value']}'));
   }
 
   @override
   Widget build(BuildContext context) {
     final value = controller.value(field.key) as String?;
-    final shown = controller.labelFor(field.key) ?? value;
+    final rawShown = controller.labelFor(field.key) ?? value;
+    final shown = persianLeaveTypeLabel(rawShown);
     final error = controller.errorFor(field.key);
     return InkWell(
       onTap: enabled ? () => _pick(context) : null,
@@ -617,7 +619,7 @@ class _LinkFieldView extends StatelessWidget {
                       icon: const Icon(Icons.close_rounded, size: 18))
                   : const Icon(Icons.search_rounded),
         ),
-        child: Text(shown ?? '',
+        child: Text(shown,
             style: TextStyle(
                 color: value == null ? AsoudColors.muted : AsoudColors.text)),
       ),

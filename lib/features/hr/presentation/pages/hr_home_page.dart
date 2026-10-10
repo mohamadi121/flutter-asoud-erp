@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../../core/utils/jalali_date.dart';
+import '../../../../core/utils/persian_server_values.dart';
 import '../../domain/hr_models.dart';
 import 'organization_page.dart';
 import '../../domain/hr_repository.dart';
@@ -547,8 +548,8 @@ class HrNotificationsPage extends StatelessWidget {
                                         icon:
                                             Icons.notifications_active_outlined,
                                         color: AsoudColors.warning),
-                                    title:
-                                        Text(item['subject']?.toString() ?? ''),
+                                    title: Text(persianNotificationTitle(
+                                        item['subject']?.toString() ?? '')),
                                     subtitle: Text(formatJalaliDateTimeIso(
                                         item['creation']?.toString() ?? '')),
                                   ),
