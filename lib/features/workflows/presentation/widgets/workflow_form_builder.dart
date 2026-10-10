@@ -158,11 +158,9 @@ class _FieldCard extends StatelessWidget {
             )),
             IconButton(
                 onPressed: onMoveUp,
-                visualDensity: VisualDensity.compact,
                 icon: const Icon(Icons.keyboard_arrow_up_rounded, size: 20)),
             IconButton(
                 onPressed: onMoveDown,
-                visualDensity: VisualDensity.compact,
                 icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 20)),
             PopupMenuButton<String>(
               onSelected: (value) => value == 'edit' ? onEdit() : onDelete(),

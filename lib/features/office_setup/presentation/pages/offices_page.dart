@@ -299,8 +299,7 @@ class _SuccessBanner extends StatelessWidget {
           const Expanded(child: Text('دفتر کار با موفقیت ایجاد شد')),
           IconButton(
               onPressed: onClose,
-              icon: const Icon(Icons.close_rounded),
-              visualDensity: VisualDensity.compact),
+              icon: const Icon(Icons.close_rounded)),
         ]),
       );
 }
