@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/widgets/asoud_ui.dart';
+import '../../../../core/widgets/states.dart';
 import '../../domain/entities/accounting_setup.dart';
 import '../../domain/repositories/base_setup_repository.dart';
 import '../bloc/base_setup_cubit.dart';
@@ -554,7 +555,8 @@ class _UnavailableModulePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AsoudHeader(title: title),
-        body: const Center(child: Text('به‌زودی')),
+        body: const ComingSoonState(
+            description: 'این ماژول در نسخه‌های بعدی آسود فعال می‌شود.'),
       );
 }
 
@@ -851,7 +853,7 @@ class _AccountCodeModeCard extends StatelessWidget {
               const Text('تولید خودکار کد حساب',
                   style: TextStyle(fontWeight: FontWeight.w800)),
               const SizedBox(height: 3),
-              const Text('کد نهایی و یکتا توسط Backend تولید می‌شود.',
+              const Text('کد نهایی و یکتا توسط سرور تولید می‌شود.',
                   style: TextStyle(fontSize: 9, color: AsoudColors.muted)),
             ]),
           ),

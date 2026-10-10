@@ -220,7 +220,7 @@ class _OfficesView extends StatelessWidget {
 
   void _unavailable(BuildContext context) =>
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('این قابلیت هنوز به Backend متصل نشده است.')));
+          content: Text('این قابلیت هنوز به سرور متصل نشده است.')));
 
   Future<void> _showActions(BuildContext context, Office office) =>
       showModalBottomSheet<void>(

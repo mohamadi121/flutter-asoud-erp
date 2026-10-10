@@ -7,6 +7,7 @@ import '../../../../core/network/frappe_client.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/widgets/asoud_ui.dart';
+import '../../../../core/widgets/states.dart';
 import '../../../accounting/presentation/pages/accounting_home_page.dart';
 import '../../../employee/domain/employee_mode.dart';
 import '../../../employee/presentation/pages/employee_shell.dart';
@@ -251,8 +252,10 @@ class _DashboardPageState extends State<DashboardPage> {
                       else ...[
                         _ConnectionBanner(offline: offlinePreview),
                         const SizedBox(height: 10),
-                        _MetricsGrid(demo: offlinePreview),
-                        const SizedBox(height: 10),
+                        if (offlinePreview) ...[
+                          const _MetricsGrid(demo: true),
+                          const SizedBox(height: 10),
+                        ],
                         if (office?.setupComplete != true) ...[
                           _SetupProgress(
                             offline: offlinePreview,
@@ -352,7 +355,7 @@ class _DashboardPageState extends State<DashboardPage> {
             ));
           } else if (index != 0) {
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('این بخش هنوز به Backend متصل نشده است.'),
+              content: Text('این بخش هنوز به سرور متصل نشده است.'),
             ));
           }
         },
@@ -461,63 +464,8 @@ class _EmptyOfficeDashboard extends StatelessWidget {
                 ),
               ]),
             ),
-            const SizedBox(height: 18),
-            const _EmptyMetricsGrid(),
           ],
         );
-}
-
-class _EmptyMetricsGrid extends StatelessWidget {
-  const _EmptyMetricsGrid();
-
-  @override
-  Widget build(BuildContext context) => GridView.count(
-        crossAxisCount: 2,
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        crossAxisSpacing: 8,
-        mainAxisSpacing: 8,
-        childAspectRatio: 1.8,
-        children: const [
-          _EmptyMetric(title: 'دریافتی امروز', icon: Icons.payments_outlined),
-          _EmptyMetric(title: 'فروش امروز', icon: Icons.bar_chart_rounded),
-          _EmptyMetric(
-              title: 'موجودی بانک', icon: Icons.account_balance_outlined),
-          _EmptyMetric(title: 'اسناد باز', icon: Icons.description_outlined),
-        ],
-      );
-}
-
-class _EmptyMetric extends StatelessWidget {
-  const _EmptyMetric({required this.title, required this.icon});
-  final String title;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) => Card(
-        color: const Color(0xFFFBFCFE),
-        child: Padding(
-          padding: const EdgeInsets.all(11),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(children: [
-                Expanded(
-                    child: Text(title,
-                        style: const TextStyle(
-                            fontSize: 10, color: AsoudColors.muted))),
-                Icon(icon, size: 19, color: AsoudColors.border),
-              ]),
-              const Text('—',
-                  style: TextStyle(
-                      fontSize: 18,
-                      color: AsoudColors.muted,
-                      fontWeight: FontWeight.w800)),
-            ],
-          ),
-        ),
-      );
 }
 
 class _Header extends StatelessWidget {
@@ -902,6 +850,7 @@ class _UnavailablePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AsoudHeader(title: title),
-        body: const Center(child: Text('به‌زودی')),
+        body: const ComingSoonState(
+            description: 'این بخش در نسخه‌های بعدی آسود فعال می‌شود.'),
       );
 }

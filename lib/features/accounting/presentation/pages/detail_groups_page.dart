@@ -62,7 +62,9 @@ class _DetailGroupsView extends StatelessWidget {
                 if (state.status == DetailGroupsStatus.failure)
                   _ErrorCard(
                     message: state.message ?? 'دریافت اطلاعات ممکن نشد.',
-                    onRetry: context.read<DetailGroupsCubit>().load,
+                    onRetry: state.canRetry
+                        ? context.read<DetailGroupsCubit>().load
+                        : null,
                   ),
                 if (state.status == DetailGroupsStatus.empty)
                   const _EmptyCard(),
@@ -265,17 +267,18 @@ class _GroupsGrid extends StatelessWidget {
 }
 
 class _ErrorCard extends StatelessWidget {
-  const _ErrorCard({required this.message, required this.onRetry});
+  const _ErrorCard({required this.message, this.onRetry});
   final String message;
-  final VoidCallback onRetry;
+  final VoidCallback? onRetry;
   @override
   Widget build(BuildContext context) => Card(
         child: ListTile(
           leading:
               const Icon(Icons.cloud_off_rounded, color: AsoudColors.warning),
           title: Text(message, style: const TextStyle(fontSize: 10)),
-          trailing:
-              TextButton(onPressed: onRetry, child: const Text('تلاش مجدد')),
+          trailing: onRetry == null
+              ? null
+              : TextButton(onPressed: onRetry, child: const Text('تلاش مجدد')),
         ),
       );
 }

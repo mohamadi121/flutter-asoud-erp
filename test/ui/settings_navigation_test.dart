@@ -73,8 +73,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(SettingsDashboardContent), findsOneWidget);
     expect(find.text('انتخاب دفتر'), findsOneWidget);
-    expect(find.text('مدیریت کاربران'),
-        findsNothing); // Below the initial viewport.
+    // The system-status cards are hidden outside the offline preview, so the
+    // actions grid now fits inside the initial viewport.
+    expect(find.text('مدیریت کاربران'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.tap(find.text('گزارش‌ها'));
     await tester.pumpAndSettle();

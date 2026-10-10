@@ -204,6 +204,10 @@ class _SettingsDashboardContentState extends State<SettingsDashboardContent> {
                       color: AsoudColors.primary,
                       size: 44),
                 ])),
+            // Live telemetry is not connected yet: only the offline preview
+            // shows these cards, so no «—»/«داده موجود نیست» placeholder is
+            // presented as real data (bug #10).
+            if (demo) ...[
             const SizedBox(height: 18),
             const Text('خلاصه وضعیت سیستم',
                 style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
@@ -262,12 +266,11 @@ class _SettingsDashboardContentState extends State<SettingsDashboardContent> {
                     )),
             Padding(
                 padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                    demo
-                        ? 'آمار نمایشی برای پیش‌نمایش آفلاین است و روی سرور ذخیره نمی‌شود.'
-                        : 'آمار سیستم هنوز به منبع داده متصل نیست؛ خط تیره به معنی صفر نیست.',
-                    style: const TextStyle(
+                child: const Text(
+                    'آمار نمایشی برای پیش‌نمایش آفلاین است و روی سرور ذخیره نمی‌شود.',
+                    style: TextStyle(
                         fontSize: 11, color: AsoudColors.muted))),
+            ],
             const SizedBox(height: 18),
             const Text('عملیات سریع',
                 style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
@@ -428,30 +431,38 @@ class _ActionCard extends StatelessWidget {
   final String? note;
   @override
   Widget build(BuildContext context) => Card(
-      color: color.withValues(alpha: .06),
+      color: color.withValues(alpha: onTap == null ? .03 : .06),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
-        child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-            child:
-                Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Icon(icon,
-                  size: 24, color: onTap == null ? AsoudColors.muted : color),
-              const SizedBox(height: 5),
-              Text(title,
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                      fontSize: 11, height: 1.25, fontWeight: FontWeight.w700)),
-              if (onTap == null || note != null)
-                Text(note ?? 'هنوز فعال نیست',
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        fontSize: 9, height: 1.3, color: AsoudColors.muted)),
-            ])),
+        child: Opacity(
+            opacity: onTap == null ? .55 : 1,
+            child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(icon,
+                          size: 24,
+                          color: onTap == null ? AsoudColors.muted : color),
+                      const SizedBox(height: 5),
+                      Text(title,
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontSize: 11,
+                              height: 1.25,
+                              fontWeight: FontWeight.w700)),
+                      if (onTap == null || note != null)
+                        Text(note ?? 'به‌زودی',
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                fontSize: 9,
+                                height: 1.3,
+                                color: AsoudColors.muted)),
+                    ]))),
       ));
 }

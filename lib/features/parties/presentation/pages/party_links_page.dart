@@ -307,7 +307,7 @@ class _HelpCard extends StatelessWidget {
           SizedBox(width: 8),
           Expanded(
             child: Text(
-              'هر کد تفصیلی مستقل است و می‌تواند به حساب‌های معین مجاز متصل شود. کد جدید فقط در Backend تولید می‌شود.',
+              'هر کد تفصیلی مستقل است و می‌تواند به حساب‌های معین مجاز متصل شود. کد جدید فقط در سرور تولید می‌شود.',
               style: TextStyle(fontSize: 10, color: AsoudColors.muted),
             ),
           ),
