@@ -7,19 +7,58 @@ const _accessActions = {
   'delete': 'حذف'
 };
 
-class _AccessApi {
-  _AccessApi(this.client);
+/// Thin, injectable wrapper over the bounded user-access API
+/// (`asoud_erp.api.v1.user_access`). The page never calls the raw client so a
+/// fake repository can replay the exact backend shapes in tests.
+class UserAccessRepository {
+  UserAccessRepository(this.client);
   final FrappeApiClient client;
-  Future<dynamic> call(String method, Map<String, dynamic> data) async {
-    if (!client.isAuthenticated) {
-      throw StateError('برای مدیریت دسترسی وارد حساب مدیر شوید.');
-    }
-    final response = await client
-        .callMethod('asoud_erp.api.v1.user_access.$method', data: data);
-    final envelope = response['message'];
-    if (envelope is! Map) throw StateError('پاسخ سرور معتبر نیست.');
+
+  Future<dynamic> _unwrap(Future<Map<String, dynamic>> response) async {
+    final body = await response;
+    final envelope = body['message'];
+    if (envelope is! Map) throw const ApiException.protocol();
     return AsoudApiResponse<dynamic>.parse(
         Map<String, dynamic>.from(envelope), (value) => value).data;
+  }
+
+  Future<dynamic> call(String method, Map<String, dynamic> data) async {
+    if (!client.isAuthenticated) {
+      throw const ApiException(
+          kind: ApiFailureKind.unauthenticated,
+          message: 'برای مدیریت دسترسی وارد حساب مدیر شوید.');
+    }
+    return _unwrap(
+        client.callMethod('asoud_erp.api.v1.user_access.$method', data: data));
+  }
+
+  Future<List<Map<String, dynamic>>> directory(String code,
+      {String search = '', bool candidates = false}) async {
+    final data = await call('directory', {
+      'code': code,
+      'search': search,
+      if (candidates) 'candidates': 1,
+    });
+    return (data as List)
+        .map((row) => Map<String, dynamic>.from(row as Map))
+        .toList();
+  }
+
+  /// Managed roles offered by the shared role catalog, used only to pick the
+  /// role whose users this page will manage.
+  Future<List<ManagedRole>> roles() async {
+    if (!client.isAuthenticated) {
+      throw const ApiException(
+          kind: ApiFailureKind.unauthenticated,
+          message: 'برای مدیریت دسترسی وارد حساب مدیر شوید.');
+    }
+    final data = await _unwrap(
+        client.callMethod('asoud_erp.api.v1.role_management.catalog'));
+    final map = Map<String, dynamic>.from(data as Map);
+    return ((map['roles'] as List?) ?? const [])
+        .whereType<Map>()
+        .map((row) => ManagedRole.fromJson(Map<String, dynamic>.from(row)))
+        .toList();
   }
 
   Future<String> draftKey(String code, String user) async {
@@ -36,19 +75,114 @@ class _AccessApi {
   }
 }
 
-class _RoleUsersPage extends StatefulWidget {
-  const _RoleUsersPage({required this.role});
-  final ManagedRole role;
+Future<T?> _userAccessRoute<T>(BuildContext context, Widget page) =>
+    Navigator.of(context).push<T>(MaterialPageRoute(
+        builder: (_) => Directionality(
+            textDirection: TextDirection.rtl, child: page)));
+
+/// Settings entry point for user access. With a role it manages that role's
+/// users directly; without one it lets the manager pick the role first, because
+/// the backend API is role-scoped.
+class UserAccessPage extends StatelessWidget {
+  const UserAccessPage({this.role, required this.repository, super.key});
+  final ManagedRole? role;
+  final UserAccessRepository repository;
+
   @override
-  State<_RoleUsersPage> createState() => _RoleUsersPageState();
+  Widget build(BuildContext context) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: role == null
+            ? _UserAccessRoles(repository: repository)
+            : _RoleUsersView(role: role!, repository: repository),
+      );
 }
 
-class _RoleUsersPageState extends State<_RoleUsersPage> {
-  late final api = _AccessApi(context.read<RoleCubit>().repository.client);
+class _UserAccessRoles extends StatefulWidget {
+  const _UserAccessRoles({required this.repository});
+  final UserAccessRepository repository;
+  @override
+  State<_UserAccessRoles> createState() => _UserAccessRolesState();
+}
+
+class _UserAccessRolesState extends State<_UserAccessRoles> {
+  List<ManagedRole> roles = [];
+  bool loading = true;
+  Object? error;
+
+  @override
+  void initState() {
+    super.initState();
+    load();
+  }
+
+  Future<void> load() async {
+    setState(() {
+      loading = true;
+      error = null;
+    });
+    try {
+      final result = await widget.repository.roles();
+      if (!mounted) return;
+      setState(() => roles = result);
+    } catch (e) {
+      if (mounted) setState(() => error = e);
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: const AsoudHeader(
+            title: 'مدیریت کاربران',
+            subtitle: 'انتخاب نقش برای مدیریت دسترسی کاربران'),
+        body: loading
+            ? const Center(child: CircularProgressIndicator())
+            : error != null
+                ? ErrorState(failure: error!, onRetry: load)
+                : roles.isEmpty
+                    ? const EmptyState(
+                        icon: Icons.shield_outlined,
+                        title: 'نقشی برای مدیریت یافت نشد',
+                        description:
+                            'ابتدا از «مدیریت نقش‌ها» یک نقش بسازید، سپس کاربران آن را اینجا مدیریت کنید.')
+                    : ListView(padding: const EdgeInsets.all(16), children: [
+                        const Text(
+                            'برای هر نقش، دسترسی مشترک و دسترسی تک‌تک کاربران را مدیریت کنید.'),
+                        const SizedBox(height: 12),
+                        for (final role in roles)
+                          Card(
+                              child: ListTile(
+                            leading: const Icon(Icons.shield_outlined,
+                                color: AsoudColors.primary),
+                            title: Text(persianRoleLabel(
+                                role.title.isNotEmpty ? role.title : role.code)),
+                            subtitle:
+                                Text(formatCount(role.assignedUsers, 'کاربر')),
+                            trailing: const Icon(Icons.chevron_left),
+                            onTap: () => _userAccessRoute<void>(
+                                context,
+                                _RoleUsersView(
+                                    role: role,
+                                    repository: widget.repository)),
+                          )),
+                      ]),
+      );
+}
+
+class _RoleUsersView extends StatefulWidget {
+  const _RoleUsersView({required this.role, required this.repository});
+  final ManagedRole role;
+  final UserAccessRepository repository;
+  @override
+  State<_RoleUsersView> createState() => _RoleUsersViewState();
+}
+
+class _RoleUsersViewState extends State<_RoleUsersView> {
   final search = TextEditingController();
   List<Map<String, dynamic>> users = [];
   bool loading = true;
-  String? error;
+  Object? error;
   int version = 0;
   @override
   void initState() {
@@ -69,30 +203,32 @@ class _RoleUsersPageState extends State<_RoleUsersPage> {
       error = null;
     });
     try {
-      final result = await api.call('directory',
-          {'code': widget.role.code, 'search': search.text.trim()});
+      final result = await widget.repository
+          .directory(widget.role.code, search: search.text.trim());
       if (!mounted || request != version) return;
-      setState(() => users = (result as List)
-          .map((e) => Map<String, dynamic>.from(e as Map))
-          .toList());
-    } catch (_) {
-      if (mounted && request == version) {
-        setState(() => error =
-            'دریافت کاربران ممکن نشد؛ اتصال و مجوز مدیر را بررسی کنید.');
-      }
+      setState(() => users = result);
+    } catch (e) {
+      if (mounted && request == version) setState(() => error = e);
     } finally {
       if (mounted && request == version) setState(() => loading = false);
     }
   }
 
   Future<void> open({Map<String, dynamic>? user, bool shared = false}) async {
-    await _roleRoute<void>(
-        context, _AccessWizard(role: widget.role, user: user, shared: shared));
+    await _userAccessRoute<void>(
+        context,
+        _AccessWizard(
+            role: widget.role,
+            repository: widget.repository,
+            user: user,
+            shared: shared));
     if (mounted) await load();
   }
 
   Future<void> editUser(Map<String, dynamic> user) async {
-    await _roleRoute<void>(context, _AccessUserEdit(user: user));
+    await _userAccessRoute<void>(
+        context,
+        _AccessUserEdit(user: user, repository: widget.repository));
     if (mounted) {
       await load();
     }
@@ -101,61 +237,71 @@ class _RoleUsersPageState extends State<_RoleUsersPage> {
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AsoudHeader(
-            title: 'کاربران و دسترسی‌ها', subtitle: persianRoleLabel(widget.role.title)),
-        body: ListView(padding: const EdgeInsets.all(16), children: [
-          Card(
-              child: ListTile(
-                  leading: const Icon(Icons.admin_panel_settings_outlined),
-                  title: const Text('دسترسی‌های این نقش'),
-                  subtitle: const Text('تغییرات مشترک برای کاربران این نقش'),
-                  trailing: const Icon(Icons.chevron_left),
-                  onTap: () => open(shared: true))),
-          const SizedBox(height: 12),
-          TextField(
-              controller: search,
-              decoration: InputDecoration(
-                  hintText: 'جستجو با نام، ایمیل یا شماره تماس',
-                  suffixIcon: IconButton(
-                      onPressed: load, icon: const Icon(Icons.search))),
-              onSubmitted: (_) => load()),
-          const SizedBox(height: 12),
-          if (loading) const Center(child: CircularProgressIndicator()),
-          if (error != null)
-            Text(error!, style: const TextStyle(color: AsoudColors.danger)),
-          if (!loading && error == null && users.isEmpty)
-            const Text('کاربری برای این نقش یافت نشد.'),
-          for (final user in users)
-            Card(
-                child: ListTile(
-              leading: const CircleAvatar(child: Icon(Icons.person_outline)),
-              title: Text('${user['full_name'] ?? user['name']}'),
-              subtitle: Text('${user['mobile_no'] ?? user['name']}'),
-              trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                Text(user['enabled'] == 1 ? 'فعال' : 'غیرفعال',
-                    style: TextStyle(
-                        color: user['enabled'] == 1
-                            ? AsoudColors.success
-                            : AsoudColors.muted)),
-                IconButton(
-                    tooltip: 'ویرایش اطلاعات کاربر',
-                    onPressed: () => editUser(user),
-                    icon: const Icon(Icons.edit_outlined, size: 18)),
+            title: 'کاربران و دسترسی‌ها',
+            subtitle: persianRoleLabel(widget.role.title.isNotEmpty
+                ? widget.role.title
+                : widget.role.code)),
+        body: error != null
+            ? ErrorState(failure: error!, onRetry: load)
+            : ListView(padding: const EdgeInsets.all(16), children: [
+                Card(
+                    child: ListTile(
+                        leading: const Icon(Icons.admin_panel_settings_outlined),
+                        title: const Text('دسترسی‌های این نقش'),
+                        subtitle:
+                            const Text('تغییرات مشترک برای کاربران این نقش'),
+                        trailing: const Icon(Icons.chevron_left),
+                        onTap: () => open(shared: true))),
+                const SizedBox(height: 12),
+                TextField(
+                    controller: search,
+                    decoration: InputDecoration(
+                        hintText: 'جستجو با نام، ایمیل یا شماره تماس',
+                        suffixIcon: IconButton(
+                            onPressed: load, icon: const Icon(Icons.search))),
+                    onSubmitted: (_) => load()),
+                const SizedBox(height: 12),
+                if (loading) const Center(child: CircularProgressIndicator()),
+                if (!loading && users.isEmpty)
+                  const Text('کاربری برای این نقش یافت نشد.'),
+                for (final user in users)
+                  Card(
+                      child: ListTile(
+                    leading:
+                        const CircleAvatar(child: Icon(Icons.person_outline)),
+                    title: Text('${user['full_name'] ?? user['name']}'),
+                    subtitle: Text('${user['mobile_no'] ?? user['name']}'),
+                    trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Text(user['enabled'] == 1 ? 'فعال' : 'غیرفعال',
+                          style: TextStyle(
+                              color: user['enabled'] == 1
+                                  ? AsoudColors.success
+                                  : AsoudColors.muted)),
+                      IconButton(
+                          tooltip: 'ویرایش اطلاعات کاربر',
+                          onPressed: () => editUser(user),
+                          icon: const Icon(Icons.edit_outlined, size: 18)),
+                    ]),
+                    onTap: () => open(user: user),
+                    onLongPress: () => editUser(user),
+                  )),
+                const Text(
+                    'برای ویرایش اطلاعات کاربر، کارت او را نگه دارید. فهرست تا ۱۰۰ نتیجه دارد؛ برای محدودکردن نتایج جستجو کنید.',
+                    style: TextStyle(fontSize: 11, color: AsoudColors.muted)),
               ]),
-              onTap: () => open(user: user),
-              onLongPress: () => editUser(user),
-            )),
-          const Text(
-              'برای ویرایش اطلاعات کاربر، کارت او را نگه دارید. فهرست تا ۱۰۰ نتیجه دارد؛ برای محدودکردن نتایج جستجو کنید.',
-              style: TextStyle(fontSize: 11, color: AsoudColors.muted)),
-        ]),
         bottomNavigationBar: AsoudBottomActions(
             primaryLabel: 'افزودن کاربر به نقش', onPrimary: () => open()),
       );
 }
 
 class _AccessWizard extends StatefulWidget {
-  const _AccessWizard({required this.role, this.user, this.shared = false});
+  const _AccessWizard(
+      {required this.role,
+      required this.repository,
+      this.user,
+      this.shared = false});
   final ManagedRole role;
+  final UserAccessRepository repository;
   final Map<String, dynamic>? user;
   final bool shared;
   @override
@@ -163,12 +309,12 @@ class _AccessWizard extends StatefulWidget {
 }
 
 class _AccessWizardState extends State<_AccessWizard> {
-  late final api = _AccessApi(context.read<RoleCubit>().repository.client);
   late Map<String, dynamic>? user = widget.user;
   final search = TextEditingController();
   List<Map<String, dynamic>> candidates = [];
   List<Map<String, dynamic>> catalog = [];
   Map<String, Set<String>> grants = {}, inherited = {};
+  Map<String, Set<String>> saved = {};
   List<String> baseRoles = [];
   int step = 0, mode = 0, generation = 0;
   bool busy = true, success = false;
@@ -193,6 +339,23 @@ class _AccessWizardState extends State<_AccessWizard> {
   Map<String, Set<String>> decode(dynamic value) =>
       Map<String, dynamic>.from(value as Map)
           .map((key, value) => MapEntry(key, Set<String>.from(value as List)));
+
+  Map<String, Set<String>> _copy(Map<String, Set<String>> source) =>
+      source.map((key, value) => MapEntry(key, {...value}));
+
+  bool get changed {
+    if (grants.length != saved.length) return true;
+    for (final entry in grants.entries) {
+      final other = saved[entry.key];
+      if (other == null ||
+          entry.value.length != other.length ||
+          !entry.value.containsAll(other)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   Future<void> loadCandidates() async {
     final request = ++generation;
     setState(() {
@@ -200,19 +363,13 @@ class _AccessWizardState extends State<_AccessWizard> {
       error = null;
     });
     try {
-      final data = await api.call('directory', {
-        'code': widget.role.code,
-        'search': search.text.trim(),
-        'candidates': 1
-      });
+      final data = await widget.repository.directory(widget.role.code,
+          search: search.text.trim(), candidates: true);
       if (!mounted || request != generation) return;
-      setState(() => candidates = (data as List)
-          .map((e) => Map<String, dynamic>.from(e as Map))
-          .toList());
-    } catch (_) {
+      setState(() => candidates = data);
+    } catch (e) {
       if (mounted && request == generation) {
-        setState(() => error =
-            'دریافت افراد ممکن نشد. حساب کاربر باید قبلاً در سامانه ایجاد شده باشد.');
+        setState(() => error = failureMessage(e));
       }
     } finally {
       if (mounted && request == generation) setState(() => busy = false);
@@ -226,11 +383,12 @@ class _AccessWizardState extends State<_AccessWizard> {
       token = null;
     });
     try {
-      final data = Map<String, dynamic>.from(await api.call(
-              'editor', {'code': widget.role.code, 'user': user?['name'] ?? ''})
+      final data = Map<String, dynamic>.from(await widget.repository.call(
+              'editor',
+              {'code': widget.role.code, 'user': user?['name'] ?? ''})
           as Map);
       final key =
-          await api.draftKey(widget.role.code, '${user?['name'] ?? ''}');
+          await widget.repository.draftKey(widget.role.code, '${user?['name'] ?? ''}');
       if (!mounted) return;
       setState(() {
         catalog = (data['catalog'] as List)
@@ -238,14 +396,14 @@ class _AccessWizardState extends State<_AccessWizard> {
             .toList();
         grants = decode(data['grants']);
         inherited = decode(data['inherited']);
+        saved = _copy(grants);
         baseRoles = List<String>.from(data['base_roles'] as List);
         token = data['token'] as String;
         draftKey = key;
       });
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
-        setState(() => error =
-            'دریافت مجوزها ممکن نشد؛ اتصال، مجوز مدیر و نصب نسخه جدید سرور را بررسی کنید.');
+        setState(() => error = failureMessage(e));
       }
     } finally {
       if (mounted) setState(() => busy = false);
@@ -329,7 +487,7 @@ class _AccessWizardState extends State<_AccessWizard> {
       error = null;
     });
     try {
-      final result = await api.call('apply', {
+      final result = await widget.repository.call('apply', {
         'payload': {
           'code': widget.role.code,
           'user': user?['name'] ?? '',
@@ -338,14 +496,18 @@ class _AccessWizardState extends State<_AccessWizard> {
         }
       });
       if (result is! Map || result['applied'] != true) {
-        throw StateError('not applied');
+        throw const ApiException(
+            kind: ApiFailureKind.protocol,
+            message: 'اعمال دسترسی تأیید نشد.');
       }
       if (!mounted) return;
-      setState(() => success = true);
-    } catch (_) {
+      setState(() {
+        success = true;
+        saved = _copy(grants);
+      });
+    } catch (e) {
       if (mounted) {
-        setState(() => error =
-            'اعمال دسترسی تأیید نشد. اتصال یا تغییر هم‌زمان اطلاعات را بررسی کنید؛ می‌توانید پیش‌نویس را ذخیره کنید.');
+        setState(() => error = failureMessage(e));
       }
     } finally {
       if (mounted) setState(() => busy = false);
@@ -397,7 +559,9 @@ class _AccessWizardState extends State<_AccessWizard> {
               : step == 2
                   ? 'بررسی و ارسال'
                   : 'تعیین نقش و دسترسی',
-          subtitle: persianRoleLabel(widget.role.title)),
+          subtitle: persianRoleLabel(widget.role.title.isNotEmpty
+              ? widget.role.title
+              : widget.role.code)),
       body: ListView(padding: const EdgeInsets.all(16), children: [
         if (success) ...[
           const SizedBox(height: 60),
@@ -530,7 +694,7 @@ class _AccessWizardState extends State<_AccessWizard> {
                   child: Padding(
                 padding: const EdgeInsets.all(12),
                 child: Text(
-                    'نقش‌های پایه همراه این تخصیص: ${baseRoles.join('، ')}\n'
+                    'نقش‌های پایه همراه این تخصیص: ${baseRoles.map(persianRoleLabel).join('، ')}\n'
                     'این نقش‌ها می‌توانند مجوزهایی خارج از جدول داشته باشند، از جمله ثبت قطعی اسناد. '
                     'این جدول جایگزین مجوزهای بومی آن‌ها نیست.'),
               )),
@@ -546,6 +710,10 @@ class _AccessWizardState extends State<_AccessWizard> {
                   }.map((a) => _accessActions[a]).join('، '))),
             const Text(
                 'ارسال، مجوزهای این بخش را تغییر می‌دهد؛ دسترسی نقش‌های دیگر حذف نمی‌شود.'),
+            if (!changed)
+              const Text(
+                  'تا زمانی که موردی تغییر نکرده، ارسال غیرفعال است.',
+                  style: TextStyle(fontSize: 11, color: AsoudColors.muted)),
             TextButton(
                 onPressed: busy ? null : saveDraft,
                 child: const Text('ذخیره پیش‌نویس بدون اعمال')),
@@ -566,7 +734,7 @@ class _AccessWizardState extends State<_AccessWizard> {
             : success
                 ? () => Navigator.pop(context)
                 : step == 2
-                    ? apply
+                    ? (changed ? apply : null)
                     : step == 1 && token != null
                         ? () => setState(() => step = 2)
                         : null,
@@ -578,8 +746,9 @@ class _AccessWizardState extends State<_AccessWizard> {
 }
 
 class _AccessUserEdit extends StatefulWidget {
-  const _AccessUserEdit({required this.user});
+  const _AccessUserEdit({required this.user, required this.repository});
   final Map<String, dynamic> user;
+  final UserAccessRepository repository;
   @override
   State<_AccessUserEdit> createState() => _AccessUserEditState();
 }
@@ -612,8 +781,7 @@ class _AccessUserEditState extends State<_AccessUserEdit> {
       error = null;
     });
     try {
-      await _AccessApi(context.read<RoleCubit>().repository.client)
-          .call('update_user', {
+      await widget.repository.call('update_user', {
         'payload': {
           'user': widget.user['name'],
           'modified': widget.user['modified'],
@@ -624,10 +792,9 @@ class _AccessUserEditState extends State<_AccessUserEdit> {
         }
       });
       if (mounted) Navigator.pop(context);
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
-        setState(() => error =
-            'ذخیره انجام نشد؛ اتصال، مجوز یا تغییر هم‌زمان کاربر را بررسی کنید.');
+        setState(() => error = failureMessage(e));
       }
     } finally {
       if (mounted) setState(() => busy = false);

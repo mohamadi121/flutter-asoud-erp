@@ -7,13 +7,16 @@ import 'package:file_picker/file_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/auth/access_denied.dart';
 import '../../../core/auth/capabilities.dart';
+import '../../../core/network/api_exception.dart';
 import '../../../core/network/asoud_api_response.dart';
 import '../../../core/network/frappe_client.dart';
 import '../../../core/theme/asoud_colors.dart';
+import '../../../core/utils/failure_message.dart';
 import '../../../core/utils/persian_server_values.dart';
 import '../../../core/utils/persian_format.dart';
 import '../../../core/widgets/app_fields.dart';
 import '../../../core/widgets/asoud_ui.dart';
+import '../../../core/widgets/states.dart';
 import '../data/role_repository.dart';
 import '../domain/role_catalog.dart';
 import 'role_cubit.dart';
@@ -321,7 +324,14 @@ class _RolesViewState extends State<_RolesView> {
                   } else if (action == 'edit') {
                     _roleRoute<bool>(context, _RoleForm(role: role));
                   } else if (action == 'users') {
-                    _roleRoute<void>(context, _RoleUsersPage(role: role));
+                    _roleRoute<void>(
+                        context,
+                        UserAccessPage(
+                            role: role,
+                            repository: UserAccessRepository(context
+                                .read<RoleCubit>()
+                                .repository
+                                .client)));
                   } else {
                     _changeStatus(role);
                   }
