@@ -111,84 +111,126 @@ class _TaskDetailView extends StatelessWidget {
                   ]),
             bottomNavigationBar: detail == null || detail.task.status != 'Open'
                 ? null
-                : SafeArea(
-                    minimum: const EdgeInsets.all(12),
-                    child: Row(children: [
-                      Expanded(
-                        child: FilledButton(
-                          onPressed: state.status ==
-                                  WorkflowTaskDetailStatus.saving
-                              ? null
-                              : () async {
-                                  final action = detail.stageType == 'Approval'
-                                      ? 'Approve'
-                                      : 'Complete';
-                                  final done = await _submitAction(
-                                      context, detail, action);
-                                  if (done && context.mounted) {
-                                    Navigator.pop(context, true);
-                                  }
-                                },
-                          child: Text(detail.stageType == 'Approval'
-                              ? 'تأیید و ارسال'
-                              : detail.activityType == 'Review'
-                                  ? 'تأیید بررسی و ارسال'
-                                  : 'ثبت و ارسال'),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      OutlinedButton(
-                        onPressed: state.status ==
-                                WorkflowTaskDetailStatus.saving
-                            ? null
-                            : context.read<WorkflowTaskDetailCubit>().saveDraft,
-                        child: const Text('ذخیره پیش‌نویس'),
-                      ),
-                      if (detail.allowReject || detail.allowReturn) ...[
-                        const SizedBox(width: 6),
-                        PopupMenuButton<String>(
-                          enabled:
-                              state.status != WorkflowTaskDetailStatus.saving,
-                          tooltip: 'اقدامات بیشتر',
-                          icon: const Icon(Icons.more_vert_rounded),
-                          onSelected: (action) =>
-                              _submitAction(context, detail, action),
-                          itemBuilder: (_) => [
-                            if (detail.allowReturn)
-                              const PopupMenuItem(
-                                  value: 'Return',
-                                  child: Text('بازگشت برای اصلاح')),
-                            if (detail.allowReject)
-                              const PopupMenuItem(
-                                  value: 'Reject', child: Text('رد درخواست')),
-                          ],
-                        ),
-                      ],
-                    ]),
-                  ),
+                : _DecisionBar(detail: detail),
           );
         },
       );
+}
 
-  Future<bool> _submitAction(
-      BuildContext context, WorkflowTaskDetail detail, String action) async {
-    final needsComment = action == 'Return' ||
-        action == 'Reject' ||
-        (action == 'Approve' && detail.commentRequired);
-    String? comment;
-    if (needsComment) {
-      comment = await showDialog<String>(
-        context: context,
-        builder: (_) => _DecisionDialog(
-          action: action,
-          isRequired: action == 'Return' || detail.commentRequired,
-        ),
-      );
-      if (comment == null || !context.mounted) return false;
-    }
-    return context
+/// The sticky decision bar. Approve is the primary action; Reject and Return
+/// are always visible (never hidden behind a menu) and stay disabled until the
+/// user writes the reason they require.
+class _DecisionBar extends StatefulWidget {
+  const _DecisionBar({required this.detail});
+  final WorkflowTaskDetail detail;
+
+  @override
+  State<_DecisionBar> createState() => _DecisionBarState();
+}
+
+class _DecisionBarState extends State<_DecisionBar> {
+  final _reason = TextEditingController();
+
+  @override
+  void dispose() {
+    _reason.dispose();
+    super.dispose();
+  }
+
+  bool get _hasReason => _reason.text.trim().isNotEmpty;
+
+  Future<void> _decide(String action) async {
+    final comment = action == 'Approve' ? null : _reason.text.trim();
+    final done = await context
         .read<WorkflowTaskDetailCubit>()
         .submit(action, comment: comment);
+    if (done && mounted) Navigator.pop(context, true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final saving = context.select((WorkflowTaskDetailCubit cubit) =>
+        cubit.state.status == WorkflowTaskDetailStatus.saving);
+    final detail = widget.detail;
+    final approveAction =
+        detail.stageType == 'Approval' ? 'Approve' : 'Complete';
+    final approveLabel = detail.stageType == 'Approval'
+        ? 'تأیید'
+        : detail.activityType == 'Review'
+            ? 'تأیید بررسی'
+            : 'ثبت';
+
+    final buttons = <Widget>[
+      FilledButton(
+        onPressed: saving || (detail.commentRequired && !_hasReason)
+            ? null
+            : () => _decide(approveAction),
+        child: Text(approveLabel),
+      ),
+      if (detail.allowReject)
+        FilledButton(
+          style: FilledButton.styleFrom(
+              backgroundColor: AsoudColors.danger,
+              foregroundColor: Colors.white),
+          onPressed: saving || !_hasReason ? null : () => _decide('Reject'),
+          child: const Text('رد'),
+        ),
+      if (detail.allowReturn)
+        FilledButton(
+          style: FilledButton.styleFrom(
+              backgroundColor: AsoudColors.warning,
+              foregroundColor: Colors.white),
+          onPressed: saving || !_hasReason ? null : () => _decide('Return'),
+          child: const Text('بازگشت'),
+        ),
+    ];
+
+    return SafeArea(
+      minimum: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        TextField(
+          controller: _reason,
+          enabled: !saving,
+          minLines: 1,
+          maxLines: 3,
+          onChanged: (_) => setState(() {}),
+          decoration: const InputDecoration(
+            isDense: true,
+            hintText: 'دلیل / توضیح',
+            helperText: 'برای رد یا بازگشت، نوشتن دلیل الزامی است.',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 10),
+        LayoutBuilder(builder: (context, constraints) {
+          final sized = [
+            for (final button in buttons)
+              SizedBox(height: 56, child: button),
+          ];
+          if (constraints.maxWidth < 360) {
+            return Column(mainAxisSize: MainAxisSize.min, children: [
+              for (var i = 0; i < sized.length; i++) ...[
+                if (i > 0) const SizedBox(height: 8),
+                sized[i],
+              ],
+            ]);
+          }
+          return Row(children: [
+            for (var i = 0; i < sized.length; i++) ...[
+              if (i > 0) const SizedBox(width: 8),
+              Expanded(child: sized[i]),
+            ],
+          ]);
+        }),
+        const SizedBox(height: 4),
+        TextButton(
+          onPressed: saving
+              ? null
+              : context.read<WorkflowTaskDetailCubit>().saveDraft,
+          child: const Text('ذخیره پیش‌نویس'),
+        ),
+      ]),
+    );
   }
 }
 
@@ -444,66 +486,6 @@ class _PreviousDataCard extends StatelessWidget {
             ),
         ]),
       );
-}
-
-class _DecisionDialog extends StatefulWidget {
-  const _DecisionDialog({required this.action, required this.isRequired});
-  final String action;
-  final bool isRequired;
-
-  @override
-  State<_DecisionDialog> createState() => _DecisionDialogState();
-}
-
-class _DecisionDialogState extends State<_DecisionDialog> {
-  final controller = TextEditingController();
-  String? error;
-
-  @override
-  void dispose() {
-    controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final returning = widget.action == 'Return';
-    final rejecting = widget.action == 'Reject';
-    return AlertDialog(
-      title: Text(returning
-          ? 'بازگشت برای اصلاح'
-          : rejecting
-              ? 'رد درخواست'
-              : 'ثبت تأیید'),
-      content: TextField(
-        controller: controller,
-        minLines: 3,
-        maxLines: 5,
-        autofocus: true,
-        decoration: InputDecoration(
-          labelText: widget.isRequired ? 'توضیحات *' : 'توضیحات',
-          hintText: returning ? 'مواردی که باید اصلاح شوند را بنویسید.' : null,
-          errorText: error,
-        ),
-      ),
-      actions: [
-        TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('انصراف')),
-        FilledButton(
-          onPressed: () {
-            final value = controller.text.trim();
-            if (widget.isRequired && value.isEmpty) {
-              setState(() => error = 'ثبت توضیحات الزامی است.');
-              return;
-            }
-            Navigator.pop(context, value);
-          },
-          child: const Text('ثبت تصمیم'),
-        ),
-      ],
-    );
-  }
 }
 
 /// Raw server values for the technical section: identifiers, hashes and JSON
