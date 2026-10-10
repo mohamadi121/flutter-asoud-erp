@@ -225,9 +225,9 @@ class ServerFirstOfficeRepository
         'description': office.description,
         'modified': office.lastSyncedAt?.toIso8601String(),
         'complete': office.setupComplete,
-        'office_saved': office.setupComplete,
-        'accounting_saved': office.setupComplete,
-        'roles_saved': office.setupComplete,
+        'office_saved': office.officeSaved ?? office.setupComplete,
+        'accounting_saved': office.accountingSaved ?? office.setupComplete,
+        'roles_saved': office.rolesSaved ?? office.setupComplete,
       };
 }
 
