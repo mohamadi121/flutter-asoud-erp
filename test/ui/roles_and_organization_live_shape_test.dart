@@ -427,4 +427,47 @@ void main() {
     expect(client.calls, isEmpty);
     expect(tester.takeException(), isNull);
   });
+
+  for (final width in [320.0, 390.0]) {
+    testWidgets(
+        'organization landing notice wraps fully at ${width}px without clipping',
+        (tester) async {
+      tester.view.physicalSize = Size(width, 1400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final client = _RealBackendShapeClient(
+        userId: 'Administrator',
+        userRoles: const ['Administrator'],
+      );
+      final store = FakeLocalRecordStore();
+      final repository = OrganizationRepository(client, local: store);
+      addTearDown(repository.dispose);
+
+      await tester.pumpWidget(RepositoryProvider<FrappeApiClient>.value(
+        value: client,
+        child: MaterialApp(
+          theme: AsoudTheme.light,
+          home: Directionality(
+            textDirection: TextDirection.rtl,
+            child: OrganizationPage(
+              company: 'شرکت نمونه آسود',
+              repository: repository,
+            ),
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      const notice =
+          'قالب و فایل اکسل قبل از ذخیره پیش‌نمایش دارند. جایگاه‌ها می‌توانند خالی باشند؛ ساختار سازمانی به‌تنهایی دسترسی کاربری ایجاد نمی‌کند.';
+      final finder = find.text(notice);
+      expect(finder, findsOneWidget);
+      final widget = tester.widget<Text>(finder);
+      expect(widget.maxLines, isNull);
+      expect(widget.overflow, isNull);
+      expect(widget.softWrap, isTrue);
+      expect(tester.getSize(finder).height, greaterThan(16));
+      expect(tester.takeException(), isNull);
+    });
+  }
 }

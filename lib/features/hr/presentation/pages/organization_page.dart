@@ -404,6 +404,7 @@ class _OrgNotice extends StatelessWidget {
                   const SizedBox(height: 4),
                 ],
                 Text(text,
+                    softWrap: true,
                     style: const TextStyle(
                         fontSize: 11, color: AsoudColors.muted)),
               ])),

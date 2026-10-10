@@ -194,6 +194,7 @@ class _HelpCard extends StatelessWidget {
               SizedBox(height: 5),
               Text(
                 'یک کد تفصیلی می‌تواند به چند حساب معین متصل شود؛ مانند مشتری، بانک، پروژه یا مرکز هزینه.',
+                softWrap: true,
                 style: TextStyle(fontSize: 9, color: AsoudColors.muted),
               ),
             ]),

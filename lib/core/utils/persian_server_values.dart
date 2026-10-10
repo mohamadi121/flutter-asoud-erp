@@ -1,3 +1,5 @@
+import 'jalali_date.dart';
+
 const erpNextRoleLabels = <String, String>{
   '__direct_manager__': 'مدیر مستقیم',
   '__initiator__': 'درخواست‌کننده',
@@ -192,13 +194,24 @@ String persianWorkflowStatus(String? status) {
 bool isInternalRole(String role) =>
     role.trim().toUpperCase().startsWith('ASOUD-ACCESS-USER-');
 
+/// At most this many role titles are shown in the dashboard greeting; the
+/// rest are replaced by a «+N» marker so a user with many roles cannot blow up
+/// the header line on a 320 px screen.
+const greetingVisibleRoleCount = 3;
+
 String formatUserGreetingRoles(Iterable<String> roles) {
   final filtered = roles
       .where((role) => !isInternalRole(role))
       .map(persianRoleLabel)
       .where((label) => label.trim().isNotEmpty)
       .toList(growable: false);
-  return filtered.isEmpty ? 'کاربر سامانه' : filtered.join('، ');
+  if (filtered.isEmpty) return 'کاربر سامانه';
+  if (filtered.length <= greetingVisibleRoleCount) {
+    return filtered.join('، ');
+  }
+  final shown = filtered.take(greetingVisibleRoleCount).join('، ');
+  final hidden = filtered.length - greetingVisibleRoleCount;
+  return '$shown +${toPersianDigits(hidden)}';
 }
 
 String persianTransitionLabel(String? label) {
