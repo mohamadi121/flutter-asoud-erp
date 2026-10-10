@@ -235,10 +235,21 @@ class _SummaryRow {
 }
 
 const _priorityLabels = {
+  'Low': 'کم',
   'Normal': 'عادی',
-  'High': 'مهم',
+  'High': 'زیاد',
   'Urgent': 'فوری',
 };
+
+String _formatChoiceLabel(String option) => switch (option.trim()) {
+      'Daily' => 'روزانه',
+      'Hourly' => 'ساعتی',
+      'Normal' => 'عادی',
+      'High' => 'زیاد',
+      'Low' => 'کم',
+      'Urgent' => 'فوری',
+      _ => option,
+    };
 
 String _taskStatusLabel(String status) => switch (status) {
       'Open' => 'در انتظار اقدام',
@@ -485,10 +496,17 @@ class _PreviousDataCard extends StatelessWidget {
 
 /// Raw server values for the technical section: identifiers, hashes and JSON
 /// payloads are shown verbatim, never re-formatted or converted to Persian
-/// digits.
+/// digits, but known status/priority/frequency labels are translated.
 String _rawValue(dynamic value) {
   if (value == null || value == '') return '—';
   if (value is DateTime) return formatDateTimeJalali(value);
+  final str = value.toString().trim();
+  if (str == 'Normal') return 'عادی';
+  if (str == 'High') return 'زیاد';
+  if (str == 'Low') return 'کم';
+  if (str == 'Urgent') return 'فوری';
+  if (str == 'Daily') return 'روزانه';
+  if (str == 'Hourly') return 'ساعتی';
   return value.toString();
 }
 
@@ -502,7 +520,27 @@ String _displayValue(dynamic value) {
   if (value is num) {
     return formatNumber(value);
   }
+  if (isDurationMap(value)) {
+    return formatPersianDuration(value);
+  }
+  if (value is Map) {
+    final parts = value.entries
+        .map((e) =>
+            '${persianDocumentFieldLabel(e.key.toString())}: ${_displayValue(e.value)}')
+        .join('، ');
+    return parts.isEmpty ? '—' : parts;
+  }
+  if (value is List) {
+    final parts = value.map((e) => _displayValue(e)).join('، ');
+    return parts.isEmpty ? '—' : parts;
+  }
   final str = value.toString().trim();
+  if (str == 'Normal') return 'عادی';
+  if (str == 'High') return 'زیاد';
+  if (str == 'Low') return 'کم';
+  if (str == 'Urgent') return 'فوری';
+  if (str == 'Daily') return 'روزانه';
+  if (str == 'Hourly') return 'ساعتی';
   if (RegExp(r'^\d{4}[-/]\d{2}[-/]\d{2}').hasMatch(str)) {
     final formatted = formatDateTimeJalali(str);
     if (formatted.isNotEmpty) return formatted;
@@ -586,11 +624,11 @@ class _DynamicField extends StatelessWidget {
         isExpanded: true,
         initialValue: field.options.contains(value) ? value?.toString() : null,
         decoration: InputDecoration(labelText: label),
-        disabledHint: Text(value?.toString() ?? ''),
+        disabledHint: Text(_formatChoiceLabel(value?.toString() ?? '')),
         items: field.options
             .map((option) => DropdownMenuItem(
                 value: option,
-                child: Text(option, overflow: TextOverflow.ellipsis)))
+                child: Text(_formatChoiceLabel(option), overflow: TextOverflow.ellipsis)))
             .toList(growable: false),
         onChanged: enabled ? (next) => cubit.setValue(field.key, next) : null,
       );
@@ -619,9 +657,61 @@ class _DynamicField extends StatelessWidget {
             : 'فایل انتخاب شد: ${value.toString().split('/').last}'),
       );
     }
+    if (value is Map && !isDurationMap(value)) {
+      return InputDecorator(
+        decoration: InputDecoration(labelText: label),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (final entry in value.entries)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Row(
+                  children: [
+                    Text(
+                      '${persianDocumentFieldLabel(entry.key.toString())}: ',
+                      style: const TextStyle(
+                          fontSize: 11, color: AsoudColors.muted),
+                    ),
+                    Expanded(
+                      child: Text(
+                        _displayValue(entry.value),
+                        style: const TextStyle(
+                            fontSize: 11, fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      );
+    }
+    if (value is List && field.type != 'Table' && field.type != 'Multi Choice') {
+      return InputDecorator(
+        decoration: InputDecoration(labelText: label),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (final item in value)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Text(
+                  _displayValue(item),
+                  style: const TextStyle(
+                      fontSize: 11, fontWeight: FontWeight.w800),
+                ),
+              ),
+          ],
+        ),
+      );
+    }
+    final initialText = isDurationMap(value)
+        ? formatPersianDuration(value)
+        : _displayValue(value);
     return TextFormField(
       enabled: enabled,
-      initialValue: value?.toString() ?? '',
+      initialValue: initialText == '—' ? '' : initialText,
       minLines: field.type == 'Long Text' ? 3 : 1,
       maxLines: field.type == 'Long Text' ? 5 : 1,
       keyboardType: {'Number', 'Currency'}.contains(field.type)

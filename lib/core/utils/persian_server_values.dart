@@ -309,15 +309,36 @@ String persianDocumentFieldLabel(String label) => switch (label.trim()) {
       'Workflow' => 'گردش‌کار',
       'Request Type' => 'نوع درخواست',
       'Subject' => 'موضوع',
-      'Priority' => 'اولویت',
-      'Status' => 'وضعیت',
+      'Priority' || 'priority' => 'اولویت',
+      'Status' || 'status' => 'وضعیت',
       'Workflow Instance' => 'نمونه گردش‌کار',
       'Attachments' => 'پیوست‌ها',
       'Dynamic Values' => 'مقادیر متغیر',
       'Template Version' => 'نسخه الگو',
       'Status Key' => 'کلید وضعیت',
       'Search Text' => 'متن جستجو',
+      'Frequency' || 'frequency' => 'تواتر',
+      'unit' || 'Unit' => 'واحد',
+      'days' || 'Days' => 'روزها',
+      'hours' || 'Hours' => 'ساعت‌ها',
+      'day_equivalent' || 'Day Equivalent' => 'معادل روز',
       _ => label,
+    };
+
+String persianPriorityLabel(String priority) => switch (priority.trim()) {
+      'Low' => 'کم',
+      'Normal' => 'عادی',
+      'High' => 'زیاد',
+      'Urgent' => 'فوری',
+      _ => priority,
+    };
+
+String persianFrequencyLabel(String frequency) => switch (frequency.trim()) {
+      'Daily' => 'روزانه',
+      'Hourly' => 'ساعتی',
+      'Weekly' => 'هفتگی',
+      'Monthly' => 'ماهانه',
+      _ => frequency,
     };
 
 String persianDoctypeLabel(String doctype) => switch (doctype.trim()) {
