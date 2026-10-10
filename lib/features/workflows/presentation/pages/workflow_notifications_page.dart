@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/persian_server_values.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../domain/entities/workflow_notification.dart';
 import '../../domain/repositories/workflow_notification_repository.dart';
@@ -111,7 +112,7 @@ class _NotificationCard extends StatelessWidget {
                   children: [
                     Row(children: [
                       Expanded(
-                        child: Text(item.title,
+                        child: Text(persianNotificationTitle(item.title),
                             style: const TextStyle(
                                 fontSize: 12, fontWeight: FontWeight.w900)),
                       ),

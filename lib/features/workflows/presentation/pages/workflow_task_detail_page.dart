@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/persian_server_values.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../../core/widgets/asoud_form.dart';
 import '../../domain/entities/workflow_definition.dart';
@@ -39,7 +40,9 @@ class _TaskDetailView extends StatelessWidget {
           final detail = state.detail;
           return Scaffold(
             appBar: AsoudHeader(
-              title: detail?.task.title ?? 'جزئیات کار',
+              title: detail?.task.title.isNotEmpty == true
+                  ? persianWorkflowStageTitle(detail!.task.title)
+                  : 'جزئیات کار',
               subtitle: detail?.task.instance,
             ),
             body: detail == null
@@ -214,7 +217,8 @@ class _ReferencedDocumentCard extends StatelessWidget {
                 children: [
                   const Text('اطلاعات درخواست اصلی',
                       style: TextStyle(fontWeight: FontWeight.w900)),
-                  Text('${detail.referenceDoctype} • ${detail.referenceName}',
+                  Text(
+                      '${persianDoctypeLabel(detail.referenceDoctype)} • ${detail.referenceName}',
                       textDirection: TextDirection.ltr,
                       style: const TextStyle(
                           fontSize: 9, color: AsoudColors.muted)),
@@ -231,7 +235,7 @@ class _ReferencedDocumentCard extends StatelessWidget {
                 children: [
                   Expanded(
                     flex: 2,
-                    child: Text(value.label,
+                    child: Text(persianDocumentFieldLabel(value.label),
                         style: const TextStyle(
                             fontSize: 10, color: AsoudColors.muted)),
                   ),
@@ -255,7 +259,7 @@ class _TaskTypeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final approval = detail.stageType == 'Approval';
+    final approval = detail.stageType == 'Approval' || detail.stageType == 'تأیید';
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -304,7 +308,7 @@ class _PreviousDataCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(section.title,
+          Text(persianWorkflowStageTitle(section.title),
               style:
                   const TextStyle(fontSize: 12, fontWeight: FontWeight.w900)),
           const Divider(height: 18),
@@ -314,7 +318,7 @@ class _PreviousDataCard extends StatelessWidget {
               child:
                   Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Expanded(
-                    child: Text(item.label,
+                    child: Text(persianDocumentFieldLabel(item.label),
                         style: const TextStyle(
                             fontSize: 10, color: AsoudColors.muted))),
                 const SizedBox(width: 10),

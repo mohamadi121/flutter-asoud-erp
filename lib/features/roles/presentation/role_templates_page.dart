@@ -125,7 +125,7 @@ class _RoleTemplatesState extends State<_RoleTemplates> {
                               ? 'قبلاً ایجاد شده'
                               : !template.available
                                   ? 'نقش پایه در سرور موجود یا فعال نیست'
-                                  : template.baseRoles.join(' + '),
+                                  : template.baseRoles.map(persianRoleLabel).join(' + '),
                           style: const TextStyle(fontSize: 11)),
                       value: _selected.contains(template.code),
                       onChanged:
