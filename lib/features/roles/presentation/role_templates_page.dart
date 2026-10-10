@@ -132,7 +132,7 @@ class _RoleTemplatesState extends State<_RoleTemplates> {
                       secondary: AsoudIconBox(
                           icon: _roleStyle(category.style).$1,
                           color: _roleStyle(category.style).$2),
-                      title: Text(template.title),
+                      title: Text(persianRoleLabel(template.title)),
                       subtitle: Text(
                           template.exists
                               ? 'قبلاً ایجاد شده'
@@ -173,7 +173,7 @@ class _RoleTemplatesState extends State<_RoleTemplates> {
                                   title: const Text('تأیید ایجاد نقش‌ها'),
                                   content: SingleChildScrollView(
                                       child: Text(
-                                          '${chosen.map((role) => role.title).join('، ')}\n\nهیچ کاربری به این نقش‌ها متصل نمی‌شود. تخصیص و محدودیت دفتر باید جداگانه تنظیم شوند.')),
+                                          '${chosen.map((role) => persianRoleLabel(role.title)).join('، ')}\n\nهیچ کاربری به این نقش‌ها متصل نمی‌شود. تخصیص و محدودیت دفتر باید جداگانه تنظیم شوند.')),
                                   actions: [
                                     TextButton(
                                         onPressed: () =>

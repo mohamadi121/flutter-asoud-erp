@@ -55,14 +55,16 @@ void main() {
       expect(persianLeaveTypeLabel('Sick Leave'), 'مرخصی استعلاجی');
     });
 
-    test('ERPNext role names map codes like HR_MANAGER to Persian title and keep unknown', () {
+    test('ERPNext role names map codes like HR_MANAGER to Persian title and humanize unknown', () {
       expect(persianRoleLabel('HR_MANAGER'), 'مدیر منابع انسانی');
       expect(persianRoleLabel('hr_manager'), 'مدیر منابع انسانی');
       expect(persianRoleLabel('SYSTEM_MANAGER'), 'مدیر سیستم');
       expect(persianRoleLabel('ACCOUNTS_MANAGER'), 'مدیر مالی');
       expect(persianRoleLabel('ACCOUNTS_USER'), 'کارشناس مالی');
       expect(persianRoleLabel('EMPLOYEE'), 'کارمند');
-      expect(persianRoleLabel('UNKNOWN_TEST_ROLE'), 'UNKNOWN_TEST_ROLE');
+      expect(persianRoleLabel('SYSTEM_ADMIN'), 'مدیر سیستم');
+      expect(persianRoleLabel('FIN_MGR'), 'مدیر مالی');
+      expect(persianRoleLabel('UNKNOWN_TEST_ROLE'), 'Unknown Test Role');
     });
 
     test('notification titles built by server in English translate with patterns', () {
