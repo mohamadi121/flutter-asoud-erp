@@ -84,10 +84,16 @@ class _PersonnelList extends StatelessWidget {
       child: BlocBuilder<PersonnelCubit, PersonnelState>(
           builder: (context, state) {
         final cubit = context.read<PersonnelCubit>();
-        return Scaffold(
+        return FutureBuilder<Capabilities>(
+            future: capabilitiesOf(context),
+            builder: (context, capsSnap) {
+              final caps = capsSnap.data ?? Capabilities.fromRoles(const []);
+              final canWritePersonnel = caps.canWritePersonnel && state.canEdit;
+              final canManageAccess = caps.canManageUserAccess && state.canEdit;
+              return Scaffold(
           backgroundColor: _canvas,
           appBar: _personnelHeader(context, 'پرسنل',
-              action: state.canEdit
+              action: canWritePersonnel
                   ? Padding(
                       padding: const EdgeInsets.all(9),
                       child: IconButton.filled(
@@ -118,7 +124,7 @@ class _PersonnelList extends StatelessWidget {
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
                   children: [
-                    if (state.canEdit)
+                    if (canWritePersonnel)
                       Align(
                           alignment: AlignmentDirectional.centerEnd,
                           child: TextButton.icon(
@@ -236,7 +242,7 @@ class _PersonnelList extends StatelessWidget {
                     for (final person in state.visible)
                       _PersonnelRow(
                           profile: person,
-                          canManage: state.canEdit,
+                          canManage: canManageAccess,
                           repository: cubit.repository,
                           onTap: () async {
                             await Navigator.push(
@@ -249,6 +255,7 @@ class _PersonnelList extends StatelessWidget {
                           }),
                   ])),
         );
+            });
       }));
 }
 

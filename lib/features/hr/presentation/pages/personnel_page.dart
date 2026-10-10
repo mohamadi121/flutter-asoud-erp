@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/auth/capabilities.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/network/frappe_client.dart';
 import '../../../../core/theme/asoud_colors.dart';
@@ -180,11 +181,13 @@ class _PersonnelDetailState extends State<PersonnelDetailPage> {
   String? _operationMessage;
   PersonnelFileRepository? _fileRepository;
   late Future<_PersonnelBundle> future;
+  late Future<Capabilities> _capabilities;
 
   @override
   void initState() {
     super.initState();
     _fileRepository = widget.fileRepository ?? _contextFileRepository();
+    _capabilities = capabilitiesOf(context);
     future = _load();
   }
 
@@ -207,7 +210,13 @@ class _PersonnelDetailState extends State<PersonnelDetailPage> {
       fileRepository: _fileRepository,
       detail: data,
     );
-    return _PersonnelBundle(data: data, file: file);
+    final capabilities = await _capabilities;
+    return _PersonnelBundle(
+      data: data,
+      file: file,
+      allowedEdit:
+          capabilities.canWritePersonnel && data['can_edit'] == true,
+    );
   }
 
   Future<void> _import(Map<String, dynamic> target) async {
@@ -316,7 +325,7 @@ class _PersonnelDetailState extends State<PersonnelDetailPage> {
               final data = bundle.data;
               final profile = Map<String, dynamic>.from(data['profile'] as Map);
               final records = (data['records'] as List).cast<Map>();
-              final canEdit = data['can_edit'] == true;
+              final canEdit = bundle.allowedEdit;
               return ListView(padding: const EdgeInsets.all(16), children: [
                 if (_importing) const LinearProgressIndicator(),
                 if (_operationMessage != null) Text(_operationMessage!),
@@ -406,7 +415,12 @@ class _PersonnelDetailState extends State<PersonnelDetailPage> {
 }
 
 class _PersonnelBundle {
-  const _PersonnelBundle({required this.data, required this.file});
+  const _PersonnelBundle(
+      {required this.data, required this.file, required this.allowedEdit});
   final Map<String, dynamic> data;
   final PersonnelFile? file;
+
+  /// Server edit flag combined with the presentation capability policy, so an
+  /// HR Manager keeps read access without edit or transfer controls.
+  final bool allowedEdit;
 }
