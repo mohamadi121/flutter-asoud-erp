@@ -5,6 +5,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:excel/excel.dart' hide Border;
 import 'package:file_picker/file_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/auth/access_denied.dart';
+import '../../../core/auth/capabilities.dart';
 import '../../../core/network/asoud_api_response.dart';
 import '../../../core/network/frappe_client.dart';
 import '../../../core/theme/asoud_colors.dart';
@@ -24,13 +26,28 @@ class RolesPage extends StatelessWidget {
   const RolesPage({this.repository, super.key});
   final RoleRepository? repository;
   @override
-  Widget build(BuildContext context) => BlocProvider(
-        create: (_) => RoleCubit(
-            repository ?? RoleRepository(context.read<FrappeApiClient>()))
-          ..load(),
-        child: const Directionality(
-            textDirection: TextDirection.rtl,
-            child: _RoleSessionGuard(child: _RoleSetupView())),
+  Widget build(BuildContext context) => FutureBuilder<Capabilities>(
+        future: capabilitiesOf(context),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return const Scaffold(
+                body: Center(child: CircularProgressIndicator()));
+          }
+          final capabilities = snapshot.data!;
+          if (!capabilities.canReadRoleCatalog) {
+            return const AccessDeniedScaffold();
+          }
+          return BlocProvider(
+            create: (_) => RoleCubit(
+                repository ?? RoleRepository(context.read<FrappeApiClient>()))
+              ..load(),
+            child: Directionality(
+                textDirection: TextDirection.rtl,
+                child: _RoleSessionGuard(
+                    child:
+                        _RoleSetupView(canManage: capabilities.canManageRoles))),
+          );
+        },
       );
 }
 
@@ -70,7 +87,8 @@ class _RoleSessionGuard extends StatelessWidget {
     };
 
 class _RolesView extends StatefulWidget {
-  const _RolesView();
+  const _RolesView({this.canManage = true});
+  final bool canManage;
   @override
   State<_RolesView> createState() => _RolesViewState();
 }
@@ -96,50 +114,52 @@ class _RolesViewState extends State<_RolesView> {
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
               children: [
                 const _RoleStatus(),
-                FilledButton.icon(
-                    onPressed: !enabled
-                        ? null
-                        : () async {
-                            if (state.catalog.categories.isEmpty) {
-                              final created = await _roleRoute<bool>(
-                                  context, const _CategoryForm());
-                              if (created == true && context.mounted) {
-                                final latest = context.read<RoleCubit>().state;
-                                if (latest.loaded &&
-                                    latest.catalog.categories.isNotEmpty) {
-                                  _roleRoute<bool>(
-                                      context,
-                                      _RoleForm(
-                                          category: latest
-                                              .catalog.categories.last.code));
+                if (widget.canManage)
+                  FilledButton.icon(
+                      onPressed: !enabled
+                          ? null
+                          : () async {
+                              if (state.catalog.categories.isEmpty) {
+                                final created = await _roleRoute<bool>(
+                                    context, const _CategoryForm());
+                                if (created == true && context.mounted) {
+                                  final latest = context.read<RoleCubit>().state;
+                                  if (latest.loaded &&
+                                      latest.catalog.categories.isNotEmpty) {
+                                    _roleRoute<bool>(
+                                        context,
+                                        _RoleForm(
+                                            category: latest
+                                                .catalog.categories.last.code));
+                                  }
                                 }
+                              } else {
+                                _roleRoute<bool>(context, const _RoleForm());
                               }
-                            } else {
-                              _roleRoute<bool>(context, const _RoleForm());
-                            }
-                          },
-                    icon: const Icon(Icons.add),
-                    label: const Text('ایجاد نقش')),
-                const SizedBox(height: 10),
-                Row(children: [
-                  Expanded(
-                      child: OutlinedButton.icon(
-                          onPressed: enabled
-                              ? () => _roleRoute<bool>(
-                                  context, const _RoleTemplates())
-                              : null,
-                          icon: const Icon(Icons.auto_awesome_outlined),
-                          label: const Text('الگوهای موجود'))),
-                  const SizedBox(width: 10),
-                  Expanded(
-                      child: OutlinedButton.icon(
-                          onPressed: enabled
-                              ? () => _roleRoute<bool>(
-                                  context, const _CategoryForm())
-                              : null,
-                          icon: const Icon(Icons.create_new_folder_outlined),
-                          label: const Text('ایجاد دسته'))),
-                ]),
+                            },
+                      icon: const Icon(Icons.add),
+                      label: const Text('ایجاد نقش')),
+                if (widget.canManage) const SizedBox(height: 10),
+                if (widget.canManage)
+                  Row(children: [
+                    Expanded(
+                        child: OutlinedButton.icon(
+                            onPressed: enabled
+                                ? () => _roleRoute<bool>(
+                                    context, const _RoleTemplates())
+                                : null,
+                            icon: const Icon(Icons.auto_awesome_outlined),
+                            label: const Text('الگوهای موجود'))),
+                    const SizedBox(width: 10),
+                    Expanded(
+                        child: OutlinedButton.icon(
+                            onPressed: enabled
+                                ? () => _roleRoute<bool>(
+                                    context, const _CategoryForm())
+                                : null,
+                            icon: const Icon(Icons.create_new_folder_outlined),
+                            label: const Text('ایجاد دسته'))),
+                  ]),
                 const SizedBox(height: 12),
                 TextField(
                     onChanged: (value) => setState(() => _query = value.trim()),
@@ -200,13 +220,14 @@ class _RolesViewState extends State<_RolesView> {
           if (open) ...[
             for (final node in _tree(visible))
               _roleRow(node.$1, node.$2, enabled, visible),
-            TextButton.icon(
-                onPressed: enabled
-                    ? () => _roleRoute<bool>(
-                        context, _RoleForm(category: category.code))
-                    : null,
-                icon: const Icon(Icons.add),
-                label: const Text('افزودن نقش به این دسته')),
+            if (widget.canManage)
+              TextButton.icon(
+                  onPressed: enabled
+                      ? () => _roleRoute<bool>(
+                          context, _RoleForm(category: category.code))
+                      : null,
+                  icon: const Icon(Icons.add),
+                  label: const Text('افزودن نقش به این دسته')),
           ],
         ]));
   }
@@ -267,9 +288,10 @@ class _RolesViewState extends State<_RolesView> {
               Icon(_expanded.contains('role:${role.code}')
                   ? Icons.expand_less
                   : Icons.expand_more),
-            PopupMenuButton<String>(
-                enabled: enabled,
-                tooltip: 'عملیات نقش',
+            if (widget.canManage)
+              PopupMenuButton<String>(
+                  enabled: enabled,
+                  tooltip: 'عملیات نقش',
                 itemBuilder: (_) => [
                       const PopupMenuItem(
                           value: 'child', child: Text('افزودن زیرمجموعه')),
@@ -303,7 +325,7 @@ class _RolesViewState extends State<_RolesView> {
                 _expanded.remove('role:${role.code}');
               }
             });
-            if (!hasChildren && enabled) {
+            if (!hasChildren && enabled && widget.canManage) {
               _roleRoute<bool>(context, _RoleForm(role: role));
             }
           },

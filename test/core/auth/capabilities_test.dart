@@ -23,6 +23,17 @@ void main() {
       expect(capabilities.canSeeSettingsAdmin, isTrue);
     });
 
+    test('the server Administrator role alone grants every capability', () {
+      final capabilities = Capabilities.fromRoles(const ['Administrator']);
+
+      expect(capabilities.canManageWorkflows, isTrue);
+      expect(capabilities.canManageRoles, isTrue);
+      expect(capabilities.canWritePersonnel, isTrue);
+      expect(capabilities.canSeeSettingsAdmin, isTrue);
+      expect(capabilities.canReadRoleCatalog, isTrue);
+      expect(capabilities.canReadOrganization, isTrue);
+    });
+
     test('HR Manager demo roles retain no administrative write capability', () {
       final capabilities =
           Capabilities.fromRoles(const ['HR Manager', 'Employee']);
@@ -37,6 +48,9 @@ void main() {
       expect(capabilities.canWriteHrRecords, isFalse);
       expect(capabilities.canSeeAccounting, isFalse);
       expect(capabilities.canSeeSettingsAdmin, isFalse);
+      expect(capabilities.canReadManagerViews, isTrue);
+      expect(capabilities.canReadRoleCatalog, isTrue);
+      expect(capabilities.canReadOrganization, isTrue);
     });
 
     test('Employee-only demo roles receive no manager capability', () {
@@ -52,6 +66,9 @@ void main() {
       expect(capabilities.canWriteHrRecords, isFalse);
       expect(capabilities.canSeeAccounting, isFalse);
       expect(capabilities.canSeeSettingsAdmin, isFalse);
+      expect(capabilities.canReadManagerViews, isFalse);
+      expect(capabilities.canReadRoleCatalog, isFalse);
+      expect(capabilities.canReadOrganization, isFalse);
     });
 
     test('offline preview keeps every capability visible', () {

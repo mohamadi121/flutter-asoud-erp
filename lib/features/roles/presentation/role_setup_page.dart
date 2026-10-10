@@ -1,7 +1,10 @@
 part of 'roles_page.dart';
 
 class _RoleSetupView extends StatelessWidget {
-  const _RoleSetupView();
+  const _RoleSetupView({this.canManage = true});
+
+  /// Read-only roles (HR Manager) keep the catalog but no write entry point.
+  final bool canManage;
 
   Widget _choice(BuildContext context, String title, IconData icon, Color color,
           Widget page, bool enabled) =>
@@ -42,48 +45,52 @@ class _RoleSetupView extends StatelessWidget {
                                   fontWeight: FontWeight.w800))),
                     ]))),
             const SizedBox(height: 12),
-            Card(
-                child: ListTile(
-                    enabled: enabled,
-                    leading: const AsoudIconBox(
-                        icon: Icons.auto_awesome_outlined,
-                        color: AsoudColors.primary),
-                    title: const Text('استفاده از قالب آماده'),
-                    trailing: const Chip(label: Text('پیشنهادی')),
-                    onTap: () =>
-                        _roleRoute<bool>(context, const _RoleTemplates()))),
-            const SizedBox(height: 12),
-            Row(children: [
-              Expanded(
-                  child: _choice(
-                      context,
-                      'ایجاد دسته',
-                      Icons.create_new_folder_outlined,
-                      AsoudColors.success,
-                      const _CategoryForm(),
-                      enabled)),
-              Expanded(
-                  child: _choice(
-                      context,
-                      'ورود از اکسل',
-                      Icons.upload_file_outlined,
-                      AsoudColors.warning,
-                      const _RoleExcelPage(),
-                      enabled)),
-            ]),
-            _choice(
-                context,
-                'ایجاد نقش دستی',
-                Icons.add,
-                AsoudColors.primary,
-                const _RoleForm(),
-                enabled && state.catalog.categories.isNotEmpty),
+            if (canManage)
+              Card(
+                  child: ListTile(
+                      enabled: enabled,
+                      leading: const AsoudIconBox(
+                          icon: Icons.auto_awesome_outlined,
+                          color: AsoudColors.primary),
+                      title: const Text('استفاده از قالب آماده'),
+                      trailing: const Chip(label: Text('پیشنهادی')),
+                      onTap: () =>
+                          _roleRoute<bool>(context, const _RoleTemplates()))),
+            if (canManage) const SizedBox(height: 12),
+            if (canManage)
+              Row(children: [
+                Expanded(
+                    child: _choice(
+                        context,
+                        'ایجاد دسته',
+                        Icons.create_new_folder_outlined,
+                        AsoudColors.success,
+                        const _CategoryForm(),
+                        enabled)),
+                Expanded(
+                    child: _choice(
+                        context,
+                        'ورود از اکسل',
+                        Icons.upload_file_outlined,
+                        AsoudColors.warning,
+                        const _RoleExcelPage(),
+                        enabled)),
+              ]),
+            if (canManage)
+              _choice(
+                  context,
+                  'ایجاد نقش دستی',
+                  Icons.add,
+                  AsoudColors.primary,
+                  const _RoleForm(),
+                  enabled && state.catalog.categories.isNotEmpty),
           ]),
           bottomNavigationBar: SafeArea(
               minimum: const EdgeInsets.all(16),
               child: FilledButton(
                   onPressed: enabled
-                      ? () => _roleRoute<void>(context, const _RolesView())
+                      ? () => _roleRoute<void>(
+                          context, _RolesView(canManage: canManage))
                       : null,
                   child: const Text('مشاهده و تکمیل نقش‌ها'))),
         );

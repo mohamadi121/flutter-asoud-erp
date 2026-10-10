@@ -21,7 +21,11 @@ List<OrgPosition> _sortedPositions(Iterable<OrgPosition> rows) => rows.toList()
   });
 
 class _OrganizationChart extends StatefulWidget {
-  const _OrganizationChart();
+  const _OrganizationChart({this.canManage = true});
+
+  /// Read-only managers keep browsing positions without edit actions.
+  final bool canManage;
+
   @override
   State<_OrganizationChart> createState() => _OrganizationChartState();
 }
@@ -104,7 +108,7 @@ class _OrganizationChartState extends State<_OrganizationChart> {
                                 style: const TextStyle(
                                     fontWeight: FontWeight.w800))),
                       ]),
-                      if (parent != null)
+                      if (parent != null && widget.canManage)
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 10),
                           child: FilledButton.icon(
@@ -144,7 +148,8 @@ class _OrganizationChartState extends State<_OrganizationChart> {
                                         style: const TextStyle(
                                             fontSize: 16,
                                             fontWeight: FontWeight.w700))),
-                                _OrganizationMenu(position: row),
+                                if (widget.canManage)
+                                      _OrganizationMenu(position: row),
                               ])),
                           onTap: () => setState(() {
                             _path.add(row.code);
@@ -152,7 +157,9 @@ class _OrganizationChartState extends State<_OrganizationChart> {
                           }),
                         )),
                     ] else
-                      _OrganizationTree(rows: rows, query: _query),
+                      _OrganizationTree(rows: rows,
+                          query: _query,
+                          canManage: widget.canManage),
                   ]);
             },
           )),
@@ -186,11 +193,13 @@ class _OrganizationTree extends StatefulWidget {
       {required this.rows,
       this.query = '',
       this.preview = false,
-      this.knownRows});
+      this.knownRows,
+      this.canManage = true});
   final List<OrgPosition> rows;
   final List<OrgPosition>? knownRows;
   final String query;
   final bool preview;
+  final bool canManage;
   @override
   State<_OrganizationTree> createState() => _OrganizationTreeState();
 }
@@ -285,7 +294,8 @@ class _OrganizationTreeState extends State<_OrganizationTree> {
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                               fontSize: 16, fontWeight: FontWeight.w700))),
-                  if (!widget.preview) _OrganizationMenu(position: row),
+                  if (!widget.preview && widget.canManage)
+                    _OrganizationMenu(position: row),
                 ])),
           ),
         ));

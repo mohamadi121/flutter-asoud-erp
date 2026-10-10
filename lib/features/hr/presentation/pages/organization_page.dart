@@ -3,6 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:excel/excel.dart' as xls;
 
+import '../../../../core/auth/access_denied.dart';
+import '../../../../core/auth/capabilities.dart';
 import '../../../../core/network/frappe_client.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/widgets/asoud_ui.dart';
@@ -20,15 +22,30 @@ class OrganizationPage extends StatelessWidget {
   final OrganizationRepository? repository;
 
   @override
-  Widget build(BuildContext context) => BlocProvider(
-        create: (_) => OrganizationCubit(
-            repository ??
-                OrganizationRepository(context.read<FrappeApiClient>()),
-            company)
-          ..load(),
-        child: const Directionality(
-            textDirection: TextDirection.rtl,
-            child: _OrganizationSessionGuard(child: _OrganizationSetup())),
+  Widget build(BuildContext context) => FutureBuilder<Capabilities>(
+        future: capabilitiesOf(context),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return const Scaffold(
+                body: Center(child: CircularProgressIndicator()));
+          }
+          final capabilities = snapshot.data!;
+          if (!capabilities.canReadOrganization) {
+            return const AccessDeniedScaffold();
+          }
+          return BlocProvider(
+            create: (_) => OrganizationCubit(
+                repository ??
+                    OrganizationRepository(context.read<FrappeApiClient>()),
+                company)
+              ..load(),
+            child: Directionality(
+                textDirection: TextDirection.rtl,
+                child: _OrganizationSessionGuard(
+                    child: _OrganizationSetup(
+                        canManage: capabilities.canManageOrganization))),
+          );
+        },
       );
 }
 
@@ -66,7 +83,10 @@ void _orgMessage(BuildContext context, String message) =>
         .showSnackBar(SnackBar(content: Text(message)));
 
 class _OrganizationSetup extends StatelessWidget {
-  const _OrganizationSetup();
+  const _OrganizationSetup({this.canManage = true});
+
+  /// Read-only roles (HR Manager) keep the chart but no create/import entry.
+  final bool canManage;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -86,72 +106,74 @@ class _OrganizationSetup extends StatelessWidget {
                 text:
                     'جایگاه‌های موجود را مدیریت کنید یا روش ایجاد را انتخاب کنید.',
               ),
-              const SizedBox(height: 18),
-              Card(
-                  child: InkWell(
-                borderRadius: BorderRadius.circular(14),
-                onTap: state.busy
-                    ? null
-                    : () => _openOrganizationPage<void>(
-                        context, const _OrganizationTemplates()),
-                child: const Padding(
-                  padding: EdgeInsets.all(14),
-                  child: Row(children: [
-                    AsoudIconBox(
-                        icon: Icons.check_rounded,
-                        color: AsoudColors.primary,
-                        size: 38),
-                    SizedBox(width: 10),
-                    Expanded(
-                        child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('استفاده از قالب آماده',
-                            style: TextStyle(fontWeight: FontWeight.w900)),
-                        SizedBox(height: 4),
-                        Text(
-                            'قالب‌های بازرگانی، تولیدی، خدماتی، پیمانکاری و فناوری',
-                            style: TextStyle(
-                                fontSize: 10, color: AsoudColors.muted)),
-                      ],
-                    )),
-                    SizedBox(width: 6),
-                    Icon(Icons.chevron_left_rounded,
-                        color: AsoudColors.primary),
-                  ]),
-                ),
-              )),
-              const SizedBox(height: 12),
-              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Expanded(
-                    child: _OrgChoice(
-                  icon: Icons.add_rounded,
-                  color: AsoudColors.success,
-                  title: 'ایجاد ساختار دستی',
-                  subtitle: 'تعریف جایگاه اصلی و تکمیل زیرمجموعه‌ها',
-                  action: 'افزودن جایگاه اصلی',
+              if (canManage) const SizedBox(height: 18),
+              if (canManage)
+                Card(
+                    child: InkWell(
+                  borderRadius: BorderRadius.circular(14),
                   onTap: state.busy
                       ? null
-                      : () async {
-                          final saved = await _openOrganizationPage<bool>(
-                              context, const _OrganizationPositionForm());
-                          if (saved == true && context.mounted) {
-                            _openOrganizationPage<void>(
-                                context, const _OrganizationChart());
-                          }
-                        },
+                      : () => _openOrganizationPage<void>(
+                          context, const _OrganizationTemplates()),
+                  child: const Padding(
+                    padding: EdgeInsets.all(14),
+                    child: Row(children: [
+                      AsoudIconBox(
+                          icon: Icons.check_rounded,
+                          color: AsoudColors.primary,
+                          size: 38),
+                      SizedBox(width: 10),
+                      Expanded(
+                          child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('استفاده از قالب آماده',
+                              style: TextStyle(fontWeight: FontWeight.w900)),
+                          SizedBox(height: 4),
+                          Text(
+                              'قالب‌های بازرگانی، تولیدی، خدماتی، پیمانکاری و فناوری',
+                              style: TextStyle(
+                                  fontSize: 10, color: AsoudColors.muted)),
+                        ],
+                      )),
+                      SizedBox(width: 6),
+                      Icon(Icons.chevron_left_rounded,
+                          color: AsoudColors.primary),
+                    ]),
+                  ),
                 )),
-                const SizedBox(width: 10),
-                Expanded(
-                    child: _OrgChoice(
-                  icon: Icons.upload_file_rounded,
-                  color: AsoudColors.warning,
-                  title: 'ورود از اکسل',
-                  subtitle: 'ساختار سازمانی را از فایل اکسل وارد کنید',
-                  action: 'انتخاب فایل اکسل',
-                  onTap: state.busy ? null : () => _importExcel(context),
-                )),
-              ]),
+              if (canManage) const SizedBox(height: 12),
+              if (canManage)
+                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Expanded(
+                      child: _OrgChoice(
+                    icon: Icons.add_rounded,
+                    color: AsoudColors.success,
+                    title: 'ایجاد ساختار دستی',
+                    subtitle: 'تعریف جایگاه اصلی و تکمیل زیرمجموعه‌ها',
+                    action: 'افزودن جایگاه اصلی',
+                    onTap: state.busy
+                        ? null
+                        : () async {
+                            final saved = await _openOrganizationPage<bool>(
+                                context, const _OrganizationPositionForm());
+                            if (saved == true && context.mounted) {
+                              _openOrganizationPage<void>(
+                                  context, const _OrganizationChart());
+                            }
+                          },
+                  )),
+                  const SizedBox(width: 10),
+                  Expanded(
+                      child: _OrgChoice(
+                    icon: Icons.upload_file_rounded,
+                    color: AsoudColors.warning,
+                    title: 'ورود از اکسل',
+                    subtitle: 'ساختار سازمانی را از فایل اکسل وارد کنید',
+                    action: 'انتخاب فایل اکسل',
+                    onTap: state.busy ? null : () => _importExcel(context),
+                  )),
+                ]),
               const SizedBox(height: 28),
               const _OrgNotice(
                 icon: Icons.visibility_outlined,
@@ -166,7 +188,7 @@ class _OrganizationSetup extends StatelessWidget {
           minimum: const EdgeInsets.all(16),
           child: FilledButton(
             onPressed: () => _openOrganizationPage<void>(
-                context, const _OrganizationChart()),
+                context, _OrganizationChart(canManage: canManage)),
             child: const Text('مشاهده و تکمیل ساختار سازمانی'),
           ),
         ),
