@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/persian_format.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../../core/widgets/states.dart';
 import '../../domain/entities/detail_group.dart';
@@ -261,7 +262,7 @@ class _GroupsGrid extends StatelessWidget {
                       color: color.withValues(alpha: .12),
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: Text(item.code,
+                    child: Text(toPersianDigits(item.code),
                         style: TextStyle(fontSize: 8, color: color)),
                   ),
                 ]),

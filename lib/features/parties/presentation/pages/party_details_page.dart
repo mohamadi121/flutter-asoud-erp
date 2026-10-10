@@ -124,9 +124,13 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
                 },
                 expanded: true),
             _section('راه‌های ارتباطی', Icons.call_outlined, {
-              'موبایل': profile.mobile,
-              'تلفن': profile.phone,
-              'تلفن دیگر': profile.secondaryPhone,
+              'موبایل': profile.mobile == null
+                  ? null
+                  : toPersianDigits(profile.mobile!),
+              'تلفن': profile.phone == null ? null : toPersianDigits(profile.phone!),
+              'تلفن دیگر': profile.secondaryPhone == null
+                  ? null
+                  : toPersianDigits(profile.secondaryPhone!),
               'ایمیل': profile.email,
               'وب‌سایت': profile.website,
             }),

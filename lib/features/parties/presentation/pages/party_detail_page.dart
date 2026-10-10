@@ -603,7 +603,10 @@ class _ValueRow extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
                 flex: 3,
-                child: Text(value,
+                child: Text(
+                    action == _ValueAction.phone
+                        ? toPersianDigits(value)
+                        : value,
                     textAlign: TextAlign.left,
                     style: const TextStyle(
                         fontSize: 14, fontWeight: FontWeight.w700))),

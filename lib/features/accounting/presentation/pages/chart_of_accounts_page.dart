@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/persian_format.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../../core/widgets/states.dart';
 import '../../domain/entities/account_node.dart';
@@ -173,7 +174,7 @@ class _ChartOfAccountsViewState extends State<_ChartOfAccountsView> {
                           subtitle: Text(_levelTitle(account.level)),
                           trailing:
                               Row(mainAxisSize: MainAxisSize.min, children: [
-                            Text(account.code,
+                            Text(toPersianDigits(account.code),
                                 textDirection: TextDirection.ltr,
                                 style: const TextStyle(
                                     fontSize: 16, fontWeight: FontWeight.w700)),
@@ -350,7 +351,7 @@ class _AccountTile extends StatelessWidget {
             title: Text(account.title,
                 style: const TextStyle(fontWeight: FontWeight.w700)),
             trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-              Text(account.code,
+              Text(toPersianDigits(account.code),
                   textDirection: TextDirection.ltr,
                   style: const TextStyle(
                       fontSize: 16,
@@ -384,12 +385,12 @@ class _AccountTile extends StatelessWidget {
                   color: color),
               title: Text(account.title),
               trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                Text(account.code,
-                    textDirection: TextDirection.ltr,
-                    style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: AsoudColors.muted)),
+                Text(toPersianDigits(account.code),
+                  textDirection: TextDirection.ltr,
+                  style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: AsoudColors.muted)),
                 _AccountMenu(
                     account: account, company: company, repository: repository),
               ]),

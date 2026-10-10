@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/persian_format.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../domain/entities/account_node.dart';
 import '../../domain/entities/detail_group.dart';
@@ -147,7 +148,7 @@ class _AccountFormViewState extends State<_AccountFormView> {
                                     .map((item) => DropdownMenuItem(
                                           value: item.id,
                                           child: Text(
-                                              '${item.code}  ${item.title}'),
+                                              '${toPersianDigits(item.code)}  ${item.title}'),
                                         ))
                                     .toList(),
                                 onChanged:
@@ -427,7 +428,7 @@ class _DetailGroupChoice extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                         fontSize: 12, fontWeight: FontWeight.w800)),
-                Text(group.code,
+                Text(toPersianDigits(group.code),
                     textDirection: TextDirection.ltr,
                     style: TextStyle(fontSize: 11, color: color)),
               ],

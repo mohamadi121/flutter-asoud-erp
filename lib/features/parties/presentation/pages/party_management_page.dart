@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/persian_format.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../../core/widgets/states.dart';
 import '../../domain/entities/party_profile.dart';
@@ -248,7 +249,7 @@ class _PartyCard extends StatelessWidget {
           subtitle: Text([
             if (profile.roles.isNotEmpty)
               profile.roles.map(_roleTitle).join('، '),
-            if (profile.mobile?.isNotEmpty == true) profile.mobile!,
+            if (profile.mobile?.isNotEmpty == true) toPersianDigits(profile.mobile!),
           ].join(' • ')),
           trailing: Column(mainAxisSize: MainAxisSize.min, children: [
             Text(profile.disabled ? 'غیرفعال' : 'فعال',
