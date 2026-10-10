@@ -120,7 +120,10 @@ class _OrganizationChartState extends State<_OrganizationChart> {
                             label: const Text('افزودن زیرمجموعه'),
                           ),
                         ),
-                      if (children.isEmpty) const _OrgEmpty(),
+                      if (children.isEmpty)
+                        _OrgEmpty(
+                            query: _query,
+                            onClear: () => setState(() => _query = '')),
                       for (final row in children)
                         Card(
                             child: ListTile(
@@ -159,7 +162,8 @@ class _OrganizationChartState extends State<_OrganizationChart> {
                     ] else
                       _OrganizationTree(rows: rows,
                           query: _query,
-                          canManage: widget.canManage),
+                          canManage: widget.canManage,
+                          onClearSearch: () => setState(() => _query = '')),
                   ]);
             },
           )),
@@ -168,24 +172,24 @@ class _OrganizationChartState extends State<_OrganizationChart> {
 }
 
 class _OrgEmpty extends StatelessWidget {
-  const _OrgEmpty();
+  const _OrgEmpty({this.query = '', this.onClear});
+  final String query;
+  final VoidCallback? onClear;
   @override
-  Widget build(BuildContext context) => const Padding(
-        padding: EdgeInsets.symmetric(vertical: 28),
-        child: Column(children: [
-          AsoudIconBox(
-              icon: Icons.account_tree_outlined,
-              color: AsoudColors.primary,
-              size: 48),
-          SizedBox(height: 12),
-          Text('جایگاهی برای نمایش وجود ندارد.', textAlign: TextAlign.center),
-          SizedBox(height: 6),
-          Text(
+  Widget build(BuildContext context) => query.trim().isNotEmpty
+      ? EmptyState(
+          icon: Icons.search_off_rounded,
+          title: 'نتیجه‌ای پیدا نشد',
+          description: 'برای «$query» جایگاهی مطابقت نداشت.',
+          primaryActionLabel: 'پاک‌کردن جستجو',
+          onPrimaryAction: onClear,
+        )
+      : const EmptyState(
+          icon: Icons.account_tree_outlined,
+          title: 'جایگاهی برای نمایش وجود ندارد',
+          description:
               'برای جایگاه اصلی از صفحه مدیریت و برای زیرمجموعه از منوی جایگاه استفاده کنید.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 11, color: AsoudColors.muted)),
-        ]),
-      );
+        );
 }
 
 class _OrganizationTree extends StatefulWidget {
@@ -194,12 +198,14 @@ class _OrganizationTree extends StatefulWidget {
       this.query = '',
       this.preview = false,
       this.knownRows,
-      this.canManage = true});
+      this.canManage = true,
+      this.onClearSearch});
   final List<OrgPosition> rows;
   final List<OrgPosition>? knownRows;
   final String query;
   final bool preview;
   final bool canManage;
+  final VoidCallback? onClearSearch;
   @override
   State<_OrganizationTree> createState() => _OrganizationTreeState();
 }
@@ -307,7 +313,9 @@ class _OrganizationTreeState extends State<_OrganizationTree> {
         widget.rows.where(
             (row) => row.parent.isEmpty || !byCode.containsKey(row.parent)),
         0);
-    if (widgets.isEmpty) return const _OrgEmpty();
+    if (widgets.isEmpty) {
+      return _OrgEmpty(query: widget.query, onClear: widget.onClearSearch);
+    }
     return Card(
       elevation: 0,
       color: Colors.white,

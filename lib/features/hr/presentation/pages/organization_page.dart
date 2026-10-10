@@ -9,6 +9,7 @@ import '../../../../core/network/frappe_client.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/persian_format.dart';
 import '../../../../core/widgets/asoud_ui.dart';
+import '../../../../core/widgets/states.dart';
 import '../../data/organization_repository.dart';
 import '../../domain/organization_chart.dart';
 import '../../domain/organization_templates.dart';
@@ -286,16 +287,11 @@ class _OrganizationStatus extends StatelessWidget {
             const Padding(
                 padding: EdgeInsets.only(bottom: 12),
                 child: LinearProgressIndicator()),
-          if (state.error != null) ...[
-            _OrgNotice(
-                icon: Icons.error_outline,
-                color: Theme.of(context).colorScheme.error,
-                text: state.error!),
-            TextButton(
-                onPressed:
-                    state.busy ? null : context.read<OrganizationCubit>().load,
-                child: const Text('بازخوانی اطلاعات')),
-          ],
+          if (state.error != null)
+            ErrorState(
+                failure: state.error!,
+                onRetry:
+                    state.busy ? null : context.read<OrganizationCubit>().load),
           if (state.snapshot.pending) ...[
             const _OrgNotice(
                 icon: Icons.cloud_off_outlined,
