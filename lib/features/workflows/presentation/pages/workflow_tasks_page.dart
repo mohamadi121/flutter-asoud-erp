@@ -170,8 +170,10 @@ class _SentInstances extends StatelessWidget {
       );
 }
 
-class _InstanceCard extends StatelessWidget {
-  const _InstanceCard({required this.item});
+typedef _InstanceCard = WorkflowInstanceSummaryCard;
+
+class WorkflowInstanceSummaryCard extends StatelessWidget {
+  const WorkflowInstanceSummaryCard({required this.item, super.key});
   final WorkflowInstanceSummary item;
 
   @override
@@ -205,9 +207,16 @@ class _InstanceCard extends StatelessWidget {
               Text(
                   'مرحله فعلی: ${item.currentStageTitle.isEmpty ? 'پایان‌یافته' : persianWorkflowStageTitle(item.currentStageTitle)}',
                   style: const TextStyle(fontSize: 10)),
-              Text(
-                'مسئول فعلی: ${item.currentAssignees.isEmpty ? 'بدون مسئول باز' : item.currentAssignees.map(persianRoleLabel).join('، ')}',
-                style: const TextStyle(fontSize: 9, color: AsoudColors.muted),
+              Tooltip(
+                message:
+                  'مسئول فعلی: ${item.currentAssignees.isEmpty ? 'بدون مسئول باز' : item.currentAssignees.map((a) => a.contains('@') ? '${String.fromCharCode(0x2066)}$a${String.fromCharCode(0x2069)}' : persianRoleLabel(a)).join('، ')}',
+                child: Text(
+                  'مسئول فعلی: ${item.currentAssignees.isEmpty ? 'بدون مسئول باز' : item.currentAssignees.map((a) => a.contains('@') ? '${String.fromCharCode(0x2066)}$a${String.fromCharCode(0x2069)}' : persianRoleLabel(a)).join('، ')}',
+                  softWrap: true,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 9, color: AsoudColors.muted),
+                ),
               ),
             ]),
           ),

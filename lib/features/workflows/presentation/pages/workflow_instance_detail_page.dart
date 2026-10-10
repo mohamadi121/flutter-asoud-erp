@@ -49,8 +49,10 @@ class WorkflowInstanceDetailPage extends StatelessWidget {
       );
 }
 
-class _InstanceStatusCard extends StatelessWidget {
-  const _InstanceStatusCard({required this.item});
+typedef _InstanceStatusCard = WorkflowInstanceOverviewCard;
+
+class WorkflowInstanceOverviewCard extends StatelessWidget {
+  const WorkflowInstanceOverviewCard({required this.item, super.key});
   final WorkflowInstanceSummary item;
   @override
   Widget build(BuildContext context) => Container(
@@ -75,7 +77,11 @@ class _InstanceStatusCard extends StatelessWidget {
               'مسئول فعلی',
               item.currentAssignees.isEmpty
                   ? 'بدون مسئول باز'
-                  : item.currentAssignees.join('، ')),
+                  : item.currentAssignees
+                      .map((a) => a.contains('@')
+                          ? '${String.fromCharCode(0x2066)}$a${String.fromCharCode(0x2069)}'
+                          : a)
+                      .join('، ')),
           if (item.referenceName.isNotEmpty)
             _row('سند مرتبط',
                 '${item.referenceDoctype} • ${item.referenceName}'),
@@ -85,15 +91,27 @@ class _InstanceStatusCard extends StatelessWidget {
   Widget _row(String label, String value) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 5),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          SizedBox(
-            width: 88,
-            child: Text(label,
-                style: const TextStyle(fontSize: 10, color: AsoudColors.muted)),
-          ),
           Expanded(
-            child: Text(value,
-                style:
-                    const TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
+            flex: 2,
+            child: Tooltip(
+              message: label,
+              child: Text(label,
+                  softWrap: true,
+                  style: const TextStyle(fontSize: 10, color: AsoudColors.muted)),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            flex: 5,
+            child: Tooltip(
+              message: value,
+              child: Text(value,
+                  softWrap: true,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style:
+                      const TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
+            ),
           ),
         ]),
       );

@@ -576,7 +576,7 @@ class _BaseAccountingSetupView extends StatelessWidget {
       body: SafeArea(child: BlocBuilder<BaseSetupCubit, BaseSetupState>(
           builder: (context, state) {
         return ListView(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
             children: [
               if (offlinePreview) ...[
                 const _OfflineSetupBanner(),
