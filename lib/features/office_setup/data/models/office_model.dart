@@ -1,4 +1,5 @@
 import '../../../../core/utils/jalali_date.dart';
+import '../../../../core/utils/persian_server_values.dart';
 import '../../domain/entities/office.dart';
 
 class OfficeModel extends Office {
@@ -116,13 +117,11 @@ class OfficeModel extends Office {
         rolesSaved: json['roles_saved'] == true || json['roles_saved'] == 1,
       );
 
-  static String? _chartTemplateToPersian(String? value) => switch (value) {
-        'Iran Standard' || 'استاندارد ایران' => 'استاندارد ایران',
-        'Service' || 'خدماتی' => 'خدماتی',
-        'Commercial' || 'بازرگانی' => 'بازرگانی',
-        'Manufacturing' || 'تولیدی' => 'تولیدی',
-        _ => value,
-      };
+  static String? _chartTemplateToPersian(String? value) {
+    if (value == null) return null;
+    final label = persianChartTemplateLabel(value);
+    return label.isEmpty ? null : label;
+  }
 
   static String? _provinceToPersian(String? value) => switch (value) {
         'Tehran' => 'تهران',

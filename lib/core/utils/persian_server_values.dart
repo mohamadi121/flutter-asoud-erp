@@ -130,6 +130,32 @@ String persianLeaveTypeLabel(String? type) {
   return trimmed;
 }
 
+/// The server stores chart templates as `Iran Standard`, `Service`,
+/// `Commercial` and `Manufacturing`; the app always shows the Persian name.
+const erpNextChartTemplateLabels = <String, String>{
+  'Iran Standard': 'استاندارد ایران',
+  'استاندارد ایران': 'استاندارد ایران',
+  'Service': 'خدماتی',
+  'خدماتی': 'خدماتی',
+  'Commercial': 'بازرگانی',
+  'بازرگانی': 'بازرگانی',
+  'Manufacturing': 'تولیدی',
+  'تولیدی': 'تولیدی',
+};
+
+String persianChartTemplateLabel(String? value) {
+  if (value == null || value.trim().isEmpty) return '';
+  final trimmed = value.trim();
+  final direct = erpNextChartTemplateLabels[trimmed];
+  if (direct != null) return direct;
+
+  final normalized = trimmed.replaceAll(RegExp(r'[-_]+'), ' ').toLowerCase();
+  for (final entry in erpNextChartTemplateLabels.entries) {
+    if (entry.key.toLowerCase() == normalized) return entry.value;
+  }
+  return trimmed;
+}
+
 const workflowStatusLabels = <String, String>{
   'Draft': 'پیش‌نویس',
   'Open': 'در انتظار اقدام',
