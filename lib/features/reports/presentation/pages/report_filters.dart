@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/utils/persian_format.dart';
+
 class ReportFilters extends StatefulWidget {
   const ReportFilters({required this.requireAccount, required this.onSubmit, this.allowParty = false, super.key});
   final bool requireAccount;
@@ -74,6 +76,6 @@ class _DateButton extends StatelessWidget {
           final selected = await showDatePicker(context: context, initialDate: value, firstDate: DateTime(2000), lastDate: DateTime(2100));
           if (selected != null) onPick(selected);
         },
-        child: Text('$title: ${value.toIso8601String().split('T').first}'),
+        child: Text('$title: ${formatDateJalali(value)}'),
       );
 }

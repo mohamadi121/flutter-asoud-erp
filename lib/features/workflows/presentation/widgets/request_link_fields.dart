@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/jalali_date.dart';
+import '../../../../core/utils/persian_server_values.dart';
 import '../../domain/entities/workflow_definition.dart';
 
 /// Loads choices (`{value, label, ...}`) for a search text, from
@@ -43,7 +44,10 @@ class RequestBooleanField extends FormField<bool> {
                 ));
 }
 
-String _label(Map row) => '${row['label'] ?? row['value']}';
+String _label(Map row) {
+  final raw = '${row['label'] ?? row['value']}';
+  return persianLeaveTypeLabel(raw);
+}
 
 /// Group heading of a delivery location kind.
 String requestLocationKindLabel(String kind) => switch (kind) {

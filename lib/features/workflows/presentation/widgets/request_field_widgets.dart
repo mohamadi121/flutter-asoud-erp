@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/jalali_date.dart';
+import '../../../../core/utils/persian_server_values.dart';
+import '../../../../core/widgets/app_fields.dart';
 import '../../../../core/widgets/asoud_form.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../domain/entities/workflow_definition.dart';
@@ -36,12 +38,17 @@ class RequestFieldWidget extends StatelessWidget {
       {required this.controller,
       required this.field,
       this.enabled = true,
+      this.unified = false,
       super.key});
   final RequestFormController controller;
   final WorkflowFormFieldDefinition field;
 
   /// False while the form is saving.
   final bool enabled;
+
+  /// Opt-in use of the shared [AppTextField]/[AppSelectField] look (bug #31).
+  /// Off by default so the other request forms keep their current widgets.
+  final bool unified;
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -79,23 +86,40 @@ class RequestFieldWidget extends StatelessWidget {
         'Choice' => _choice(context),
         'Multi Choice' => _multiChoice(),
         'Checkbox' => _checkbox(),
-        'User' || 'Department' || 'System Select' => _LinkFieldView(
-            key: _key,
-            controller: controller,
-            field: field,
-            label: _label,
-            enabled: _enabled),
+        'User' || 'Department' || 'System Select' => unified
+            ? _UnifiedLinkField(
+                key: _key,
+                controller: controller,
+                field: field,
+                label: _label,
+                enabled: _enabled)
+            : _LinkFieldView(
+                key: _key,
+                controller: controller,
+                field: field,
+                label: _label,
+                enabled: _enabled),
         'Auto' => _auto(),
         'Attachment' => _attachment(),
         'Table' => _table(),
         'Item Table' => _itemTable(context),
-        _ => _TextFieldView(
-            fieldKey: _key,
-            controller: controller,
-            field: field,
-            label: _label,
-            enabled: _enabled),
+        _ => unified && _unifiedText
+            ? _UnifiedTextField(
+                fieldKey: _key,
+                controller: controller,
+                field: field,
+                label: _label,
+                enabled: _enabled)
+            : _TextFieldView(
+                fieldKey: _key,
+                controller: controller,
+                field: field,
+                label: _label,
+                enabled: _enabled),
       };
+
+  bool get _unifiedText =>
+      field.type == 'Short Text' || field.type == 'Long Text';
 
   Widget _heading() => Padding(
         padding: const EdgeInsets.only(bottom: 6),
@@ -590,13 +614,14 @@ class _LinkFieldView extends StatelessWidget {
             load == null ? const [] : load(_fieldType, txt: txt));
     if (row == null) return;
     controller.setValue(field.key, '${row['value']}',
-        label: '${row['label'] ?? row['value']}');
+        label: persianLeaveTypeLabel('${row['label'] ?? row['value']}'));
   }
 
   @override
   Widget build(BuildContext context) {
     final value = controller.value(field.key) as String?;
-    final shown = controller.labelFor(field.key) ?? value;
+    final rawShown = controller.labelFor(field.key) ?? value;
+    final shown = persianLeaveTypeLabel(rawShown);
     final error = controller.errorFor(field.key);
     return InkWell(
       onTap: enabled ? () => _pick(context) : null,
@@ -617,10 +642,140 @@ class _LinkFieldView extends StatelessWidget {
                       icon: const Icon(Icons.close_rounded, size: 18))
                   : const Icon(Icons.search_rounded),
         ),
-        child: Text(shown ?? '',
+        child: Text(shown,
             style: TextStyle(
                 color: value == null ? AsoudColors.muted : AsoudColors.text)),
       ),
+    );
+  }
+}
+
+/// The unified look (bug #31) of a `User`, `Department` or `System Select`:
+/// an [AppSelectField] that opens the same searchable option picker, but with
+/// the shared label/border/⌄ language.
+class _UnifiedLinkField extends StatefulWidget {
+  const _UnifiedLinkField(
+      {required this.controller,
+      required this.field,
+      required this.label,
+      required this.enabled,
+      super.key});
+  final RequestFormController controller;
+  final WorkflowFormFieldDefinition field;
+  final String label;
+  final bool enabled;
+
+  @override
+  State<_UnifiedLinkField> createState() => _UnifiedLinkFieldState();
+}
+
+class _UnifiedLinkFieldState extends State<_UnifiedLinkField> {
+  String? _pickedLabel;
+
+  String get _fieldType => widget.field.type == 'System Select'
+      ? requestSourceFieldType(widget.field.source)
+      : widget.field.type;
+
+  Future<String?> _pick() async {
+    final load = widget.controller.loadOptions;
+    final row = await showRequestOptionPicker(context,
+        title: widget.field.label,
+        loader: (txt) async =>
+            load == null ? const [] : load(_fieldType, txt: txt));
+    if (row == null) return null;
+    _pickedLabel =
+        persianLeaveTypeLabel('${row['label'] ?? row['value']}');
+    return '${row['value']}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final value = widget.controller.value(widget.field.key) as String?;
+    final rawShown =
+        widget.controller.labelFor(widget.field.key) ?? _pickedLabel ?? value;
+    return AppSelectField(
+      label: widget.label,
+      value: value ?? '',
+      displayValue: rawShown == null ? null : persianLeaveTypeLabel(rawShown),
+      hint: 'انتخاب کنید',
+      enabled: widget.enabled,
+      errorText: widget.controller.errorFor(widget.field.key),
+      helperText: widget.field.helpText.isEmpty ? null : widget.field.helpText,
+      onPick: widget.enabled ? _pick : null,
+      onChanged: (picked) => widget.controller.setValue(
+          widget.field.key, picked.isEmpty ? null : picked,
+          label: picked.isEmpty ? null : _pickedLabel),
+    );
+  }
+}
+
+/// The unified look (bug #31) of a `Short Text` / `Long Text`: the same
+/// controller sync as [_TextFieldView] but rendered with [AppTextField].
+class _UnifiedTextField extends StatefulWidget {
+  const _UnifiedTextField(
+      {required this.fieldKey,
+      required this.controller,
+      required this.field,
+      required this.label,
+      required this.enabled});
+  final Key fieldKey;
+  final RequestFormController controller;
+  final WorkflowFormFieldDefinition field;
+  final String label;
+  final bool enabled;
+
+  @override
+  State<_UnifiedTextField> createState() => _UnifiedTextFieldState();
+}
+
+class _UnifiedTextFieldState extends State<_UnifiedTextField> {
+  late final text = TextEditingController(text: _stored);
+
+  String get _stored {
+    final value = widget.controller.value(widget.field.key);
+    return value == null ? '' : '$value';
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_sync);
+  }
+
+  void _sync() {
+    if (_stored != text.text) text.text = _stored;
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_sync);
+    text.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final field = widget.field;
+    final long = field.type == 'Long Text' || field.widget == 'textarea';
+    return AppTextField(
+      key: widget.fieldKey,
+      controller: text,
+      label: widget.label,
+      enabled: widget.enabled,
+      minLines: long ? 3 : 1,
+      maxLines: long ? 5 : 1,
+      maxLength: field.maxLength,
+      errorText: widget.controller.errorFor(field.key),
+      helperText: field.helpText.isEmpty ? null : field.helpText,
+      counterBuilder: field.maxLength == null
+          ? null
+          : (context,
+                  {required currentLength, required isFocused, maxLength}) =>
+              Text(
+                  '${toPersianDigits(currentLength)}/${toPersianDigits(maxLength ?? 0)}',
+                  style:
+                      const TextStyle(fontSize: 10, color: AsoudColors.muted)),
+      onChanged: (value) => widget.controller.setValue(field.key, value),
     );
   }
 }

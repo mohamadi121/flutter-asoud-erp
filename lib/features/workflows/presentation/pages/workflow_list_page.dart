@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/auth/access_denied.dart';
+import '../../../../core/auth/capabilities.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/jalali_date.dart';
+import '../../../../core/utils/persian_server_values.dart';
+import '../../../../core/utils/persian_format.dart';
 import '../../../../core/widgets/asoud_ui.dart';
+import '../../../../core/widgets/states.dart';
 import '../../domain/entities/workflow_definition.dart';
 import '../../domain/repositories/workflow_repository.dart';
 import '../../domain/repositories/workflow_notification_repository.dart';
@@ -25,13 +30,36 @@ class WorkflowListPage extends StatelessWidget {
           repository: context.read<WorkflowRepository>(),
           company: company,
         )..load(),
-        child: _WorkflowListView(onCreate: onCreate),
+        child: _WorkflowCapabilityGate(onCreate: onCreate),
       );
 }
 
-class _WorkflowListView extends StatelessWidget {
-  const _WorkflowListView({this.onCreate});
+class _WorkflowCapabilityGate extends StatelessWidget {
+  const _WorkflowCapabilityGate({this.onCreate});
   final VoidCallback? onCreate;
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<Capabilities>(
+      future: capabilitiesOf(context),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Scaffold(
+              body: Center(child: CircularProgressIndicator()));
+        }
+        final capabilities = snapshot.data!;
+        if (!capabilities.canReadManagerViews) {
+          return const AccessDeniedScaffold();
+        }
+        return _WorkflowListView(
+            onCreate: onCreate,
+            canManageWorkflows: capabilities.canManageWorkflows);
+      });
+}
+
+class _WorkflowListView extends StatelessWidget {
+  const _WorkflowListView({this.onCreate, required this.canManageWorkflows});
+  final VoidCallback? onCreate;
+  final bool canManageWorkflows;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -55,27 +83,35 @@ class _WorkflowListView extends StatelessWidget {
                   }
                   if (state.status == WorkflowListLoadStatus.failure &&
                       state.items.isEmpty) {
-                    return _FailureState(
-                        message: state.message ?? 'خطای نامشخص');
+                    return ErrorState(
+                        failure: state.message ?? 'خطای نامشخص',
+                        onRetry: context.read<WorkflowListCubit>().load);
                   }
-                  if (state.items.isEmpty) return const _EmptyState();
+                  if (state.items.isEmpty) {
+                    return const EmptyState(
+                        icon: Icons.account_tree_outlined,
+                        title: 'گردش‌کاری پیدا نشد',
+                        description: 'شرایط جست‌وجو یا فیلتر را تغییر دهید.');
+                  }
                   return RefreshIndicator(
                     onRefresh: context.read<WorkflowListCubit>().load,
                     child: ListView(
-                      padding: const EdgeInsets.fromLTRB(16, 9, 16, 16),
+                      padding: const EdgeInsets.fromLTRB(16, 9, 16, 128),
                       children: [
                         Row(children: [
                           Text('مرتب‌سازی: ${_orderLabel(state.orderBy)}',
                               style: const TextStyle(
                                   fontSize: 9, color: AsoudColors.muted)),
                           const Spacer(),
-                          Text('تعداد کل: ${state.items.length}',
+                          Text('تعداد کل: ${toPersianDigits(state.items.length)}',
                               style: const TextStyle(
                                   fontSize: 9, color: AsoudColors.muted)),
                         ]),
                         const SizedBox(height: 8),
                         for (final item in state.items)
-                          _WorkflowCard(item: item),
+                          _WorkflowCard(
+                              item: item,
+                              canManageWorkflows: canManageWorkflows),
                       ],
                     ),
                   );
@@ -85,21 +121,24 @@ class _WorkflowListView extends StatelessWidget {
           ]),
         ),
         floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-        floatingActionButton: Padding(
-          padding: const EdgeInsets.only(bottom: 64),
-          child: SizedBox(
-            width: MediaQuery.sizeOf(context).width - 32,
-            height: 50,
-            child: FilledButton.icon(
-              onPressed: onCreate ??
-                  () => Navigator.of(context).push(MaterialPageRoute<void>(
-                        builder: (_) => const WorkflowFormPage(),
-                      )),
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('ایجاد گردش‌کار جدید'),
-            ),
-          ),
-        ),
+        floatingActionButton: canManageWorkflows
+            ? Padding(
+                padding: const EdgeInsets.only(bottom: 64),
+                child: SizedBox(
+                  width: MediaQuery.sizeOf(context).width - 32,
+                  height: 50,
+                  child: FilledButton.icon(
+                    onPressed: onCreate ??
+                        () =>
+                            Navigator.of(context).push(MaterialPageRoute<void>(
+                              builder: (_) => const WorkflowFormPage(),
+                            )),
+                    icon: const Icon(Icons.add_rounded),
+                    label: const Text('ایجاد گردش‌کار جدید'),
+                  ),
+                ),
+              )
+            : null,
         bottomNavigationBar: const _WorkflowBottomNavigation(),
       );
 }
@@ -296,8 +335,9 @@ class _FilterTab extends StatelessWidget {
 }
 
 class _WorkflowCard extends StatelessWidget {
-  const _WorkflowCard({required this.item});
+  const _WorkflowCard({required this.item, required this.canManageWorkflows});
   final WorkflowDefinition item;
+  final bool canManageWorkflows;
 
   @override
   Widget build(BuildContext context) {
@@ -340,29 +380,32 @@ class _WorkflowCard extends StatelessWidget {
             ),
             const SizedBox(width: 7),
             _StatusBadge(item: item),
-            PopupMenuButton<String>(
-              tooltip: 'عملیات فرایند',
-              itemBuilder: (_) => [
-                const PopupMenuItem(
-                    value: 'details', child: Text('مشاهده جزئیات')),
-                const PopupMenuItem(
-                    value: 'design', child: Text('طراحی مراحل و فرم درخواست')),
-                PopupMenuItem(
-                  value: 'activate',
-                  enabled: !item.isLocked,
-                  child: Text(item.isLocked ? 'فعال‌سازی (قفل)' : 'فعال‌سازی'),
-                ),
-              ],
-              onSelected: (value) {
-                if (value == 'details') {
-                  _showDetails(context);
-                } else if (value == 'design') {
-                  Navigator.of(context).push(MaterialPageRoute<void>(
-                    builder: (_) => WorkflowDesignerPage(definition: item.id),
-                  ));
-                }
-              },
-            ),
+            if (canManageWorkflows)
+              PopupMenuButton<String>(
+                tooltip: 'عملیات فرایند',
+                itemBuilder: (_) => [
+                  const PopupMenuItem(
+                      value: 'details', child: Text('مشاهده جزئیات')),
+                  const PopupMenuItem(
+                      value: 'design',
+                      child: Text('طراحی مراحل و فرم درخواست')),
+                  PopupMenuItem(
+                    value: 'activate',
+                    enabled: !item.isLocked,
+                    child:
+                        Text(item.isLocked ? 'فعال‌سازی (قفل)' : 'فعال‌سازی'),
+                  ),
+                ],
+                onSelected: (value) {
+                  if (value == 'details') {
+                    _showDetails(context);
+                  } else if (value == 'design') {
+                    Navigator.of(context).push(MaterialPageRoute<void>(
+                      builder: (_) => WorkflowDesignerPage(definition: item.id),
+                    ));
+                  }
+                },
+              ),
           ]),
         ),
       ),
@@ -388,8 +431,8 @@ class _WorkflowCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('کد: ${item.code}'),
-                Text('سند مقصد: ${item.targetDoctype}'),
-                Text('نسخه: ${item.version}'),
+                Text('سند مقصد: ${persianDoctypeLabel(item.targetDoctype)}'),
+                Text('نسخه: ${toPersianDigits(item.version)}'),
                 if (item.isLocked) ...[
                   const SizedBox(height: 12),
                   const Text('موارد باقی‌مانده:',
@@ -399,6 +442,13 @@ class _WorkflowCard extends StatelessWidget {
                 ],
               ]),
           actions: [
+            OutlinedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.of(context).push(MaterialPageRoute<void>(
+                      builder: (_) => WorkflowDesignerPage(definition: item.id)));
+                },
+                child: const Text('طراحی مراحل')),
             TextButton(
                 onPressed: () => Navigator.pop(context),
                 child: const Text('بستن'))
@@ -412,55 +462,25 @@ class _StatusBadge extends StatelessWidget {
   final WorkflowDefinition item;
   @override
   Widget build(BuildContext context) {
-    final (label, color) = item.isLocked
-        ? ('نیازمند تکمیل', AsoudColors.warning)
+    final (label, color, surface) = item.isLocked
+        ? ('نیازمند تکمیل', AsoudColors.warning, AsoudColors.warningSurface)
         : switch (item.status) {
-            WorkflowDefinitionStatus.active => ('فعال', AsoudColors.success),
-            WorkflowDefinitionStatus.inactive => ('غیرفعال', AsoudColors.muted),
-            WorkflowDefinitionStatus.archived => ('آرشیو', AsoudColors.purple),
+            WorkflowDefinitionStatus.active =>
+              ('فعال', AsoudColors.success, AsoudColors.successSurface),
+            WorkflowDefinitionStatus.inactive =>
+              ('غیرفعال', AsoudColors.muted, AsoudColors.border),
+            WorkflowDefinitionStatus.archived =>
+              ('آرشیو', AsoudColors.purple, Color(0xFFF1E8FD)),
           };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
-          color: color.withValues(alpha: .1),
-          borderRadius: BorderRadius.circular(8)),
+          color: surface, borderRadius: BorderRadius.circular(8)),
       child: Text(label,
           style: TextStyle(
               fontSize: 8, color: color, fontWeight: FontWeight.w900)),
     );
   }
-}
-
-class _FailureState extends StatelessWidget {
-  const _FailureState({required this.message});
-  final String message;
-  @override
-  Widget build(BuildContext context) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(28),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const AsoudIconBox(
-                icon: Icons.cloud_off_rounded,
-                color: AsoudColors.warning,
-                size: 52),
-            const SizedBox(height: 12),
-            Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 12),
-            OutlinedButton(
-                onPressed: context.read<WorkflowListCubit>().load,
-                child: const Text('تلاش دوباره')),
-          ]),
-        ),
-      );
-}
-
-class _EmptyState extends StatelessWidget {
-  const _EmptyState();
-  @override
-  Widget build(BuildContext context) => const Center(
-        child: Text('گردش‌کاری با این شرایط پیدا نشد.',
-            style: TextStyle(color: AsoudColors.muted)),
-      );
 }
 
 class _WorkflowBottomNavigation extends StatelessWidget {
@@ -516,7 +536,9 @@ class WorkflowComingSoonPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) => const Scaffold(
         appBar: AsoudHeader(title: 'گزارش‌ها'),
-        body: Center(child: Text('به‌زودی')),
+        body: ComingSoonState(
+            description:
+                'گزارش‌های این بخش در نسخه‌های بعدی در دسترس خواهد بود.'),
       );
 }
 

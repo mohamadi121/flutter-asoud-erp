@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/utils/persian_format.dart';
+import '../../../../core/widgets/app_fields.dart';
 import '../../domain/entities/accounting_voucher.dart';
 import '../../domain/repositories/vouchers_repository.dart';
 import '../cubit/voucher_form_cubit.dart';
@@ -48,8 +50,9 @@ class _VoucherFormPageState extends State<VoucherFormPage> {
             appBar: AppBar(title: Text(widget.voucher.id.isEmpty ? 'ایجاد سند حسابداری' : 'ویرایش سند حسابداری')),
             body: ListView(padding: const EdgeInsets.all(16), children: [
               Card(child: Padding(padding: const EdgeInsets.all(16), child: Column(children: [
-                TextFormField(initialValue: state.voucher.company, enabled: false, decoration: const InputDecoration(labelText: 'شرکت')),
-                TextField(controller: _description, decoration: const InputDecoration(labelText: 'شرح سند *'), onChanged: (_) => _sync()),
+                AppTextField(initialValue: state.voucher.company, label: 'شرکت', enabled: false),
+                const SizedBox(height: 12),
+                AppTextField(controller: _description, label: 'شرح سند', required: true, onChanged: (_) => _sync()),
               ]))),
               const SizedBox(height: 12),
               ...List.generate(_rows.length, (index) => _lineCard(index)),
@@ -62,7 +65,7 @@ class _VoucherFormPageState extends State<VoucherFormPage> {
                 Row(children: [
                   Icon(state.voucher.isBalanced ? Icons.check_circle : Icons.error, color: state.voucher.isBalanced ? Colors.green : Colors.red),
                   const SizedBox(width: 8),
-                  Text(state.voucher.isBalanced ? 'سند تراز است' : 'جمع بدهکار و بستانکار برابر نیست'),
+                  Expanded(child: Text(state.voucher.isBalanced ? 'سند تراز است' : 'جمع بدهکار و بستانکار برابر نیست')),
                 ]),
               ]))),
               const SizedBox(height: 20),
@@ -78,19 +81,23 @@ class _VoucherFormPageState extends State<VoucherFormPage> {
     final row = _rows[index];
     return Card(child: Padding(padding: const EdgeInsets.all(14), child: Column(children: [
       Row(children: [Expanded(child: Text('ردیف ${index + 1}', style: const TextStyle(fontWeight: FontWeight.w800))), if (_rows.length > 2) IconButton(onPressed: () => _removeRow(index), icon: const Icon(Icons.delete_outline_rounded))]),
-      TextField(controller: row.account, decoration: const InputDecoration(labelText: 'حساب معین/تفصیلی *'), onChanged: (_) => _sync()),
-      TextField(controller: row.floatingDetail, decoration: const InputDecoration(labelText: 'تفصیلی شناور'), onChanged: (_) => _sync()),
-      TextField(controller: row.description, decoration: const InputDecoration(labelText: 'شرح ردیف'), onChanged: (_) => _sync()),
+      AppTextField(controller: row.account, label: 'حساب معین/تفصیلی', required: true, onChanged: (_) => _sync()),
+      const SizedBox(height: 12),
+      AppTextField(controller: row.floatingDetail, label: 'تفصیلی شناور', onChanged: (_) => _sync()),
+      const SizedBox(height: 12),
+      AppTextField(controller: row.description, label: 'شرح ردیف', onChanged: (_) => _sync()),
+      const SizedBox(height: 12),
       Row(children: [
-        Expanded(child: TextField(controller: row.debit, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'بدهکار'), onChanged: (_) => _sync())),
+        Expanded(child: AppTextField(controller: row.debit, label: 'بدهکار', ltr: true, keyboardType: TextInputType.number, onChanged: (_) => _sync())),
         const SizedBox(width: 12),
-        Expanded(child: TextField(controller: row.credit, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'بستانکار'), onChanged: (_) => _sync())),
+        Expanded(child: AppTextField(controller: row.credit, label: 'بستانکار', ltr: true, keyboardType: TextInputType.number, onChanged: (_) => _sync())),
       ]),
     ])));
   }
 
-  Widget _totalRow(String title, double value) => Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(title), Text(value.toStringAsFixed(0), style: const TextStyle(fontWeight: FontWeight.w800))]);
-  double _number(String value) => double.tryParse(value.replaceAll(',', '')) ?? 0;
+  Widget _totalRow(String title, double value) => Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(title), Text(formatNumber(value.round()), style: const TextStyle(fontWeight: FontWeight.w800))]);
+  double _number(String value) =>
+      double.tryParse(toLatinDigits(value).replaceAll(',', '')) ?? 0;
   void _sync() {
     _cubit.updateHeader(description: _description.text);
     _cubit.replaceLines(_rows.map((row) => VoucherLine(account: row.account.text.trim(), floatingDetail: row.floatingDetail.text.trim(), description: row.description.text.trim(), debit: _number(row.debit.text), credit: _number(row.credit.text))).toList());

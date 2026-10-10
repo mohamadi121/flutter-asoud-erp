@@ -253,4 +253,178 @@ void main() {
     expect(find.text('مدیرعامل'), findsOneWidget);
     expect(find.text('جایگاهی برای نمایش وجود ندارد.'), findsNothing);
   });
+
+  for (final width in [320.0, 390.0]) {
+    testWidgets('HR Manager roles page stays read-only at $width without overflow',
+        (tester) async {
+      tester.view.physicalSize = Size(width, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final client = _RealBackendShapeClient(
+        userId: 'hr-manager@asoud-demo.local',
+        userRoles: const ['HR Manager', 'Employee'],
+      );
+      final store = FakeLocalRecordStore();
+      final repository = RoleRepository(client, local: store);
+      addTearDown(repository.dispose);
+
+      await tester.pumpWidget(RepositoryProvider<FrappeApiClient>.value(
+        value: client,
+        child: MaterialApp(
+          theme: AsoudTheme.light,
+          home: Directionality(
+            textDirection: TextDirection.rtl,
+            child: RolesPage(repository: repository),
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('۲ دسته · ۲ نقش'), findsOneWidget);
+      expect(find.text('ایجاد نقش دستی'), findsNothing);
+      expect(find.text('ایجاد دسته'), findsNothing);
+      expect(find.text('ورود از اکسل'), findsNothing);
+      expect(find.text('استفاده از قالب آماده'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets(
+      'HR Manager sees the role catalog read-only without any create control',
+      (tester) async {
+    final client = _RealBackendShapeClient(
+      userId: 'hr-manager@asoud-demo.local',
+      userRoles: const ['HR Manager', 'Employee'],
+    );
+    final store = FakeLocalRecordStore();
+    final repository = RoleRepository(client, local: store);
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(RepositoryProvider<FrappeApiClient>.value(
+      value: client,
+      child: MaterialApp(
+        theme: AsoudTheme.light,
+        home: Directionality(
+          textDirection: TextDirection.rtl,
+          child: RolesPage(repository: repository),
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('۲ دسته · ۲ نقش'), findsOneWidget);
+    expect(find.text('ایجاد نقش دستی'), findsNothing);
+    expect(find.text('ایجاد دسته'), findsNothing);
+    expect(find.text('ورود از اکسل'), findsNothing);
+    expect(find.text('استفاده از قالب آماده'), findsNothing);
+
+    await tester.tap(find.text('مشاهده و تکمیل نقش‌ها'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('مدیران'), findsOneWidget);
+    expect(find.text('مالی و حسابداری'), findsOneWidget);
+    expect(find.text('ایجاد نقش'), findsNothing);
+    expect(find.text('الگوهای موجود'), findsNothing);
+    expect(find.text('ایجاد دسته'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'HR Manager browses the organization chart without create or import',
+      (tester) async {
+    final client = _RealBackendShapeClient(
+      userId: 'hr-manager@asoud-demo.local',
+      userRoles: const ['HR Manager', 'Employee'],
+    );
+    final store = FakeLocalRecordStore();
+    final repository = OrganizationRepository(client, local: store);
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(RepositoryProvider<FrappeApiClient>.value(
+      value: client,
+      child: MaterialApp(
+        theme: AsoudTheme.light,
+        home: Directionality(
+          textDirection: TextDirection.rtl,
+          child: OrganizationPage(
+            company: 'شرکت نمونه آسود',
+            repository: repository,
+          ),
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('استفاده از قالب آماده'), findsNothing);
+    expect(find.text('ایجاد ساختار دستی'), findsNothing);
+    expect(find.text('ورود از اکسل'), findsNothing);
+
+    await tester.tap(find.text('مشاهده و تکمیل ساختار سازمانی'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('مدیرعامل'), findsOneWidget);
+    expect(find.text('جایگاهی برای نمایش وجود ندارد.'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('an employee reaching the role pages gets a Persian denial state',
+      (tester) async {
+    final client = _RealBackendShapeClient(
+      userId: 'employee@asoud-demo.local',
+      userRoles: const ['Employee'],
+    );
+    final store = FakeLocalRecordStore();
+    final repository = RoleRepository(client, local: store);
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(RepositoryProvider<FrappeApiClient>.value(
+      value: client,
+      child: MaterialApp(
+        theme: AsoudTheme.light,
+        home: Directionality(
+          textDirection: TextDirection.rtl,
+          child: RolesPage(repository: repository),
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('دسترسی ندارید'), findsWidgets);
+    expect(find.text('بازگشت'), findsOneWidget);
+    expect(find.text('۲ دسته · ۲ نقش'), findsNothing);
+    expect(client.calls, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'an employee reaching the organization page gets a Persian denial state',
+      (tester) async {
+    final client = _RealBackendShapeClient(
+      userId: 'employee@asoud-demo.local',
+      userRoles: const ['Employee'],
+    );
+    final store = FakeLocalRecordStore();
+    final repository = OrganizationRepository(client, local: store);
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(RepositoryProvider<FrappeApiClient>.value(
+      value: client,
+      child: MaterialApp(
+        theme: AsoudTheme.light,
+        home: Directionality(
+          textDirection: TextDirection.rtl,
+          child: OrganizationPage(
+            company: 'شرکت نمونه آسود',
+            repository: repository,
+          ),
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('دسترسی ندارید'), findsWidgets);
+    expect(find.text('بازگشت'), findsOneWidget);
+    expect(client.calls, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
 }

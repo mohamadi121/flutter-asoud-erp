@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/widgets/asoud_ui.dart';
+import '../../../../core/widgets/states.dart';
 import '../../domain/entities/detail_group.dart';
 import '../../domain/repositories/detail_group_repository.dart';
 import '../cubit/detail_groups_cubit.dart';
@@ -60,12 +61,19 @@ class _DetailGroupsView extends StatelessWidget {
                 if (state.status == DetailGroupsStatus.loading)
                   const LinearProgressIndicator(),
                 if (state.status == DetailGroupsStatus.failure)
-                  _ErrorCard(
-                    message: state.message ?? 'دریافت اطلاعات ممکن نشد.',
-                    onRetry: context.read<DetailGroupsCubit>().load,
+                  ErrorState(
+                    failure: state.message ?? 'دریافت اطلاعات ممکن نشد.',
+                    onRetry: state.canRetry
+                        ? context.read<DetailGroupsCubit>().load
+                        : null,
                   ),
                 if (state.status == DetailGroupsStatus.empty)
-                  const _EmptyCard(),
+                  EmptyState(
+                    icon: Icons.account_tree_outlined,
+                    title: 'گروه تفصیلی شناوری ثبت نشده است',
+                    description:
+                        'برای شروع، گروه‌های پیشنهادی استاندارد را ایجاد کنید یا گروه جدید بسازید.',
+                  ),
                 if (state.groups.isNotEmpty)
                   _GroupsGrid(
                     groups: state.groups,
@@ -261,37 +269,6 @@ class _GroupsGrid extends StatelessWidget {
             ),
           );
         },
-      );
-}
-
-class _ErrorCard extends StatelessWidget {
-  const _ErrorCard({required this.message, required this.onRetry});
-  final String message;
-  final VoidCallback onRetry;
-  @override
-  Widget build(BuildContext context) => Card(
-        child: ListTile(
-          leading:
-              const Icon(Icons.cloud_off_rounded, color: AsoudColors.warning),
-          title: Text(message, style: const TextStyle(fontSize: 10)),
-          trailing:
-              TextButton(onPressed: onRetry, child: const Text('تلاش مجدد')),
-        ),
-      );
-}
-
-class _EmptyCard extends StatelessWidget {
-  const _EmptyCard();
-  @override
-  Widget build(BuildContext context) => const Card(
-        child: Padding(
-          padding: EdgeInsets.all(20),
-          child: Text(
-            'هنوز گروهی در ASOUD ERP تعریف نشده است. برای ایجاد مجموعه استاندارد از دکمه بالا استفاده کنید.',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 10, color: AsoudColors.muted),
-          ),
-        ),
       );
 }
 

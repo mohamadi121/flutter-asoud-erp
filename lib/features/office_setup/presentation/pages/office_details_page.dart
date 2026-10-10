@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/persian_server_values.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../domain/entities/office.dart';
 import 'office_form_page.dart';
@@ -98,12 +99,10 @@ class _OfficeDetailsPageState extends State<OfficeDetailsPage> {
                 const Divider(height: 24),
                 row([
                   ('شناسه ملی', office.nationalId),
-                  (
-                    'الگوی سرفصل',
-                    office.chartTemplate == 'Iran Standard'
-                        ? 'استاندارد ایران'
-                        : office.chartTemplate
-                  ),
+                  ('الگوی سرفصل',
+                      office.chartTemplate == null
+                          ? null
+                          : persianChartTemplateLabel(office.chartTemplate)),
                   ('سال مالی', office.fiscalYear)
                 ]),
               ]),

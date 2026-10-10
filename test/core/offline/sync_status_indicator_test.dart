@@ -80,9 +80,44 @@ void main() {
     await tester.pumpWidget(_app(SyncStatusIndicator(service: service)));
     await _settle(tester);
 
-    expect(find.text('۳ نوشته ارسال نشده'), findsOneWidget);
+    expect(find.text('۳ تغییر ارسال نشد — مشاهده'), findsOneWidget);
     expect(find.byIcon(Icons.cloud_upload_outlined), findsOneWidget);
     expect(find.byIcon(Icons.check_circle_rounded), findsNothing);
+  });
+
+  testWidgets('نوار نارنجی تمام‌عرض، بلند‌تر از ۴۸dp و قابل‌لمس است',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 720));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await _queue(store, 'one');
+    await _queue(store, 'two');
+    await _queue(store, 'three');
+
+    await tester.pumpWidget(_app(SyncStatusIndicator(
+        service: service, onOpen: () {})));
+    await _settle(tester);
+
+    final inkWell = find.descendant(
+        of: find.byType(SyncStatusIndicator),
+        matching: find.byType(InkWell));
+    expect(inkWell, findsOneWidget, reason: 'نوار باید قابل‌لمس باشد');
+    final size = tester.getSize(inkWell);
+    expect(size.width, 390, reason: 'نوار باید تمام‌عرض باشد');
+    expect(size.height, greaterThanOrEqualTo(48),
+        reason: 'هدف لمسی باید حداقل ۴۸dp باشد');
+    expect(find.byIcon(Icons.chevron_left_rounded), findsOneWidget);
+  });
+
+  testWidgets('نوار ارسال‌نشده دقیقاً یک بار شمارش را نشان می‌دهد',
+      (tester) async {
+    await _queue(store, 'one');
+
+    await tester.pumpWidget(_app(SyncStatusIndicator(
+        service: service, onOpen: () {})));
+    await _settle(tester);
+
+    final bar = tester.widget<Text>(find.text('۱ تغییر ارسال نشد — مشاهده'));
+    expect(bar.style?.color, AsoudColors.warning);
   });
 
   testWidgets('صف خالی با تیک سبز «همه داده‌ها ارسال شده» نشان داده می‌شود',
@@ -115,14 +150,14 @@ void main() {
     client.gate = Completer<void>();
     await tester.pumpWidget(_app(SyncStatusIndicator(service: service)));
     await _settle(tester);
-    expect(find.text('۱ نوشته ارسال نشده'), findsOneWidget);
+    expect(find.text('۱ تغییر ارسال نشد — مشاهده'), findsOneWidget);
 
     unawaited(service.syncNow());
     await _settle(tester);
 
     expect(service.isSyncing, isTrue);
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
-    expect(find.text('۱ نوشته ارسال نشده'), findsOneWidget);
+    expect(find.text('۱ تغییر ارسال نشد — مشاهده'), findsOneWidget);
 
     client.gate!.complete();
     await _settle(tester);
@@ -136,12 +171,12 @@ void main() {
     await _queue(store, 'two');
     await tester.pumpWidget(_app(SyncStatusIndicator(service: service)));
     await _settle(tester);
-    expect(find.text('۲ نوشته ارسال نشده'), findsOneWidget);
+    expect(find.text('۲ تغییر ارسال نشد — مشاهده'), findsOneWidget);
 
     await service.discard('one');
     await _settle(tester);
 
-    expect(find.text('۱ نوشته ارسال نشده'), findsOneWidget);
+    expect(find.text('۱ تغییر ارسال نشد — مشاهده'), findsOneWidget);
   });
 
   for (final width in [320.0, 390.0]) {

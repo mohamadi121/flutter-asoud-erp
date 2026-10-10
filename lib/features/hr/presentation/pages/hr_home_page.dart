@@ -3,9 +3,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/auth/capabilities.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/widgets/asoud_ui.dart';
-import '../../../../core/utils/jalali_date.dart';
+import '../../../../core/widgets/states.dart';
+import '../../../../core/utils/persian_server_values.dart';
+import '../../../../core/utils/persian_format.dart';
 import '../../domain/hr_models.dart';
 import 'organization_page.dart';
 import '../../domain/hr_repository.dart';
@@ -16,6 +19,16 @@ import '../../data/personnel_repository.dart';
 import '../../../employee/data/self_service_repository.dart';
 import '../../../employee/presentation/pages/my_attendance_page.dart';
 import '../../../request_templates/presentation/pages/request_list_pages.dart';
+
+Future<Capabilities> _hrCapabilities(BuildContext context) async {
+  try {
+    return await loadCapabilities(context.read<FrappeApiClient>());
+  } on ProviderNotFoundException {
+    return Capabilities.full;
+  } catch (_) {
+    return Capabilities.fromRoles(const []);
+  }
+}
 
 class HrHomePage extends StatelessWidget {
   const HrHomePage({required this.company, super.key});
@@ -42,8 +55,8 @@ class _HrHome extends StatelessWidget {
               return const Center(child: CircularProgressIndicator());
             }
             if (state.dashboard == null) {
-              return _Error(
-                  message: state.message ??
+              return ErrorState(
+                  failure: state.message ??
                       'دریافت خدمات منابع انسانی ممکن نشد. دلیل خطا مشخص نیست.',
                   onRetry: context.read<HrCubit>().loadDashboard);
             }
@@ -74,14 +87,14 @@ class _HrHome extends StatelessWidget {
                           data.todayReportStatus ?? 'ثبت نشده',
                           Icons.today_outlined,
                           AsoudColors.primary),
-                      _Metric('کارتابل من', '${data.pendingTasks} مورد',
+                      _Metric('کارتابل من', formatCount(data.pendingTasks, 'مورد'),
                           Icons.assignment_ind_outlined, AsoudColors.warning),
                       _Metric(
                           'مکاتبات جدید',
-                          '${data.unreadCommunications} مورد',
+                          formatCount(data.unreadCommunications, 'مورد'),
                           Icons.mail_outline,
                           AsoudColors.purple),
-                      _Metric('اعلان‌ها', '${data.unreadNotifications} مورد',
+                      _Metric('اعلان‌ها', formatCount(data.unreadNotifications, 'مورد'),
                           Icons.notifications_none, AsoudColors.success),
                     ],
                   ),
@@ -94,50 +107,82 @@ class _HrHome extends StatelessWidget {
                       return;
                     }
                     _push(
-                        context,
-                        PersonnelDetailPage(
-                            id: data.employee.partyProfile,
-                            repository: PersonnelRepository(
-                                context.read<FrappeApiClient>())));
-                  }),
+                      context,
+                      PersonnelDetailPage(
+                        id: data.employee.partyProfile,
+                        repository: PersonnelRepository(
+                          context.read<FrappeApiClient>(),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                _Action(
+                  'لیست پرسنل',
+                  'مشاهده، ایجاد و ویرایش اطلاعات پرسنلی',
+                  Icons.people_alt_outlined,
+                  AsoudColors.warning,
+                  () => _push(context, PersonnelPage(company: company)),
+                ),
+                _Action(
+                  'تیم و ساختار سازمانی',
+                  'همکاران، واحدها و مسیر سازمانی',
+                  Icons.account_tree_outlined,
+                  AsoudColors.cyan,
+                  () => _push(context, OrganizationPage(company: company)),
+                ),
+                if (data.managerAccess) ...[
                   _Action(
-                      'لیست پرسنل',
-                      'مشاهده، ایجاد و ویرایش اطلاعات پرسنلی',
-                      Icons.people_alt_outlined,
-                      AsoudColors.warning,
-                      () => _push(context, PersonnelPage(company: company))),
+                    'درخواست‌های مرخصی',
+                    'مشاهده درخواست‌ها و وضعیت مرخصی',
+                    Icons.beach_access_outlined,
+                    AsoudColors.cyan,
+                    () =>
+                        _push(context, LeaveRequestsListPage(company: company)),
+                  ),
                   _Action(
-                      'تیم و ساختار سازمانی',
-                      'همکاران، واحدها و مسیر سازمانی',
-                      Icons.account_tree_outlined,
-                      AsoudColors.cyan,
-                      () => _push(context, OrganizationPage(company: company))),
-                  _Action(
-                      'گزارش کار روزانه',
-                      'فعالیت‌ها، پیش‌نویس و بازخورد',
-                      Icons.fact_check_outlined,
-                      AsoudColors.success,
-                      () => _push(context, WorkReportsPage(company: company))),
-                  _Action(
-                      'مکاتبات داخلی',
-                      'نامه، درخواست و اقدام سازمانی',
-                      Icons.mark_email_unread_outlined,
-                      AsoudColors.purple,
-                      () => _push(
-                          context, HrCommunicationsPage(company: company))),
-                  _Action(
-                      'اعلان‌های منابع انسانی',
-                      'رویدادها و مهلت‌های مهم',
-                      Icons.notifications_active_outlined,
-                      AsoudColors.warning,
-                      () => _push(
-                          context, HrNotificationsPage(company: company))),
+                    'حضور و غیاب',
+                    'مشاهده سوابق حضور و ثبت ورود و خروج',
+                    Icons.schedule_rounded,
+                    AsoudColors.success,
+                    () => _push(
+                      context,
+                      MyAttendancePage(
+                        repository: SelfServiceRepository(
+                          context.read<FrappeApiClient>(),
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
-              ),
-            );
-          },
-        )),
-      );
+                _Action(
+                  'گزارش کار روزانه',
+                  'فعالیت‌ها، پیش‌نویس و بازخورد',
+                  Icons.fact_check_outlined,
+                  AsoudColors.success,
+                  () => _push(context, WorkReportsPage(company: company)),
+                ),
+                _Action(
+                  'مکاتبات داخلی',
+                  'نامه، درخواست و اقدام سازمانی',
+                  Icons.mark_email_unread_outlined,
+                  AsoudColors.purple,
+                  () => _push(context, HrCommunicationsPage(company: company)),
+                ),
+                _Action(
+                  'اعلان‌های منابع انسانی',
+                  'رویدادها و مهلت‌های مهم',
+                  Icons.notifications_active_outlined,
+                  AsoudColors.warning,
+                  () => _push(context, HrNotificationsPage(company: company)),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    ),
+  );
   void _push(BuildContext context, Widget page) =>
       Navigator.push(context, MaterialPageRoute<void>(builder: (_) => page));
 }
@@ -371,32 +416,42 @@ class WorkReportsPage extends StatelessWidget {
         create: (_) =>
             HrCubit(context.read<HrRepository>(), company)..loadReports(),
         child: Builder(
-            builder: (context) => Scaffold(
-                  appBar: const AsoudHeader(
-                      title: 'گزارش کار روزانه',
-                      subtitle: 'ثبت فعالیت و بازخورد مدیر'),
-                  floatingActionButton: FloatingActionButton.extended(
-                      onPressed: () => _add(context),
-                      icon: const Icon(Icons.add),
-                      label: const Text('گزارش امروز')),
-                  body: BlocBuilder<HrCubit, HrState>(
-                      builder: (context, state) => ListView(
-                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 90),
-                            children: state.reports.isEmpty
-                                ? const [_Empty('هنوز گزارش کاری ثبت نشده است')]
-                                : state.reports
-                                    .map((report) => Card(
-                                        child: ListTile(
-                                            leading: const AsoudIconBox(
-                                                icon: Icons.fact_check_outlined,
-                                                color: AsoudColors.success),
-                                            title: Text(formatJalaliIso(
-                                                report.date.toIso8601String())),
-                                            subtitle: Text(
-                                                '${report.totalMinutes} دقیقه • ${_hrLabel(report.status)}'))))
-                                    .toList(),
-                          )),
-                )),
+            builder: (context) => FutureBuilder<Capabilities>(
+                future: _hrCapabilities(context),
+                builder: (context, snapshot) => Scaffold(
+                      appBar: const AsoudHeader(
+                          title: 'گزارش کار روزانه',
+                          subtitle: 'ثبت فعالیت و بازخورد مدیر'),
+                      floatingActionButton:
+                          snapshot.data?.canWriteHrRecords == true
+                              ? FloatingActionButton.extended(
+                                  onPressed: () => _add(context),
+                                  icon: const Icon(Icons.add),
+                                  label: const Text('گزارش امروز'))
+                              : null,
+                      body: BlocBuilder<HrCubit, HrState>(
+                          builder: (context, state) => ListView(
+                                padding:
+                                    const EdgeInsets.fromLTRB(16, 12, 16, 90),
+                                children: state.reports.isEmpty
+                                    ? const [
+                                        _Empty('هنوز گزارش کاری ثبت نشده است')
+                                      ]
+                                    : state.reports
+                                        .map((report) => Card(
+                                            child: ListTile(
+                                                leading: const AsoudIconBox(
+                                                    icon: Icons
+                                                        .fact_check_outlined,
+                                                    color: AsoudColors.success),
+                                                title: Text(formatJalaliIso(
+                                                    report.date
+                                                        .toIso8601String())),
+                                                subtitle: Text(
+                                                    '${report.totalMinutes} دقیقه • ${_hrLabel(report.status)}'))))
+                                        .toList(),
+                              )),
+                    ))),
       );
   Future<void> _add(BuildContext context) async {
     final title = TextEditingController();
@@ -451,35 +506,42 @@ class HrCommunicationsPage extends StatelessWidget {
         create: (_) => HrCubit(context.read<HrRepository>(), company)
           ..loadCommunications(),
         child: Builder(
-            builder: (context) => Scaffold(
-                  appBar: const AsoudHeader(
-                      title: 'مکاتبات داخلی',
-                      subtitle: 'دریافتی، ارسالی و اقدام‌ها'),
-                  floatingActionButton: FloatingActionButton.extended(
-                      onPressed: () => _compose(context),
-                      icon: const Icon(Icons.edit),
-                      label: const Text('مکاتبه جدید')),
-                  body: BlocBuilder<HrCubit, HrState>(
-                      builder: (context, state) => ListView(
-                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 90),
-                            children: state.communications.isEmpty
-                                ? const [
-                                    _Empty('مکاتبه‌ای برای نمایش وجود ندارد')
-                                  ]
-                                : state.communications
-                                    .map((item) => Card(
-                                        child: ListTile(
-                                            leading: AsoudIconBox(
-                                                icon: item.confidential
-                                                    ? Icons.lock_outline
-                                                    : Icons.mail_outline,
-                                                color: AsoudColors.purple),
-                                            title: Text(item.subject),
-                                            subtitle: Text(
-                                                '${item.sender} • ${_hrLabel(item.priority)}'))))
-                                    .toList(),
-                          )),
-                )),
+            builder: (context) => FutureBuilder<Capabilities>(
+                future: _hrCapabilities(context),
+                builder: (context, snapshot) => Scaffold(
+                      appBar: const AsoudHeader(
+                          title: 'مکاتبات داخلی',
+                          subtitle: 'دریافتی، ارسالی و اقدام‌ها'),
+                      floatingActionButton:
+                          snapshot.data?.canWriteHrRecords == true
+                              ? FloatingActionButton.extended(
+                                  onPressed: () => _compose(context),
+                                  icon: const Icon(Icons.edit),
+                                  label: const Text('مکاتبه جدید'))
+                              : null,
+                      body: BlocBuilder<HrCubit, HrState>(
+                          builder: (context, state) => ListView(
+                                padding:
+                                    const EdgeInsets.fromLTRB(16, 12, 16, 90),
+                                children: state.communications.isEmpty
+                                    ? const [
+                                        _Empty(
+                                            'مکاتبه‌ای برای نمایش وجود ندارد')
+                                      ]
+                                    : state.communications
+                                        .map((item) => Card(
+                                            child: ListTile(
+                                                leading: AsoudIconBox(
+                                                    icon: item.confidential
+                                                        ? Icons.lock_outline
+                                                        : Icons.mail_outline,
+                                                    color: AsoudColors.purple),
+                                                title: Text(item.subject),
+                                                subtitle: Text(
+                                                    '${item.sender} • ${_hrLabel(item.priority)}'))))
+                                        .toList(),
+                              )),
+                    ))),
       );
   Future<void> _compose(BuildContext context) async {
     final recipient = TextEditingController(),
@@ -547,8 +609,8 @@ class HrNotificationsPage extends StatelessWidget {
                                         icon:
                                             Icons.notifications_active_outlined,
                                         color: AsoudColors.warning),
-                                    title:
-                                        Text(item['subject']?.toString() ?? ''),
+                                    title: Text(persianNotificationTitle(
+                                        item['subject']?.toString() ?? '')),
                                     subtitle: Text(formatJalaliDateTimeIso(
                                         item['creation']?.toString() ?? '')),
                                   ),
@@ -654,25 +716,4 @@ class _Empty extends StatelessWidget {
         const SizedBox(height: 9),
         Text(title, style: const TextStyle(color: AsoudColors.muted))
       ]));
-}
-
-class _Error extends StatelessWidget {
-  const _Error({required this.message, required this.onRetry});
-  final String message;
-  final VoidCallback onRetry;
-  @override
-  Widget build(BuildContext context) => Center(
-      child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const AsoudIconBox(
-                icon: Icons.error_outline_rounded,
-                color: AsoudColors.danger,
-                size: 48),
-            const SizedBox(height: 12),
-            Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 12),
-            OutlinedButton(
-                onPressed: onRetry, child: const Text('تلاش دوباره')),
-          ])));
 }

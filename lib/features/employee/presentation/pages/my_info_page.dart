@@ -121,19 +121,29 @@ class _MyInfoPageState extends State<MyInfoPage> {
 
   Widget _row(String label, String? raw) {
     final value = _value(raw);
+    final isLtr = _isLtrValue(value);
     return Padding(
         padding: const EdgeInsets.symmetric(vertical: 9),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Expanded(
-              child:
-                  Text(label, style: const TextStyle(color: Colors.black54))),
-          const SizedBox(width: 12),
+              flex: 5,
+              child: Tooltip(
+                message: label,
+                child: Text(label,
+                    softWrap: true,
+                    style: const TextStyle(color: Colors.black54)),
+              )),
+          const SizedBox(width: 8),
           Expanded(
-              child: Text(value,
-                  textDirection: _isLtrValue(value)
-                      ? TextDirection.ltr
-                      : TextDirection.rtl,
-                  textAlign: TextAlign.end)),
+              flex: 6,
+              child: Tooltip(
+                message: value,
+                child: Text(value,
+                    softWrap: true,
+                    maxLines: 2,
+                    textDirection: isLtr ? TextDirection.ltr : TextDirection.rtl,
+                    textAlign: TextAlign.end),
+              )),
         ]));
   }
 
@@ -289,7 +299,8 @@ class _MyInfoPageState extends State<MyInfoPage> {
               ])),
       Expanded(
           child: SingleChildScrollView(
-              padding: const EdgeInsets.all(12),
+              padding: EdgeInsets.fromLTRB(
+                  12, 12, 12, MediaQuery.viewPaddingOf(context).bottom + 88),
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [

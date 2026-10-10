@@ -1,3 +1,4 @@
+import 'package:asoud_erp/core/network/frappe_client.dart';
 import 'package:asoud_erp/features/workflows/domain/entities/workflow_definition.dart';
 import 'package:asoud_erp/features/workflows/domain/repositories/workflow_repository.dart';
 import 'package:asoud_erp/features/workflows/presentation/pages/workflow_list_page.dart';
@@ -9,8 +10,10 @@ class _WorkflowRepository implements WorkflowRepository {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
   @override
-  Future<List<WorkflowFieldOption>> getConditionFields(String definition,
-          {String? beforeStage}) =>
+  Future<List<WorkflowFieldOption>> getConditionFields(
+    String definition, {
+    String? beforeStage,
+  }) =>
       throw UnimplementedError();
 
   @override
@@ -23,17 +26,19 @@ class _WorkflowRepository implements WorkflowRepository {
       throw UnimplementedError();
 
   @override
-  Future<WorkflowDesign> saveStageSettings(
-          {required String definition,
-          required String stage,
-          required Map<String, dynamic> config}) =>
+  Future<WorkflowDesign> saveStageSettings({
+    required String definition,
+    required String stage,
+    required Map<String, dynamic> config,
+  }) =>
       throw UnimplementedError();
 
   @override
-  Future<WorkflowDesign> addStage(
-          {required String definition,
-          required String afterStage,
-          required WorkflowStageType type}) =>
+  Future<WorkflowDesign> addStage({
+    required String definition,
+    required String afterStage,
+    required WorkflowStageType type,
+  }) =>
       throw UnimplementedError();
 
   @override
@@ -41,12 +46,13 @@ class _WorkflowRepository implements WorkflowRepository {
       throw UnimplementedError();
 
   @override
-  Future<WorkflowStage> saveStartSettings(
-          {required String definition,
-          required String triggerType,
-          required List<String> initiatorRoles,
-          required String subjectSource,
-          required String passMode}) =>
+  Future<WorkflowStage> saveStartSettings({
+    required String definition,
+    required String triggerType,
+    required List<String> initiatorRoles,
+    required String subjectSource,
+    required String passMode,
+  }) =>
       throw UnimplementedError();
 
   @override
@@ -122,6 +128,30 @@ class _WorkflowRepository implements WorkflowRepository {
       ];
 }
 
+class _HrClient extends Fake implements FrappeApiClient {
+  @override
+  bool get isAuthenticated => true;
+
+  @override
+  Future<FrappeUserContext> getCurrentUser() async => const FrappeUserContext(
+        userId: 'hr-manager@asoud-demo.local',
+        fullName: 'مدیر منابع انسانی',
+        roles: ['HR Manager', 'Employee'],
+      );
+}
+
+class _EmployeeClient extends Fake implements FrappeApiClient {
+  @override
+  bool get isAuthenticated => true;
+
+  @override
+  Future<FrappeUserContext> getCurrentUser() async => const FrappeUserContext(
+        userId: 'employee@asoud-demo.local',
+        fullName: 'کارمند',
+        roles: ['Employee'],
+      );
+}
+
 void main() {
   testWidgets('صفحه گردش‌کار در عرض‌های موبایل overflow ندارد', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
@@ -171,6 +201,25 @@ void main() {
     expect(find.text('اطلاعات پایه فرایند را وارد کنید'), findsOneWidget);
   });
 
+  testWidgets('مدیر منابع انسانی کنترل‌های نوشتن گردش‌کار را نمی‌بیند',
+      (tester) async {
+    await tester.pumpWidget(
+      MultiRepositoryProvider(
+        providers: [
+          RepositoryProvider<WorkflowRepository>.value(
+              value: _WorkflowRepository()),
+          RepositoryProvider<FrappeApiClient>.value(value: _HrClient()),
+        ],
+        child: const MaterialApp(home: WorkflowListPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('فرایند خرید کالا'), findsOneWidget);
+    expect(find.text('ایجاد گردش‌کار جدید'), findsNothing);
+    expect(find.byTooltip('عملیات فرایند'), findsNothing);
+  });
+
   testWidgets('bottom reports destination opens a page instead of a snackbar',
       (tester) async {
     await tester.pumpWidget(
@@ -187,5 +236,74 @@ void main() {
     expect(find.text('گزارش‌ها'), findsOneWidget);
     expect(find.text('به‌زودی'), findsOneWidget);
     expect(find.byType(SnackBar), findsNothing);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('گردش‌کارها'), findsOneWidget);
   });
+
+  testWidgets('جزئیات گردش‌کار دکمه طراحی مراحل دارد', (tester) async {
+    await tester.pumpWidget(
+      RepositoryProvider<WorkflowRepository>.value(
+        value: _WorkflowRepository(),
+        child: const MaterialApp(home: WorkflowListPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('فرایند خرید کالا'));
+    await tester.pumpAndSettle();
+    expect(find.text('طراحی مراحل'), findsOneWidget);
+  });
+
+  testWidgets('a plain employee reaching the workflows page sees a denial state',
+      (tester) async {
+    await tester.pumpWidget(
+      MultiRepositoryProvider(
+        providers: [
+          RepositoryProvider<WorkflowRepository>.value(
+              value: _WorkflowRepository()),
+          RepositoryProvider<FrappeApiClient>.value(value: _EmployeeClient()),
+        ],
+        child: const MaterialApp(home: WorkflowListPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('دسترسی ندارید'), findsWidgets);
+    expect(find.text('بازگشت'), findsOneWidget);
+    expect(find.text('فرایند خرید کالا'), findsNothing);
+    expect(find.text('ایجاد گردش‌کار جدید'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final width in [320.0, 390.0]) {
+    testWidgets('HR Manager workflow list fits at $width without create controls',
+        (tester) async {
+      tester.view.physicalSize = Size(width, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        MultiRepositoryProvider(
+          providers: [
+            RepositoryProvider<WorkflowRepository>.value(
+                value: _WorkflowRepository()),
+            RepositoryProvider<FrappeApiClient>.value(value: _HrClient()),
+          ],
+          child: MaterialApp(
+            locale: Locale('fa'),
+            home: Directionality(
+              textDirection: TextDirection.rtl,
+              child: WorkflowListPage(),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('فرایند خرید کالا'), findsOneWidget);
+      expect(find.text('ایجاد گردش‌کار جدید'), findsNothing);
+      expect(find.byTooltip('عملیات فرایند'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
 }

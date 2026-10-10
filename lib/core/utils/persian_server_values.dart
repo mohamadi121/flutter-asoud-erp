@@ -13,6 +13,13 @@ const erpNextRoleLabels = <String, String>{
   'Sales User': 'کارشناس فروش',
   'HR Manager': 'مدیر منابع انسانی',
   'HR User': 'کارشناس منابع انسانی',
+  'HR_MANAGER': 'مدیر منابع انسانی',
+  'HR_USER': 'کارشناس منابع انسانی',
+  'SYSTEM_ADMIN': 'مدیر سیستم',
+  'SYS_ADMIN': 'مدیر سیستم',
+  'FINANCE_MANAGER': 'مدیر مالی',
+  'FIN_MGR': 'مدیر مالی',
+  'ACCOUNTANT': 'حسابدار',
   'Support Team': 'کارشناس پشتیبانی',
   'Projects Manager': 'مدیر پروژه',
   'Employee': 'کارمند',
@@ -66,7 +73,121 @@ const erpNextRoleLabels = <String, String>{
   'Guest': 'مهمان',
 };
 
-String persianRoleLabel(String role) => erpNextRoleLabels[role] ?? role;
+String persianRoleLabel(String role) {
+  if (role.trim().isEmpty) return role;
+  final trimmed = role.trim();
+  final direct = erpNextRoleLabels[trimmed];
+  if (direct != null) return direct;
+
+  final normalized = trimmed.replaceAll(RegExp(r'[-_]+'), ' ').toLowerCase();
+  for (final entry in erpNextRoleLabels.entries) {
+    if (entry.key.toLowerCase() == normalized) {
+      return entry.value;
+    }
+  }
+  return _humanizeRoleCode(trimmed);
+}
+
+/// Unknown machine codes (for example `FIELD_OPS`) are not translated, but
+/// they must never reach the UI as `ALL_CAPS_WITH_UNDERSCORES`.
+String _humanizeRoleCode(String value) {
+  final machine = RegExp(r'^[A-Z0-9 _\-/]+$').hasMatch(value) &&
+      RegExp(r'[A-Z]').hasMatch(value);
+  if (!machine) return value;
+  final words = value
+      .replaceAll(RegExp(r'[-_]+'), ' ')
+      .split(' ')
+      .where((word) => word.isNotEmpty)
+      .map((word) => word.length == 1
+          ? word.toUpperCase()
+          : '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}');
+  return words.join(' ');
+}
+
+const erpNextLeaveTypes = <String, String>{
+  'Casual Leave': 'مرخصی اتفاقی',
+  'Compensatory Off': 'مرخصی جبرانی',
+  'Leave Without Pay': 'مرخصی بدون حقوق',
+  'Privilege Leave': 'مرخصی استحقاقی',
+  'Sick Leave': 'مرخصی استعلاجی',
+  'Maternity Leave': 'مرخصی زایمان',
+  'Paternity Leave': 'مرخصی تشویقی پدر شدن',
+  'Other Leave': 'سایر مرخصی‌ها',
+};
+
+String persianLeaveTypeLabel(String? type) {
+  if (type == null || type.trim().isEmpty) return '';
+  final trimmed = type.trim();
+  final direct = erpNextLeaveTypes[trimmed];
+  if (direct != null) return direct;
+
+  final normalized = trimmed.replaceAll(RegExp(r'[-_]+'), ' ').toLowerCase();
+  for (final entry in erpNextLeaveTypes.entries) {
+    if (entry.key.toLowerCase() == normalized) {
+      return entry.value;
+    }
+  }
+  return trimmed;
+}
+
+/// The server stores chart templates as `Iran Standard`, `Service`,
+/// `Commercial` and `Manufacturing`; the app always shows the Persian name.
+const erpNextChartTemplateLabels = <String, String>{
+  'Iran Standard': 'استاندارد ایران',
+  'استاندارد ایران': 'استاندارد ایران',
+  'Service': 'خدماتی',
+  'خدماتی': 'خدماتی',
+  'Commercial': 'بازرگانی',
+  'بازرگانی': 'بازرگانی',
+  'Manufacturing': 'تولیدی',
+  'تولیدی': 'تولیدی',
+};
+
+String persianChartTemplateLabel(String? value) {
+  if (value == null || value.trim().isEmpty) return '';
+  final trimmed = value.trim();
+  final direct = erpNextChartTemplateLabels[trimmed];
+  if (direct != null) return direct;
+
+  final normalized = trimmed.replaceAll(RegExp(r'[-_]+'), ' ').toLowerCase();
+  for (final entry in erpNextChartTemplateLabels.entries) {
+    if (entry.key.toLowerCase() == normalized) return entry.value;
+  }
+  return trimmed;
+}
+
+const workflowStatusLabels = <String, String>{
+  'Draft': 'پیش‌نویس',
+  'Open': 'در انتظار اقدام',
+  'Pending': 'در انتظار بررسی',
+  'In Progress': 'در حال اقدام',
+  'Running': 'در حال گردش',
+  'Approved': 'تأییدشده',
+  'Completed': 'تکمیل‌شده',
+  'Rejected': 'ردشده',
+  'Returned': 'بازگردانده‌شده',
+  'Cancelled': 'لغوشده',
+  'Closed': 'بسته‌شده',
+  'Active': 'فعال',
+  'Inactive': 'غیرفعال',
+  'Archived': 'آرشیو',
+  'Submitted': 'ارسال‌شده',
+};
+
+String persianWorkflowStatus(String? status) {
+  if (status == null || status.trim().isEmpty) return '';
+  final trimmed = status.trim();
+  final direct = workflowStatusLabels[trimmed];
+  if (direct != null) return direct;
+
+  final normalized = trimmed.replaceAll(RegExp(r'[-_]+'), ' ').toLowerCase();
+  for (final entry in workflowStatusLabels.entries) {
+    if (entry.key.toLowerCase() == normalized) {
+      return entry.value;
+    }
+  }
+  return trimmed;
+}
 
 bool isInternalRole(String role) =>
     role.trim().toUpperCase().startsWith('ASOUD-ACCESS-USER-');
@@ -111,19 +232,96 @@ String persianRequestFieldTypeLabel(String type) => switch (type) {
       _ => type,
     };
 
-String persianWorkflowStageTitle(String title) => switch (title.trim()) {
-      'Start' => 'شروع',
-      'User Task' => 'وظیفه کاربر',
-      'Approval' => 'تأیید',
-      'Condition' => 'شرط',
-      'System Action' => 'اقدام خودکار',
-      'Wait' => 'انتظار',
-      'End' => 'پایان',
-      _ => title,
-    };
+String persianWorkflowStageTitle(String title) {
+  final trimmed = title.trim();
+  final lower = trimmed.replaceAll(RegExp(r'[-_]+'), ' ').toLowerCase();
+  return switch (lower) {
+    'start' => 'شروع',
+    'user task' => 'وظیفه کاربر',
+    'approval' => 'تأیید',
+    'condition' => 'شرط',
+    'system action' => 'اقدام خودکار',
+    'wait' => 'انتظار',
+    'end' => 'پایان',
+    'start / user task' || 'start/user task' => 'شروع / وظیفه کاربر',
+    _ => title,
+  };
+}
 
 String persianServerMessage(String message) => switch (message.trim()) {
       'Workflow stages and transitions are not complete' =>
         'مراحل و مسیرهای گردش‌کار کامل نیستند.',
       _ => message,
+    };
+
+String persianNotificationTitle(String? title) {
+  if (title == null || title.trim().isEmpty) return '';
+  final trimmed = title.trim();
+
+  final taskMatch = RegExp(r'^New workflow task:\s*(.+)$', caseSensitive: false)
+      .firstMatch(trimmed);
+  if (taskMatch != null) {
+    final stage = taskMatch.group(1)?.trim() ?? '';
+    return 'کار جدید در گردش‌کار: ${persianWorkflowStageTitle(stage)}';
+  }
+
+  final reqApprovedMatch =
+      RegExp(r'^Workflow request approved(?::\s*(.+))?$', caseSensitive: false)
+          .firstMatch(trimmed);
+  if (reqApprovedMatch != null) {
+    final rest = reqApprovedMatch.group(1)?.trim();
+    return rest == null || rest.isEmpty
+        ? 'درخواست گردش‌کار تأیید شد'
+        : 'درخواست گردش‌کار تأیید شد: $rest';
+  }
+
+  final reqRejectedMatch =
+      RegExp(r'^Workflow request rejected(?::\s*(.+))?$', caseSensitive: false)
+          .firstMatch(trimmed);
+  if (reqRejectedMatch != null) {
+    final rest = reqRejectedMatch.group(1)?.trim();
+    return rest == null || rest.isEmpty
+        ? 'درخواست گردش‌کار رد شد'
+        : 'درخواست گردش‌کار رد شد: $rest';
+  }
+
+  final reqReturnedMatch =
+      RegExp(r'^Workflow request returned(?::\s*(.+))?$', caseSensitive: false)
+          .firstMatch(trimmed);
+  if (reqReturnedMatch != null) {
+    final rest = reqReturnedMatch.group(1)?.trim();
+    return rest == null || rest.isEmpty
+        ? 'درخواست گردش‌کار بازگردانده شد'
+        : 'درخواست گردش‌کار بازگردانده شد: $rest';
+  }
+
+  return trimmed;
+}
+
+String persianDocumentFieldLabel(String label) => switch (label.trim()) {
+      'Company' => 'شرکت',
+      'Workflow' => 'گردش‌کار',
+      'Request Type' => 'نوع درخواست',
+      'Subject' => 'موضوع',
+      'Priority' => 'اولویت',
+      'Status' => 'وضعیت',
+      'Workflow Instance' => 'نمونه گردش‌کار',
+      'Attachments' => 'پیوست‌ها',
+      'Dynamic Values' => 'مقادیر متغیر',
+      'Template Version' => 'نسخه الگو',
+      'Status Key' => 'کلید وضعیت',
+      'Search Text' => 'متن جستجو',
+      _ => label,
+    };
+
+String persianDoctypeLabel(String doctype) => switch (doctype.trim()) {
+      'ASOUD Workflow Request' => 'درخواست گردش‌کار',
+      'Material Request' => 'درخواست کالا / خرید',
+      'Leave Application' => 'درخواست مرخصی',
+      'Job Applicant' => 'متقاضی استخدام',
+      'Journal Entry' => 'سند حسابداری',
+      'Payment Entry' => 'دریافت و پرداخت',
+      'Sales Invoice' => 'فاکتور فروش',
+      'Purchase Order' => 'سفارش خرید',
+      _ => doctype,
     };

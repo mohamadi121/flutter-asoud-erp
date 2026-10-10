@@ -6,7 +6,7 @@ import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/persian_server_values.dart';
 import '../../domain/entities/workflow_definition.dart';
 
-class WorkflowGraphCanvas extends StatelessWidget {
+class WorkflowGraphCanvas extends StatefulWidget {
   const WorkflowGraphCanvas({
     required this.design,
     required this.onOpenStage,
@@ -26,6 +26,20 @@ class WorkflowGraphCanvas extends StatelessWidget {
 
   static const nodeSize = Size(190, 118);
 
+  @override
+  State<WorkflowGraphCanvas> createState() => _WorkflowGraphCanvasState();
+}
+
+class _WorkflowGraphCanvasState extends State<WorkflowGraphCanvas> {
+  final _controller = TransformationController();
+  double? _appliedScale;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
   Offset _position(WorkflowStage stage) {
     if (stage.positionX != 0 || stage.positionY != 0) {
       return Offset(stage.positionX, stage.positionY);
@@ -36,85 +50,100 @@ class WorkflowGraphCanvas extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final positions = {
-      for (final stage in design.stages) stage.id: _position(stage),
+      for (final stage in widget.design.stages) stage.id: _position(stage),
     };
     final maxX =
         positions.values.fold<double>(520, (v, p) => math.max(v, p.dx + 260));
     final maxY =
         positions.values.fold<double>(760, (v, p) => math.max(v, p.dy + 220));
-    return InteractiveViewer(
-      constrained: false,
-      minScale: .55,
-      maxScale: 2.2,
-      boundaryMargin: const EdgeInsets.all(220),
-      child: SizedBox(
-        width: maxX,
-        height: maxY,
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Positioned.fill(
-              child: CustomPaint(
-                painter: _GraphPainter(
-                  stages: design.stages,
-                  transitions: design.transitions,
-                  positions: positions,
+    return LayoutBuilder(builder: (context, constraints) {
+      final fit = (constraints.maxWidth / maxX).clamp(.55, 1.0);
+      if (_appliedScale != fit) {
+        _appliedScale = fit;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _controller.value = Matrix4.diagonal3Values(fit, fit, 1);
+        });
+      }
+      return InteractiveViewer(
+        transformationController: _controller,
+        constrained: false,
+        minScale: .55,
+        maxScale: 2.2,
+        boundaryMargin: const EdgeInsets.all(220),
+        child: SizedBox(
+          width: maxX,
+          height: maxY,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned.fill(
+                child: CustomPaint(
+                  painter: _GraphPainter(
+                    stages: widget.design.stages,
+                    transitions: widget.design.transitions,
+                    positions: positions,
+                  ),
                 ),
               ),
-            ),
-            for (final edge in design.transitions)
-              if (positions[edge.fromStage] case final from?)
-                if (positions[edge.toStage] case final to?)
-                  Positioned(
-                    left: (from.dx + to.dx) / 2 + nodeSize.width / 2 - 18,
-                    top: (from.dy + to.dy) / 2 + nodeSize.height / 2 - 18,
-                    child: Tooltip(
-                      message: 'افزودن مرحله بین این دو مرحله',
-                      child: InkWell(
-                        onTap: () => onInsertOnTransition(edge),
-                        borderRadius: BorderRadius.circular(18),
-                        child: Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: AsoudColors.primary),
+              for (final edge in widget.design.transitions)
+                if (positions[edge.fromStage] case final from?)
+                  if (positions[edge.toStage] case final to?)
+                    Positioned(
+                      left: (from.dx + to.dx) / 2 +
+                          WorkflowGraphCanvas.nodeSize.width / 2 -
+                          18,
+                      top: (from.dy + to.dy) / 2 +
+                          WorkflowGraphCanvas.nodeSize.height / 2 -
+                          18,
+                      child: Tooltip(
+                        message: 'افزودن مرحله بین این دو مرحله',
+                        child: InkWell(
+                          onTap: () => widget.onInsertOnTransition(edge),
+                          borderRadius: BorderRadius.circular(18),
+                          child: Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: AsoudColors.primary),
+                            ),
+                            child: const Icon(Icons.add_rounded,
+                                size: 20, color: AsoudColors.primary),
                           ),
-                          child: const Icon(Icons.add_rounded,
-                              size: 20, color: AsoudColors.primary),
                         ),
                       ),
                     ),
-                  ),
-            for (final stage in design.stages)
-              Positioned(
-                left: positions[stage.id]!.dx,
-                top: positions[stage.id]!.dy,
-                child: GestureDetector(
-                  onPanUpdate: (details) {
-                    final current = positions[stage.id]!;
-                    onMoveStage(
-                      stage.id,
-                      math.max(0, current.dx + details.delta.dx),
-                      math.max(0, current.dy + details.delta.dy),
-                    );
-                  },
-                  onPanEnd: (_) => onMoveEnd(),
-                  child: _GraphNode(
-                    stage: stage,
-                    outgoing: design.transitions
-                        .where((edge) => edge.fromStage == stage.id)
-                        .toList(growable: false),
-                    onTap: () => onOpenStage(stage),
-                    onConnect: () => onCreateTransition(stage),
+              for (final stage in widget.design.stages)
+                Positioned(
+                  left: positions[stage.id]!.dx,
+                  top: positions[stage.id]!.dy,
+                  child: GestureDetector(
+                    onPanUpdate: (details) {
+                      final current = positions[stage.id]!;
+                      widget.onMoveStage(
+                        stage.id,
+                        math.max(0, current.dx + details.delta.dx),
+                        math.max(0, current.dy + details.delta.dy),
+                      );
+                    },
+                    onPanEnd: (_) => widget.onMoveEnd(),
+                    child: _GraphNode(
+                      stage: stage,
+                      outgoing: widget.design.transitions
+                          .where((edge) => edge.fromStage == stage.id)
+                          .toList(growable: false),
+                      onTap: () => widget.onOpenStage(stage),
+                      onConnect: () => widget.onCreateTransition(stage),
+                    ),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
-      ),
-    );
+      );
+    });
   }
 }
 

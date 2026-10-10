@@ -37,7 +37,13 @@ String _valueOf(Map profile, String key, [String fallback = '—']) {
       value.contains('personnel-import-')) {
     return fallback;
   }
-  if (key == 'birth_date' || key == 'date_of_joining') {
+  if (key == 'birth_date' ||
+      key == 'date_of_joining' ||
+      key == 'date' ||
+      key == 'record_date' ||
+      key == 'final_confirmation_date' ||
+      key == 'contract_end_date' ||
+      key.endsWith('_date')) {
     return formatJalaliIso(value);
   }
   if (key == 'employment_type') {
@@ -84,10 +90,16 @@ class _PersonnelList extends StatelessWidget {
       child: BlocBuilder<PersonnelCubit, PersonnelState>(
           builder: (context, state) {
         final cubit = context.read<PersonnelCubit>();
-        return Scaffold(
+        return FutureBuilder<Capabilities>(
+            future: capabilitiesOf(context),
+            builder: (context, capsSnap) {
+              final caps = capsSnap.data ?? Capabilities.fromRoles(const []);
+              final canWritePersonnel = caps.canWritePersonnel && state.canEdit;
+              final canManageAccess = caps.canManageUserAccess && state.canEdit;
+              return Scaffold(
           backgroundColor: _canvas,
           appBar: _personnelHeader(context, 'پرسنل',
-              action: state.canEdit
+              action: canWritePersonnel
                   ? Padding(
                       padding: const EdgeInsets.all(9),
                       child: IconButton.filled(
@@ -118,7 +130,7 @@ class _PersonnelList extends StatelessWidget {
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
                   children: [
-                    if (state.canEdit)
+                    if (canWritePersonnel)
                       Align(
                           alignment: AlignmentDirectional.centerEnd,
                           child: TextButton.icon(
@@ -184,7 +196,7 @@ class _PersonnelList extends StatelessWidget {
                                 padding: const EdgeInsets.only(left: 6),
                                 child: ChoiceChip(
                                     label: Text(
-                                        '${entry.value} (${state.rows.where((r) => entry.key == 'all' || (r['disabled'] == true) == (entry.key == 'inactive')).length})'),
+                                        '${entry.value} (${toPersianDigits(state.rows.where((r) => entry.key == 'all' || (r['disabled'] == true) == (entry.key == 'inactive')).length)})'),
                                     selected: state.status == entry.key,
                                     showCheckmark: false,
                                     selectedColor: entry.key == 'active'
@@ -236,7 +248,7 @@ class _PersonnelList extends StatelessWidget {
                     for (final person in state.visible)
                       _PersonnelRow(
                           profile: person,
-                          canManage: state.canEdit,
+                          canManage: canManageAccess,
                           repository: cubit.repository,
                           onTap: () async {
                             await Navigator.push(
@@ -249,6 +261,7 @@ class _PersonnelList extends StatelessWidget {
                           }),
                   ])),
         );
+            });
       }));
 }
 
@@ -401,12 +414,12 @@ class _EmployeeUserDetailsPageState extends State<_EmployeeUserDetailsPage> {
               future: future,
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
-                  return Center(
-                      child: TextButton(
-                          onPressed: () => setState(() {
-                                future = _load();
-                              }),
-                          child: const Text('دریافت ناموفق؛ تلاش دوباره')));
+                  return ErrorState(
+                      failure:
+                          snapshot.error ?? 'دریافت جزئیات کاربر ممکن نشد.',
+                      onRetry: () => setState(() {
+                            future = _load();
+                          }));
                 }
                 if (!snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
@@ -437,7 +450,7 @@ class _EmployeeUserDetailsPageState extends State<_EmployeeUserDetailsPage> {
                       rows: {
                         for (final entry in matrix.entries)
                           entry.key:
-                              '${(entry.value as List? ?? const []).length} مجوز',
+                              formatCount((entry.value as List? ?? const []).length, 'مجوز'),
                       }),
                   const SizedBox(height: 14),
                   FilledButton.icon(
@@ -518,12 +531,12 @@ class _EmployeeInvitationsPageState extends State<_EmployeeInvitationsPage> {
               future: future,
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
-                  return Center(
-                      child: TextButton(
-                          onPressed: () => setState(() {
-                                future = _load();
-                              }),
-                          child: const Text('دریافت ناموفق؛ تلاش دوباره')));
+                  return ErrorState(
+                      failure: snapshot.error ??
+                          'دریافت دعوت‌ها ممکن نشد.',
+                      onRetry: () => setState(() {
+                            future = _load();
+                          }));
                 }
                 if (!snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
@@ -645,7 +658,7 @@ class _InviteReviewPageState extends State<_InviteReviewPage> {
                 icon: Icons.admin_panel_settings_outlined,
                 rows: {
                   'نقش‌ها': roles.isEmpty ? 'انتخاب نشده' : roles.join('، '),
-                  'مجوزها': '${matrix.length} ماژول انتخاب شده',
+                  'مجوزها': formatCount(matrix.length, 'ماژول انتخاب شده'),
                 }),
             const SizedBox(height: 10),
             _AccessField(
@@ -1225,7 +1238,7 @@ class _PersonnelOverviewState extends State<_PersonnelOverview> {
               child: _SummaryTile(
                   title: personnelRecordKindLabel(kind),
                   value:
-                      '${widget.records.where((r) => r['kind'] == kind).length} مورد ثبت‌شده',
+                      formatCount(widget.records.where((r) => r['kind'] == kind).length, 'مورد ثبت‌شده'),
                   icon: kind == 'photo'
                       ? Icons.photo_outlined
                       : Icons.folder_outlined,
@@ -1331,17 +1344,26 @@ class _SummaryTile extends StatelessWidget {
                     child: Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                      Text(value,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              color: _ink,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800)),
+                      Tooltip(
+                        message: value,
+                        child: Text(value,
+                            maxLines: 2,
+                            softWrap: true,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                color: _ink,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800)),
+                      ),
                       const SizedBox(height: 3),
-                      Text(title,
-                          style: const TextStyle(
-                              color: Color(0xFF8192B9), fontSize: 9)),
+                      Tooltip(
+                        message: title,
+                        child: Text(title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                color: Color(0xFF8192B9), fontSize: 9)),
+                      ),
                     ])),
               ]))));
 }

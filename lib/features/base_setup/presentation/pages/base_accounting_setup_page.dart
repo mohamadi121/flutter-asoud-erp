@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/auth/capabilities.dart';
+import '../../../../core/utils/persian_format.dart';
 import '../../../../core/widgets/asoud_ui.dart';
+import '../../../../core/widgets/states.dart';
 import '../../domain/entities/accounting_setup.dart';
 import '../../domain/repositories/base_setup_repository.dart';
 import '../bloc/base_setup_cubit.dart';
@@ -32,11 +35,13 @@ class BaseAccountingSetupPage extends StatefulWidget {
 
 class _BaseAccountingSetupPageState extends State<BaseAccountingSetupPage> {
   late Future<Office?> _setupStatus;
+  late Future<Capabilities> _capabilities;
 
   @override
   void initState() {
     super.initState();
     _setupStatus = _loadSetupStatus();
+    _capabilities = capabilitiesOf(context, offlinePreview: widget.offlinePreview);
   }
 
   Future<Office?> _loadSetupStatus() => widget.offlinePreview
@@ -56,144 +61,170 @@ class _BaseAccountingSetupPageState extends State<BaseAccountingSetupPage> {
               icon: Icons.tune_rounded, color: AsoudColors.primary),
         ),
         body: SafeArea(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
-            children: [
-              FutureBuilder<Office?>(
-                future: _setupStatus,
-                builder: (context, snapshot) => _SetupOverview(
-                  officeName: widget.officeName,
-                  offlinePreview: widget.offlinePreview,
-                  status: snapshot.data,
-                  loading: snapshot.connectionState == ConnectionState.waiting,
-                  loadFailed: snapshot.hasError,
-                  onRetry: _retrySetupStatus,
-                ),
-              ),
-              const SizedBox(height: 18),
-              Card(
-                  child: ListTile(
-                leading: const AsoudIconBox(
-                    icon: Icons.hub_outlined, color: AsoudColors.primary),
-                title: const Text('طراح گردش‌کار و فرم درخواست'),
-                subtitle: const Text('بررسی فرایندهای قبلی و طراحی مراحل'),
-                trailing: const Icon(Icons.chevron_left),
-                onTap: widget.officeName == null
-                    ? null
-                    : () => Navigator.of(context).push(MaterialPageRoute<void>(
-                          builder: (_) =>
-                              WorkflowListPage(company: widget.officeName),
-                        )),
-              )),
-              Card(
-                  child: ListTile(
-                leading: const AsoudIconBox(
-                    icon: Icons.assignment_outlined,
-                    color: AsoudColors.warning),
-                title: const Text('درخواست‌های خرید'),
-                subtitle: const Text('ثبت و مشاهده درخواست‌های موجود'),
-                trailing: const Icon(Icons.chevron_left),
-                onTap: widget.officeName == null
-                    ? null
-                    : () => Navigator.of(context).push(MaterialPageRoute<void>(
-                          builder: (_) =>
-                              PurchaseRequestsPage(company: widget.officeName!),
-                        )),
-              )),
-              const Text('ماژول‌های تنظیمات پایه',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900)),
-              const SizedBox(height: 10),
-              GridView.count(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisCount: 2,
-                mainAxisExtent: 195,
-                mainAxisSpacing: 10,
-                crossAxisSpacing: 10,
+          bottom: false,
+          child: FutureBuilder<Capabilities>(
+            future: _capabilities,
+            builder: (context, capsSnapshot) {
+              final caps = capsSnapshot.data ?? Capabilities.full;
+              final hasOffice = widget.officeName != null;
+              return ListView(
+                padding: EdgeInsets.fromLTRB(16, 10, 16,
+                    MediaQuery.viewPaddingOf(context).bottom + 16),
                 children: [
-                  _ModuleGridTile(
-                    title: 'حسابداری',
-                    subtitle: 'کدینگ، سرفصل‌ها و تفصیلی',
-                    icon: Icons.account_balance_rounded,
-                    color: AsoudColors.primary,
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                          builder: (_) => AccountingBaseSetupPage(
-                                officeName: widget.officeName,
-                                offlinePreview: widget.offlinePreview,
-                              )),
+                  FutureBuilder<Office?>(
+                    future: _setupStatus,
+                    builder: (context, snapshot) => _SetupOverview(
+                      officeName: widget.officeName,
+                      offlinePreview: widget.offlinePreview,
+                      status: snapshot.data,
+                      loading: snapshot.connectionState ==
+                          ConnectionState.waiting,
+                      loadFailed: snapshot.hasError,
+                      onRetry: _retrySetupStatus,
                     ),
                   ),
-                  _ModuleGridTile(
-                    title: 'مالی و خزانه',
-                    subtitle: 'بانک، صندوق و پرداخت‌ها',
-                    icon: Icons.account_balance_wallet_outlined,
-                    color: AsoudColors.success,
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) =>
-                            const _UnavailableModulePage(title: 'مالی و خزانه'),
+                  const SizedBox(height: 12),
+                  Card(
+                      child: ListTile(
+                    leading: const AsoudIconBox(
+                        icon: Icons.hub_outlined, color: AsoudColors.primary),
+                    title: const Text('طراح گردش‌کار و فرم درخواست'),
+                    subtitle:
+                        const Text('بررسی فرایندهای قبلی و طراحی مراحل'),
+                    trailing: const Icon(Icons.chevron_left),
+                    onTap: hasOffice
+                        ? () => Navigator.of(context).push(MaterialPageRoute<void>(
+                              builder: (_) => WorkflowListPage(
+                                  company: widget.officeName!),
+                            ))
+                        : null,
+                  )),
+                  const SizedBox(height: 12),
+                  Card(
+                      child: ListTile(
+                    leading: const AsoudIconBox(
+                        icon: Icons.assignment_outlined,
+                        color: AsoudColors.warning),
+                    title: const Text('درخواست‌های خرید'),
+                    subtitle: const Text('ثبت و مشاهده درخواست‌های موجود'),
+                    trailing: const Icon(Icons.chevron_left),
+                    onTap: hasOffice
+                        ? () => Navigator.of(context).push(MaterialPageRoute<void>(
+                              builder: (_) => PurchaseRequestsPage(
+                                  company: widget.officeName!),
+                            ))
+                        : null,
+                  )),
+                  const SizedBox(height: 18),
+                  const Text('ماژول‌های تنظیمات پایه',
+                      style: TextStyle(
+                          fontSize: 15, fontWeight: FontWeight.w900)),
+                  const SizedBox(height: 10),
+                  GridView.count(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    crossAxisCount: 2,
+                    mainAxisExtent: 96,
+                    mainAxisSpacing: 10,
+                    crossAxisSpacing: 10,
+                    children: [
+                      _ModuleGridTile(
+                        title: 'حسابداری',
+                        subtitle: 'کدینگ، سرفصل‌ها و تفصیلی',
+                        icon: Icons.account_balance_rounded,
+                        color: AsoudColors.primary,
+                        lockedReason: caps.canSeeAccounting
+                            ? null
+                            : 'برای شما فعال نیست؛ مدیر دسترسی بدهد',
+                        onTap: caps.canSeeAccounting
+                            ? () => Navigator.of(context).push(
+                                  MaterialPageRoute<void>(
+                                      builder: (_) =>
+                                          AccountingBaseSetupPage(
+                                        officeName: widget.officeName,
+                                        offlinePreview:
+                                            widget.offlinePreview,
+                                      )),
+                                )
+                            : null,
                       ),
-                    ),
-                  ),
-                  _ModuleGridTile(
-                    title: 'انبار و کالا',
-                    subtitle: 'کالا، واحد سنجش و انبارها',
-                    icon: Icons.inventory_2_outlined,
-                    color: AsoudColors.purple,
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) =>
-                            const _UnavailableModulePage(title: 'انبار و کالا'),
+                      _ModuleGridTile(
+                        title: 'مالی و خزانه',
+                        subtitle: 'بانک، صندوق و پرداخت‌ها',
+                        icon: Icons.account_balance_wallet_outlined,
+                        color: AsoudColors.success,
+                        lockedReason: 'به‌زودی',
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) =>
+                                const _UnavailableModulePage(title: 'مالی و خزانه'),
+                          ),
+                        ),
                       ),
-                    ),
+                      _ModuleGridTile(
+                        title: 'انبار و کالا',
+                        subtitle: 'کالا، واحد سنجش و انبارها',
+                        icon: Icons.inventory_2_outlined,
+                        color: AsoudColors.purple,
+                        lockedReason: 'به‌زودی',
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) =>
+                                const _UnavailableModulePage(title: 'انبار و کالا'),
+                          ),
+                        ),
+                      ),
+                      _ModuleGridTile(
+                        title: 'منابع انسانی',
+                        subtitle: 'پرسنل، نقش‌ها و ساختار سازمانی',
+                        icon: Icons.badge_outlined,
+                        color: const Color(0xFFEF6C5B),
+                        lockedReason: !caps.canReadManagerViews
+                            ? 'برای شما فعال نیست؛ مدیر دسترسی بدهد'
+                            : (hasOffice ? null : 'ابتدا دفتر فعال را انتخاب کنید'),
+                        onTap: caps.canReadManagerViews && hasOffice
+                            ? () => Navigator.of(context).push(
+                                  MaterialPageRoute<void>(
+                                      builder: (_) => HrHomePage(
+                                          company: widget.officeName!)),
+                                )
+                            : null,
+                      ),
+                      _ModuleGridTile(
+                        title: 'خرید و تدارکات',
+                        subtitle: 'تأمین‌کنندگان و سفارش خرید',
+                        icon: Icons.shopping_cart_checkout_rounded,
+                        color: AsoudColors.warning,
+                        onTap: () =>
+                            Navigator.of(context).push(MaterialPageRoute<void>(
+                          builder: (_) => PartyManagementPage(
+                              company: widget.officeName,
+                              initialRole: PartyRole.supplier),
+                        )),
+                      ),
+                      _ModuleGridTile(
+                        title: 'فروش و درآمد',
+                        subtitle: 'مشتریان، قیمت‌گذاری و فروش',
+                        icon: Icons.point_of_sale_rounded,
+                        color: AsoudColors.success,
+                        onTap: () =>
+                            Navigator.of(context).push(MaterialPageRoute<void>(
+                          builder: (_) => PartyManagementPage(
+                              company: widget.officeName,
+                              initialRole: PartyRole.customer),
+                        )),
+                      ),
+                    ],
                   ),
-                  _ModuleGridTile(
-                    title: 'منابع انسانی',
-                    subtitle: 'پرسنل، نقش‌ها و ساختار سازمانی',
-                    icon: Icons.badge_outlined,
-                    color: const Color(0xFFEF6C5B),
-                    onTap: widget.officeName == null
-                        ? null
-                        : () => Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                  builder: (_) =>
-                                      HrHomePage(company: widget.officeName!)),
-                            ),
-                  ),
-                  _ModuleGridTile(
-                    title: 'خرید و تدارکات',
-                    subtitle: 'تأمین‌کنندگان و سفارش خرید',
-                    icon: Icons.shopping_cart_checkout_rounded,
-                    color: AsoudColors.warning,
-                    onTap: () =>
-                        Navigator.of(context).push(MaterialPageRoute<void>(
-                      builder: (_) => PartyManagementPage(
-                          company: widget.officeName,
-                          initialRole: PartyRole.supplier),
-                    )),
-                  ),
-                  _ModuleGridTile(
-                    title: 'فروش و درآمد',
-                    subtitle: 'مشتریان، قیمت‌گذاری و فروش',
-                    icon: Icons.point_of_sale_rounded,
-                    color: AsoudColors.success,
-                    onTap: () =>
-                        Navigator.of(context).push(MaterialPageRoute<void>(
-                      builder: (_) => PartyManagementPage(
-                          company: widget.officeName,
-                          initialRole: PartyRole.customer),
-                    )),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'ماژول‌های غیرفعال در مراحل بعد و پس از تکمیل جریان کاری مربوطه فعال می‌شوند.',
+                    style: TextStyle(fontSize: 9, color: AsoudColors.muted),
+                    textAlign: TextAlign.center,
                   ),
                 ],
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                'ماژول‌های غیرفعال در مراحل بعد و پس از تکمیل جریان کاری مربوطه فعال می‌شوند.',
-                style: TextStyle(fontSize: 9, color: AsoudColors.muted),
-                textAlign: TextAlign.center,
-              ),
-            ],
+              );
+            },
           ),
         ),
       );
@@ -333,11 +364,15 @@ class _ModuleGridTile extends StatelessWidget {
     required this.icon,
     required this.color,
     this.onTap,
+    this.lockedReason,
   });
   final String title, subtitle;
   final IconData icon;
   final Color color;
   final VoidCallback? onTap;
+  final String? lockedReason;
+
+  bool get _locked => lockedReason != null || onTap == null;
 
   @override
   Widget build(BuildContext context) => Card(
@@ -346,29 +381,48 @@ class _ModuleGridTile extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(14),
           child: Padding(
-            padding: const EdgeInsets.all(12),
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                AsoudIconBox(icon: icon, color: color, size: 42),
-                Icon(
-                    onTap == null
-                        ? Icons.lock_outline_rounded
-                        : Icons.chevron_left_rounded,
-                    size: 18,
-                    color: onTap == null ? AsoudColors.muted : color),
-              ]),
-              const Spacer(),
-              Text(title,
-                  style: const TextStyle(
-                      fontSize: 13, fontWeight: FontWeight.w900)),
-              const SizedBox(height: 4),
-              Text(subtitle,
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                      fontSize: 10.5, height: 1.6, color: AsoudColors.muted)),
-            ]),
+            padding: const EdgeInsets.all(9),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    AsoudIconBox(icon: icon, color: color, size: 30),
+                    Icon(
+                        _locked
+                            ? Icons.lock_outline_rounded
+                            : Icons.chevron_left_rounded,
+                        size: 16,
+                        color: _locked ? AsoudColors.muted : color),
+                  ],
+                ),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 12.5, fontWeight: FontWeight.w900)),
+                    const SizedBox(height: 2),
+                    Text(
+                      lockedReason ?? subtitle,
+                      maxLines: lockedReason == null ? 1 : 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          fontSize: 9.5,
+                          height: 1.4,
+                          color: lockedReason == null
+                              ? AsoudColors.muted
+                              : AsoudColors.warning),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       );
@@ -416,16 +470,27 @@ class _SetupOverview extends StatelessWidget {
   final bool loadFailed;
   final VoidCallback? onRetry;
 
-  double? get _progress {
-    if (offlinePreview) return 1 / 3;
+  /// Number of completed setup steps (0..3), or null while loading.
+  int? get _completedSteps {
+    if (offlinePreview) return 1;
     if (loading) return null;
     if (loadFailed) return 0;
-    return status?.setupComplete == true ? 1 : 1 / 3;
+    return status?.savedStepCount ?? 0;
   }
+
+  int get _percent {
+    final steps = _completedSteps ?? 0;
+    return steps * 100 ~/ 3;
+  }
+
+  double? get _progress => _completedSteps == null
+      ? null
+      : _completedSteps! / 3;
 
   String get _statusText {
     if (offlinePreview) return 'پیش‌نمایش آفلاین • ۱ مورد از ۳ مورد';
     if (loading) return 'در حال دریافت وضعیت راه‌اندازی…';
+    if (loadFailed) return 'راه‌اندازی دفتر هنوز کامل نیست.';
     if (status?.setupComplete == true) return 'راه‌اندازی دفتر کامل شده است.';
     return 'راه‌اندازی دفتر هنوز کامل نیست.';
   }
@@ -486,9 +551,26 @@ class _SetupOverview extends StatelessWidget {
               ),
             ])
           else
-            Text(
-              _statusText,
-              style: const TextStyle(color: AsoudColors.muted, fontSize: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: Text(
+                    _statusText,
+                    style: const TextStyle(
+                        color: AsoudColors.muted, fontSize: 10),
+                  ),
+                ),
+                if (_completedSteps != null)
+                  Text(
+                    '${toPersianDigits(_percent)}٪ تکمیل شده',
+                    style: const TextStyle(
+                        color: AsoudColors.primary,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800),
+                  ),
+              ],
             ),
           const SizedBox(height: 10),
           LinearProgressIndicator(value: _progress, minHeight: 7),
@@ -554,7 +636,8 @@ class _UnavailableModulePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AsoudHeader(title: title),
-        body: const Center(child: Text('به‌زودی')),
+        body: const ComingSoonState(
+            description: 'این ماژول در نسخه‌های بعدی آسود فعال می‌شود.'),
       );
 }
 
@@ -573,7 +656,7 @@ class _BaseAccountingSetupView extends StatelessWidget {
       body: SafeArea(child: BlocBuilder<BaseSetupCubit, BaseSetupState>(
           builder: (context, state) {
         return ListView(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
             children: [
               if (offlinePreview) ...[
                 const _OfflineSetupBanner(),
@@ -792,7 +875,7 @@ class _DigitSelector extends StatelessWidget {
               4,
               (index) => DropdownMenuItem(
                 value: index + 1,
-                child: Text('${index + 1} رقم'),
+                child: Text(formatCount(index + 1, 'رقم')),
               ),
             ),
             onChanged: (next) => next == null ? null : onChanged(next),
@@ -851,7 +934,7 @@ class _AccountCodeModeCard extends StatelessWidget {
               const Text('تولید خودکار کد حساب',
                   style: TextStyle(fontWeight: FontWeight.w800)),
               const SizedBox(height: 3),
-              const Text('کد نهایی و یکتا توسط Backend تولید می‌شود.',
+              const Text('کد نهایی و یکتا توسط سرور تولید می‌شود.',
                   style: TextStyle(fontSize: 9, color: AsoudColors.muted)),
             ]),
           ),

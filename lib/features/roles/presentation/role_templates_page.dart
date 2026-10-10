@@ -1,5 +1,7 @@
 part of 'roles_page.dart';
 
+typedef RoleCategoryFormView = _CategoryForm;
+
 class _CategoryForm extends StatefulWidget {
   const _CategoryForm();
   @override
@@ -28,21 +30,23 @@ class _CategoryFormState extends State<_CategoryForm> {
                 key: _key,
                 child: ListView(padding: const EdgeInsets.all(16), children: [
                   const _RoleStatus(),
-                  TextFormField(
+                  AppTextField(
                       controller: _title,
+                      label: 'نام دسته',
+                      required: true,
+                      hint: 'نام دسته را وارد کنید',
                       maxLength: 140,
-                      decoration:
-                          const InputDecoration(labelText: 'نام دسته *'),
                       validator: (value) =>
                           value == null || value.trim().isEmpty
                               ? 'نام دسته الزامی است.'
                               : null),
                   const SizedBox(height: 16),
-                  TextFormField(
+                  AppTextField(
                       controller: _code,
-                      textDirection: TextDirection.ltr,
-                      decoration: const InputDecoration(
-                          labelText: 'کد دسته *', hintText: 'FINANCE'),
+                      label: 'کد دسته',
+                      required: true,
+                      hint: 'FINANCE',
+                      ltr: true,
                       validator: (value) =>
                           RegExp(r'^[A-Za-z][A-Za-z0-9_-]{1,39}$')
                                   .hasMatch(value?.trim() ?? '')
@@ -119,13 +123,13 @@ class _RoleTemplatesState extends State<_RoleTemplates> {
                       secondary: AsoudIconBox(
                           icon: _roleStyle(category.style).$1,
                           color: _roleStyle(category.style).$2),
-                      title: Text(template.title),
+                      title: Text(persianRoleLabel(template.title)),
                       subtitle: Text(
                           template.exists
                               ? 'قبلاً ایجاد شده'
                               : !template.available
                                   ? 'نقش پایه در سرور موجود یا فعال نیست'
-                                  : template.baseRoles.join(' + '),
+                                  : template.baseRoles.map(persianRoleLabel).join(' + '),
                           style: const TextStyle(fontSize: 11)),
                       value: _selected.contains(template.code),
                       onChanged:
@@ -160,7 +164,7 @@ class _RoleTemplatesState extends State<_RoleTemplates> {
                                   title: const Text('تأیید ایجاد نقش‌ها'),
                                   content: SingleChildScrollView(
                                       child: Text(
-                                          '${chosen.map((role) => role.title).join('، ')}\n\nهیچ کاربری به این نقش‌ها متصل نمی‌شود. تخصیص و محدودیت دفتر باید جداگانه تنظیم شوند.')),
+                                          '${chosen.map((role) => persianRoleLabel(role.title)).join('، ')}\n\nهیچ کاربری به این نقش‌ها متصل نمی‌شود. تخصیص و محدودیت دفتر باید جداگانه تنظیم شوند.')),
                                   actions: [
                                     TextButton(
                                         onPressed: () =>

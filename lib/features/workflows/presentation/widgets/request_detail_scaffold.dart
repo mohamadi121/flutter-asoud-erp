@@ -6,6 +6,7 @@ import 'package:printing/printing.dart';
 import '../../../../core/offline/queued_offline_exception.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/jalali_date.dart';
+import '../../../../core/utils/persian_server_values.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../data/generic_request_repository.dart';
 import '../../domain/entities/request_models.dart';
@@ -699,10 +700,10 @@ class _RequestDetailScaffoldState extends State<RequestDetailScaffold> {
                 _Step(
                     title: activity.stageTitle.isEmpty
                         ? requestActionLabel(activity.action)
-                        : activity.stageTitle,
+                        : persianWorkflowStageTitle(activity.stageTitle),
                     subtitle: [
                       requestActionLabel(activity.action),
-                      activity.actor,
+                      persianRoleLabel(activity.actor),
                       if (activity.createdOn != null)
                         formatJalaliDateTimeIso(
                             activity.createdOn!.toIso8601String()),
@@ -714,7 +715,7 @@ class _RequestDetailScaffoldState extends State<RequestDetailScaffold> {
                   running &&
                   summary!.currentStageTitle.isNotEmpty)
                 _Step(
-                    title: summary!.currentStageTitle,
+                    title: persianWorkflowStageTitle(summary!.currentStageTitle),
                     subtitle: 'در انتظار اقدام',
                     done: false,
                     current: true),

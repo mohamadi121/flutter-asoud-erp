@@ -77,8 +77,48 @@ void main() {
         ));
   });
 
-  testWidgets('خطای واقعی داشبورد دلیل فارسی و تلاش دوباره را نشان می‌دهد',
-      (tester) async {
+  testWidgets('مدیر منابع انسانی دارای پرونده نیز مرخصی و حضور را می‌بیند', (
+    tester,
+  ) async {
+    final client = _Client();
+    when(client.getCurrentUser).thenAnswer(
+      (_) async => const FrappeUserContext(
+        userId: 'hr-manager',
+        fullName: 'مدیر منابع انسانی',
+        roles: ['HR Manager', 'Employee'],
+        employeeId: 'HR-EMP-0001',
+      ),
+    );
+    when(
+      () => client.callAsoudMethod(
+        'asoud_erp.api.v1.hr.get_dashboard',
+        data: any(named: 'data'),
+      ),
+    ).thenAnswer(
+      (_) async => {
+        'employee': {
+          'name': 'مدیر منابع انسانی',
+          'employee': 'HR-EMP-0001',
+          'company': 'شرکت نمونه آسود',
+        },
+        'pending_tasks': 0,
+        'unread_notifications': 0,
+        'unread_communications': 0,
+      },
+    );
+
+    await tester.pumpWidget(_app(client, FrappeHrRepository(client)));
+    await tester.pumpAndSettle();
+
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -500));
+    await tester.pumpAndSettle();
+    expect(find.text('درخواست‌های مرخصی'), findsOneWidget);
+    expect(find.text('حضور و غیاب'), findsOneWidget);
+  });
+
+  testWidgets('خطای واقعی داشبورد دلیل فارسی و تلاش دوباره را نشان می‌دهد', (
+    tester,
+  ) async {
     final client = _Client();
     await tester.pumpWidget(_app(client, _FailedHrRepository()));
     await tester.pumpAndSettle();

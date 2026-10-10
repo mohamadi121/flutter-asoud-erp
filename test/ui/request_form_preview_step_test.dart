@@ -142,12 +142,24 @@ void main() {
       expect(tester.widget<EditableText>(requestedDate).controller.text,
           formatJalaliIso('2026-09-25'));
       expect(
-          tester
-              .widget<TextField>(find.descendant(
-                  of: find.widgetWithText(TextFormField, 'جزئیات خرید'),
-                  matching: find.byType(TextField)))
-              .maxLines,
-          3);
+        tester.widget<EditableText>(requestedDate).controller.text,
+        formatJalaliIso('2026-09-25'),
+      );
+      expect(
+        tester.widget<EditableText>(requestedDate).keyboardType,
+        TextInputType.number,
+      );
+      expect(
+        tester
+            .widget<TextField>(
+              find.descendant(
+                of: find.widgetWithText(TextFormField, 'جزئیات خرید'),
+                matching: find.byType(TextField),
+              ),
+            )
+            .maxLines,
+        3,
+      );
       for (final label in ['تعداد', 'مبلغ']) {
         final input = tester.widget<TextField>(find.descendant(
             of: find.widgetWithText(TextFormField, label),

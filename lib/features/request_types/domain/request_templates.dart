@@ -50,7 +50,7 @@ const requestTemplates = [
           shortTitle: 'مساعده',
           category: 'Finance',
           iconKey: 'loan',
-          colorHex: '#16A34A',
+          colorHex: '#0B6B3A',
           description:
               'درخواست بررسی مساعده؛ ثبت فرم به معنی تأیید پرداخت یا ثبت سند مالی نیست.'),
       [

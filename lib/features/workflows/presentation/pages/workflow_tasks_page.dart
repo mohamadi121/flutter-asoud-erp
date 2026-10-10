@@ -3,7 +3,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/jalali_date.dart';
+import '../../../../core/utils/persian_server_values.dart';
 import '../../../../core/widgets/asoud_ui.dart';
+import '../../../../core/widgets/states.dart';
 import '../../domain/entities/workflow_task.dart';
 import '../../domain/repositories/workflow_task_repository.dart';
 import '../cubit/workflow_tasks_cubit.dart';
@@ -70,12 +72,10 @@ class _WorkflowTasksViewState extends State<_WorkflowTasksView> {
                       }
                       if (state.status == WorkflowTasksStatus.failure &&
                           state.tasks.isEmpty) {
-                        return Center(
-                          child: OutlinedButton.icon(
-                            onPressed: context.read<WorkflowTasksCubit>().load,
-                            icon: const Icon(Icons.refresh_rounded),
-                            label: const Text('تلاش دوباره'),
-                          ),
+                        return ErrorState(
+                          failure: state.message ?? 'دریافت کارتابل ممکن نشد.',
+                          onRetry:
+                              context.read<WorkflowTasksCubit>().load,
                         );
                       }
                       return Column(children: [
@@ -140,16 +140,16 @@ class _SentInstances extends StatelessWidget {
             return const Center(child: CircularProgressIndicator());
           }
           if (state.status == WorkflowInstancesStatus.failure) {
-            return Center(
-              child: OutlinedButton.icon(
-                onPressed: context.read<WorkflowInstancesCubit>().load,
-                icon: const Icon(Icons.refresh_rounded),
-                label: const Text('تلاش دوباره'),
-              ),
+            return ErrorState(
+              failure: state.message ?? 'دریافت درخواست‌ها ممکن نشد.',
+              onRetry: context.read<WorkflowInstancesCubit>().load,
             );
           }
           if (state.instances.isEmpty) {
-            return const Center(child: Text('هنوز درخواستی ارسال نکرده‌اید.'));
+            return const EmptyState(
+                icon: Icons.outbox_outlined,
+                title: 'درخواستی ارسال نکرده‌اید',
+                description: 'پس از ارسال درخواست، وضعیت آن اینجا نمایش داده می‌شود.');
           }
           return Column(children: [
             if (state.offline) const AsoudOfflinePreviewBanner(),
@@ -170,8 +170,10 @@ class _SentInstances extends StatelessWidget {
       );
 }
 
-class _InstanceCard extends StatelessWidget {
-  const _InstanceCard({required this.item});
+typedef _InstanceCard = WorkflowInstanceSummaryCard;
+
+class WorkflowInstanceSummaryCard extends StatelessWidget {
+  const WorkflowInstanceSummaryCard({required this.item, super.key});
   final WorkflowInstanceSummary item;
 
   @override
@@ -203,11 +205,18 @@ class _InstanceCard extends StatelessWidget {
               ]),
               const Divider(height: 20),
               Text(
-                  'مرحله فعلی: ${item.currentStageTitle.isEmpty ? 'پایان‌یافته' : item.currentStageTitle}',
+                  'مرحله فعلی: ${item.currentStageTitle.isEmpty ? 'پایان‌یافته' : persianWorkflowStageTitle(item.currentStageTitle)}',
                   style: const TextStyle(fontSize: 10)),
-              Text(
-                'مسئول فعلی: ${item.currentAssignees.isEmpty ? 'بدون مسئول باز' : item.currentAssignees.join('، ')}',
-                style: const TextStyle(fontSize: 9, color: AsoudColors.muted),
+              Tooltip(
+                message:
+                  'مسئول فعلی: ${item.currentAssignees.isEmpty ? 'بدون مسئول باز' : item.currentAssignees.map((a) => a.contains('@') ? '${String.fromCharCode(0x2066)}$a${String.fromCharCode(0x2069)}' : persianRoleLabel(a)).join('، ')}',
+                child: Text(
+                  'مسئول فعلی: ${item.currentAssignees.isEmpty ? 'بدون مسئول باز' : item.currentAssignees.map((a) => a.contains('@') ? '${String.fromCharCode(0x2066)}$a${String.fromCharCode(0x2069)}' : persianRoleLabel(a)).join('، ')}',
+                  softWrap: true,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 9, color: AsoudColors.muted),
+                ),
               ),
             ]),
           ),
@@ -215,13 +224,7 @@ class _InstanceCard extends StatelessWidget {
       );
 }
 
-String _instanceStatus(String value) => switch (value) {
-      'Running' => 'در حال گردش',
-      'Completed' => 'تکمیل‌شده',
-      'Rejected' => 'ردشده',
-      'Cancelled' => 'لغوشده',
-      _ => value,
-    };
+String _instanceStatus(String value) => persianWorkflowStatus(value);
 
 class _TaskFilters extends StatelessWidget {
   const _TaskFilters({required this.selected, required this.onChanged});
@@ -298,7 +301,7 @@ class _TaskCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(task.title,
+                  Text(persianWorkflowStageTitle(task.title),
                       style: const TextStyle(fontWeight: FontWeight.w800)),
                   Text(task.instance,
                       style: const TextStyle(

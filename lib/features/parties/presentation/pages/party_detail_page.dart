@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
-import '../../../../core/utils/jalali_date.dart';
+import '../../../../core/utils/persian_format.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../domain/entities/party_profile.dart';
 import '../../domain/repositories/party_repository.dart';
@@ -708,15 +708,7 @@ Future<void> _copy(BuildContext context, String value, String message) async {
 }
 
 String? _money(double? value) =>
-    value == null ? null : '${_formatNumber(value)} ریال';
-String _formatNumber(double value) {
-  final raw = value.round().abs().toString();
-  final parts = <String>[];
-  for (var end = raw.length; end > 0; end -= 3) {
-    parts.insert(0, raw.substring((end - 3).clamp(0, raw.length), end));
-  }
-  return '${value < 0 ? '-' : ''}${parts.join(',')}';
-}
+    value == null ? null : '${formatNumber(value.round())} ریال';
 
 String? _balanceLabel(String? value) => switch (value) {
       'Debit' => 'بدهکار',

@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../domain/entities/workflow_task.dart';
 import '../../domain/repositories/workflow_task_repository.dart';
+import '../../../../core/utils/failure_message.dart';
 
 enum WorkflowTasksStatus { loading, ready, saving, failure }
 
@@ -42,7 +43,7 @@ class WorkflowTasksCubit extends Cubit<WorkflowTasksState> {
       emit(WorkflowTasksState(
           status: WorkflowTasksStatus.failure,
           filter: selected,
-          message: error.toString()));
+          message: failureMessage(error)));
     }
   }
 
@@ -61,7 +62,7 @@ class WorkflowTasksCubit extends Cubit<WorkflowTasksState> {
           tasks: state.tasks,
           offline: state.offline,
           filter: state.filter,
-          message: error.toString()));
+          message: failureMessage(error)));
     }
   }
 }

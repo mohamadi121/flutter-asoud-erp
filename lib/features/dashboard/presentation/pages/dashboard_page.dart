@@ -6,7 +6,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/network/frappe_client.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/persian_server_values.dart';
 import '../../../../core/widgets/asoud_ui.dart';
+import '../../../../core/widgets/states.dart';
 import '../../../accounting/presentation/pages/accounting_home_page.dart';
 import '../../../employee/domain/employee_mode.dart';
 import '../../../employee/presentation/pages/employee_shell.dart';
@@ -20,7 +22,7 @@ import '../../../workflows/presentation/pages/workflow_list_page.dart';
 import '../../../workflows/presentation/pages/workflow_tasks_page.dart';
 import '../../../workflows/presentation/pages/generic_request_page.dart';
 import '../../../workflows/presentation/pages/document_templates_page.dart';
-import '../../data/demo/dashboard_demo_data.dart';
+import '../widgets/dashboard_summary_sections.dart';
 import 'first_office_card.dart';
 import 'settings_dashboard_content.dart';
 import 'sync_queue_page.dart';
@@ -94,27 +96,29 @@ class _DashboardLandingPageState extends State<DashboardLandingPage> {
 
   @override
   Widget build(BuildContext context) => FutureBuilder<_LandingState>(
-      future: _landing,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-              body: Center(child: CircularProgressIndicator()));
-        }
-        final landing = snapshot.data ??
-            const _LandingState.dashboard(null, loadError: true);
-        return switch (landing.destination) {
-          _LandingDestination.employee =>
-            EmployeeShell(company: landing.company!),
-          _LandingDestination.noOfficeAccess => const _NoOfficeAccessPage(),
-          _LandingDestination.dashboard => DashboardPage(
-              office: landing.office,
-              officeName: landing.office?.name,
-              offlinePreview: widget.offlinePreview || landing.loadError,
-              loadError: landing.loadError,
-              onOfficeCreated: _reload,
-            ),
-        };
-      });
+    future: _landing,
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting &&
+          !snapshot.hasData) {
+        return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      }
+      final landing =
+          snapshot.data ?? const _LandingState.dashboard(null, loadError: true);
+      return switch (landing.destination) {
+        _LandingDestination.employee => EmployeeShell(
+          company: landing.company!,
+        ),
+        _LandingDestination.noOfficeAccess => const _NoOfficeAccessPage(),
+        _LandingDestination.dashboard => DashboardPage(
+          office: landing.office,
+          officeName: landing.office?.name,
+          offlinePreview: widget.offlinePreview || landing.loadError,
+          loadError: landing.loadError,
+          onOfficeCreated: _reload,
+        ),
+      };
+    },
+  );
 }
 
 enum _LandingDestination { employee, dashboard, noOfficeAccess }
@@ -251,7 +255,9 @@ class _DashboardPageState extends State<DashboardPage> {
                       else ...[
                         _ConnectionBanner(offline: offlinePreview),
                         const SizedBox(height: 10),
-                        _MetricsGrid(demo: offlinePreview),
+                        HomeMetricsSection(
+                            company: officeName,
+                            offlinePreview: offlinePreview),
                         const SizedBox(height: 10),
                         if (office?.setupComplete != true) ...[
                           _SetupProgress(
@@ -352,7 +358,7 @@ class _DashboardPageState extends State<DashboardPage> {
             ));
           } else if (index != 0) {
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('این بخش هنوز به Backend متصل نشده است.'),
+              content: Text('این بخش هنوز به سرور متصل نشده است.'),
             ));
           }
         },
@@ -461,63 +467,8 @@ class _EmptyOfficeDashboard extends StatelessWidget {
                 ),
               ]),
             ),
-            const SizedBox(height: 18),
-            const _EmptyMetricsGrid(),
           ],
         );
-}
-
-class _EmptyMetricsGrid extends StatelessWidget {
-  const _EmptyMetricsGrid();
-
-  @override
-  Widget build(BuildContext context) => GridView.count(
-        crossAxisCount: 2,
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        crossAxisSpacing: 8,
-        mainAxisSpacing: 8,
-        childAspectRatio: 1.8,
-        children: const [
-          _EmptyMetric(title: 'دریافتی امروز', icon: Icons.payments_outlined),
-          _EmptyMetric(title: 'فروش امروز', icon: Icons.bar_chart_rounded),
-          _EmptyMetric(
-              title: 'موجودی بانک', icon: Icons.account_balance_outlined),
-          _EmptyMetric(title: 'اسناد باز', icon: Icons.description_outlined),
-        ],
-      );
-}
-
-class _EmptyMetric extends StatelessWidget {
-  const _EmptyMetric({required this.title, required this.icon});
-  final String title;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) => Card(
-        color: const Color(0xFFFBFCFE),
-        child: Padding(
-          padding: const EdgeInsets.all(11),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(children: [
-                Expanded(
-                    child: Text(title,
-                        style: const TextStyle(
-                            fontSize: 10, color: AsoudColors.muted))),
-                Icon(icon, size: 19, color: AsoudColors.border),
-              ]),
-              const Text('—',
-                  style: TextStyle(
-                      fontSize: 18,
-                      color: AsoudColors.muted,
-                      fontWeight: FontWeight.w800)),
-            ],
-          ),
-        ),
-      );
 }
 
 class _Header extends StatelessWidget {
@@ -528,36 +479,39 @@ class _Header extends StatelessWidget {
     final sync = syncServiceOf(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-      child: Row(children: [
-        Expanded(
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('دفتر کار',
-              style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
-          Text(officeName ?? 'برای شروع، اطلاعات اولیه دفتر را ثبت کنید',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 11, color: AsoudColors.muted)),
-        ])),
-        const SizedBox(width: 10),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                const Text('دفتر کار',
+                    style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
+                Text(officeName ?? 'برای شروع، اطلاعات اولیه دفتر را ثبت کنید',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 11, color: AsoudColors.muted)),
+              ])),
+          const SizedBox(width: 10),
+          if (officeName?.trim().isNotEmpty == true)
+            OutlinedButton.icon(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const OfficesPage()),
+              ),
+              icon: const Icon(Icons.business_outlined, size: 17),
+              label: const Text('تغییر دفتر'),
+              style: OutlinedButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+              ),
+            ),
+        ]),
         if (sync != null) ...[
-          Flexible(
-              child: SyncStatusIndicator(
-                  service: sync, onOpen: () => openSyncQueue(context, sync))),
-          const SizedBox(width: 6),
+          const SizedBox(height: 10),
+          SyncStatusIndicator(
+              service: sync, onOpen: () => openSyncQueue(context, sync)),
         ],
-        if (officeName?.trim().isNotEmpty == true)
-          OutlinedButton.icon(
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const OfficesPage()),
-            ),
-            icon: const Icon(Icons.business_outlined, size: 17),
-            label: const Text('تغییر دفتر'),
-            style: OutlinedButton.styleFrom(
-              visualDensity: VisualDensity.compact,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-            ),
-          ),
       ]),
     );
   }
@@ -651,60 +605,6 @@ class _ConnectionBanner extends StatelessWidget {
   }
 }
 
-class _MetricsGrid extends StatelessWidget {
-  const _MetricsGrid({this.demo = false});
-  final bool demo;
-  static const items = [
-    ('دریافتی امروز', Icons.payments_outlined, AsoudColors.success),
-    ('فروش امروز', Icons.bar_chart_rounded, AsoudColors.primary),
-    ('موجودی بانک', Icons.account_balance_outlined, AsoudColors.purple),
-    ('اسناد باز', Icons.description_outlined, AsoudColors.warning),
-  ];
-  @override
-  Widget build(BuildContext context) {
-    final demoValues = demo
-        ? {for (final metric in demoDashboardMetrics()) metric.title: metric}
-        : const <String, DemoMetric>{};
-    return GridView.count(
-      crossAxisCount: 2,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisSpacing: 8,
-      mainAxisSpacing: 8,
-      mainAxisExtent: demo ? 140 : 126,
-      children: items
-          .map((item) => Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(11),
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(children: [
-                          Expanded(
-                              child: Text(item.$1,
-                                  style: const TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w700))),
-                          AsoudIconBox(icon: item.$2, color: item.$3, size: 30)
-                        ]),
-                        Text(demoValues[item.$1]?.value ?? '—',
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                                fontSize: demo ? 15 : 18,
-                                fontWeight: FontWeight.w900)),
-                        Text(demoValues[item.$1]?.hint ?? 'پس از اتصال سرور',
-                            style: const TextStyle(
-                                fontSize: 8, color: AsoudColors.muted)),
-                      ]),
-                ),
-              ))
-          .toList(),
-    );
-  }
-}
-
 class _SetupProgress extends StatelessWidget {
   const _SetupProgress({required this.offline, required this.onTap});
   final bool offline;
@@ -767,7 +667,9 @@ class _InfoCards extends StatelessWidget {
         Expanded(
             child: _InfoCard(
                 title: 'سرفصل‌ها',
-                value: office?.chartTemplate ?? 'تعریف نشده',
+                value: persianChartTemplateLabel(office?.chartTemplate).isEmpty
+                    ? 'تعریف نشده'
+                    : persianChartTemplateLabel(office?.chartTemplate),
                 subtitle: office?.chartTemplate == null
                     ? 'نیازمند تنظیم'
                     : 'قالب انتخاب‌شده')),
@@ -814,42 +716,42 @@ class _QuickActions extends StatelessWidget {
     final items = <(String, String, IconData, Color, VoidCallback?)>[
       (
         'دریافت و پرداخت',
-        'Payment',
+        'نقد و بانک',
         Icons.payments_outlined,
         AsoudColors.success,
         onPayments
       ),
       (
         'فاکتور فروش',
-        'Sale Invoice',
+        'صدور و پیگیری',
         Icons.description_outlined,
         AsoudColors.primary,
         onSalesInvoice
       ),
       (
         'ثبت درخواست',
-        'Workflow Request',
+        'گردش کار و فرم‌ها',
         Icons.shopping_cart_checkout_rounded,
         AsoudColors.warning,
         onPurchaseRequest
       ),
       (
         'ثبت حسابداری',
-        'Journal Entry',
+        'اسناد مالی',
         Icons.receipt_long_outlined,
         AsoudColors.purple,
         onAccounting
       ),
       (
         'ایجاد سند',
-        'Document',
+        'الگوهای آماده',
         Icons.post_add_rounded,
         AsoudColors.danger,
         onDocuments
       ),
       (
         'طرف حساب‌ها',
-        'Customer/Supplier',
+        'مشتریان و تأمین‌کنندگان',
         Icons.people_outline_rounded,
         AsoudColors.cyan,
         onParties
@@ -902,6 +804,7 @@ class _UnavailablePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AsoudHeader(title: title),
-        body: const Center(child: Text('به‌زودی')),
+        body: const ComingSoonState(
+            description: 'این بخش در نسخه‌های بعدی آسود فعال می‌شود.'),
       );
 }

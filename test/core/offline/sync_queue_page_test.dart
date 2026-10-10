@@ -136,7 +136,7 @@ void main() {
       await seed();
       await _pump(tester, service);
 
-      expect(find.text('ارسال همه'), findsOneWidget);
+      expect(find.text('ارسال دوباره همه'), findsOneWidget);
       expect(find.text('تلاش دوباره'), findsNWidgets(3));
       expect(find.text('حذف از صف'), findsNWidgets(3));
       expect(tester.takeException(), isNull);
@@ -169,7 +169,7 @@ void main() {
     }
     expect(
         find.text(
-            'این نوشته برای همیشه از صف ارسال پاک می‌شود و دیگر به سرور ارسال نخواهد شد. این تغییر قابل بازگشت نیست.'),
+            'این نوشته از صف ارسال حذف می‌شود و دیگر به سرور ارسال نخواهد شد. تا چند لحظه می‌توانید آن را بازگردانید.'),
         findsOneWidget);
 
     await tester.tap(find.text('انصراف'));
@@ -222,7 +222,7 @@ void main() {
     await _pump(tester, service);
     expect(find.text('مهلت تلاش بعدی: ۱۴۰۵'), findsNothing);
 
-    await tester.tap(find.text('ارسال همه'));
+    await tester.tap(find.text('ارسال دوباره همه'));
     for (var i = 0; i < 8; i++) {
       await tester.pump();
     }
@@ -246,7 +246,7 @@ void main() {
     );
     await _pump(tester, service);
 
-    await tester.tap(find.text('ارسال همه'));
+    await tester.tap(find.text('ارسال دوباره همه'));
     for (var i = 0; i < 8; i++) {
       await tester.pump();
     }
@@ -261,14 +261,84 @@ void main() {
     await seed();
     await _pump(tester, service);
 
-    await tester.tap(find.text('ارسال همه'));
+    await tester.tap(find.text('ارسال دوباره همه'));
     for (var i = 0; i < 8; i++) {
       await tester.pump();
     }
 
     expect(client.replays, ['m-office', 'm-party', 'm-unknown']);
     expect(find.text('همه داده‌ها ارسال شده'), findsOneWidget);
-    expect(find.text('ارسال همه'), findsNothing);
+    expect(find.text('ارسال دوباره همه'), findsNothing);
     expect(await service.unsentCount(), 0);
+  });
+
+  testWidgets('در عرض 320 پیکسل، متن خلاصه و دکمه ارسال دوباره همه در یک ستون بدون سرریز است',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(320, 720));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final store = FakeLocalRecordStore();
+    final svc = OfflineSyncService(client, local: store);
+    await store.save(
+        id: 'a',
+        entityType: 'asoud_erp.api.v1.setup.save_office',
+        payload: const {
+          'operation': 'asoud_method',
+          '_asoud_owner': 'user',
+          '_asoud_server': 'injected-client',
+          'company_name': 'الف',
+        },
+        status: LocalSyncStatus.pendingSync);
+    await store.save(
+        id: 'b',
+        entityType: 'asoud_erp.api.v1.party.save_party',
+        payload: const {
+          'operation': 'asoud_method',
+          '_asoud_owner': 'user',
+          '_asoud_server': 'injected-client',
+          'name': 'ب',
+        },
+        status: LocalSyncStatus.syncFailed);
+
+    await _pump(tester, svc);
+
+    expect(find.byType(SyncQueueItemCard), findsNWidgets(2));
+    expect(find.textContaining('نوشته در انتظار'), findsOneWidget);
+    expect(find.text('ارسال دوباره همه'), findsOneWidget);
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('در عرض 320 پیکسل، دکمه‌ها در کارت‌ها برش نمی‌خورند', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(320, 720));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final store = FakeLocalRecordStore();
+    final svc = OfflineSyncService(client, local: store);
+    await store.save(
+        id: 'a',
+        entityType: 'asoud_erp.api.v1.setup.save_office',
+        payload: const {
+          'operation': 'asoud_method',
+          '_asoud_owner': 'user',
+          '_asoud_server': 'injected-client',
+          'company_name': 'الف',
+        },
+        status: LocalSyncStatus.pendingSync);
+
+    await _pump(tester, svc);
+    await tester.pumpAndSettle();
+
+    final retry = find.widgetWithText(OutlinedButton, 'تلاش دوباره');
+    final del = find.widgetWithText(OutlinedButton, 'حذف از صف');
+    expect(retry, findsOneWidget);
+    expect(del, findsOneWidget);
+
+    final bounds = tester.getRect(find.byType(SyncQueueItemCard));
+    final retryR = tester.getRect(retry);
+    final delR = tester.getRect(del);
+    expect(bounds.contains(retryR.topLeft), true);
+    expect(bounds.contains(retryR.bottomRight), true);
+    expect(bounds.contains(delR.topLeft), true);
+    expect(bounds.contains(delR.bottomRight), true);
   });
 }
