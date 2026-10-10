@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/persian_format.dart';
+import '../../../../core/utils/persian_server_values.dart';
 import '../../domain/entities/workflow_task.dart';
 
 /// The meaning of a workflow action, used to colour and icon the timeline.
@@ -9,22 +10,35 @@ enum WorkflowActivityOutcome { approved, rejected, returned, neutral, pending }
 
 WorkflowActivityOutcome workflowActivityOutcome(String action) =>
     switch (action.trim()) {
-      'Approve' || 'Complete' || 'Condition True' =>
+      'Approve' ||
+      'Complete' ||
+      'Condition True' ||
+      'Workflow stage completed' ||
+      'Workflow request approved' =>
         WorkflowActivityOutcome.approved,
-      'Reject' || 'Condition False' => WorkflowActivityOutcome.rejected,
-      'Return' => WorkflowActivityOutcome.returned,
+      'Reject' ||
+      'Condition False' ||
+      'Workflow request rejected' =>
+        WorkflowActivityOutcome.rejected,
+      'Return' ||
+      'Workflow request returned for correction' =>
+        WorkflowActivityOutcome.returned,
       _ => WorkflowActivityOutcome.neutral,
     };
 
 /// Persian label for a workflow activity, replacing the raw server action.
 String workflowActivityLabel(String action) => switch (action.trim()) {
-      'Complete' => 'مرحله تکمیل شد',
-      'Approve' => 'تأیید شد',
-      'Reject' => 'رد شد',
-      'Return' => 'برای اصلاح بازگردانده شد',
+      'Complete' || 'Workflow stage completed' => 'مرحله تکمیل شد',
+      'Approve' || 'Workflow request approved' => 'تأیید شد',
+      'Reject' || 'Workflow request rejected' => 'رد شد',
+      'Return' || 'Workflow request returned for correction' => 'برای اصلاح بازگردانده شد',
       'Condition True' => 'شرط برقرار بود',
       'Condition False' => 'شرط برقرار نبود',
-      _ => action,
+      'System Action Succeeded' => 'اقدام خودکار انجام شد',
+      'System Action Failed' => 'خطای اقدام خودکار',
+      'Cancelled' => 'لغو شد',
+      'Edited' => 'ویرایش شد',
+      _ => persianWorkflowStageTitle(action),
     };
 
 Color _outcomeColor(WorkflowActivityOutcome outcome) => switch (outcome) {

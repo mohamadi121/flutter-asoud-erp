@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/persian_server_values.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../domain/entities/workflow_task.dart';
 import '../../domain/repositories/workflow_task_repository.dart';
@@ -74,7 +75,7 @@ class WorkflowInstanceOverviewCard extends StatelessWidget {
               'مرحله فعلی',
               item.currentStageTitle.isEmpty
                   ? 'پایان‌یافته'
-                  : item.currentStageTitle),
+                  : persianWorkflowStageTitle(item.currentStageTitle)),
           _row(
               'مسئول فعلی',
               item.currentAssignees.isEmpty

@@ -234,15 +234,21 @@ String persianRequestFieldTypeLabel(String type) => switch (type) {
 
 String persianWorkflowStageTitle(String title) {
   final trimmed = title.trim();
-  final lower = trimmed.replaceAll(RegExp(r'[-_]+'), ' ').toLowerCase();
-  return switch (lower) {
+  var normalized = trimmed.replaceAll(RegExp(r'[-_]+'), ' ').toLowerCase();
+  normalized = normalized
+      .replaceFirst(RegExp(r'^(?:workflow\s+)?stage(?:\s*:|\s*-|\s+)+'), '')
+      .trim();
+  if (normalized.endsWith(' stage')) {
+    normalized = normalized.substring(0, normalized.length - 6).trim();
+  }
+  return switch (normalized) {
     'start' => 'شروع',
     'user task' => 'وظیفه کاربر',
-    'approval' => 'تأیید',
-    'condition' => 'شرط',
+    'approval' || 'approval or reject' || 'approval / reject' => 'تأیید',
+    'condition' || 'condition and path' || 'condition / branch' => 'شرط',
     'system action' => 'اقدام خودکار',
-    'wait' => 'انتظار',
-    'end' => 'پایان',
+    'wait' || 'wait and timing' || 'wait / schedule' => 'انتظار',
+    'end' || 'end process' => 'پایان',
     'start / user task' || 'start/user task' => 'شروع / وظیفه کاربر',
     _ => title,
   };
