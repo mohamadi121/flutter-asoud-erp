@@ -113,21 +113,66 @@ const erpNextLeaveTypes = <String, String>{
   'Maternity Leave': 'مرخصی زایمان',
   'Paternity Leave': 'مرخصی تشویقی پدر شدن',
   'Other Leave': 'سایر مرخصی‌ها',
+  'Casual': 'مرخصی اتفاقی',
+  'Compensatory': 'مرخصی جبرانی',
+  'Privilege': 'مرخصی استحقاقی',
+  'Sick': 'مرخصی استعلاجی',
+  'LWP': 'مرخصی بدون حقوق',
 };
 
-String persianLeaveTypeLabel(String? type) {
-  if (type == null || type.trim().isEmpty) return '';
+bool isKnownLeaveType(String? type) {
+  if (type == null || type.trim().isEmpty) return false;
+  final trimmed = type.trim();
+  if (erpNextLeaveTypes.containsKey(trimmed)) return true;
+  final lower = trimmed.toLowerCase();
+  for (final key in erpNextLeaveTypes.keys) {
+    if (lower.contains(key.toLowerCase())) return true;
+  }
+  for (final val in erpNextLeaveTypes.values) {
+    if (trimmed.contains(val)) return true;
+  }
+  return false;
+}
+
+String persianLeaveTypeLabel(String? type, {String? value}) {
+  if (type == null || type.trim().isEmpty) {
+    if (value != null && value.trim().isNotEmpty) {
+      return persianLeaveTypeLabel(value);
+    }
+    return '';
+  }
   final trimmed = type.trim();
   final direct = erpNextLeaveTypes[trimmed];
   if (direct != null) return direct;
 
-  final normalized = trimmed.replaceAll(RegExp(r'[-_]+'), ' ').toLowerCase();
+  final lower = trimmed.replaceAll(RegExp(r'[-_—/]+'), ' ').toLowerCase();
   for (final entry in erpNextLeaveTypes.entries) {
-    if (entry.key.toLowerCase() == normalized) {
+    if (lower.contains(entry.key.toLowerCase())) {
       return entry.value;
     }
   }
+
+  if (value != null && value.trim().isNotEmpty) {
+    final valTrimmed = value.trim();
+    final valDirect = erpNextLeaveTypes[valTrimmed];
+    if (valDirect != null) return valDirect;
+    final valLower = valTrimmed.replaceAll(RegExp(r'[-_—/]+'), ' ').toLowerCase();
+    for (final entry in erpNextLeaveTypes.entries) {
+      if (valLower.contains(entry.key.toLowerCase())) {
+        return entry.value;
+      }
+    }
+  }
+
   return trimmed;
+}
+
+String persianLeaveTypeOptionLabel({String? label, String? value}) {
+  if (value != null && value.trim().isNotEmpty && isKnownLeaveType(value)) {
+    final mappedValue = persianLeaveTypeLabel(value);
+    if (mappedValue != value) return mappedValue;
+  }
+  return persianLeaveTypeLabel(label, value: value);
 }
 
 /// The server stores chart templates as `Iran Standard`, `Service`,
