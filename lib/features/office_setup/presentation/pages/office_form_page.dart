@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/config/app_config.dart';
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/widgets/app_fields.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../dashboard/presentation/pages/dashboard_page.dart';
 import '../../domain/entities/office.dart';
@@ -527,49 +528,57 @@ Widget _field(BuildContext context, String key, String label, String value,
         {bool numeric = false,
         TextInputType? keyboard,
         int maxLines = 1,
-        int? maxLength}) =>
-    TextFormField(
-      key: ValueKey(
-          'office-$key-${context.watch<OfficeFormBloc>().state.suggestionRevision}'),
-      initialValue: value,
-      maxLines: maxLines,
-      maxLength: maxLength,
-      keyboardType: keyboard ??
-          (numeric
-              ? TextInputType.number
-              : maxLines > 1
-                  ? TextInputType.multiline
-                  : TextInputType.text),
-      textInputAction:
-          maxLines > 1 ? TextInputAction.newline : TextInputAction.next,
-      decoration: InputDecoration(
-          labelText: label,
-          errorText: context.watch<OfficeFormBloc>().state.errors[key],
-          counterText: maxLength == null ? null : ''),
-      onChanged: (v) =>
-          context.read<OfficeFormBloc>().add(OfficeFieldChanged(key, v)),
-    );
+        int? maxLength}) {
+  final state = context.watch<OfficeFormBloc>().state;
+  final type = keyboard ??
+      (numeric
+          ? TextInputType.number
+          : maxLines > 1
+              ? TextInputType.multiline
+              : TextInputType.text);
+  return AppTextField(
+    key: ValueKey('office-$key-${state.suggestionRevision}'),
+    initialValue: value,
+    label: label,
+    required: label.endsWith(' *'),
+    maxLines: maxLines,
+    maxLength: maxLength,
+    keyboardType: type,
+    ltr: type == TextInputType.emailAddress ||
+        type == TextInputType.url ||
+        type == TextInputType.number,
+    textInputAction:
+        maxLines > 1 ? TextInputAction.newline : TextInputAction.next,
+    errorText: state.errors[key],
+    counterText: maxLength == null ? null : '',
+    onChanged: (v) =>
+        context.read<OfficeFormBloc>().add(OfficeFieldChanged(key, v)),
+  );
+}
 
 Widget _select(BuildContext context, String key, String label, String value,
         List<String> items,
-        {bool required = true, bool enabled = true}) =>
-    DropdownButtonFormField<String>(
-      key: ValueKey('office-$key-$value'),
-      isExpanded: true,
-      initialValue: items.contains(value) ? value : null,
-      decoration: InputDecoration(
-          labelText: label,
-          errorText: context.watch<OfficeFormBloc>().state.errors[key]),
-      items: items
-          .map((v) => DropdownMenuItem(
-              value: v, child: Text(v, overflow: TextOverflow.ellipsis)))
-          .toList(),
-      onChanged: enabled
-          ? (v) => context
-              .read<OfficeFormBloc>()
-              .add(OfficeFieldChanged(key, v ?? ''))
-          : null,
-    );
+        {bool required = true, bool enabled = true}) {
+  final current = items.contains(value) ? value : '';
+  return AppSelectField(
+    key: ValueKey('office-$key-$value'),
+    label: label,
+    value: current,
+    displayValue: current.isEmpty ? null : current,
+    hint: 'انتخاب کنید',
+    required: required,
+    enabled: enabled,
+    errorText: context.watch<OfficeFormBloc>().state.errors[key],
+    onPick: enabled
+        ? () => showAppOptionSheet(context,
+            title: label,
+            current: current,
+            options: [for (final v in items) AppOption(v, v)])
+        : null,
+    onChanged: (v) =>
+        context.read<OfficeFormBloc>().add(OfficeFieldChanged(key, v)),
+  );
+}
 
 class _DashedBorderPainter extends CustomPainter {
   @override

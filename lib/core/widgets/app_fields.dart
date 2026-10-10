@@ -39,7 +39,7 @@ abstract final class AppFieldStyle {
     final mark = required && !label.endsWith(' *') ? ' *' : '';
     return InputDecoration(
       labelText: '$label$mark',
-      labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+      labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
       floatingLabelBehavior: FloatingLabelBehavior.always,
       hintText: hint,
       hintStyle: const TextStyle(fontSize: 13, color: AsoudColors.muted),
@@ -226,7 +226,7 @@ class AppSelectField extends StatelessWidget {
                     ),
               ),
               child: Text(
-                empty ? (hint ?? '') : (displayValue ?? value!),
+                empty ? '' : (displayValue ?? value!),
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 13,

@@ -12,6 +12,7 @@ import '../../../core/network/frappe_client.dart';
 import '../../../core/theme/asoud_colors.dart';
 import '../../../core/utils/persian_server_values.dart';
 import '../../../core/utils/persian_format.dart';
+import '../../../core/widgets/app_fields.dart';
 import '../../../core/widgets/asoud_ui.dart';
 import '../data/role_repository.dart';
 import '../domain/role_catalog.dart';

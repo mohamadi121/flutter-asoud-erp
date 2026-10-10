@@ -102,54 +102,61 @@ class _RoleFormState extends State<_RoleForm> {
                         style: TextStyle(
                             fontSize: 17, fontWeight: FontWeight.w800)),
                     const SizedBox(height: 20),
-                    TextFormField(
+                    AppTextField(
                         controller: _title,
+                        label: 'نام نقش',
+                        required: true,
+                        hint: 'مثال: حسابدار',
                         maxLength: 140,
                         enabled: !busy,
-                        decoration: const InputDecoration(
-                            labelText: 'نام نقش *', hintText: 'مثال: حسابدار'),
                         validator: (value) =>
                             value == null || value.trim().isEmpty
                                 ? 'نام نقش الزامی است.'
                                 : null),
                     const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
+                    AppSelectField(
                         key: ValueKey('category-$_category'),
-                        initialValue: state.catalog.categories
-                                .any((e) => e.code == _category)
-                            ? _category
-                            : null,
-                        isExpanded: true,
-                        decoration:
-                            const InputDecoration(labelText: 'دسته نقش *'),
-                        items: state.catalog.categories
-                            .map((category) => DropdownMenuItem(
-                                value: category.code,
-                                child: Row(children: [
-                                  Icon(_roleStyle(category.style).$1,
-                                      size: 20,
-                                      color: _roleStyle(category.style).$2),
-                                  const SizedBox(width: 8),
-                                  Flexible(
-                                      child: Text(category.title,
-                                          overflow: TextOverflow.ellipsis))
-                                ])))
-                            .toList(),
-                        onChanged: busy
-                            ? null
-                            : (value) =>
-                                setState(() => _category = value ?? ''),
+                        label: 'دسته نقش',
+                        required: true,
+                        value: _category,
+                        displayValue: state.catalog.categories
+                                .where((e) => e.code == _category)
+                                .map((e) => e.title)
+                                .firstOrNull,
+                        hint: 'انتخاب دسته',
+                        enabled: !busy,
                         validator: (value) => value == null || value.isEmpty
                             ? 'دسته را انتخاب کنید.'
-                            : null),
+                            : null,
+                        onPick: busy
+                            ? null
+                            : () => showAppOptionSheet(context,
+                                title: 'دسته نقش',
+                                current: _category,
+                                options: [
+                                  for (final category
+                                      in state.catalog.categories)
+                                    AppOption(category.code, category.title,
+                                        icon: _roleStyle(category.style).$1,
+                                        iconColor:
+                                            _roleStyle(category.style).$2)
+                                ]),
+                        onChanged: (value) =>
+                            setState(() => _category = value)),
                     const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
+                    AppSelectField(
                         key: ValueKey('parent-$_parent'),
-                        initialValue: _parent,
-                        isExpanded: true,
-                        decoration: const InputDecoration(
-                            labelText: 'نقش والد',
-                            helperText: 'فقط دسته‌بندی؛ بدون ارث‌بری دسترسی'),
+                        label: 'نقش والد',
+                        value: _parent,
+                        displayValue: _parent.isEmpty
+                            ? 'بدون والد'
+                            : state.catalog.roles
+                                    .where((role) => role.code == _parent)
+                                    .map((role) => role.title)
+                                    .firstOrNull ??
+                                'والد نامعتبر: $_parent',
+                        helperText: 'فقط دسته‌بندی؛ بدون ارث‌بری دسترسی',
+                        enabled: !busy,
                         validator: (value) => value != null &&
                                 value.isNotEmpty &&
                                 (!state.catalog.roles
@@ -157,33 +164,35 @@ class _RoleFormState extends State<_RoleForm> {
                                     blocked.contains(value))
                             ? 'والد معتبر را دوباره انتخاب کنید.'
                             : null,
-                        items: [
-                          if (_parent.isNotEmpty &&
-                              !state.catalog.roles.any((role) =>
-                                  role.code == _parent &&
-                                  !blocked.contains(role.code)))
-                            DropdownMenuItem(
-                                value: _parent,
-                                child: Text('والد نامعتبر: $_parent')),
-                          const DropdownMenuItem(
-                              value: '', child: Text('بدون والد')),
-                          ...state.catalog.roles
-                              .where((role) => !blocked.contains(role.code))
-                              .map((role) => DropdownMenuItem(
-                                  value: role.code,
-                                  child: Text(role.title,
-                                      overflow: TextOverflow.ellipsis)))
-                        ],
-                        onChanged: busy
+                        onPick: busy
                             ? null
-                            : (value) => setState(() => _parent = value ?? '')),
+                            : () => showAppOptionSheet(context,
+                                title: 'نقش والد',
+                                current: _parent,
+                                options: [
+                                  if (_parent.isNotEmpty &&
+                                      !state.catalog.roles.any((role) =>
+                                          role.code == _parent &&
+                                          !blocked.contains(role.code)))
+                                    AppOption(
+                                        _parent, 'والد نامعتبر: $_parent'),
+                                  const AppOption('', 'بدون والد'),
+                                  ...state.catalog.roles
+                                      .where((role) =>
+                                          !blocked.contains(role.code))
+                                      .map((role) =>
+                                          AppOption(role.code, role.title))
+                                ]),
+                        onChanged: (value) =>
+                            setState(() => _parent = value)),
                     const SizedBox(height: 16),
-                    TextFormField(
+                    AppTextField(
                         controller: _code,
+                        label: 'کد نقش',
+                        required: true,
+                        hint: 'ACCOUNTANT',
+                        ltr: true,
                         enabled: !busy && widget.role == null,
-                        textDirection: TextDirection.ltr,
-                        decoration: const InputDecoration(
-                            labelText: 'کد نقش *', hintText: 'ACCOUNTANT'),
                         validator: (value) {
                           final code = value?.trim().toUpperCase() ?? '';
                           if (!RegExp(r'^[A-Z][A-Z0-9_-]{1,39}$')
@@ -198,26 +207,25 @@ class _RoleFormState extends State<_RoleForm> {
                           return null;
                         }),
                     const SizedBox(height: 16),
-                    TextFormField(
+                    AppTextField(
                         controller: _description,
+                        label: 'توضیحات',
+                        hint: 'توضیحی درباره این نقش…',
                         enabled: !busy,
                         maxLines: 4,
-                        maxLength: 2000,
-                        decoration: const InputDecoration(
-                            labelText: 'توضیحات',
-                            hintText: 'توضیحی درباره این نقش…')),
-                    SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('فعال برای تخصیص'),
+                        maxLength: 2000),
+                    const SizedBox(height: 8),
+                    AppSwitchTile(
+                        title: 'فعال برای تخصیص',
                         value: _enabled,
                         subtitle: _baseline?.assignedUsers != null &&
                                 _baseline!.assignedUsers > 0
-                            ? Text(
-                                '${formatCount(_baseline!.assignedUsers, 'کاربر')} متصل؛ غیرفعال‌سازی نیازمند تغییر تخصیص است.')
+                            ? '${formatCount(_baseline!.assignedUsers, 'کاربر')} متصل؛ غیرفعال‌سازی نیازمند تغییر تخصیص است.'
                             : null,
-                        onChanged: busy || (_baseline?.assignedUsers ?? 0) > 0
-                            ? null
-                            : (value) => setState(() => _enabled = value)),
+                        enabled: !(busy ||
+                            (_baseline?.assignedUsers ?? 0) > 0),
+                        onChanged: (value) =>
+                            setState(() => _enabled = value)),
                   ]),
             )));
   }

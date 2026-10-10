@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:asoud_erp/core/theme/asoud_theme.dart';
+import 'package:asoud_erp/core/widgets/app_fields.dart';
 import 'package:asoud_erp/features/roles/data/role_repository.dart';
 import 'package:asoud_erp/features/roles/presentation/role_cubit.dart';
 import 'package:asoud_erp/features/roles/presentation/roles_page.dart';
@@ -34,15 +35,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final titleLabel = find.byWidgetPredicate(
-      (w) => w is Text && w.data == 'نام دسته *' && w.style?.fontWeight == FontWeight.w700,
-    );
-    expect(titleLabel, findsOneWidget);
-
-    final codeLabel = find.byWidgetPredicate(
-      (w) => w is Text && w.data == 'کد دسته *' && w.style?.fontWeight == FontWeight.w700,
-    );
-    expect(codeLabel, findsOneWidget);
+    // Bug #27 then #31: the two category fields carry visible labels; they are
+    // now the title/bold floating labels of the shared AppTextField.
+    expect(find.text('نام دسته *'), findsOneWidget);
+    expect(find.text('کد دسته *'), findsOneWidget);
+    expect(find.byType(AppTextField), findsNWidgets(2));
 
     expect(tester.takeException(), isNull);
   });
