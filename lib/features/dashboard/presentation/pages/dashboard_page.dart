@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/network/frappe_client.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/persian_server_values.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../../core/widgets/states.dart';
 import '../../../accounting/presentation/pages/accounting_home_page.dart';
@@ -666,7 +667,9 @@ class _InfoCards extends StatelessWidget {
         Expanded(
             child: _InfoCard(
                 title: 'سرفصل‌ها',
-                value: office?.chartTemplate ?? 'تعریف نشده',
+                value: persianChartTemplateLabel(office?.chartTemplate).isEmpty
+                    ? 'تعریف نشده'
+                    : persianChartTemplateLabel(office?.chartTemplate),
                 subtitle: office?.chartTemplate == null
                     ? 'نیازمند تنظیم'
                     : 'قالب انتخاب‌شده')),

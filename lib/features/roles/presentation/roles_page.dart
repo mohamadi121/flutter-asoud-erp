@@ -115,33 +115,20 @@ class _RolesViewState extends State<_RolesView> {
         body: SafeArea(
             child: BlocBuilder<RoleCubit, RoleState>(builder: (context, state) {
           final enabled = state.loaded && !state.loading && !state.saving;
+          bool matches(RoleCategory category) =>
+              _query.isEmpty ||
+              category.title.contains(_query) ||
+              state.catalog.roles.any((role) =>
+                  role.category == category.code &&
+                  (role.title.contains(_query) ||
+                      role.code.toLowerCase().contains(_query.toLowerCase())));
           return ListView(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
               children: [
                 const _RoleStatus(),
                 if (widget.canManage)
                   FilledButton.icon(
-                      onPressed: !enabled
-                          ? null
-                          : () async {
-                              if (state.catalog.categories.isEmpty) {
-                                final created = await _roleRoute<bool>(
-                                    context, const _CategoryForm());
-                                if (created == true && context.mounted) {
-                                  final latest = context.read<RoleCubit>().state;
-                                  if (latest.loaded &&
-                                      latest.catalog.categories.isNotEmpty) {
-                                    _roleRoute<bool>(
-                                        context,
-                                        _RoleForm(
-                                            category: latest
-                                                .catalog.categories.last.code));
-                                  }
-                                }
-                              } else {
-                                _roleRoute<bool>(context, const _RoleForm());
-                              }
-                            },
+                      onPressed: !enabled ? null : () => _openCreate(state),
                       icon: const Icon(Icons.add),
                       label: const Text('ایجاد نقش')),
                 if (widget.canManage) const SizedBox(height: 10),
@@ -175,22 +162,46 @@ class _RolesViewState extends State<_RolesView> {
                 if (state.loaded &&
                     state.catalog.categories.isEmpty &&
                     state.catalog.roles.isEmpty)
-                  const _RoleHint(
-                      'هنوز دسته یا نقشی ثبت نشده است؛ از الگوهای آماده استفاده کنید یا ابتدا یک دسته بسازید.'),
+                  EmptyState(
+                    icon: Icons.badge_outlined,
+                    title: 'نقشی ثبت نشده است',
+                    description:
+                        'هنوز دسته یا نقشی ثبت نشده است؛ از الگوهای آماده استفاده کنید یا ابتدا یک دسته بسازید.',
+                  ),
+                if (state.loaded &&
+                    _query.isNotEmpty &&
+                    !state.catalog.categories.any(matches))
+                  EmptyState(
+                    icon: Icons.search_off_rounded,
+                    title: 'نتیجه‌ای پیدا نشد',
+                    description: 'برای «$_query» نقشی مطابقت نداشت.',
+                    primaryActionLabel: 'پاک‌کردن جستجو',
+                    onPrimaryAction: () => setState(() => _query = ''),
+                  ),
                 for (final category in state.catalog.categories)
-                  if (_query.isEmpty ||
-                      category.title.contains(_query) ||
-                      state.catalog.roles.any((role) =>
-                          role.category == category.code &&
-                          (role.title.contains(_query) ||
-                              role.code
-                                  .toLowerCase()
-                                  .contains(_query.toLowerCase()))))
-                    _category(category, state, enabled),
+                  if (matches(category)) _category(category, state, enabled),
                 const SizedBox(height: 14),
               ]);
         })),
       );
+
+  Future<void> _openCreate(RoleState state) async {
+    if (state.catalog.categories.isEmpty) {
+      final created =
+          await _roleRoute<bool>(context, const _CategoryForm());
+      if (created == true && mounted) {
+        final latest = context.read<RoleCubit>().state;
+        if (latest.loaded && latest.catalog.categories.isNotEmpty) {
+          _roleRoute<bool>(
+              context,
+              _RoleForm(
+                  category: latest.catalog.categories.last.code));
+        }
+      }
+    } else {
+      _roleRoute<bool>(context, const _RoleForm());
+    }
+  }
 
   Widget _category(RoleCategory category, RoleState state, bool enabled) {
     final style = _roleStyle(category.style);
