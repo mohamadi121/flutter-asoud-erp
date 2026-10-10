@@ -1,9 +1,5 @@
 # Changelog
 
-## Unreleased
-
-- Settings → «مدیریت کاربران» is a real screen: an administrator picks a role, sees that role's users from the server, edits the per-document grant matrix and applies it. Roles that cannot manage users no longer see the tile (no more «هنوز فعال نیست» placeholder) and every load failure shows a Persian reason with retry only when it can succeed.
-
 ## 0.27.0+48
 
 UI/UX and access fixes from the live role-based test of 0.26.2.
@@ -18,6 +14,9 @@ UI/UX and access fixes from the live role-based test of 0.26.2.
 - Layout: clipped texts fixed, bottom buttons clear of the system bar, the workflow designer fits 320/390 px, 48 dp tap targets, WCAG-AA status colours, labelled form fields.
 - KPIs: the home cards and the Settings system summary show live figures from `dashboard.get_home_summary` / `get_system_summary` (they were never called before); figures the user may not read are hidden.
 - Security: the offline send queue lists and discards only the signed-in user's rows on the current server; server responses are capped (10 MB for JSON) and an oversized one is reported in Persian.
+- User management: Settings → «مدیریت کاربران» opens the user-access screen (role chooser → users of the role → access editor), only for roles allowed to manage access.
+- Forms: the request-type info step, voucher, organization position and party forms use the shared fields; Persian digits typed in numeric fields are normalised.
+- States: vouchers, detail groups, chart template, party links, request types, organization and roles pages use the shared error / empty states; chart template names are Persian everywhere from one map.
 - Requires backend 0.15.2.
 
 ## 0.26.3+47
