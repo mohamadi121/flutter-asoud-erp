@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/persian_format.dart';
+import '../../../../core/widgets/app_fields.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../../core/widgets/asoud_form.dart';
 import '../../../accounting/domain/entities/detail_group.dart';
@@ -234,7 +236,7 @@ class _PartyFormPageState extends State<PartyFormPage> {
   }
 
   double? _number(String key) => double.tryParse(
-        fields[key]!.text.trim().replaceAll(',', ''),
+        toLatinDigits(fields[key]!.text.trim()).replaceAll(',', ''),
       );
 
   @override
@@ -424,10 +426,11 @@ class _PartyFormPageState extends State<PartyFormPage> {
 
   Widget _input(String key, String label,
           {bool required = false, int lines = 1}) =>
-      AsoudFormField(
+      AppTextField(
           controller: fields[key]!,
           label: label,
-          lines: lines,
+          required: required,
+          maxLines: lines,
           validator: required
               ? (value) => value == null || value.trim().length < 3
                   ? 'این فیلد الزامی است.'
@@ -438,11 +441,27 @@ class _PartyFormPageState extends State<PartyFormPage> {
       AsoudFormDateField(
           controller: fields[key]!, label: label, required: required);
 
-  Widget _employeeGenderInput() => AsoudFormDropdown(
-      controller: fields['employeeGender']!,
-      label: 'جنسیت *',
-      required: true,
-      options: const {'Male': 'مرد', 'Female': 'زن', 'Other': 'سایر'});
+  Widget _employeeGenderInput() {
+    const options = {'Male': 'مرد', 'Female': 'زن', 'Other': 'سایر'};
+    final controller = fields['employeeGender']!;
+    return AppSelectField(
+        label: 'جنسیت',
+        required: true,
+        value: controller.text,
+        displayValue: options[controller.text],
+        hint: 'انتخاب کنید',
+        onPick: () => showAppOptionSheet(context,
+            title: 'جنسیت',
+            current: controller.text,
+            options: [
+              for (final option in options.entries)
+                AppOption(option.key, option.value)
+            ]),
+        onChanged: (value) => controller.text = value,
+        validator: (value) => value == null || value.isEmpty
+            ? 'این فیلد الزامی است.'
+            : null);
+  }
 
   Future<void> _configurePersonnelRoles() async {
     final result = await Navigator.of(context).push<Set<String>>(
@@ -724,12 +743,17 @@ class _BalanceSection extends StatelessWidget {
               onTap: onChanged),
         ]),
         const SizedBox(height: 8),
-        TextFormField(
+        AppTextField(
           controller: amountController,
+          label: 'مبلغ',
           enabled: type != 'None',
+          ltr: true,
           keyboardType: TextInputType.number,
-          decoration:
-              const InputDecoration(labelText: 'مبلغ', suffixText: 'ریال'),
+          suffixIcon: const Center(
+            widthFactor: 1,
+            child: Text('ریال',
+                style: TextStyle(fontSize: 13, color: AsoudColors.muted)),
+          ),
         ),
       ]),
     );
