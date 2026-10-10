@@ -13,6 +13,7 @@ import '../../domain/repositories/workflow_task_repository.dart';
 import '../cubit/workflow_task_detail_cubit.dart';
 import '../widgets/request_custom_table.dart';
 import '../widgets/request_link_fields.dart';
+import '../widgets/workflow_activity_timeline.dart';
 
 class WorkflowTaskDetailPage extends StatelessWidget {
   const WorkflowTaskDetailPage({required this.task, super.key});
@@ -64,13 +65,9 @@ class _TaskDetailView extends StatelessWidget {
                       child: ListView(
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
                         children: [
-                          _TaskTypeCard(detail: detail),
-                          if (detail.documentValues.isNotEmpty) ...[
-                            const SizedBox(height: 14),
-                            _ReferencedDocumentCard(detail: detail),
-                          ],
+                          _TaskSummaryCard(rows: _summaryRows(detail)),
                           if (detail.previousData.isNotEmpty) ...[
-                            const SizedBox(height: 14),
+                            const SizedBox(height: 16),
                             const AsoudSectionTitle(
                                 title: 'اطلاعات ثبت‌شده مراحل قبل'),
                             for (final section in detail.previousData) ...[
@@ -89,22 +86,19 @@ class _TaskDetailView extends StatelessWidget {
                             ),
                             const SizedBox(height: 12),
                           ],
-                          if (detail.activities.isNotEmpty) ...[
-                            const Text('تاریخچه اقدامات',
-                                style: TextStyle(
-                                    fontWeight: FontWeight.w800, fontSize: 16)),
-                            const SizedBox(height: 8),
-                            for (final activity in detail.activities)
-                              ListTile(
-                                leading:
-                                    const Icon(Icons.history_rounded, size: 20),
-                                title: Text(activity.action),
-                                subtitle: Text([
-                                  activity.actor,
-                                  if (activity.comment.isNotEmpty)
-                                    activity.comment,
-                                ].join('\n')),
-                              ),
+                          if (_technicalValues(detail).isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            _TechnicalDetailsSection(
+                                values: _technicalValues(detail)),
+                          ],
+                          if (detail.activities.isNotEmpty ||
+                              detail.task.status == 'Open') ...[
+                            const SizedBox(height: 16),
+                            const AsoudSectionTitle(title: 'تاریخچه اقدامات'),
+                            WorkflowActivityTimeline(
+                              activities: detail.activities,
+                              pending: detail.task.status == 'Open',
+                            ),
                           ],
                         ],
                       ),
@@ -112,186 +106,341 @@ class _TaskDetailView extends StatelessWidget {
                   ]),
             bottomNavigationBar: detail == null || detail.task.status != 'Open'
                 ? null
-                : SafeArea(
-                    minimum: const EdgeInsets.all(12),
-                    child: Row(children: [
-                      Expanded(
-                        child: FilledButton(
-                          onPressed: state.status ==
-                                  WorkflowTaskDetailStatus.saving
-                              ? null
-                              : () async {
-                                  final action = detail.stageType == 'Approval'
-                                      ? 'Approve'
-                                      : 'Complete';
-                                  final done = await _submitAction(
-                                      context, detail, action);
-                                  if (done && context.mounted) {
-                                    Navigator.pop(context, true);
-                                  }
-                                },
-                          child: Text(detail.stageType == 'Approval'
-                              ? 'تأیید و ارسال'
-                              : detail.activityType == 'Review'
-                                  ? 'تأیید بررسی و ارسال'
-                                  : 'ثبت و ارسال'),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      OutlinedButton(
-                        onPressed: state.status ==
-                                WorkflowTaskDetailStatus.saving
-                            ? null
-                            : context.read<WorkflowTaskDetailCubit>().saveDraft,
-                        child: const Text('ذخیره پیش‌نویس'),
-                      ),
-                      if (detail.allowReject || detail.allowReturn) ...[
-                        const SizedBox(width: 6),
-                        PopupMenuButton<String>(
-                          enabled:
-                              state.status != WorkflowTaskDetailStatus.saving,
-                          tooltip: 'اقدامات بیشتر',
-                          icon: const Icon(Icons.more_vert_rounded),
-                          onSelected: (action) =>
-                              _submitAction(context, detail, action),
-                          itemBuilder: (_) => [
-                            if (detail.allowReturn)
-                              const PopupMenuItem(
-                                  value: 'Return',
-                                  child: Text('بازگشت برای اصلاح')),
-                            if (detail.allowReject)
-                              const PopupMenuItem(
-                                  value: 'Reject', child: Text('رد درخواست')),
-                          ],
-                        ),
-                      ],
-                    ]),
-                  ),
+                : _DecisionBar(detail: detail),
           );
         },
       );
-
-  Future<bool> _submitAction(
-      BuildContext context, WorkflowTaskDetail detail, String action) async {
-    final needsComment = action == 'Return' ||
-        action == 'Reject' ||
-        (action == 'Approve' && detail.commentRequired);
-    String? comment;
-    if (needsComment) {
-      comment = await showDialog<String>(
-        context: context,
-        builder: (_) => _DecisionDialog(
-          action: action,
-          isRequired: action == 'Return' || detail.commentRequired,
-        ),
-      );
-      if (comment == null || !context.mounted) return false;
-    }
-    return context
-        .read<WorkflowTaskDetailCubit>()
-        .submit(action, comment: comment);
-  }
 }
 
-class _ReferencedDocumentCard extends StatelessWidget {
-  const _ReferencedDocumentCard({required this.detail});
+/// The sticky decision bar. Approve is the primary action; Reject and Return
+/// are always visible (never hidden behind a menu) and stay disabled until the
+/// user writes the reason they require.
+class _DecisionBar extends StatefulWidget {
+  const _DecisionBar({required this.detail});
   final WorkflowTaskDetail detail;
 
   @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(13),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: AsoudColors.primary.withValues(alpha: .3)),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            const AsoudIconBox(
-              icon: Icons.description_outlined,
-              color: AsoudColors.primary,
-            ),
-            const SizedBox(width: 9),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('اطلاعات درخواست اصلی',
-                      style: TextStyle(fontWeight: FontWeight.w900)),
-                  Text(
-                      '${persianDoctypeLabel(detail.referenceDoctype)} • ${detail.referenceName}',
-                      textDirection: TextDirection.ltr,
-                      style: const TextStyle(
-                          fontSize: 9, color: AsoudColors.muted)),
-                ],
-              ),
-            ),
-          ]),
-          const Divider(height: 22),
-          for (final value in detail.documentValues)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    flex: 2,
-                    child: Text(persianDocumentFieldLabel(value.label),
-                        style: const TextStyle(
-                            fontSize: 10, color: AsoudColors.muted)),
-                  ),
-                  Expanded(
-                    flex: 3,
-                    child: Text(_displayValue(value.value),
-                        textAlign: TextAlign.end,
-                        style: const TextStyle(
-                            fontSize: 11, fontWeight: FontWeight.w700)),
-                  ),
-                ],
-              ),
-            ),
-        ]),
-      );
+  State<_DecisionBar> createState() => _DecisionBarState();
 }
 
-class _TaskTypeCard extends StatelessWidget {
-  const _TaskTypeCard({required this.detail});
-  final WorkflowTaskDetail detail;
+class _DecisionBarState extends State<_DecisionBar> {
+  final _reason = TextEditingController();
+
+  @override
+  void dispose() {
+    _reason.dispose();
+    super.dispose();
+  }
+
+  bool get _hasReason => _reason.text.trim().isNotEmpty;
+
+  Future<void> _decide(String action) async {
+    final comment = action == 'Approve' ? null : _reason.text.trim();
+    final done = await context
+        .read<WorkflowTaskDetailCubit>()
+        .submit(action, comment: comment);
+    if (done && mounted) Navigator.pop(context, true);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final approval = detail.stageType == 'Approval' || detail.stageType == 'تأیید';
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: (approval ? AsoudColors.purple : AsoudColors.primary)
-            .withValues(alpha: .07),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AsoudColors.border),
+    final saving = context.select((WorkflowTaskDetailCubit cubit) =>
+        cubit.state.status == WorkflowTaskDetailStatus.saving);
+    final detail = widget.detail;
+    final approveAction =
+        detail.stageType == 'Approval' ? 'Approve' : 'Complete';
+    final approveLabel = detail.stageType == 'Approval'
+        ? 'تأیید'
+        : detail.activityType == 'Review'
+            ? 'تأیید بررسی'
+            : 'ثبت';
+
+    final buttons = <Widget>[
+      FilledButton(
+        onPressed: saving || (detail.commentRequired && !_hasReason)
+            ? null
+            : () => _decide(approveAction),
+        child: Text(approveLabel),
       ),
-      child: Row(children: [
-        AsoudIconBox(
-          icon: approval ? Icons.approval_outlined : Icons.fact_check_outlined,
-          color: approval ? AsoudColors.purple : AsoudColors.primary,
+      if (detail.allowReject)
+        FilledButton(
+          style: FilledButton.styleFrom(
+              backgroundColor: AsoudColors.danger,
+              foregroundColor: Colors.white),
+          onPressed: saving || !_hasReason ? null : () => _decide('Reject'),
+          child: const Text('رد'),
         ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(approval ? 'مرحله تأیید' : 'مرحله بررسی و انجام کار',
-                  style: const TextStyle(fontWeight: FontWeight.w900)),
-              const SizedBox(height: 3),
-              Text(
-                approval
-                    ? 'اطلاعات مراحل قبل را بررسی و تصمیم خود را ثبت کنید.'
-                    : 'اطلاعات ثبت‌شده را بررسی و موارد این مرحله را تکمیل کنید.',
-                style: const TextStyle(fontSize: 10, color: AsoudColors.muted),
-              ),
-            ],
+      if (detail.allowReturn)
+        FilledButton(
+          style: FilledButton.styleFrom(
+              backgroundColor: AsoudColors.warning,
+              foregroundColor: Colors.white),
+          onPressed: saving || !_hasReason ? null : () => _decide('Return'),
+          child: const Text('بازگشت'),
+        ),
+    ];
+
+    return SafeArea(
+      minimum: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        TextField(
+          controller: _reason,
+          enabled: !saving,
+          minLines: 1,
+          maxLines: 3,
+          onChanged: (_) => setState(() {}),
+          decoration: const InputDecoration(
+            isDense: true,
+            hintText: 'دلیل / توضیح',
+            helperText: 'برای رد یا بازگشت، نوشتن دلیل الزامی است.',
+            border: OutlineInputBorder(),
           ),
         ),
+        const SizedBox(height: 10),
+        LayoutBuilder(builder: (context, constraints) {
+          final sized = [
+            for (final button in buttons)
+              SizedBox(height: 56, child: button),
+          ];
+          if (constraints.maxWidth < 360) {
+            return Column(mainAxisSize: MainAxisSize.min, children: [
+              for (var i = 0; i < sized.length; i++) ...[
+                if (i > 0) const SizedBox(height: 8),
+                sized[i],
+              ],
+            ]);
+          }
+          return Row(children: [
+            for (var i = 0; i < sized.length; i++) ...[
+              if (i > 0) const SizedBox(width: 8),
+              Expanded(child: sized[i]),
+            ],
+          ]);
+        }),
+        const SizedBox(height: 4),
+        TextButton(
+          onPressed: saving
+              ? null
+              : context.read<WorkflowTaskDetailCubit>().saveDraft,
+          child: const Text('ذخیره پیش‌نویس'),
+        ),
       ]),
+    );
+  }
+}
+
+class _SummaryRow {
+  const _SummaryRow(this.label, this.value);
+  final String label, value;
+}
+
+const _priorityLabels = {
+  'Normal': 'عادی',
+  'High': 'مهم',
+  'Urgent': 'فوری',
+};
+
+String _taskStatusLabel(String status) => switch (status) {
+      'Open' => 'در انتظار اقدام',
+      'Completed' => 'انجام‌شده',
+      'Rejected' => 'ردشده',
+      'Cancelled' => 'لغوشده',
+      _ => status,
+    };
+
+String _textValue(dynamic value) {
+  final text = _displayValue(value).trim();
+  return text == '—' ? '' : text;
+}
+
+String? _lookupValue(WorkflowTaskDetail detail, List<String> keys) {
+  for (final key in keys) {
+    for (final section in detail.previousData) {
+      for (final value in section.values) {
+        if (value.key == key) {
+          final text = _textValue(value.value);
+          if (text.isNotEmpty) return text;
+        }
+      }
+    }
+  }
+  for (final key in keys) {
+    for (final value in detail.documentValues) {
+      if (value.key == key) {
+        final text = _textValue(value.value);
+        if (text.isNotEmpty) return text;
+      }
+    }
+  }
+  return null;
+}
+
+/// The at-most-five summary rows shown at the top of the page. Identifiers,
+/// JSON payloads and hashes are deliberately left out.
+List<_SummaryRow> _summaryRows(WorkflowTaskDetail detail) {
+  final rows = <_SummaryRow>[];
+  void add(String label, String? value) {
+    final text = value?.trim() ?? '';
+    if (text.isNotEmpty) rows.add(_SummaryRow(label, text));
+  }
+
+  add(
+      'نوع درخواست',
+      _lookupValue(detail,
+          const ['request_type', 'request_type_title', 'workflow_definition']));
+  add(
+      'درخواست‌کننده',
+      _lookupValue(detail, const [
+        'requester',
+        'requester_name',
+        'owner',
+        'started_by',
+        'initiator_name',
+      ]));
+  add('موضوع',
+      _lookupValue(detail, const ['subject', 'request_title', 'title']) ??
+          (detail.task.title.isEmpty ? null : detail.task.title));
+  final assigned = detail.task.assignedOn;
+  add('تاریخ', assigned == null ? null : formatDateTimeJalali(assigned));
+  final priority = _lookupValue(detail, const ['priority']);
+  add(
+      'اولویت / وضعیت',
+      [
+        if (priority != null) _priorityLabels[priority] ?? priority,
+        _taskStatusLabel(detail.task.status),
+      ].where((value) => value.isNotEmpty).join(' • '));
+  return rows.take(5).toList(growable: false);
+}
+
+/// Everything the user should not have to read first: the referenced
+/// document, its identifiers, JSON payloads and hashes.
+List<WorkflowTaskDataValue> _technicalValues(WorkflowTaskDetail detail) => [
+      if (detail.referenceName.isNotEmpty)
+        WorkflowTaskDataValue(
+          key: 'reference',
+          label: 'سند مرتبط',
+          value:
+              '${persianDoctypeLabel(detail.referenceDoctype)} • ${detail.referenceName}',
+        ),
+      if (detail.task.id.isNotEmpty)
+        WorkflowTaskDataValue(
+            key: 'task_id', label: 'شناسه کار', value: detail.task.id),
+      if (detail.task.instance.isNotEmpty)
+        WorkflowTaskDataValue(
+            key: 'instance', label: 'شناسه درخواست', value: detail.task.instance),
+      for (final value in detail.documentValues)
+        if ((value.value?.toString().trim() ?? '').isNotEmpty) value,
+    ];
+
+class _TaskSummaryCard extends StatelessWidget {
+  const _TaskSummaryCard({required this.rows});
+  final List<_SummaryRow> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    if (rows.isEmpty) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: AsoudColors.border),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(children: [
+        for (var i = 0; i < rows.length; i++) ...[
+          if (i > 0) const Divider(height: 16),
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            SizedBox(
+              width: 96,
+              child: Text(rows[i].label,
+                  style: const TextStyle(
+                      fontSize: 12, color: AsoudColors.muted)),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                rows[i].value,
+                textAlign: TextAlign.end,
+                style: const TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w800),
+              ),
+            ),
+          ]),
+        ],
+      ]),
+    );
+  }
+}
+
+class _TechnicalDetailsSection extends StatelessWidget {
+  const _TechnicalDetailsSection({required this.values});
+  final List<WorkflowTaskDataValue> values;
+
+  @override
+  Widget build(BuildContext context) => Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: AsoudColors.border),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+            key: const PageStorageKey<String>('technical-details'),
+            initiallyExpanded: false,
+            tilePadding: const EdgeInsets.symmetric(horizontal: 14),
+            childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+            leading: const Icon(Icons.data_object_rounded,
+                size: 22, color: AsoudColors.muted),
+            title: const Text('جزئیات فنی',
+                style: TextStyle(fontWeight: FontWeight.w800)),
+            subtitle: const Text('شناسه‌ها، کدها و مقادیر خام سرور',
+                style: TextStyle(fontSize: 10, color: AsoudColors.muted)),
+            children: [
+              for (final value in values) _TechnicalRow(value: value),
+            ],
+            ),
+          ),
+        ),
+      );
+}
+
+class _TechnicalRow extends StatelessWidget {
+  const _TechnicalRow({required this.value});
+  final WorkflowTaskDataValue value;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = _rawValue(value.value);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 2,
+            child: Text(persianDocumentFieldLabel(value.label),
+                style:
+                    const TextStyle(fontSize: 10, color: AsoudColors.muted)),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            flex: 3,
+            child: Text(
+              text,
+              textAlign: TextAlign.end,
+              textDirection:
+                  RegExp(r'^[A-Za-z0-9_\-{}\[\]:".,/@ ]+$').hasMatch(text)
+                      ? TextDirection.ltr
+                      : null,
+              style: const TextStyle(fontSize: 11),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -334,64 +483,13 @@ class _PreviousDataCard extends StatelessWidget {
       );
 }
 
-class _DecisionDialog extends StatefulWidget {
-  const _DecisionDialog({required this.action, required this.isRequired});
-  final String action;
-  final bool isRequired;
-
-  @override
-  State<_DecisionDialog> createState() => _DecisionDialogState();
-}
-
-class _DecisionDialogState extends State<_DecisionDialog> {
-  final controller = TextEditingController();
-  String? error;
-
-  @override
-  void dispose() {
-    controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final returning = widget.action == 'Return';
-    final rejecting = widget.action == 'Reject';
-    return AlertDialog(
-      title: Text(returning
-          ? 'بازگشت برای اصلاح'
-          : rejecting
-              ? 'رد درخواست'
-              : 'ثبت تأیید'),
-      content: TextField(
-        controller: controller,
-        minLines: 3,
-        maxLines: 5,
-        autofocus: true,
-        decoration: InputDecoration(
-          labelText: widget.isRequired ? 'توضیحات *' : 'توضیحات',
-          hintText: returning ? 'مواردی که باید اصلاح شوند را بنویسید.' : null,
-          errorText: error,
-        ),
-      ),
-      actions: [
-        TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('انصراف')),
-        FilledButton(
-          onPressed: () {
-            final value = controller.text.trim();
-            if (widget.isRequired && value.isEmpty) {
-              setState(() => error = 'ثبت توضیحات الزامی است.');
-              return;
-            }
-            Navigator.pop(context, value);
-          },
-          child: const Text('ثبت تصمیم'),
-        ),
-      ],
-    );
-  }
+/// Raw server values for the technical section: identifiers, hashes and JSON
+/// payloads are shown verbatim, never re-formatted or converted to Persian
+/// digits.
+String _rawValue(dynamic value) {
+  if (value == null || value == '') return '—';
+  if (value is DateTime) return formatDateTimeJalali(value);
+  return value.toString();
 }
 
 String _displayValue(dynamic value) {
