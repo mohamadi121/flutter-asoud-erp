@@ -194,6 +194,7 @@ String persianWorkflowStageTitle(String title) {
     'system action' => 'اقدام خودکار',
     'wait' => 'انتظار',
     'end' => 'پایان',
+    'start / user task' || 'start/user task' => 'شروع / وظیفه کاربر',
     _ => title,
   };
 }
