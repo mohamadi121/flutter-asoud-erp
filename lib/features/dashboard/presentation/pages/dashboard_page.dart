@@ -814,42 +814,42 @@ class _QuickActions extends StatelessWidget {
     final items = <(String, String, IconData, Color, VoidCallback?)>[
       (
         'دریافت و پرداخت',
-        'Payment',
+        'نقد و بانک',
         Icons.payments_outlined,
         AsoudColors.success,
         onPayments
       ),
       (
         'فاکتور فروش',
-        'Sale Invoice',
+        'صدور و پیگیری',
         Icons.description_outlined,
         AsoudColors.primary,
         onSalesInvoice
       ),
       (
         'ثبت درخواست',
-        'Workflow Request',
+        'گردش کار و فرم‌ها',
         Icons.shopping_cart_checkout_rounded,
         AsoudColors.warning,
         onPurchaseRequest
       ),
       (
         'ثبت حسابداری',
-        'Journal Entry',
+        'اسناد مالی',
         Icons.receipt_long_outlined,
         AsoudColors.purple,
         onAccounting
       ),
       (
         'ایجاد سند',
-        'Document',
+        'الگوهای آماده',
         Icons.post_add_rounded,
         AsoudColors.danger,
         onDocuments
       ),
       (
         'طرف حساب‌ها',
-        'Customer/Supplier',
+        'مشتریان و تأمین‌کنندگان',
         Icons.people_outline_rounded,
         AsoudColors.cyan,
         onParties
