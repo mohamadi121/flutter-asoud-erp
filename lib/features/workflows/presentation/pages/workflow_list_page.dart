@@ -412,18 +412,20 @@ class _StatusBadge extends StatelessWidget {
   final WorkflowDefinition item;
   @override
   Widget build(BuildContext context) {
-    final (label, color) = item.isLocked
-        ? ('نیازمند تکمیل', AsoudColors.warning)
+    final (label, color, surface) = item.isLocked
+        ? ('نیازمند تکمیل', AsoudColors.warning, AsoudColors.warningSurface)
         : switch (item.status) {
-            WorkflowDefinitionStatus.active => ('فعال', AsoudColors.success),
-            WorkflowDefinitionStatus.inactive => ('غیرفعال', AsoudColors.muted),
-            WorkflowDefinitionStatus.archived => ('آرشیو', AsoudColors.purple),
+            WorkflowDefinitionStatus.active =>
+              ('فعال', AsoudColors.success, AsoudColors.successSurface),
+            WorkflowDefinitionStatus.inactive =>
+              ('غیرفعال', AsoudColors.muted, AsoudColors.border),
+            WorkflowDefinitionStatus.archived =>
+              ('آرشیو', AsoudColors.purple, Color(0xFFF1E8FD)),
           };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
-          color: color.withValues(alpha: .1),
-          borderRadius: BorderRadius.circular(8)),
+          color: surface, borderRadius: BorderRadius.circular(8)),
       child: Text(label,
           style: TextStyle(
               fontSize: 8, color: color, fontWeight: FontWeight.w900)),
