@@ -54,6 +54,7 @@ class _DashboardLandingPageState extends State<DashboardLandingPage> {
   }
 
   Future<_LandingState> _loadLanding() async {
+    final offices = context.read<OfficeRepository>();
     if (!widget.offlinePreview) {
       try {
         final client = context.read<FrappeApiClient>();
@@ -72,10 +73,8 @@ class _DashboardLandingPageState extends State<DashboardLandingPage> {
       }
     }
     try {
-      final office = await context
-          .read<OfficeRepository>()
-          .getDefaultOffice()
-          .timeout(const Duration(seconds: 8));
+      final office =
+          await offices.getDefaultOffice().timeout(const Duration(seconds: 8));
       return _LandingState.dashboard(office);
     } on ApiException catch (error) {
       if (error.kind == ApiFailureKind.forbidden) {
@@ -104,7 +103,8 @@ class _DashboardLandingPageState extends State<DashboardLandingPage> {
         final landing = snapshot.data ??
             const _LandingState.dashboard(null, loadError: true);
         return switch (landing.destination) {
-          _LandingDestination.employee => EmployeeShell(company: landing.company!),
+          _LandingDestination.employee =>
+            EmployeeShell(company: landing.company!),
           _LandingDestination.noOfficeAccess => const _NoOfficeAccessPage(),
           _LandingDestination.dashboard => DashboardPage(
               office: landing.office,
@@ -160,7 +160,8 @@ class _NoOfficeAccessPage extends StatelessWidget {
                       textAlign: TextAlign.center,
                       style: TextStyle(fontWeight: FontWeight.w900)),
                   const SizedBox(height: 8),
-                  const Text('کارتابل و درخواست‌های شخصی همچنان قابل استفاده هستند.',
+                  const Text(
+                      'کارتابل و درخواست‌های شخصی همچنان قابل استفاده هستند.',
                       textAlign: TextAlign.center),
                   const SizedBox(height: 16),
                   Wrap(
@@ -179,7 +180,8 @@ class _NoOfficeAccessPage extends StatelessWidget {
                       OutlinedButton.icon(
                         onPressed: () => Navigator.of(context).push(
                           MaterialPageRoute<void>(
-                              builder: (_) => const GenericRequestsPage(company: '')),
+                              builder: (_) =>
+                                  const GenericRequestsPage(company: '')),
                         ),
                         icon: const Icon(Icons.description_outlined),
                         label: const Text('درخواست‌های من'),
