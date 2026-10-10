@@ -1,3 +1,4 @@
+import 'package:asoud_erp/core/network/frappe_client.dart';
 import 'package:asoud_erp/features/workflows/domain/entities/workflow_definition.dart';
 import 'package:asoud_erp/features/workflows/domain/repositories/workflow_repository.dart';
 import 'package:asoud_erp/features/workflows/presentation/pages/workflow_list_page.dart';
@@ -122,6 +123,18 @@ class _WorkflowRepository implements WorkflowRepository {
       ];
 }
 
+class _HrClient extends Fake implements FrappeApiClient {
+  @override
+  bool get isAuthenticated => true;
+
+  @override
+  Future<FrappeUserContext> getCurrentUser() async => const FrappeUserContext(
+        userId: 'hr-manager@asoud-demo.local',
+        fullName: 'مدیر منابع انسانی',
+        roles: ['HR Manager', 'Employee'],
+      );
+}
+
 void main() {
   testWidgets('صفحه گردش‌کار در عرض‌های موبایل overflow ندارد', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
@@ -169,6 +182,25 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('اطلاعات پایه فرایند را وارد کنید'), findsOneWidget);
+  });
+
+  testWidgets('مدیر منابع انسانی کنترل‌های نوشتن گردش‌کار را نمی‌بیند',
+      (tester) async {
+    await tester.pumpWidget(
+      MultiRepositoryProvider(
+        providers: [
+          RepositoryProvider<WorkflowRepository>.value(
+              value: _WorkflowRepository()),
+          RepositoryProvider<FrappeApiClient>.value(value: _HrClient()),
+        ],
+        child: const MaterialApp(home: WorkflowListPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('فرایند خرید کالا'), findsOneWidget);
+    expect(find.text('ایجاد گردش‌کار جدید'), findsNothing);
+    expect(find.byTooltip('عملیات فرایند'), findsNothing);
   });
 
   testWidgets('bottom reports destination opens a page instead of a snackbar',

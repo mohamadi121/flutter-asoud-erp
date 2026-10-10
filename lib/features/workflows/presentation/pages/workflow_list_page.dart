@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/auth/capabilities.dart';
+import '../../../../core/network/frappe_client.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/jalali_date.dart';
 import '../../../../core/widgets/asoud_ui.dart';
@@ -25,13 +27,36 @@ class WorkflowListPage extends StatelessWidget {
           repository: context.read<WorkflowRepository>(),
           company: company,
         )..load(),
-        child: _WorkflowListView(onCreate: onCreate),
+        child: _WorkflowCapabilityGate(onCreate: onCreate),
       );
 }
 
-class _WorkflowListView extends StatelessWidget {
-  const _WorkflowListView({this.onCreate});
+class _WorkflowCapabilityGate extends StatelessWidget {
+  const _WorkflowCapabilityGate({this.onCreate});
   final VoidCallback? onCreate;
+
+  Future<Capabilities> _load(BuildContext context) async {
+    try {
+      return await loadCapabilities(context.read<FrappeApiClient>());
+    } on ProviderNotFoundException {
+      return Capabilities.full;
+    } catch (_) {
+      return Capabilities.fromRoles(const []);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<Capabilities>(
+      future: _load(context),
+      builder: (context, snapshot) => _WorkflowListView(
+          onCreate: onCreate,
+          canManageWorkflows: snapshot.data?.canManageWorkflows ?? false));
+}
+
+class _WorkflowListView extends StatelessWidget {
+  const _WorkflowListView({this.onCreate, required this.canManageWorkflows});
+  final VoidCallback? onCreate;
+  final bool canManageWorkflows;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -75,7 +100,9 @@ class _WorkflowListView extends StatelessWidget {
                         ]),
                         const SizedBox(height: 8),
                         for (final item in state.items)
-                          _WorkflowCard(item: item),
+                          _WorkflowCard(
+                              item: item,
+                              canManageWorkflows: canManageWorkflows),
                       ],
                     ),
                   );
@@ -85,21 +112,24 @@ class _WorkflowListView extends StatelessWidget {
           ]),
         ),
         floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-        floatingActionButton: Padding(
-          padding: const EdgeInsets.only(bottom: 64),
-          child: SizedBox(
-            width: MediaQuery.sizeOf(context).width - 32,
-            height: 50,
-            child: FilledButton.icon(
-              onPressed: onCreate ??
-                  () => Navigator.of(context).push(MaterialPageRoute<void>(
-                        builder: (_) => const WorkflowFormPage(),
-                      )),
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('ایجاد گردش‌کار جدید'),
-            ),
-          ),
-        ),
+        floatingActionButton: canManageWorkflows
+            ? Padding(
+                padding: const EdgeInsets.only(bottom: 64),
+                child: SizedBox(
+                  width: MediaQuery.sizeOf(context).width - 32,
+                  height: 50,
+                  child: FilledButton.icon(
+                    onPressed: onCreate ??
+                        () =>
+                            Navigator.of(context).push(MaterialPageRoute<void>(
+                              builder: (_) => const WorkflowFormPage(),
+                            )),
+                    icon: const Icon(Icons.add_rounded),
+                    label: const Text('ایجاد گردش‌کار جدید'),
+                  ),
+                ),
+              )
+            : null,
         bottomNavigationBar: const _WorkflowBottomNavigation(),
       );
 }
@@ -296,8 +326,9 @@ class _FilterTab extends StatelessWidget {
 }
 
 class _WorkflowCard extends StatelessWidget {
-  const _WorkflowCard({required this.item});
+  const _WorkflowCard({required this.item, required this.canManageWorkflows});
   final WorkflowDefinition item;
+  final bool canManageWorkflows;
 
   @override
   Widget build(BuildContext context) {
@@ -340,29 +371,32 @@ class _WorkflowCard extends StatelessWidget {
             ),
             const SizedBox(width: 7),
             _StatusBadge(item: item),
-            PopupMenuButton<String>(
-              tooltip: 'عملیات فرایند',
-              itemBuilder: (_) => [
-                const PopupMenuItem(
-                    value: 'details', child: Text('مشاهده جزئیات')),
-                const PopupMenuItem(
-                    value: 'design', child: Text('طراحی مراحل و فرم درخواست')),
-                PopupMenuItem(
-                  value: 'activate',
-                  enabled: !item.isLocked,
-                  child: Text(item.isLocked ? 'فعال‌سازی (قفل)' : 'فعال‌سازی'),
-                ),
-              ],
-              onSelected: (value) {
-                if (value == 'details') {
-                  _showDetails(context);
-                } else if (value == 'design') {
-                  Navigator.of(context).push(MaterialPageRoute<void>(
-                    builder: (_) => WorkflowDesignerPage(definition: item.id),
-                  ));
-                }
-              },
-            ),
+            if (canManageWorkflows)
+              PopupMenuButton<String>(
+                tooltip: 'عملیات فرایند',
+                itemBuilder: (_) => [
+                  const PopupMenuItem(
+                      value: 'details', child: Text('مشاهده جزئیات')),
+                  const PopupMenuItem(
+                      value: 'design',
+                      child: Text('طراحی مراحل و فرم درخواست')),
+                  PopupMenuItem(
+                    value: 'activate',
+                    enabled: !item.isLocked,
+                    child:
+                        Text(item.isLocked ? 'فعال‌سازی (قفل)' : 'فعال‌سازی'),
+                  ),
+                ],
+                onSelected: (value) {
+                  if (value == 'details') {
+                    _showDetails(context);
+                  } else if (value == 'design') {
+                    Navigator.of(context).push(MaterialPageRoute<void>(
+                      builder: (_) => WorkflowDesignerPage(definition: item.id),
+                    ));
+                  }
+                },
+              ),
           ]),
         ),
       ),

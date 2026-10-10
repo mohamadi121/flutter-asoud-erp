@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/auth/capabilities.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../../core/utils/jalali_date.dart';
@@ -16,6 +17,16 @@ import '../../data/personnel_repository.dart';
 import '../../../employee/data/self_service_repository.dart';
 import '../../../employee/presentation/pages/my_attendance_page.dart';
 import '../../../request_templates/presentation/pages/request_list_pages.dart';
+
+Future<Capabilities> _hrCapabilities(BuildContext context) async {
+  try {
+    return await loadCapabilities(context.read<FrappeApiClient>());
+  } on ProviderNotFoundException {
+    return Capabilities.full;
+  } catch (_) {
+    return Capabilities.fromRoles(const []);
+  }
+}
 
 class HrHomePage extends StatelessWidget {
   const HrHomePage({required this.company, super.key});
@@ -371,32 +382,42 @@ class WorkReportsPage extends StatelessWidget {
         create: (_) =>
             HrCubit(context.read<HrRepository>(), company)..loadReports(),
         child: Builder(
-            builder: (context) => Scaffold(
-                  appBar: const AsoudHeader(
-                      title: 'گزارش کار روزانه',
-                      subtitle: 'ثبت فعالیت و بازخورد مدیر'),
-                  floatingActionButton: FloatingActionButton.extended(
-                      onPressed: () => _add(context),
-                      icon: const Icon(Icons.add),
-                      label: const Text('گزارش امروز')),
-                  body: BlocBuilder<HrCubit, HrState>(
-                      builder: (context, state) => ListView(
-                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 90),
-                            children: state.reports.isEmpty
-                                ? const [_Empty('هنوز گزارش کاری ثبت نشده است')]
-                                : state.reports
-                                    .map((report) => Card(
-                                        child: ListTile(
-                                            leading: const AsoudIconBox(
-                                                icon: Icons.fact_check_outlined,
-                                                color: AsoudColors.success),
-                                            title: Text(formatJalaliIso(
-                                                report.date.toIso8601String())),
-                                            subtitle: Text(
-                                                '${report.totalMinutes} دقیقه • ${_hrLabel(report.status)}'))))
-                                    .toList(),
-                          )),
-                )),
+            builder: (context) => FutureBuilder<Capabilities>(
+                future: _hrCapabilities(context),
+                builder: (context, snapshot) => Scaffold(
+                      appBar: const AsoudHeader(
+                          title: 'گزارش کار روزانه',
+                          subtitle: 'ثبت فعالیت و بازخورد مدیر'),
+                      floatingActionButton:
+                          snapshot.data?.canWriteHrRecords == true
+                              ? FloatingActionButton.extended(
+                                  onPressed: () => _add(context),
+                                  icon: const Icon(Icons.add),
+                                  label: const Text('گزارش امروز'))
+                              : null,
+                      body: BlocBuilder<HrCubit, HrState>(
+                          builder: (context, state) => ListView(
+                                padding:
+                                    const EdgeInsets.fromLTRB(16, 12, 16, 90),
+                                children: state.reports.isEmpty
+                                    ? const [
+                                        _Empty('هنوز گزارش کاری ثبت نشده است')
+                                      ]
+                                    : state.reports
+                                        .map((report) => Card(
+                                            child: ListTile(
+                                                leading: const AsoudIconBox(
+                                                    icon: Icons
+                                                        .fact_check_outlined,
+                                                    color: AsoudColors.success),
+                                                title: Text(formatJalaliIso(
+                                                    report.date
+                                                        .toIso8601String())),
+                                                subtitle: Text(
+                                                    '${report.totalMinutes} دقیقه • ${_hrLabel(report.status)}'))))
+                                        .toList(),
+                              )),
+                    ))),
       );
   Future<void> _add(BuildContext context) async {
     final title = TextEditingController();
@@ -451,35 +472,42 @@ class HrCommunicationsPage extends StatelessWidget {
         create: (_) => HrCubit(context.read<HrRepository>(), company)
           ..loadCommunications(),
         child: Builder(
-            builder: (context) => Scaffold(
-                  appBar: const AsoudHeader(
-                      title: 'مکاتبات داخلی',
-                      subtitle: 'دریافتی، ارسالی و اقدام‌ها'),
-                  floatingActionButton: FloatingActionButton.extended(
-                      onPressed: () => _compose(context),
-                      icon: const Icon(Icons.edit),
-                      label: const Text('مکاتبه جدید')),
-                  body: BlocBuilder<HrCubit, HrState>(
-                      builder: (context, state) => ListView(
-                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 90),
-                            children: state.communications.isEmpty
-                                ? const [
-                                    _Empty('مکاتبه‌ای برای نمایش وجود ندارد')
-                                  ]
-                                : state.communications
-                                    .map((item) => Card(
-                                        child: ListTile(
-                                            leading: AsoudIconBox(
-                                                icon: item.confidential
-                                                    ? Icons.lock_outline
-                                                    : Icons.mail_outline,
-                                                color: AsoudColors.purple),
-                                            title: Text(item.subject),
-                                            subtitle: Text(
-                                                '${item.sender} • ${_hrLabel(item.priority)}'))))
-                                    .toList(),
-                          )),
-                )),
+            builder: (context) => FutureBuilder<Capabilities>(
+                future: _hrCapabilities(context),
+                builder: (context, snapshot) => Scaffold(
+                      appBar: const AsoudHeader(
+                          title: 'مکاتبات داخلی',
+                          subtitle: 'دریافتی، ارسالی و اقدام‌ها'),
+                      floatingActionButton:
+                          snapshot.data?.canWriteHrRecords == true
+                              ? FloatingActionButton.extended(
+                                  onPressed: () => _compose(context),
+                                  icon: const Icon(Icons.edit),
+                                  label: const Text('مکاتبه جدید'))
+                              : null,
+                      body: BlocBuilder<HrCubit, HrState>(
+                          builder: (context, state) => ListView(
+                                padding:
+                                    const EdgeInsets.fromLTRB(16, 12, 16, 90),
+                                children: state.communications.isEmpty
+                                    ? const [
+                                        _Empty(
+                                            'مکاتبه‌ای برای نمایش وجود ندارد')
+                                      ]
+                                    : state.communications
+                                        .map((item) => Card(
+                                            child: ListTile(
+                                                leading: AsoudIconBox(
+                                                    icon: item.confidential
+                                                        ? Icons.lock_outline
+                                                        : Icons.mail_outline,
+                                                    color: AsoudColors.purple),
+                                                title: Text(item.subject),
+                                                subtitle: Text(
+                                                    '${item.sender} • ${_hrLabel(item.priority)}'))))
+                                        .toList(),
+                              )),
+                    ))),
       );
   Future<void> _compose(BuildContext context) async {
     final recipient = TextEditingController(),
