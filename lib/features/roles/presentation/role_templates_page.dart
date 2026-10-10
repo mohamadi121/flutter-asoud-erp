@@ -2,14 +2,6 @@ part of 'roles_page.dart';
 
 typedef RoleCategoryFormView = _CategoryForm;
 
-class _FieldLabel extends StatelessWidget {
-  const _FieldLabel(this.text);
-  final String text;
-  @override
-  Widget build(BuildContext context) => Text(text,
-          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700));
-}
-
 class _CategoryForm extends StatefulWidget {
   const _CategoryForm();
   @override
@@ -38,24 +30,23 @@ class _CategoryFormState extends State<_CategoryForm> {
                 key: _key,
                 child: ListView(padding: const EdgeInsets.all(16), children: [
                   const _RoleStatus(),
-                  const _FieldLabel('نام دسته *'),
-                  const SizedBox(height: 8),
-                  TextFormField(
+                  AppTextField(
                       controller: _title,
+                      label: 'نام دسته',
+                      required: true,
+                      hint: 'نام دسته را وارد کنید',
                       maxLength: 140,
-                      decoration: const InputDecoration(
-                          hintText: 'نام دسته را وارد کنید'),
                       validator: (value) =>
                           value == null || value.trim().isEmpty
                               ? 'نام دسته الزامی است.'
                               : null),
                   const SizedBox(height: 16),
-                  const _FieldLabel('کد دسته *'),
-                  const SizedBox(height: 8),
-                  TextFormField(
+                  AppTextField(
                       controller: _code,
-                      textDirection: TextDirection.ltr,
-                      decoration: const InputDecoration(hintText: 'FINANCE'),
+                      label: 'کد دسته',
+                      required: true,
+                      hint: 'FINANCE',
+                      ltr: true,
                       validator: (value) =>
                           RegExp(r'^[A-Za-z][A-Za-z0-9_-]{1,39}$')
                                   .hasMatch(value?.trim() ?? '')
