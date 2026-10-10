@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Settings → «مدیریت کاربران» is a real screen: an administrator picks a role, sees that role's users from the server, edits the per-document grant matrix and applies it. Roles that cannot manage users no longer see the tile (no more «هنوز فعال نیست» placeholder) and every load failure shows a Persian reason with retry only when it can succeed.
+
 ## 0.27.0+48
 
 UI/UX and access fixes from the live role-based test of 0.26.2.
