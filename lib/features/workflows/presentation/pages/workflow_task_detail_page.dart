@@ -488,7 +488,7 @@ class _PreviousDataCard extends StatelessWidget {
 /// digits.
 String _rawValue(dynamic value) {
   if (value == null || value == '') return '—';
-  if (value is DateTime) return value.toIso8601String();
+  if (value is DateTime) return formatDateTimeJalali(value);
   return value.toString();
 }
 
