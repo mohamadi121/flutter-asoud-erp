@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.26.3+47
+
+- Signing in as an Employee-only user (or any user without office-management rights) no longer drops the app into the offline preview: the home opens the employee experience, or shows a clear Persian «no office access» page, and a forbidden office-status response is handled instead of crashing.
+- Requires backend 0.15.0.
+
 ## 0.26.2+46
 
 - The app remembers the server address and the signed-in session after it is closed, so users no longer have to re-enter them.
