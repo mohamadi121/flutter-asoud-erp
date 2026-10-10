@@ -168,11 +168,14 @@ String persianLeaveTypeLabel(String? type, {String? value}) {
 }
 
 String persianLeaveTypeOptionLabel({String? label, String? value}) {
-  if (value != null && value.trim().isNotEmpty && isKnownLeaveType(value)) {
-    final mappedValue = persianLeaveTypeLabel(value);
-    if (mappedValue != value) return mappedValue;
+  if (label == null || label.trim().isEmpty) {
+    return persianLeaveTypeLabel(value);
   }
-  return persianLeaveTypeLabel(label, value: value);
+  final mapped = persianLeaveTypeLabel(label);
+  if (mapped != label) {
+    return mapped;
+  }
+  return label.trim();
 }
 
 /// The server stores chart templates as `Iran Standard`, `Service`,

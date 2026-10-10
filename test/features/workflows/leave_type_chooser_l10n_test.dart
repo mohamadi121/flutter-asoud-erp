@@ -28,8 +28,8 @@ void main() {
 
       final rows = [
         {'value': 'Casual Leave', 'label': 'سالانه — Casual Leave'},
-        {'value': 'Compensatory Off', 'label': 'سایر'},
-        {'value': 'Leave Without Pay', 'label': 'بدون حقوق'},
+        {'value': 'Compensatory Off', 'label': 'سایر / Compensatory Off'},
+        {'value': 'Leave Without Pay', 'label': 'بدون حقوق / Leave Without Pay'},
         {'value': 'Privilege Leave', 'label': 'سالانه — Privilege Leave'},
         {'value': 'Sick Leave', 'label': 'استعلاجی — Sick Leave'},
       ];
