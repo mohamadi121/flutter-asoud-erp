@@ -13,6 +13,7 @@ import '../../domain/repositories/workflow_task_repository.dart';
 import '../cubit/workflow_task_detail_cubit.dart';
 import '../widgets/request_custom_table.dart';
 import '../widgets/request_link_fields.dart';
+import '../widgets/workflow_activity_timeline.dart';
 
 class WorkflowTaskDetailPage extends StatelessWidget {
   const WorkflowTaskDetailPage({required this.task, super.key});
@@ -90,20 +91,14 @@ class _TaskDetailView extends StatelessWidget {
                             _TechnicalDetailsSection(
                                 values: _technicalValues(detail)),
                           ],
-                          if (detail.activities.isNotEmpty) ...[
+                          if (detail.activities.isNotEmpty ||
+                              detail.task.status == 'Open') ...[
                             const SizedBox(height: 16),
                             const AsoudSectionTitle(title: 'تاریخچه اقدامات'),
-                            for (final activity in detail.activities)
-                              ListTile(
-                                leading:
-                                    const Icon(Icons.history_rounded, size: 20),
-                                title: Text(activity.action),
-                                subtitle: Text([
-                                  activity.actor,
-                                  if (activity.comment.isNotEmpty)
-                                    activity.comment,
-                                ].join('\n')),
-                              ),
+                            WorkflowActivityTimeline(
+                              activities: detail.activities,
+                              pending: detail.task.status == 'Open',
+                            ),
                           ],
                         ],
                       ),
