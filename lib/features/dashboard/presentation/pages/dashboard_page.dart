@@ -21,7 +21,7 @@ import '../../../workflows/presentation/pages/workflow_list_page.dart';
 import '../../../workflows/presentation/pages/workflow_tasks_page.dart';
 import '../../../workflows/presentation/pages/generic_request_page.dart';
 import '../../../workflows/presentation/pages/document_templates_page.dart';
-import '../../data/demo/dashboard_demo_data.dart';
+import '../widgets/dashboard_summary_sections.dart';
 import 'first_office_card.dart';
 import 'settings_dashboard_content.dart';
 import 'sync_queue_page.dart';
@@ -254,10 +254,10 @@ class _DashboardPageState extends State<DashboardPage> {
                       else ...[
                         _ConnectionBanner(offline: offlinePreview),
                         const SizedBox(height: 10),
-                        if (offlinePreview) ...[
-                          const _MetricsGrid(demo: true),
-                          const SizedBox(height: 10),
-                        ],
+                        HomeMetricsSection(
+                            company: officeName,
+                            offlinePreview: offlinePreview),
+                        const SizedBox(height: 10),
                         if (office?.setupComplete != true) ...[
                           _SetupProgress(
                             offline: offlinePreview,
@@ -600,60 +600,6 @@ class _ConnectionBanner extends StatelessWidget {
               style: const TextStyle(fontSize: 9, color: AsoudColors.muted)),
         ])),
       ]),
-    );
-  }
-}
-
-class _MetricsGrid extends StatelessWidget {
-  const _MetricsGrid({this.demo = false});
-  final bool demo;
-  static const items = [
-    ('دریافتی امروز', Icons.payments_outlined, AsoudColors.success),
-    ('فروش امروز', Icons.bar_chart_rounded, AsoudColors.primary),
-    ('موجودی بانک', Icons.account_balance_outlined, AsoudColors.purple),
-    ('اسناد باز', Icons.description_outlined, AsoudColors.warning),
-  ];
-  @override
-  Widget build(BuildContext context) {
-    final demoValues = demo
-        ? {for (final metric in demoDashboardMetrics()) metric.title: metric}
-        : const <String, DemoMetric>{};
-    return GridView.count(
-      crossAxisCount: 2,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisSpacing: 8,
-      mainAxisSpacing: 8,
-      mainAxisExtent: demo ? 140 : 126,
-      children: items
-          .map((item) => Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(11),
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(children: [
-                          Expanded(
-                              child: Text(item.$1,
-                                  style: const TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w700))),
-                          AsoudIconBox(icon: item.$2, color: item.$3, size: 30)
-                        ]),
-                        Text(demoValues[item.$1]?.value ?? '—',
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                                fontSize: demo ? 15 : 18,
-                                fontWeight: FontWeight.w900)),
-                        Text(demoValues[item.$1]?.hint ?? 'پس از اتصال سرور',
-                            style: const TextStyle(
-                                fontSize: 8, color: AsoudColors.muted)),
-                      ]),
-                ),
-              ))
-          .toList(),
     );
   }
 }
