@@ -70,6 +70,32 @@ void main() {
     expect(find.text('تلاش دوباره'), findsNothing);
   });
 
+  testWidgets('پیام فارسی از پیش ساخته‌شده حفظ و متن خام فنی حذف می‌شود',
+      (tester) async {
+    await pump(
+      tester,
+      ErrorState(
+        failure: 'حساب کاربری شما به پرسنل فعال متصل نیست.',
+        onRetry: () {},
+      ),
+      390,
+    );
+    expect(find.text('حساب کاربری شما به پرسنل فعال متصل نیست.'),
+        findsOneWidget);
+    expect(find.text('تلاش دوباره'), findsOneWidget);
+  });
+
+  testWidgets('خطای دسترسی به‌صورت رشته هم دکمه تلاش دوباره ندارد',
+      (tester) async {
+    await pump(
+      tester,
+      ErrorState(failure: forbiddenFailureMessage, onRetry: () {}),
+      390,
+    );
+    expect(find.text(forbiddenFailureMessage), findsOneWidget);
+    expect(find.text('تلاش دوباره'), findsNothing);
+  });
+
   test('پیام شکست برای گونه‌های API فارسی و مشخص است', () {
     expect(
         failureMessage(const ApiException(
@@ -83,5 +109,42 @@ void main() {
         failureMessage(
             const ApiException(kind: ApiFailureKind.validation, message: 'x')),
         'اطلاعات واردشده را بررسی کنید.');
+  });
+
+  testWidgets('حالت‌های مشترک داخل فهرست هم بدون سرریز رندر می‌شوند',
+      (tester) async {
+    await pump(
+      tester,
+      ListView(children: [
+        const EmptyState(
+            icon: Icons.inbox_outlined,
+            title: 'موردی نیست',
+            description: 'بعداً نمایش داده می‌شود.'),
+        ErrorState(
+            failure: const ApiException(
+                kind: ApiFailureKind.network, message: 'offline'),
+            onRetry: () {}),
+      ]),
+      320,
+    );
+    expect(find.text('موردی نیست'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  test('رشته فارسی از قبل ساخته‌شده دست‌نخورده برمی‌گردد', () {
+    expect(failureMessage('خطای خاص سرور'), 'خطای خاص سرور');
+    expect(
+        failureMessage(const ApiException(
+            kind: ApiFailureKind.forbidden, message: 'x')),
+        forbiddenFailureMessage);
+    expect(failureIsForbidden(forbiddenFailureMessage), isTrue);
+    expect(
+        failureIsForbidden(
+            const ApiException(kind: ApiFailureKind.forbidden, message: 'x')),
+        isTrue);
+    expect(failureIsForbidden(const ApiException(
+        kind: ApiFailureKind.network, message: 'x')), isFalse);
+    expect(failureCanRetry(forbiddenFailureMessage), isFalse);
+    expect(failureCanRetry('خطای شبکه'), isTrue);
   });
 }

@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/jalali_date.dart';
 import '../../../../core/widgets/asoud_ui.dart';
+import '../../../../core/widgets/states.dart';
 import '../../domain/entities/workflow_definition.dart';
 import '../../domain/repositories/workflow_repository.dart';
 import '../../domain/repositories/workflow_notification_repository.dart';
@@ -55,10 +56,16 @@ class _WorkflowListView extends StatelessWidget {
                   }
                   if (state.status == WorkflowListLoadStatus.failure &&
                       state.items.isEmpty) {
-                    return _FailureState(
-                        message: state.message ?? 'خطای نامشخص');
+                    return ErrorState(
+                        failure: state.message ?? 'خطای نامشخص',
+                        onRetry: context.read<WorkflowListCubit>().load);
                   }
-                  if (state.items.isEmpty) return const _EmptyState();
+                  if (state.items.isEmpty) {
+                    return const EmptyState(
+                        icon: Icons.account_tree_outlined,
+                        title: 'گردش‌کاری پیدا نشد',
+                        description: 'شرایط جست‌وجو یا فیلتر را تغییر دهید.');
+                  }
                   return RefreshIndicator(
                     onRefresh: context.read<WorkflowListCubit>().load,
                     child: ListView(
@@ -431,38 +438,6 @@ class _StatusBadge extends StatelessWidget {
   }
 }
 
-class _FailureState extends StatelessWidget {
-  const _FailureState({required this.message});
-  final String message;
-  @override
-  Widget build(BuildContext context) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(28),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const AsoudIconBox(
-                icon: Icons.cloud_off_rounded,
-                color: AsoudColors.warning,
-                size: 52),
-            const SizedBox(height: 12),
-            Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 12),
-            OutlinedButton(
-                onPressed: context.read<WorkflowListCubit>().load,
-                child: const Text('تلاش دوباره')),
-          ]),
-        ),
-      );
-}
-
-class _EmptyState extends StatelessWidget {
-  const _EmptyState();
-  @override
-  Widget build(BuildContext context) => const Center(
-        child: Text('گردش‌کاری با این شرایط پیدا نشد.',
-            style: TextStyle(color: AsoudColors.muted)),
-      );
-}
-
 class _WorkflowBottomNavigation extends StatelessWidget {
   const _WorkflowBottomNavigation();
   @override
@@ -516,7 +491,9 @@ class WorkflowComingSoonPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) => const Scaffold(
         appBar: AsoudHeader(title: 'گزارش‌ها'),
-        body: Center(child: Text('به‌زودی')),
+        body: ComingSoonState(
+            description:
+                'گزارش‌های این بخش در نسخه‌های بعدی در دسترس خواهد بود.'),
       );
 }
 

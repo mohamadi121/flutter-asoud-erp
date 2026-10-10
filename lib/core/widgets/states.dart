@@ -18,8 +18,7 @@ class ErrorState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final canRetry = onRetry != null && failureCanRetry(failure);
-    final isForbidden = failure is ApiException &&
-        (failure as ApiException).kind == ApiFailureKind.forbidden;
+    final isForbidden = failureIsForbidden(failure);
     return _StateLayout(
       icon: _failureIcon(failure),
       color: isForbidden ? AsoudColors.danger : AsoudColors.warning,

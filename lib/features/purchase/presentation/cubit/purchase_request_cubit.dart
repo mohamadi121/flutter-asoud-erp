@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/utils/failure_message.dart';
 import '../../domain/purchase_request.dart';
 import '../../domain/purchase_request_repository.dart';
 
@@ -53,7 +54,7 @@ class PurchaseRequestCubit extends Cubit<PurchaseRequestState> {
     } catch (error) {
       emit(state.copyWith(
         status: PurchaseRequestStatus.failure,
-        message: error.toString(),
+        message: failureMessage(error),
       ));
     }
   }
@@ -96,7 +97,7 @@ class PurchaseRequestCubit extends Cubit<PurchaseRequestState> {
     } catch (error) {
       emit(state.copyWith(
         status: PurchaseRequestStatus.failure,
-        message: error.toString(),
+        message: failureMessage(error),
       ));
       return false;
     }
