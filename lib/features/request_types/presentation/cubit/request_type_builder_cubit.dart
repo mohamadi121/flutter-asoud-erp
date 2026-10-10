@@ -63,7 +63,7 @@ class RequestTypeBuilderCubit extends Cubit<RequestTypeBuilderState> {
           description: workflow.description ?? '',
           category: workflow.category ?? 'General',
           iconKey: workflow.iconKey ?? 'other',
-          colorHex: workflow.colorHex ?? '#71809B',
+          colorHex: workflow.colorHex ?? '#5B6478',
           showInList: workflow.showInList,
           userSubmittable: workflow.userSubmittable,
         ),
