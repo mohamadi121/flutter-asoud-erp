@@ -17,6 +17,7 @@ import '../../../hr/presentation/pages/hr_home_page.dart';
 import '../../../hr/presentation/pages/organization_page.dart';
 import '../../../office_setup/presentation/pages/offices_page.dart';
 import '../../../request_types/presentation/pages/request_types_page.dart';
+import '../../../roles/presentation/roles_page.dart';
 import '../../../workflows/presentation/pages/generic_request_page.dart';
 import '../../../workflows/presentation/pages/workflow_list_page.dart';
 import '../../../workflows/presentation/pages/workflow_notifications_page.dart';
@@ -296,8 +297,14 @@ class _SettingsDashboardContentState extends State<SettingsDashboardContent> {
                             mainAxisExtent: 96,
                             children: [
                               if (capabilities.canManageUserAccess)
-                                const _ActionCard('مدیریت کاربران',
-                                    Icons.person_outline, AsoudColors.primary),
+                                _ActionCard('مدیریت کاربران',
+                                    Icons.person_outline, AsoudColors.primary,
+                                    onTap: widget.offlinePreview
+                                        ? null
+                                        : () => _open(UserAccessPage(
+                                            repository: UserAccessRepository(
+                                                context
+                                                    .read<FrappeApiClient>())))),
                               if (capabilities.canManageOrganization)
                                 _ActionCard(
                                     'ساختار سازمانی',
