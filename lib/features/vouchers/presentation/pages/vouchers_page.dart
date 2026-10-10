@@ -3,26 +3,29 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/network/frappe_client.dart';
 import '../../../../core/utils/persian_format.dart';
+import '../../../../core/widgets/states.dart';
 import '../../data/repositories/frappe_vouchers_repository.dart';
 import '../../domain/entities/accounting_voucher.dart';
+import '../../domain/repositories/vouchers_repository.dart';
 import '../cubit/vouchers_cubit.dart';
 import 'voucher_form_page.dart';
 
 class VouchersPage extends StatefulWidget {
-  const VouchersPage({super.key});
+  const VouchersPage({this.repository, super.key});
+  final VouchersRepository? repository;
   @override
   State<VouchersPage> createState() => _VouchersPageState();
 }
 
 class _VouchersPageState extends State<VouchersPage> {
   final _company = TextEditingController();
-  late final FrappeVouchersRepository _repository;
+  late final VouchersRepository _repository;
   late final VouchersCubit _cubit;
 
   @override
   void initState() {
     super.initState();
-    _repository = FrappeVouchersRepository(FrappeClient());
+    _repository = widget.repository ?? FrappeVouchersRepository(FrappeClient());
     _cubit = VouchersCubit(_repository);
   }
 
@@ -58,8 +61,20 @@ class _VouchersPageState extends State<VouchersPage> {
               const SizedBox(height: 16),
               Expanded(child: BlocBuilder<VouchersCubit, VouchersState>(builder: (context, state) {
                 if (state.status == VouchersStatus.loading) return const Center(child: CircularProgressIndicator());
-                if (state.status == VouchersStatus.failure) return Center(child: Text(state.message ?? 'خطا در دریافت اسناد'));
-                if (state.items.isEmpty) return const Center(child: Text('نام شرکت را وارد و اسناد را دریافت کنید.'));
+                if (state.status == VouchersStatus.failure) {
+                  return ErrorState(
+                    failure: state.message ?? 'دریافت اسناد حسابداری ممکن نشد.',
+                    onRetry: () => _cubit.load(_company.text.trim()),
+                  );
+                }
+                if (state.items.isEmpty) {
+                  return const EmptyState(
+                    icon: Icons.receipt_long_outlined,
+                    title: 'سند حسابداری‌ای برای نمایش نیست',
+                    description:
+                        'برای دیدن اسناد، نام دفتر را وارد کنید و دکمه دریافت را بزنید.',
+                  );
+                }
                 return ListView.separated(
                   itemCount: state.items.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 8),
