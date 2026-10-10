@@ -5,6 +5,7 @@ import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/jalali_date.dart';
 import '../../../../core/utils/persian_server_values.dart';
 import '../../../../core/widgets/asoud_ui.dart';
+import '../../../../core/widgets/states.dart';
 import '../../domain/entities/party_profile.dart';
 import '../../domain/repositories/party_repository.dart';
 import 'party_form_page.dart';
@@ -96,12 +97,10 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
                             '${detail.groupTitle ?? detail.groupId}: ${detail.code}'),
                     ]))),
             if (loading) const LinearProgressIndicator(),
-            if (error != null) ...[
-              Text(error!),
-              TextButton(
-                  onPressed: loading ? null : _reload,
-                  child: const Text('تلاش دوباره')),
-            ],
+            if (error != null)
+              ErrorState(
+                  failure: error!,
+                  onRetry: loading ? null : _reload),
             _section(
                 'اطلاعات اصلی',
                 Icons.person_outline,

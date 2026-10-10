@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/persian_format.dart';
 import '../../../../core/widgets/asoud_ui.dart';
+import '../../../../core/widgets/states.dart';
 import '../../domain/entities/party_profile.dart';
 import '../../domain/repositories/party_repository.dart';
 
@@ -19,7 +20,7 @@ class PartyLinksPage extends StatefulWidget {
 class _PartyLinksPageState extends State<PartyLinksPage> {
   List<FloatingDetail> details = const [];
   bool loading = true, saving = false;
-  String? error;
+  Object? error;
 
   String get roleTitle => widget.profile.roles.contains(PartyRole.employee)
       ? 'پرسنل'
@@ -51,8 +52,8 @@ class _PartyLinksPageState extends State<PartyLinksPage> {
       final result = await widget.repository
           .listDetails(search: widget.profile.displayName);
       if (mounted) setState(() => details = result);
-    } catch (_) {
-      if (mounted) setState(() => error = 'دریافت کدهای تفصیلی انجام نشد.');
+    } catch (e) {
+      if (mounted) setState(() => error = e);
     } finally {
       if (mounted) setState(() => loading = false);
     }
@@ -94,14 +95,14 @@ class _PartyLinksPageState extends State<PartyLinksPage> {
                 const SizedBox(height: 8),
                 if (loading) const _LinksSkeleton(),
                 if (error != null)
-                  _StateCard(
-                    text: error!,
-                    actionLabel: 'تلاش مجدد',
-                    onAction: _load,
-                  ),
+                  ErrorState(failure: error!, onRetry: saving ? null : _load),
                 if (!loading && error == null && details.isEmpty)
-                  const _StateCard(
-                      text: 'هنوز کد تفصیلی برای این شخص ثبت نشده است.'),
+                  EmptyState(
+                    icon: Icons.link_off_rounded,
+                    title: 'کد تفصیلی‌ای ثبت نشده است',
+                    description:
+                        'هنوز کد تفصیلی برای این شخص ثبت نشده است؛ یک کد جدید بسازید یا کد موجود را متصل کنید.',
+                  ),
                 for (var index = 0; index < details.length; index++)
                   _DetailRow(detail: details[index], index: index),
                 if (details.isNotEmpty) ...[
@@ -389,10 +390,8 @@ class _LinksSkeleton extends StatelessWidget {
 }
 
 class _StateCard extends StatelessWidget {
-  const _StateCard({required this.text, this.actionLabel, this.onAction});
+  const _StateCard({required this.text});
   final String text;
-  final String? actionLabel;
-  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) => Card(
@@ -400,10 +399,6 @@ class _StateCard extends StatelessWidget {
           padding: const EdgeInsets.all(18),
           child: Column(children: [
             Text(text, textAlign: TextAlign.center),
-            if (actionLabel != null) ...[
-              const SizedBox(height: 8),
-              TextButton(onPressed: onAction, child: Text(actionLabel!)),
-            ],
           ]),
         ),
       );
