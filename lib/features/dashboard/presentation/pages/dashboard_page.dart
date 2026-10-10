@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/network/frappe_client.dart';
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../accounting/presentation/pages/accounting_home_page.dart';
@@ -36,14 +37,13 @@ class DashboardLandingPage extends StatefulWidget {
 }
 
 class _DashboardLandingPageState extends State<DashboardLandingPage> {
-  late Future<Office?> _office;
-  late final Future<String?> _employeeCompany = _loadEmployeeCompany();
+  late Future<_LandingState> _landing;
   StreamSubscription<void>? _syncChanges;
 
   @override
   void initState() {
     super.initState();
-    _office = _loadOffice();
+    _landing = _loadLanding();
     _syncChanges = syncServiceOf(context)?.changes.listen((_) => _reload());
   }
 
@@ -53,60 +53,144 @@ class _DashboardLandingPageState extends State<DashboardLandingPage> {
     super.dispose();
   }
 
-  /// The company of a user who is only an employee, or null for everyone else.
-  /// Any failure keeps the office dashboard.
-  Future<String?> _loadEmployeeCompany() async {
-    if (widget.offlinePreview) return null;
+  Future<_LandingState> _loadLanding() async {
+    if (!widget.offlinePreview) {
+      try {
+        final client = context.read<FrappeApiClient>();
+        if (client.isAuthenticated) {
+          final user =
+              await client.getCurrentUser().timeout(const Duration(seconds: 8));
+          final company = user.company?.trim();
+          if (isEmployeeOnly(user)) {
+            return company == null || company.isEmpty
+                ? const _LandingState.noOfficeAccess()
+                : _LandingState.employee(company);
+          }
+        }
+      } catch (_) {
+        // The office load below supplies its own visible failure state.
+      }
+    }
     try {
-      final client = context.read<FrappeApiClient>();
-      if (!client.isAuthenticated) return null;
-      final user =
-          await client.getCurrentUser().timeout(const Duration(seconds: 8));
-      return isEmployeeOnly(user) ? user.company : null;
+      final office = await context
+          .read<OfficeRepository>()
+          .getDefaultOffice()
+          .timeout(const Duration(seconds: 8));
+      return _LandingState.dashboard(office);
+    } on ApiException catch (error) {
+      if (error.kind == ApiFailureKind.forbidden) {
+        return const _LandingState.noOfficeAccess();
+      }
+      return const _LandingState.dashboard(null, loadError: true);
+    } on TimeoutException {
+      return const _LandingState.dashboard(null, loadError: true);
     } catch (_) {
-      return null;
+      return const _LandingState.dashboard(null, loadError: true);
     }
   }
 
-  Future<Office?> _loadOffice() => context
-      .read<OfficeRepository>()
-      .getDefaultOffice()
-      .timeout(const Duration(seconds: 8));
-
   void _reload() => setState(() {
-        _office = _loadOffice();
+        _landing = _loadLanding();
       });
 
   @override
-  Widget build(BuildContext context) => FutureBuilder<String?>(
-      future: _employeeCompany,
-      builder: (context, employee) {
-        if (employee.connectionState == ConnectionState.waiting) {
+  Widget build(BuildContext context) => FutureBuilder<_LandingState>(
+      future: _landing,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
               body: Center(child: CircularProgressIndicator()));
         }
-        if (employee.data != null) {
-          return EmployeeShell(company: employee.data!);
-        }
-        return _officeDashboard();
+        final landing = snapshot.data ??
+            const _LandingState.dashboard(null, loadError: true);
+        return switch (landing.destination) {
+          _LandingDestination.employee => EmployeeShell(company: landing.company!),
+          _LandingDestination.noOfficeAccess => const _NoOfficeAccessPage(),
+          _LandingDestination.dashboard => DashboardPage(
+              office: landing.office,
+              officeName: landing.office?.name,
+              offlinePreview: widget.offlinePreview || landing.loadError,
+              loadError: landing.loadError,
+              onOfficeCreated: _reload,
+            ),
+        };
       });
+}
 
-  Widget _officeDashboard() => FutureBuilder<Office?>(
-        future: _office,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            );
-          }
-          return DashboardPage(
-            office: snapshot.data,
-            officeName: snapshot.data?.name,
-            offlinePreview: widget.offlinePreview || snapshot.hasError,
-            loadError: snapshot.hasError,
-            onOfficeCreated: _reload,
-          );
-        },
+enum _LandingDestination { employee, dashboard, noOfficeAccess }
+
+class _LandingState {
+  const _LandingState.employee(this.company)
+      : destination = _LandingDestination.employee,
+        office = null,
+        loadError = false;
+
+  const _LandingState.dashboard(this.office, {this.loadError = false})
+      : destination = _LandingDestination.dashboard,
+        company = null;
+
+  const _LandingState.noOfficeAccess()
+      : destination = _LandingDestination.noOfficeAccess,
+        company = null,
+        office = null,
+        loadError = false;
+
+  final _LandingDestination destination;
+  final String? company;
+  final Office? office;
+  final bool loadError;
+}
+
+class _NoOfficeAccessPage extends StatelessWidget {
+  const _NoOfficeAccessPage();
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        body: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.lock_outline_rounded,
+                      size: 48, color: AsoudColors.warning),
+                  const SizedBox(height: 16),
+                  const Text('برای این حساب دسترسی مدیریت دفتر تعریف نشده است',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontWeight: FontWeight.w900)),
+                  const SizedBox(height: 8),
+                  const Text('کارتابل و درخواست‌های شخصی همچنان قابل استفاده هستند.',
+                      textAlign: TextAlign.center),
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    alignment: WrapAlignment.center,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                              builder: (_) => const WorkflowTasksPage()),
+                        ),
+                        icon: const Icon(Icons.assignment_ind_outlined),
+                        label: const Text('کارتابل'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                              builder: (_) => const GenericRequestsPage(company: '')),
+                        ),
+                        icon: const Icon(Icons.description_outlined),
+                        label: const Text('درخواست‌های من'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       );
 }
 

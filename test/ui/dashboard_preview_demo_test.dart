@@ -1,4 +1,8 @@
 import 'package:asoud_erp/core/network/frappe_client.dart';
+import 'package:asoud_erp/core/network/api_exception.dart';
+import 'package:asoud_erp/features/employee/presentation/pages/employee_shell.dart';
+import 'package:asoud_erp/features/office_setup/data/repositories/frappe_office_repository.dart';
+import 'package:asoud_erp/features/office_setup/data/repositories/server_first_office_repository.dart';
 import 'package:asoud_erp/core/offline/offline_sync_service.dart';
 import 'package:asoud_erp/core/theme/asoud_theme.dart';
 import 'package:asoud_erp/features/dashboard/presentation/pages/dashboard_page.dart';
@@ -47,7 +51,7 @@ class _OfficeRepository implements OfficeRepository {
 
 Widget _landingApp({
   required _Client client,
-  required _OfficeRepository offices,
+  required OfficeRepository offices,
   required OfflineSyncService sync,
 }) =>
     MaterialApp(
@@ -170,5 +174,66 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('راه‌اندازی دفتر هنوز کامل نیست'), findsNothing);
+  });
+
+  testWidgets(
+      'کارمند با نقش‌های واقعی به پنل خود می‌رود و وضعیت دفتر را درخواست نمی‌کند',
+      (tester) async {
+    when(() => client.isAuthenticated).thenReturn(true);
+    when(() => client.getCurrentUser()).thenAnswer((_) async =>
+        const FrappeUserContext(
+          userId: 'sales-manager@asoud-demo.local',
+          fullName: 'مدیر فروش',
+          roles: ['Employee', 'Employee Self Service', 'Desk User'],
+          employeeId: 'HR-EMP-0001',
+          company: 'شرکت نمونه آسود',
+        ));
+    final offices = _OfficeRepository(null);
+    final sync = OfflineSyncService(client, local: FakeLocalRecordStore());
+
+    await tester.pumpWidget(
+      _landingApp(client: client, offices: offices, sync: sync),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(EmployeeShell), findsOneWidget);
+    expect(find.text('برای شروع، اطلاعات اولیه دفتر را ثبت کنید'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'خطای ۴۰۳ وضعیت دفتر برای حساب بدون دسترسی آفلاین یا راه‌اندازی جعلی نمی‌شود',
+      (tester) async {
+    when(() => client.isAuthenticated).thenReturn(true);
+    when(() => client.getCurrentUser()).thenAnswer((_) async =>
+        const FrappeUserContext(
+          userId: 'sales-manager@asoud-demo.local',
+          fullName: 'مدیر فروش',
+          roles: ['Employee', 'Employee Self Service', 'Desk User'],
+        ));
+    when(() => client.callAsoudMethod(
+          'asoud_erp.api.v1.setup.get_setup_status',
+          data: any(named: 'data'),
+        )).thenThrow(const ApiException(
+      kind: ApiFailureKind.forbidden,
+      message: 'دسترسی ندارید',
+      statusCode: 403,
+    ));
+    final offices = ServerFirstOfficeRepository(
+      FrappeOfficeRepository(client),
+      local: FakeLocalRecordStore(),
+    );
+    final sync = OfflineSyncService(client, local: FakeLocalRecordStore());
+
+    await tester.pumpWidget(
+      _landingApp(client: client, offices: offices, sync: sync),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('برای این حساب دسترسی مدیریت دفتر تعریف نشده است'),
+        findsOneWidget);
+    expect(find.text('نسخه نمایشی آفلاین'), findsNothing);
+    expect(find.text('برای شروع، اطلاعات اولیه دفتر را ثبت کنید'), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 }
