@@ -136,11 +136,6 @@ class _SettingsDashboardContentState extends State<SettingsDashboardContent> {
                       style: TextStyle(
                           color: AsoudColors.primary,
                           fontWeight: FontWeight.w900))),
-              if (sync != null)
-                Flexible(
-                    child: SyncStatusIndicator(
-                        service: sync,
-                        onOpen: () => openSyncQueue(context, sync))),
               IconButton(
                   tooltip: 'اعلان‌ها',
                   onPressed: hasOffice
@@ -148,6 +143,11 @@ class _SettingsDashboardContentState extends State<SettingsDashboardContent> {
                       : null,
                   icon: const Icon(Icons.notifications_outlined)),
             ]),
+            if (sync != null) ...[
+              const SizedBox(height: 12),
+              SyncStatusIndicator(
+                  service: sync, onOpen: () => openSyncQueue(context, sync)),
+            ],
             const SizedBox(height: 16),
             FutureBuilder<FrappeUserContext?>(
                 future: user,
