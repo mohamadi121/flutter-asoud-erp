@@ -8,6 +8,7 @@ import '../../../../core/auth/capabilities.dart';
 import '../../../../core/network/frappe_client.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/persian_format.dart';
+import '../../../../core/widgets/app_fields.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../data/organization_repository.dart';
 import '../../domain/organization_chart.dart';
