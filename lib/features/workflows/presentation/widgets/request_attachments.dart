@@ -267,10 +267,16 @@ class RequestAttachmentsPicker extends StatelessWidget {
                       const Text('فایل یا فایل‌ها را انتخاب کنید',
                           style: TextStyle(fontWeight: FontWeight.w800)),
                       const SizedBox(height: 4),
-                      Text('فرمت‌های مجاز: ${limits.extensionsLabel}',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                              fontSize: 11, color: AsoudColors.muted)),
+                      Tooltip(
+                        message: 'فرمت‌های مجاز: ${limits.extensionsLabel}',
+                        child: Text('فرمت‌های مجاز: ${limits.extensionsLabel}',
+                            textAlign: TextAlign.center,
+                            softWrap: true,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                fontSize: 11, color: AsoudColors.muted)),
+                      ),
                       Text(
                           'حداکثر حجم هر فایل: ${toPersianDigits(limits.maxMb)} مگابایت',
                           style: const TextStyle(

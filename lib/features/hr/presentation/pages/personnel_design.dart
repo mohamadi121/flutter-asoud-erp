@@ -1331,17 +1331,26 @@ class _SummaryTile extends StatelessWidget {
                     child: Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                      Text(value,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              color: _ink,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800)),
+                      Tooltip(
+                        message: value,
+                        child: Text(value,
+                            maxLines: 2,
+                            softWrap: true,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                color: _ink,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800)),
+                      ),
                       const SizedBox(height: 3),
-                      Text(title,
-                          style: const TextStyle(
-                              color: Color(0xFF8192B9), fontSize: 9)),
+                      Tooltip(
+                        message: title,
+                        child: Text(title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                color: Color(0xFF8192B9), fontSize: 9)),
+                      ),
                     ])),
               ]))));
 }
