@@ -23,7 +23,7 @@ import '../../../workflows/presentation/pages/workflow_notifications_page.dart';
 import '../../../workflows/presentation/pages/workflow_tasks_page.dart';
 import 'sync_queue_page.dart';
 import 'sync_status_indicator.dart';
-import '../../data/demo/dashboard_demo_data.dart';
+import '../widgets/dashboard_summary_sections.dart';
 
 /// Administrative entry points. Unavailable telemetry is never presented as live.
 class SettingsDashboardContent extends StatefulWidget {
@@ -205,73 +205,17 @@ class _SettingsDashboardContentState extends State<SettingsDashboardContent> {
                       color: AsoudColors.primary,
                       size: 44),
                 ])),
-            // Live telemetry is not connected yet: only the offline preview
-            // shows these cards, so no «—»/«داده موجود نیست» placeholder is
-            // presented as real data (bug #10).
-            if (demo) ...[
+            // Live telemetry reads the server for a signed-in user; the offline
+            // preview keeps the demo figures. A figure the server returns as
+            // null is hidden, never shown as «—» (bug #10).
             const SizedBox(height: 18),
-            const Text('خلاصه وضعیت سیستم',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
-            const SizedBox(height: 10),
-            LayoutBuilder(
-                builder: (context, constraints) => GridView.count(
-                      crossAxisCount: constraints.maxWidth < 300 ? 2 : 3,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      mainAxisSpacing: 8,
-                      crossAxisSpacing: 8,
-                      mainAxisExtent: 126,
-                      children: [
-                        _StatusCard('کاربران فعال', Icons.people_outline,
-                            AsoudColors.primary,
-                            value:
-                                demo ? demoSystemStatus('کاربران فعال') : null,
-                            demo: demo),
-                        _StatusCard('کاربران آنلاین',
-                            Icons.desktop_windows_outlined, AsoudColors.success,
-                            value: demo
-                                ? demoSystemStatus('کاربران آنلاین')
-                                : null,
-                            demo: demo),
-                        _StatusCard('فضای ذخیره‌سازی', Icons.storage_outlined,
-                            AsoudColors.primary,
-                            value: demo
-                                ? demoSystemStatus('فضای ذخیره‌سازی')
-                                : null,
-                            demo: demo),
-                        _StatusCard('درخواست‌های در انتظار',
-                            Icons.pending_actions, AsoudColors.warning,
-                            value: demo
-                                ? demoSystemStatus('درخواست‌های در انتظار')
-                                : null,
-                            demo: demo,
-                            onTap: hasOffice
-                                ? () => _open(const WorkflowTasksPage())
-                                : null),
-                        _StatusCard('خطاهای سیستم', Icons.bug_report_outlined,
-                            AsoudColors.purple,
-                            value:
-                                demo ? demoSystemStatus('خطاهای سیستم') : null,
-                            demo: demo),
-                        _StatusCard(
-                            'وضعیت همگام‌سازی', Icons.sync, AsoudColors.success,
-                            value: demo
-                                ? demoSystemStatus('وضعیت همگام‌سازی')
-                                : null,
-                            demo: demo,
-                            note: sync == null ? null : 'صف ارسال به سرور',
-                            onTap: sync == null
-                                ? null
-                                : () => openSyncQueue(context, sync)),
-                      ],
-                    )),
-            Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: const Text(
-                    'آمار نمایشی برای پیش‌نمایش آفلاین است و روی سرور ذخیره نمی‌شود.',
-                    style: TextStyle(
-                        fontSize: 11, color: AsoudColors.muted))),
-            ],
+            SystemSummarySection(
+              offlinePreview: demo,
+              onOpenTasks:
+                  hasOffice ? () => _open(const WorkflowTasksPage()) : null,
+              onOpenSync:
+                  sync == null ? null : () => openSyncQueue(context, sync),
+            ),
             const SizedBox(height: 18),
             const Text('عملیات سریع',
                 style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
@@ -394,59 +338,6 @@ class _SettingsDashboardContentState extends State<SettingsDashboardContent> {
           ]),
         ));
   }
-}
-
-class _StatusCard extends StatelessWidget {
-  const _StatusCard(this.title, this.icon, this.color,
-      {this.onTap, this.note, this.value, this.demo = false});
-  final String title;
-  final IconData icon;
-  final Color color;
-  final VoidCallback? onTap;
-  final String? note;
-
-  /// Demo figure for the offline preview; null keeps the «—» placeholder.
-  final String? value;
-  final bool demo;
-  @override
-  Widget build(BuildContext context) => Card(
-      child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
-          child: Padding(
-              padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    AsoudIconBox(icon: icon, color: color, size: 32),
-                    const SizedBox(height: 6),
-                    Text(title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            fontSize: 11,
-                            height: 1.3,
-                            fontWeight: FontWeight.w700)),
-                    const Spacer(),
-                    Text(value ?? '—',
-                        style: const TextStyle(
-                            fontSize: 18,
-                            height: 1.1,
-                            fontWeight: FontWeight.w800)),
-                    Text(
-                        note ??
-                            (onTap == null
-                                ? (demo ? 'نمایشی' : 'داده موجود نیست')
-                                : (demo
-                                    ? 'نمایشی · مشاهده کارتابل'
-                                    : 'مشاهده کارتابل')),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            fontSize: 9,
-                            height: 1.3,
-                            color: AsoudColors.muted)),
-                  ]))));
 }
 
 class _ActionCard extends StatelessWidget {
