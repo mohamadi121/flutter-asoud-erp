@@ -5,6 +5,7 @@ import 'package:excel/excel.dart' as xls;
 
 import '../../../../core/network/frappe_client.dart';
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/persian_format.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../data/organization_repository.dart';
 import '../../domain/organization_chart.dart';
@@ -453,7 +454,7 @@ class _OrganizationTemplates extends StatelessWidget {
               title: Text(template.title,
                   style: const TextStyle(fontWeight: FontWeight.w800)),
               subtitle: Text(
-                  '${template.description}\n${template.positions.length} جایگاه پیشنهادی'),
+                  '${template.description}\n${formatCount(template.positions.length, 'جایگاه')} پیشنهادی'),
               trailing: const Icon(Icons.chevron_left_rounded),
               onTap: () async {
                 final saved = await _openOrganizationPage<bool>(

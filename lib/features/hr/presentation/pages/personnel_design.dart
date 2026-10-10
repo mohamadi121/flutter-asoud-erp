@@ -37,7 +37,13 @@ String _valueOf(Map profile, String key, [String fallback = '—']) {
       value.contains('personnel-import-')) {
     return fallback;
   }
-  if (key == 'birth_date' || key == 'date_of_joining') {
+  if (key == 'birth_date' ||
+      key == 'date_of_joining' ||
+      key == 'date' ||
+      key == 'record_date' ||
+      key == 'final_confirmation_date' ||
+      key == 'contract_end_date' ||
+      key.endsWith('_date')) {
     return formatJalaliIso(value);
   }
   if (key == 'employment_type') {
@@ -184,7 +190,7 @@ class _PersonnelList extends StatelessWidget {
                                 padding: const EdgeInsets.only(left: 6),
                                 child: ChoiceChip(
                                     label: Text(
-                                        '${entry.value} (${state.rows.where((r) => entry.key == 'all' || (r['disabled'] == true) == (entry.key == 'inactive')).length})'),
+                                        '${entry.value} (${toPersianDigits(state.rows.where((r) => entry.key == 'all' || (r['disabled'] == true) == (entry.key == 'inactive')).length)})'),
                                     selected: state.status == entry.key,
                                     showCheckmark: false,
                                     selectedColor: entry.key == 'active'
@@ -437,7 +443,7 @@ class _EmployeeUserDetailsPageState extends State<_EmployeeUserDetailsPage> {
                       rows: {
                         for (final entry in matrix.entries)
                           entry.key:
-                              '${(entry.value as List? ?? const []).length} مجوز',
+                              formatCount((entry.value as List? ?? const []).length, 'مجوز'),
                       }),
                   const SizedBox(height: 14),
                   FilledButton.icon(
@@ -645,7 +651,7 @@ class _InviteReviewPageState extends State<_InviteReviewPage> {
                 icon: Icons.admin_panel_settings_outlined,
                 rows: {
                   'نقش‌ها': roles.isEmpty ? 'انتخاب نشده' : roles.join('، '),
-                  'مجوزها': '${matrix.length} ماژول انتخاب شده',
+                  'مجوزها': formatCount(matrix.length, 'ماژول انتخاب شده'),
                 }),
             const SizedBox(height: 10),
             _AccessField(
@@ -1225,7 +1231,7 @@ class _PersonnelOverviewState extends State<_PersonnelOverview> {
               child: _SummaryTile(
                   title: personnelRecordKindLabel(kind),
                   value:
-                      '${widget.records.where((r) => r['kind'] == kind).length} مورد ثبت‌شده',
+                      formatCount(widget.records.where((r) => r['kind'] == kind).length, 'مورد ثبت‌شده'),
                   icon: kind == 'photo'
                       ? Icons.photo_outlined
                       : Icons.folder_outlined,

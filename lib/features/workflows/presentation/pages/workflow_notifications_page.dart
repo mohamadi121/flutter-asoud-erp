@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:intl/intl.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/persian_server_values.dart';
+import '../../../../core/utils/persian_format.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../../core/widgets/states.dart';
 import '../../domain/entities/workflow_notification.dart';
@@ -131,10 +131,7 @@ class _NotificationCard extends StatelessWidget {
                     ],
                     const SizedBox(height: 7),
                     Text(
-                      item.createdAt == null
-                          ? ''
-                          : DateFormat('yyyy/MM/dd – HH:mm')
-                              .format(item.createdAt!.toLocal()),
+                      formatDateTimeJalali(item.createdAt),
                       style: const TextStyle(
                           fontSize: 9, color: AsoudColors.muted),
                     ),

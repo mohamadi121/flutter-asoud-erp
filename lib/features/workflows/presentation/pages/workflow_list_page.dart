@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/jalali_date.dart';
 import '../../../../core/utils/persian_server_values.dart';
+import '../../../../core/utils/persian_format.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../../core/widgets/states.dart';
 import '../../domain/entities/workflow_definition.dart';
@@ -77,7 +78,7 @@ class _WorkflowListView extends StatelessWidget {
                               style: const TextStyle(
                                   fontSize: 9, color: AsoudColors.muted)),
                           const Spacer(),
-                          Text('تعداد کل: ${state.items.length}',
+                          Text('تعداد کل: ${toPersianDigits(state.items.length)}',
                               style: const TextStyle(
                                   fontSize: 9, color: AsoudColors.muted)),
                         ]),
@@ -397,7 +398,7 @@ class _WorkflowCard extends StatelessWidget {
               children: [
                 Text('کد: ${item.code}'),
                 Text('سند مقصد: ${persianDoctypeLabel(item.targetDoctype)}'),
-                Text('نسخه: ${item.version}'),
+                Text('نسخه: ${toPersianDigits(item.version)}'),
                 if (item.isLocked) ...[
                   const SizedBox(height: 12),
                   const Text('موارد باقی‌مانده:',

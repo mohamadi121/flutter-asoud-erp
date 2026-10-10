@@ -1390,7 +1390,7 @@ class _RecordsPageState extends State<_RecordsPage> {
                     children: [
                       _HrSummary(
                           title: _recordTitle(widget.kind),
-                          subtitle: '${items.length} مورد ثبت‌شده',
+                          subtitle: formatCount(items.length, 'مورد ثبت‌شده'),
                           icon: _recordIcon(widget.kind),
                           color: _recordColor(widget.kind)),
                       TextField(
@@ -1443,7 +1443,7 @@ class _RecordsPageState extends State<_RecordsPage> {
                             padding: const EdgeInsets.only(top: 9),
                             child: _SummaryTile(
                                 title:
-                                    '${record['record_date'] ?? ''}${record['pending_sync'] == true ? ' • در انتظار همگام‌سازی' : ''}',
+                                    '${formatDateJalali(record['record_date'])}${record['pending_sync'] == true ? ' • در انتظار همگام‌سازی' : ''}',
                                 value: '${record['title']}',
                                 icon: _recordIcon('${record['kind']}'),
                                 color: _recordColor('${record['kind']}'),

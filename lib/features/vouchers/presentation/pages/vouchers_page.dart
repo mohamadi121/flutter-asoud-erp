@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/network/frappe_client.dart';
+import '../../../../core/utils/persian_format.dart';
 import '../../data/repositories/frappe_vouchers_repository.dart';
 import '../../domain/entities/accounting_voucher.dart';
 import '../cubit/vouchers_cubit.dart';
@@ -67,7 +68,7 @@ class _VouchersPageState extends State<VouchersPage> {
                     return Card(child: ListTile(
                       leading: CircleAvatar(child: Icon(_statusIcon(item.status))),
                       title: Text(item.description, style: const TextStyle(fontWeight: FontWeight.w700)),
-                      subtitle: Text('${item.id}\nبدهکار: ${item.totalDebit.toStringAsFixed(0)}  |  بستانکار: ${item.totalCredit.toStringAsFixed(0)}'),
+                      subtitle: Text('${item.id}\nبدهکار: ${formatNumber(item.totalDebit.round())}  |  بستانکار: ${formatNumber(item.totalCredit.round())}'),
                       isThreeLine: true,
                       trailing: Text(_statusTitle(item.status)),
                       onTap: switch (item.status) {
@@ -101,7 +102,7 @@ class _VouchersPageState extends State<VouchersPage> {
       child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Text(voucher.description, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
         const SizedBox(height: 8),
-        Text('بدهکار و بستانکار: ${voucher.totalDebit.toStringAsFixed(0)}'),
+        Text('بدهکار و بستانکار: ${formatNumber(voucher.totalDebit.round())}'),
         const SizedBox(height: 16),
         FilledButton.icon(onPressed: () { Navigator.pop(sheetContext); _cubit.approve(voucher.id); }, icon: const Icon(Icons.check_rounded), label: const Text('تأیید و ثبت قطعی در ASOUD ERP')),
         const SizedBox(height: 8),

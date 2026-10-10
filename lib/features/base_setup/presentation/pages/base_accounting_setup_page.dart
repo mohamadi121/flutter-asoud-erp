@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/persian_format.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../../core/widgets/states.dart';
 import '../../domain/entities/accounting_setup.dart';
@@ -794,7 +795,7 @@ class _DigitSelector extends StatelessWidget {
               4,
               (index) => DropdownMenuItem(
                 value: index + 1,
-                child: Text('${index + 1} رقم'),
+                child: Text(formatCount(index + 1, 'رقم')),
               ),
             ),
             onChanged: (next) => next == null ? null : onChanged(next),

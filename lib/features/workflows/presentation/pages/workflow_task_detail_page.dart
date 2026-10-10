@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/persian_server_values.dart';
+import '../../../../core/utils/persian_format.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../../core/widgets/asoud_form.dart';
 import '../../domain/entities/workflow_definition.dart';
@@ -241,7 +242,7 @@ class _ReferencedDocumentCard extends StatelessWidget {
                   ),
                   Expanded(
                     flex: 3,
-                    child: Text(value.value?.toString() ?? '—',
+                    child: Text(_displayValue(value.value),
                         textAlign: TextAlign.end,
                         style: const TextStyle(
                             fontSize: 11, fontWeight: FontWeight.w700)),
@@ -397,7 +398,21 @@ String _displayValue(dynamic value) {
   if (value == null || value == '') return '—';
   if (value == true) return 'بله';
   if (value == false) return 'خیر';
-  return value.toString();
+  if (value is DateTime) {
+    return formatDateTimeJalali(value);
+  }
+  if (value is num) {
+    return formatNumber(value);
+  }
+  final str = value.toString().trim();
+  if (RegExp(r'^\d{4}[-/]\d{2}[-/]\d{2}').hasMatch(str)) {
+    final formatted = formatDateTimeJalali(str);
+    if (formatted.isNotEmpty) return formatted;
+  }
+  if (RegExp(r'^[+-]?\d+(?:\.\d+)?$').hasMatch(str)) {
+    return formatNumber(str, thousands: false);
+  }
+  return toPersianDigits(str);
 }
 
 class _DynamicField extends StatelessWidget {

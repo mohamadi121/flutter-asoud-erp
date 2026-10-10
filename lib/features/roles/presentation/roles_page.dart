@@ -8,8 +8,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/network/asoud_api_response.dart';
 import '../../../core/network/frappe_client.dart';
 import '../../../core/theme/asoud_colors.dart';
-import '../../../core/utils/jalali_date.dart';
 import '../../../core/utils/persian_server_values.dart';
+import '../../../core/utils/persian_format.dart';
 import '../../../core/widgets/asoud_ui.dart';
 import '../data/role_repository.dart';
 import '../domain/role_catalog.dart';
@@ -190,7 +190,7 @@ class _RolesViewState extends State<_RolesView> {
             leading: AsoudIconBox(icon: style.$1, color: style.$2, size: 44),
             title: Text(category.title,
                 style: const TextStyle(fontWeight: FontWeight.w800)),
-            subtitle: Text('${all.length} نقش'),
+            subtitle: Text(formatCount(all.length, 'نقش')),
             trailing: Icon(open ? Icons.expand_less : Icons.chevron_left),
             onTap: () => setState(() {
               if (!_expanded.add(category.code)) {
@@ -390,7 +390,7 @@ class _RoleStatus extends StatelessWidget {
               const _RoleHint('فضای محلی بدون ورود؛ مستقل از حساب کاربران.'),
             if (context.read<RoleCubit>().repository.pendingCount > 0) ...[
               _RoleHint(
-                  '${context.read<RoleCubit>().repository.pendingCount} پیش‌نویس روی گوشی؛ هنوز روی سرور تأیید نشده است.'),
+                  '${toPersianDigits(context.read<RoleCubit>().repository.pendingCount)} پیش‌نویس روی گوشی؛ هنوز روی سرور تأیید نشده است.'),
               Wrap(children: [
                 TextButton(
                     onPressed: state.loading || state.saving
