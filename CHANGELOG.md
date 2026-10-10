@@ -12,7 +12,9 @@ UI/UX and access fixes from the live role-based test of 0.26.2.
 - Forms: shared `AppTextField` / `AppSelectField` / `AppSwitchTile` in the role, office and leave forms; the base-setup page has a percentage progress and explained locks.
 - Navigation: Back works from the reports tab, HR managers see the leave and attendance rows, the selected tab survives sync reloads, the workflow details dialog opens the designer, the login screen starts with an empty server field and a hint.
 - Layout: clipped texts fixed, bottom buttons clear of the system bar, the workflow designer fits 320/390 px, 48 dp tap targets, WCAG-AA status colours, labelled form fields.
-- Requires backend 0.15.1.
+- KPIs: the home cards and the Settings system summary show live figures from `dashboard.get_home_summary` / `get_system_summary` (they were never called before); figures the user may not read are hidden.
+- Security: the offline send queue lists and discards only the signed-in user's rows on the current server; server responses are capped (10 MB for JSON) and an oversized one is reported in Persian.
+- Requires backend 0.15.2.
 
 ## 0.26.3+47
 
