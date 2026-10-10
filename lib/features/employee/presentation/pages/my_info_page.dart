@@ -299,7 +299,8 @@ class _MyInfoPageState extends State<MyInfoPage> {
               ])),
       Expanded(
           child: SingleChildScrollView(
-              padding: const EdgeInsets.all(12),
+              padding: EdgeInsets.fromLTRB(
+                  12, 12, 12, MediaQuery.viewPaddingOf(context).bottom + 88),
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [

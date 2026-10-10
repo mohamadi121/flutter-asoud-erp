@@ -317,7 +317,10 @@ class _PersonnelDetailState extends State<PersonnelDetailPage> {
               final profile = Map<String, dynamic>.from(data['profile'] as Map);
               final records = (data['records'] as List).cast<Map>();
               final canEdit = data['can_edit'] == true;
-              return ListView(padding: const EdgeInsets.all(16), children: [
+              return ListView(
+                  padding: EdgeInsets.fromLTRB(16, 16, 16,
+                      MediaQuery.viewPaddingOf(context).bottom + 88),
+                  children: [
                 if (_importing) const LinearProgressIndicator(),
                 if (_operationMessage != null) Text(_operationMessage!),
                 if (data['offline'] == true ||
