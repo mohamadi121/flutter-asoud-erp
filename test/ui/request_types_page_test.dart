@@ -44,7 +44,7 @@ void main() {
     await tester.pumpAndSettle();
     await tapText(tester, 'انواع درخواست');
     expect(find.byType(RequestTypesPage), findsOneWidget);
-    expect(find.text('هنوز نوع درخواستی تعریف نشده است.'), findsOneWidget);
+    expect(find.text('نوع درخواستی ثبت نشده است'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

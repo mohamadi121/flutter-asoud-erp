@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/persian_format.dart';
 import '../../../../core/widgets/asoud_ui.dart';
+import '../../../../core/widgets/states.dart';
 import '../../../workflows/domain/entities/workflow_definition.dart';
 import '../../../workflows/domain/repositories/workflow_repository.dart';
 import '../../domain/request_type_catalog.dart';
@@ -111,10 +112,10 @@ class _RequestTypesPageState extends State<RequestTypesPage> {
                 future: future,
                 builder: (context, snapshot) {
                   if (snapshot.hasError) {
-                    return Center(
-                        child: TextButton(
-                            onPressed: _reload,
-                            child: const Text('دریافت ناموفق؛ تلاش دوباره')));
+                    return ErrorState(
+                        failure:
+                            snapshot.error ?? 'دریافت انواع درخواست ممکن نشد.',
+                        onRetry: _reload);
                   }
                   if (!snapshot.hasData) {
                     return const Center(child: CircularProgressIndicator());
@@ -126,9 +127,21 @@ class _RequestTypesPageState extends State<RequestTypesPage> {
                           (item.shortTitle ?? '').contains(query))
                       .toList();
                   if (items.isEmpty) {
-                    return const Center(
-                        child: Text('هنوز نوع درخواستی تعریف نشده است.',
-                            style: TextStyle(color: AsoudColors.muted)));
+                    return query.isNotEmpty
+                        ? EmptyState(
+                            icon: Icons.search_off_rounded,
+                            title: 'نتیجه‌ای پیدا نشد',
+                            description:
+                                'برای «$query» نوع درخواستی مطابقت نداشت.',
+                            primaryActionLabel: 'پاک‌کردن جستجو',
+                            onPrimaryAction: () => setState(() => query = ''),
+                          )
+                        : EmptyState(
+                            icon: Icons.inbox_outlined,
+                            title: 'نوع درخواستی ثبت نشده است',
+                            description:
+                                'برای ساخت فرم، گردش تأیید و دسترسی، اولین نوع درخواست را ایجاد کنید.',
+                          );
                   }
                   return RefreshIndicator(
                     onRefresh: () async => _reload(),
