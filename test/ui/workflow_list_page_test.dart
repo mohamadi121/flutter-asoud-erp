@@ -135,6 +135,18 @@ class _HrClient extends Fake implements FrappeApiClient {
       );
 }
 
+class _EmployeeClient extends Fake implements FrappeApiClient {
+  @override
+  bool get isAuthenticated => true;
+
+  @override
+  Future<FrappeUserContext> getCurrentUser() async => const FrappeUserContext(
+        userId: 'employee@asoud-demo.local',
+        fullName: 'کارمند',
+        roles: ['Employee'],
+      );
+}
+
 void main() {
   testWidgets('صفحه گردش‌کار در عرض‌های موبایل overflow ندارد', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
@@ -220,4 +232,57 @@ void main() {
     expect(find.text('به‌زودی'), findsOneWidget);
     expect(find.byType(SnackBar), findsNothing);
   });
+
+  testWidgets('a plain employee reaching the workflows page sees a denial state',
+      (tester) async {
+    await tester.pumpWidget(
+      MultiRepositoryProvider(
+        providers: [
+          RepositoryProvider<WorkflowRepository>.value(
+              value: _WorkflowRepository()),
+          RepositoryProvider<FrappeApiClient>.value(value: _EmployeeClient()),
+        ],
+        child: const MaterialApp(home: WorkflowListPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('دسترسی ندارید'), findsWidgets);
+    expect(find.text('بازگشت'), findsOneWidget);
+    expect(find.text('فرایند خرید کالا'), findsNothing);
+    expect(find.text('ایجاد گردش‌کار جدید'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final width in [320.0, 390.0]) {
+    testWidgets('HR Manager workflow list fits at $width without create controls',
+        (tester) async {
+      tester.view.physicalSize = Size(width, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        MultiRepositoryProvider(
+          providers: [
+            RepositoryProvider<WorkflowRepository>.value(
+                value: _WorkflowRepository()),
+            RepositoryProvider<FrappeApiClient>.value(value: _HrClient()),
+          ],
+          child: MaterialApp(
+            locale: Locale('fa'),
+            home: Directionality(
+              textDirection: TextDirection.rtl,
+              child: WorkflowListPage(),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('فرایند خرید کالا'), findsOneWidget);
+      expect(find.text('ایجاد گردش‌کار جدید'), findsNothing);
+      expect(find.byTooltip('عملیات فرایند'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
 }

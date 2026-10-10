@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/auth/access_denied.dart';
 import '../../../../core/auth/capabilities.dart';
-import '../../../../core/network/frappe_client.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/jalali_date.dart';
 import '../../../../core/widgets/asoud_ui.dart';
@@ -35,22 +35,22 @@ class _WorkflowCapabilityGate extends StatelessWidget {
   const _WorkflowCapabilityGate({this.onCreate});
   final VoidCallback? onCreate;
 
-  Future<Capabilities> _load(BuildContext context) async {
-    try {
-      return await loadCapabilities(context.read<FrappeApiClient>());
-    } on ProviderNotFoundException {
-      return Capabilities.full;
-    } catch (_) {
-      return Capabilities.fromRoles(const []);
-    }
-  }
-
   @override
   Widget build(BuildContext context) => FutureBuilder<Capabilities>(
-      future: _load(context),
-      builder: (context, snapshot) => _WorkflowListView(
-          onCreate: onCreate,
-          canManageWorkflows: snapshot.data?.canManageWorkflows ?? false));
+      future: capabilitiesOf(context),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Scaffold(
+              body: Center(child: CircularProgressIndicator()));
+        }
+        final capabilities = snapshot.data!;
+        if (!capabilities.canReadManagerViews) {
+          return const AccessDeniedScaffold();
+        }
+        return _WorkflowListView(
+            onCreate: onCreate,
+            canManageWorkflows: capabilities.canManageWorkflows);
+      });
 }
 
 class _WorkflowListView extends StatelessWidget {
