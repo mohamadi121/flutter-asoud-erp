@@ -118,8 +118,11 @@ class _TimelineRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = _outcomeColor(outcome);
+    final formattedActor = actor.contains('@')
+        ? '${String.fromCharCode(0x2066)}$actor${String.fromCharCode(0x2069)}'
+        : actor;
     final meta = [
-      if (actor.isNotEmpty) actor,
+      if (formattedActor.isNotEmpty) formattedActor,
       if (createdOn != null) formatDateTimeJalali(createdOn),
     ].join(' • ');
     return IntrinsicHeight(
@@ -147,9 +150,15 @@ class _TimelineRow extends StatelessWidget {
                     style: TextStyle(
                         fontWeight: FontWeight.w900, color: color)),
                 if (meta.isNotEmpty)
-                  Text(meta,
-                      style: const TextStyle(
-                          fontSize: 10, color: AsoudColors.muted)),
+                  Tooltip(
+                    message: meta,
+                    child: Text(meta,
+                        softWrap: true,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 10, color: AsoudColors.muted)),
+                  ),
                 if (comment.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 2),

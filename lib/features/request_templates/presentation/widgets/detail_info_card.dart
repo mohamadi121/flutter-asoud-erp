@@ -53,19 +53,34 @@ class TemplateInfoCard extends StatelessWidget {
                     children: [
                       SizedBox(
                           width: 104,
-                          child: Text(row.label,
-                              style: const TextStyle(
-                                  fontSize: 11, color: AsoudColors.muted))),
+                          child: Tooltip(
+                            message: row.label,
+                            child: Text(row.label,
+                                softWrap: true,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                    fontSize: 11, color: AsoudColors.muted)),
+                          )),
                       Expanded(
                           child: Align(
                               alignment: AlignmentDirectional.centerEnd,
                               child: row.widget ??
-                                  Text(row.value,
-                                      textAlign: TextAlign.end,
-                                      style: const TextStyle(
-                                          fontSize: 12,
-                                          height: 1.6,
-                                          fontWeight: FontWeight.w800)))),
+                                  Tooltip(
+                                    message: row.value,
+                                    child: Text(
+                                        row.value.contains('@')
+                                            ? '${String.fromCharCode(0x2066)}${row.value}${String.fromCharCode(0x2069)}'
+                                            : row.value,
+                                        textAlign: TextAlign.end,
+                                        softWrap: true,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                            fontSize: 12,
+                                            height: 1.6,
+                                            fontWeight: FontWeight.w800)),
+                                  ))),
                       const SizedBox(width: 10),
                       Icon(row.icon, size: 18, color: AsoudColors.muted),
                     ]),
