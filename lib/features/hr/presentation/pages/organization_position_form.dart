@@ -115,25 +115,25 @@ class _OrganizationPositionFormState extends State<_OrganizationPositionForm> {
                                   style:
                                       TextStyle(fontWeight: FontWeight.w900)),
                               const SizedBox(height: 16),
-                              TextFormField(
+                              AppTextField(
                                 controller: _title,
+                                label: 'عنوان جایگاه',
+                                required: true,
                                 enabled: !busy,
-                                decoration: const InputDecoration(
-                                    labelText: 'عنوان جایگاه *',
-                                    prefixIcon: Icon(Icons.badge_outlined)),
+                                prefixIcon: const Icon(Icons.badge_outlined),
                                 validator: (value) =>
                                     value == null || value.trim().isEmpty
                                         ? 'عنوان جایگاه را وارد کنید.'
                                         : null,
                               ),
                               const SizedBox(height: 16),
-                              TextFormField(
+                              AppTextField(
                                 controller: _code,
+                                label: 'کد جایگاه',
+                                required: true,
+                                ltr: true,
                                 enabled: !busy && widget.item == null,
-                                textDirection: TextDirection.ltr,
-                                decoration: const InputDecoration(
-                                    labelText: 'کد جایگاه *',
-                                    prefixIcon: Icon(Icons.tag)),
+                                prefixIcon: const Icon(Icons.tag),
                                 validator: (value) {
                                   final code =
                                       _normalizedOrgCode(value?.trim() ?? '');
@@ -149,12 +149,12 @@ class _OrganizationPositionFormState extends State<_OrganizationPositionForm> {
                                 },
                               ),
                               const SizedBox(height: 16),
-                              TextFormField(
+                              AppTextField(
                                 controller: _department,
+                                label: 'واحد سازمانی',
                                 enabled: !busy,
-                                decoration: const InputDecoration(
-                                    labelText: 'واحد سازمانی',
-                                    prefixIcon: Icon(Icons.business_outlined)),
+                                prefixIcon:
+                                    const Icon(Icons.business_outlined),
                               ),
                               const SizedBox(height: 16),
                               _OrgNotice(
@@ -192,32 +192,35 @@ class _OrganizationPositionFormState extends State<_OrganizationPositionForm> {
                                         : _loadPeople,
                                     child: const Text('تلاش دوباره')),
                               ],
-                              DropdownButtonFormField<String>(
+                              AppSelectField(
                                 key: ValueKey('org-employee-$_employee'),
-                                initialValue: _employee,
-                                isExpanded: true,
-                                decoration: const InputDecoration(
-                                    labelText: 'پرسنل',
-                                    prefixIcon: Icon(Icons.person_outline)),
-                                items: [
-                                  const DropdownMenuItem(
-                                      value: '', child: Text('جایگاه خالی')),
-                                  if (_employee.isNotEmpty &&
-                                      !available.any(
-                                          (person) => person.id == _employee))
-                                    DropdownMenuItem(
-                                        value: _employee,
-                                        child: Text(_employee,
-                                            overflow: TextOverflow.ellipsis)),
-                                  ...available.map((person) => DropdownMenuItem(
-                                      value: person.id,
-                                      child: Text(person.displayName,
-                                          overflow: TextOverflow.ellipsis))),
-                                ],
-                                onChanged: busy || _loadingPeople
-                                    ? null
-                                    : (value) =>
-                                        setState(() => _employee = value ?? ''),
+                                label: 'پرسنل',
+                                value: _employee,
+                                displayValue: _employee.isEmpty
+                                    ? 'جایگاه خالی'
+                                    : available
+                                            .where((person) =>
+                                                person.id == _employee)
+                                            .map((person) => person.displayName)
+                                            .firstOrNull ??
+                                        _employee,
+                                hint: 'جایگاه خالی',
+                                prefixIcon: const Icon(Icons.person_outline),
+                                enabled: !(busy || _loadingPeople),
+                                onPick: () => showAppOptionSheet(context,
+                                    title: 'پرسنل',
+                                    current: _employee,
+                                    options: [
+                                      const AppOption('', 'جایگاه خالی'),
+                                      if (_employee.isNotEmpty &&
+                                          !available.any((person) =>
+                                              person.id == _employee))
+                                        AppOption(_employee, _employee),
+                                      ...available.map((person) => AppOption(
+                                          person.id, person.displayName)),
+                                    ]),
+                                onChanged: (value) =>
+                                    setState(() => _employee = value),
                               ),
                             ],
                           ))),
