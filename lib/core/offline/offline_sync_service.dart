@@ -150,19 +150,71 @@ class OfflineSyncService {
     await syncNow();
   }
 
+  /// A manual resend through the per-row retry path, so every queued write
+  /// (failed ones included) gets a fresh attempt budget and is sent right away.
+  Future<void> retryAll() async {
+    for (final record in await unsent()) {
+      await _local.setStatus(
+        record.id,
+        LocalSyncStatus.pendingSync,
+        error: null,
+        attempts: 0,
+        nextAttemptAt: null,
+      );
+    }
+    for (final record in await unsent()) {
+      await retry(record.id);
+    }
+  }
+
   /// Drops one queued write and the local row it mirrored, so no phantom draft
   /// survives the discard.
   Future<void> discard(String id) async {
+    await discardReturning(id);
+  }
+
+  /// Removes a queued write and its local mirror like [discard], but returns the
+  /// removed rows so the screen can offer an undo. Put them back with [restore].
+  Future<List<LocalRecord>> discardReturning(String id) async {
     final record = await _local.get(id);
-    if (record == null) return;
+    if (record == null) return const [];
+    final removed = <LocalRecord>[record];
     final mirror = _mirrorOf(record.entityType, record.payload);
     if (mirror != null) {
       final candidates = await _local.list(entityType: mirror.entityType);
       for (final candidate in candidates.where(mirror.matches)) {
-        await _local.delete(candidate.id);
+        removed.add(candidate);
       }
     }
-    await _local.delete(id);
+    for (final row in removed) {
+      await _local.delete(row.id);
+    }
+    _notify();
+    return removed;
+  }
+
+  /// Puts back rows removed by [discardReturning]: the undo of a discard.
+  Future<void> restore(List<LocalRecord> records) async {
+    for (final record in records) {
+      await _local.save(
+        id: record.id,
+        entityType: record.entityType,
+        payload: record.payload,
+        status: record.status,
+        attempts: record.attempts,
+        nextAttemptAt: record.nextAttemptAt,
+      );
+      if (record.lastError != null || record.remoteId != null) {
+        await _local.setStatus(
+          record.id,
+          record.status,
+          remoteId: record.remoteId,
+          error: record.lastError,
+          attempts: record.attempts,
+          nextAttemptAt: record.nextAttemptAt,
+        );
+      }
+    }
     _notify();
   }
 
