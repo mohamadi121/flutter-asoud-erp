@@ -195,10 +195,12 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
                                     const TextStyle(color: AsoudColors.muted))),
                         const SizedBox(width: 12),
                         Expanded(
-                            child: SelectableText(field.value == null ||
-                                    '${field.value}'.trim().isEmpty
-                                ? 'ثبت نشده'
-                                : '${field.value}')),
+                            child: Text(
+                                field.value == null ||
+                                        '${field.value}'.trim().isEmpty
+                                    ? 'ثبت نشده'
+                                    : '${field.value}',
+                                softWrap: true)),
                       ])),
           ],
         ),
