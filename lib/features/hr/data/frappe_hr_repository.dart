@@ -18,8 +18,19 @@ class FrappeHrRepository implements HrRepository {
         managerAccess: true,
       );
     }
-    return HrDashboard.fromJson(Map<String, dynamic>.from(
-        await _call('get_dashboard', {'company': company}) as Map));
+    final dashboard = HrDashboard.fromJson(
+      Map<String, dynamic>.from(
+        await _call('get_dashboard', {'company': company}) as Map,
+      ),
+    );
+    return HrDashboard(
+      employee: dashboard.employee,
+      pendingTasks: dashboard.pendingTasks,
+      unreadNotifications: dashboard.unreadNotifications,
+      unreadCommunications: dashboard.unreadCommunications,
+      todayReportStatus: dashboard.todayReportStatus,
+      managerAccess: hasManagerAccess,
+    );
   }
 
   @override

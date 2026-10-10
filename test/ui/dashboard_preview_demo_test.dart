@@ -176,6 +176,27 @@ void main() {
     expect(find.text('راه‌اندازی دفتر هنوز کامل نیست'), findsNothing);
   });
 
+  testWidgets('sync refresh keeps the selected settings tab', (tester) async {
+    final office = demoPreviewOffice();
+    final sync = OfflineSyncService(client, local: FakeLocalRecordStore());
+    await tester.pumpWidget(
+      _landingApp(
+        client: client,
+        offices: _OfficeRepository(office),
+        sync: sync,
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('تنظیمات'));
+    await tester.pumpAndSettle();
+    expect(find.byType(SettingsDashboardContent), findsOneWidget);
+
+    await sync.syncNow();
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SettingsDashboardContent), findsOneWidget);
+  });
+
   testWidgets(
       'کارمند با نقش‌های واقعی به پنل خود می‌رود و وضعیت دفتر را درخواست نمی‌کند',
       (tester) async {

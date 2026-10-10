@@ -59,9 +59,7 @@ class _LoginPageState extends State<LoginPage> {
       } catch (_) {}
     }
     _serverUrl = TextEditingController(
-        text: initial?.trim().isNotEmpty == true
-            ? initial!
-            : AppConfig.erpNextBaseUrl);
+        text: initial?.trim().isNotEmpty == true ? initial! : '');
     _loadRememberedServer();
   }
 
@@ -74,8 +72,7 @@ class _LoginPageState extends State<LoginPage> {
         if (saved != null &&
             saved.trim().isNotEmpty &&
             mounted &&
-            (_serverUrl.text == AppConfig.erpNextBaseUrl ||
-                _serverUrl.text.trim().isEmpty)) {
+            _serverUrl.text.trim().isEmpty) {
           setState(() {
             _serverUrl.text = saved.trim();
           });
@@ -218,6 +215,7 @@ class _LoginPageState extends State<LoginPage> {
                       textDirection: TextDirection.ltr,
                       decoration: const InputDecoration(
                         labelText: 'نشانی سرور',
+                        hintText: 'http://آدرس-سرور:پورت',
                         prefixIcon: Icon(Icons.cloud_outlined),
                       ),
                     ),

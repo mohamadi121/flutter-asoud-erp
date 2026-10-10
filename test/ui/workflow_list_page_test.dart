@@ -9,8 +9,10 @@ class _WorkflowRepository implements WorkflowRepository {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
   @override
-  Future<List<WorkflowFieldOption>> getConditionFields(String definition,
-          {String? beforeStage}) =>
+  Future<List<WorkflowFieldOption>> getConditionFields(
+    String definition, {
+    String? beforeStage,
+  }) =>
       throw UnimplementedError();
 
   @override
@@ -23,17 +25,19 @@ class _WorkflowRepository implements WorkflowRepository {
       throw UnimplementedError();
 
   @override
-  Future<WorkflowDesign> saveStageSettings(
-          {required String definition,
-          required String stage,
-          required Map<String, dynamic> config}) =>
+  Future<WorkflowDesign> saveStageSettings({
+    required String definition,
+    required String stage,
+    required Map<String, dynamic> config,
+  }) =>
       throw UnimplementedError();
 
   @override
-  Future<WorkflowDesign> addStage(
-          {required String definition,
-          required String afterStage,
-          required WorkflowStageType type}) =>
+  Future<WorkflowDesign> addStage({
+    required String definition,
+    required String afterStage,
+    required WorkflowStageType type,
+  }) =>
       throw UnimplementedError();
 
   @override
@@ -41,12 +45,13 @@ class _WorkflowRepository implements WorkflowRepository {
       throw UnimplementedError();
 
   @override
-  Future<WorkflowStage> saveStartSettings(
-          {required String definition,
-          required String triggerType,
-          required List<String> initiatorRoles,
-          required String subjectSource,
-          required String passMode}) =>
+  Future<WorkflowStage> saveStartSettings({
+    required String definition,
+    required String triggerType,
+    required List<String> initiatorRoles,
+    required String subjectSource,
+    required String passMode,
+  }) =>
       throw UnimplementedError();
 
   @override
@@ -187,5 +192,21 @@ void main() {
     expect(find.text('گزارش‌ها'), findsOneWidget);
     expect(find.text('به‌زودی'), findsOneWidget);
     expect(find.byType(SnackBar), findsNothing);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('گردش‌کارها'), findsOneWidget);
+  });
+
+  testWidgets('جزئیات گردش‌کار دکمه طراحی مراحل دارد', (tester) async {
+    await tester.pumpWidget(
+      RepositoryProvider<WorkflowRepository>.value(
+        value: _WorkflowRepository(),
+        child: const MaterialApp(home: WorkflowListPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('فرایند خرید کالا'));
+    await tester.pumpAndSettle();
+    expect(find.text('طراحی مراحل'), findsOneWidget);
   });
 }

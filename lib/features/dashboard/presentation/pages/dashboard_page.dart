@@ -94,27 +94,29 @@ class _DashboardLandingPageState extends State<DashboardLandingPage> {
 
   @override
   Widget build(BuildContext context) => FutureBuilder<_LandingState>(
-      future: _landing,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-              body: Center(child: CircularProgressIndicator()));
-        }
-        final landing = snapshot.data ??
-            const _LandingState.dashboard(null, loadError: true);
-        return switch (landing.destination) {
-          _LandingDestination.employee =>
-            EmployeeShell(company: landing.company!),
-          _LandingDestination.noOfficeAccess => const _NoOfficeAccessPage(),
-          _LandingDestination.dashboard => DashboardPage(
-              office: landing.office,
-              officeName: landing.office?.name,
-              offlinePreview: widget.offlinePreview || landing.loadError,
-              loadError: landing.loadError,
-              onOfficeCreated: _reload,
-            ),
-        };
-      });
+    future: _landing,
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting &&
+          !snapshot.hasData) {
+        return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      }
+      final landing =
+          snapshot.data ?? const _LandingState.dashboard(null, loadError: true);
+      return switch (landing.destination) {
+        _LandingDestination.employee => EmployeeShell(
+          company: landing.company!,
+        ),
+        _LandingDestination.noOfficeAccess => const _NoOfficeAccessPage(),
+        _LandingDestination.dashboard => DashboardPage(
+          office: landing.office,
+          officeName: landing.office?.name,
+          offlinePreview: widget.offlinePreview || landing.loadError,
+          loadError: landing.loadError,
+          onOfficeCreated: _reload,
+        ),
+      };
+    },
+  );
 }
 
 enum _LandingDestination { employee, dashboard, noOfficeAccess }

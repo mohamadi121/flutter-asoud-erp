@@ -399,6 +399,13 @@ class _WorkflowCard extends StatelessWidget {
                 ],
               ]),
           actions: [
+            OutlinedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.of(context).push(MaterialPageRoute<void>(
+                      builder: (_) => WorkflowDesignerPage(definition: item.id)));
+                },
+                child: const Text('طراحی مراحل')),
             TextButton(
                 onPressed: () => Navigator.pop(context),
                 child: const Text('بستن'))

@@ -94,50 +94,82 @@ class _HrHome extends StatelessWidget {
                       return;
                     }
                     _push(
-                        context,
-                        PersonnelDetailPage(
-                            id: data.employee.partyProfile,
-                            repository: PersonnelRepository(
-                                context.read<FrappeApiClient>())));
-                  }),
+                      context,
+                      PersonnelDetailPage(
+                        id: data.employee.partyProfile,
+                        repository: PersonnelRepository(
+                          context.read<FrappeApiClient>(),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                _Action(
+                  'لیست پرسنل',
+                  'مشاهده، ایجاد و ویرایش اطلاعات پرسنلی',
+                  Icons.people_alt_outlined,
+                  AsoudColors.warning,
+                  () => _push(context, PersonnelPage(company: company)),
+                ),
+                _Action(
+                  'تیم و ساختار سازمانی',
+                  'همکاران، واحدها و مسیر سازمانی',
+                  Icons.account_tree_outlined,
+                  AsoudColors.cyan,
+                  () => _push(context, OrganizationPage(company: company)),
+                ),
+                if (data.managerAccess) ...[
                   _Action(
-                      'لیست پرسنل',
-                      'مشاهده، ایجاد و ویرایش اطلاعات پرسنلی',
-                      Icons.people_alt_outlined,
-                      AsoudColors.warning,
-                      () => _push(context, PersonnelPage(company: company))),
+                    'درخواست‌های مرخصی',
+                    'مشاهده درخواست‌ها و وضعیت مرخصی',
+                    Icons.beach_access_outlined,
+                    AsoudColors.cyan,
+                    () =>
+                        _push(context, LeaveRequestsListPage(company: company)),
+                  ),
                   _Action(
-                      'تیم و ساختار سازمانی',
-                      'همکاران، واحدها و مسیر سازمانی',
-                      Icons.account_tree_outlined,
-                      AsoudColors.cyan,
-                      () => _push(context, OrganizationPage(company: company))),
-                  _Action(
-                      'گزارش کار روزانه',
-                      'فعالیت‌ها، پیش‌نویس و بازخورد',
-                      Icons.fact_check_outlined,
-                      AsoudColors.success,
-                      () => _push(context, WorkReportsPage(company: company))),
-                  _Action(
-                      'مکاتبات داخلی',
-                      'نامه، درخواست و اقدام سازمانی',
-                      Icons.mark_email_unread_outlined,
-                      AsoudColors.purple,
-                      () => _push(
-                          context, HrCommunicationsPage(company: company))),
-                  _Action(
-                      'اعلان‌های منابع انسانی',
-                      'رویدادها و مهلت‌های مهم',
-                      Icons.notifications_active_outlined,
-                      AsoudColors.warning,
-                      () => _push(
-                          context, HrNotificationsPage(company: company))),
+                    'حضور و غیاب',
+                    'مشاهده سوابق حضور و ثبت ورود و خروج',
+                    Icons.schedule_rounded,
+                    AsoudColors.success,
+                    () => _push(
+                      context,
+                      MyAttendancePage(
+                        repository: SelfServiceRepository(
+                          context.read<FrappeApiClient>(),
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
-              ),
-            );
-          },
-        )),
-      );
+                _Action(
+                  'گزارش کار روزانه',
+                  'فعالیت‌ها، پیش‌نویس و بازخورد',
+                  Icons.fact_check_outlined,
+                  AsoudColors.success,
+                  () => _push(context, WorkReportsPage(company: company)),
+                ),
+                _Action(
+                  'مکاتبات داخلی',
+                  'نامه، درخواست و اقدام سازمانی',
+                  Icons.mark_email_unread_outlined,
+                  AsoudColors.purple,
+                  () => _push(context, HrCommunicationsPage(company: company)),
+                ),
+                _Action(
+                  'اعلان‌های منابع انسانی',
+                  'رویدادها و مهلت‌های مهم',
+                  Icons.notifications_active_outlined,
+                  AsoudColors.warning,
+                  () => _push(context, HrNotificationsPage(company: company)),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    ),
+  );
   void _push(BuildContext context, Widget page) =>
       Navigator.push(context, MaterialPageRoute<void>(builder: (_) => page));
 }
