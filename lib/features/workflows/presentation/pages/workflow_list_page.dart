@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/auth/access_denied.dart';
 import '../../../../core/auth/capabilities.dart';
+import '../../../../core/network/frappe_client.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/jalali_date.dart';
 import '../../../../core/utils/persian_server_values.dart';
@@ -499,12 +500,16 @@ class _WorkflowBottomNavigation extends StatelessWidget {
             return;
           }
           if (index == 0 || index == 4) {
-            Navigator.push(
-              context,
-              MaterialPageRoute<void>(
-                  builder: (_) =>
-                      const DashboardLandingPage(offlinePreview: true)),
-            );
+            final navigator = Navigator.of(context);
+            if (context.read<FrappeApiClient>().isAuthenticated) {
+              navigator.popUntil((route) => route.isFirst);
+            } else {
+              navigator.push(
+                MaterialPageRoute<void>(
+                    builder: (_) =>
+                        const DashboardLandingPage(offlinePreview: true)),
+              );
+            }
             return;
           }
           Navigator.push(
