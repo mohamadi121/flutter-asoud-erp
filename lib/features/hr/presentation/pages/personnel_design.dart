@@ -318,8 +318,7 @@ class _PersonnelRow extends StatelessWidget {
                                 style: const TextStyle(
                                     color: Color(0xFF7A8DBB), fontSize: 10)),
                             capValueText(
-                                toPersianDigits(
-                                    capEmployeeCode(profile['employee_code'])),
+                                capEmployeeCode(profile['employee_code']),
                                 maxLines: 1,
                                 style: const TextStyle(
                                     color: Color(0xFF7A8DBB), fontSize: 10)),
@@ -1127,7 +1126,7 @@ class _PersonnelOverviewState extends State<_PersonnelOverview> {
                 subtitle: 'واحد سازمانی'),
             _ProfileMetric(
                 icon: Icons.badge_outlined,
-                title: toPersianDigits(capEmployeeCode(p['employee_code'])),
+                title: capEmployeeCode(p['employee_code']),
                 subtitle: 'کد پرسنلی'),
           ])),
       Container(
