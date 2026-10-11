@@ -29,6 +29,7 @@ import '../features/auth/domain/repositories/auth_repository.dart';
 import '../features/parties/data/repositories/frappe_party_repository.dart';
 import '../features/parties/data/repositories/server_first_party_repository.dart';
 import '../features/parties/domain/repositories/party_repository.dart';
+import '../features/workflows/data/generic_request_repository.dart';
 import '../features/workflows/data/repositories/frappe_workflow_repository.dart';
 import '../features/workflows/data/repositories/preview_fallback_workflow_repository.dart';
 import '../features/workflows/domain/repositories/workflow_repository.dart';
@@ -56,8 +57,8 @@ class _AsoudErpAppState extends State<AsoudErpApp> {
   late final FrappeClient client = FrappeClient(
       sessionVault: const SecureSessionVault(),
       serverAddressStore: const SecureServerAddressStore());
-  late final OfflineSyncService syncService =
-      OfflineSyncService(client, afterSync: _syncPersonnel);
+  late final OfflineSyncService syncService = OfflineSyncService(client,
+      afterSync: _syncPersonnel, syncRequests: _syncRequests);
 
   bool get _localPreview =>
       AppConfig.offlineDemoMode && !client.isAuthenticated;
@@ -82,6 +83,19 @@ class _AsoudErpAppState extends State<AsoudErpApp> {
       } finally {
         repository.dispose();
       }
+    }
+  }
+
+  /// Sends the offline requests of one company through their own repository so
+  /// the shared queue resends them with the same idempotency keys the creation
+  /// path uses, never staging a second write for the same request.
+  Future<void> _syncRequests(String company, {required bool retry}) async {
+    if (!client.isAuthenticated) return;
+    final repository = GenericRequestRepository(client, company);
+    try {
+      await repository.sync(retry: retry);
+    } finally {
+      repository.dispose();
     }
   }
 

@@ -7,6 +7,7 @@ import '../../../../core/network/frappe_client.dart';
 import '../../../../core/offline/local_record.dart';
 import '../../../../core/offline/offline_failure.dart';
 import '../../../../core/offline/offline_sync_service.dart';
+import '../../../../core/offline/queued_request_adapter.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/jalali_date.dart';
 
@@ -249,7 +250,9 @@ class SyncQueueItemCard extends StatelessWidget {
               child: Text(
                 failed
                     ? 'ناموفق: ${message.isEmpty ? 'خطای نامشخص سرور' : message}'
-                    : 'در انتظار اتصال',
+                    : isQueuedRequest(row)
+                        ? 'در انتظار ارسال'
+                        : 'در انتظار اتصال',
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -401,6 +404,7 @@ const _mutationLabels = <String, String>{
 /// The Persian name of a queued operation, falling back to the method name so an
 /// unknown write is still identifiable.
 String persianMutationLabel(LocalRecord row) {
+  if (isQueuedRequest(row)) return genericRequestOperationLabel;
   final operation = row.payload['operation']?.toString() ?? '';
   if (operation == 'create_resource' || operation == 'update_resource') {
     final doctype = row.entityType.split('/').first;
@@ -433,8 +437,9 @@ const _recordNameKeys = <String>[
 
 /// The document or request name of a queued row, so the queue shows what the
 /// user wrote instead of only the technical operation; empty when the payload
-/// carries no such value.
+/// carries no such value. An offline request is named by its own subject.
 String outboxRecordName(LocalRecord row) {
+  if (isQueuedRequest(row)) return requestSubjectOf(row);
   for (final key in _recordNameKeys) {
     final value = row.payload[key]?.toString().trim() ?? '';
     if (value.isNotEmpty) return value;
