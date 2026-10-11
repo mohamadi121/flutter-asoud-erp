@@ -5,7 +5,7 @@ import 'package:printing/printing.dart';
 
 import '../../../../core/offline/queued_offline_exception.dart';
 import '../../../../core/theme/asoud_colors.dart';
-import '../../../../core/utils/jalali_date.dart';
+import '../../../../core/utils/persian_format.dart';
 import '../../../../core/utils/persian_server_values.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../data/generic_request_repository.dart';
@@ -56,8 +56,10 @@ class RequestDetailView {
     switch (definition?.type) {
       case 'Date':
         return value is String ? formatJalaliIso(value) : '$value';
-      case 'Time' || 'Number' || 'Currency':
+      case 'Time':
         return toPersianDigits('$value');
+      case 'Number' || 'Currency':
+        return formatNumber(value);
       case 'Choice':
         return definition!.optionLabel('$value');
       case 'Multi Choice':

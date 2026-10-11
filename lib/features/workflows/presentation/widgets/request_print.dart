@@ -4,7 +4,8 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
-import '../../../../core/utils/jalali_date.dart';
+import '../../../../core/utils/persian_format.dart';
+import '../../../../core/utils/persian_server_values.dart';
 import '../../domain/entities/workflow_task.dart';
 
 /// Persian labels of workflow activity actions, shared by screen and print.
@@ -97,12 +98,14 @@ Future<Uint8List> buildRequestPdf({
           (entry.value as List).isEmpty ||
           (entry.value as List).first is! Map)
         [
-          labels[entry.key] ?? entry.key,
+          persianDocumentFieldLabel(labels[entry.key] ?? entry.key),
           entry.value is List
               ? (entry.value as List).join('، ')
               : entry.value is bool
                   ? (entry.value == true ? 'بله' : 'خیر')
-                  : '${entry.value ?? '—'}',
+                  : isDurationMap(entry.value)
+                      ? formatPersianDuration(entry.value)
+                      : formatNumber(entry.value),
         ],
   ];
 

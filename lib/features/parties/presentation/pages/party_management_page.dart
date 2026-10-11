@@ -249,7 +249,8 @@ class _PartyCard extends StatelessWidget {
           subtitle: Text([
             if (profile.roles.isNotEmpty)
               profile.roles.map(_roleTitle).join('، '),
-            if (profile.mobile?.isNotEmpty == true) toPersianDigits(profile.mobile!),
+            if (profile.mobile?.isNotEmpty == true)
+              toPersianDigits(profile.mobile!),
           ].join(' • ')),
           trailing: Column(mainAxisSize: MainAxisSize.min, children: [
             Text(profile.disabled ? 'غیرفعال' : 'فعال',
