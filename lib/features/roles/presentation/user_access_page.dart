@@ -287,6 +287,7 @@ class _RoleUsersViewState extends State<_RoleUsersView> {
                   )),
                 const Text(
                     'برای ویرایش اطلاعات کاربر، کارت او را نگه دارید. فهرست تا ۱۰۰ نتیجه دارد؛ برای محدودکردن نتایج جستجو کنید.',
+                    softWrap: true,
                     style: TextStyle(fontSize: 11, color: AsoudColors.muted)),
               ]),
         bottomNavigationBar: AsoudBottomActions(

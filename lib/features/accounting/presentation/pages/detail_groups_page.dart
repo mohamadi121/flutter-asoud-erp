@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/persian_format.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../../core/widgets/states.dart';
 import '../../domain/entities/detail_group.dart';
@@ -193,6 +194,7 @@ class _HelpCard extends StatelessWidget {
               SizedBox(height: 5),
               Text(
                 'یک کد تفصیلی می‌تواند به چند حساب معین متصل شود؛ مانند مشتری، بانک، پروژه یا مرکز هزینه.',
+                softWrap: true,
                 style: TextStyle(fontSize: 9, color: AsoudColors.muted),
               ),
             ]),
@@ -261,7 +263,7 @@ class _GroupsGrid extends StatelessWidget {
                       color: color.withValues(alpha: .12),
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: Text(item.code,
+                    child: Text(toPersianDigits(item.code),
                         style: TextStyle(fontSize: 8, color: color)),
                   ),
                 ]),

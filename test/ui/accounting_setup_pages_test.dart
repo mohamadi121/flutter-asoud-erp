@@ -76,7 +76,7 @@ void main() {
     await pumpPage(tester, const DetailGroupsPage());
     expect(find.text('گروه تفصیلی شناور'), findsOneWidget);
     expect(find.text('مشتریان'), findsOneWidget);
-    expect(find.text('10000'), findsOneWidget);
+    expect(find.text('۱۰۰۰۰'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

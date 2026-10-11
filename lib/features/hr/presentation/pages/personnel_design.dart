@@ -727,7 +727,7 @@ class _AccessHeaderCard extends StatelessWidget {
           leading: const CircleAvatar(child: Icon(Icons.person)),
           title: Text(_valueOf(profile, 'display_name'),
               style: const TextStyle(fontWeight: FontWeight.w900)),
-          subtitle: Text(_valueOf(profile, 'mobile')),
+          subtitle: Text(toPersianDigits(_valueOf(profile, 'mobile'))),
           trailing: Chip(
               label: Text(enabled ? 'فعال' : 'دعوت نشده',
                   style: const TextStyle(fontSize: 9)))));

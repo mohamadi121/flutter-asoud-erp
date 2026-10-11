@@ -78,9 +78,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(FloatingActionButton), findsNothing);
     final menu = tester.getCenter(find.byKey(const ValueKey('account-menu-g')));
-    final code = tester.getCenter(find.text('1'));
+    final code = tester.getCenter(find.text('۱'));
     expect(menu.dx, lessThan(code.dx));
-    expect(tester.widget<Text>(find.text('1')).style!.fontSize, 16);
+    expect(tester.widget<Text>(find.text('۱')).style!.fontSize, 16);
     await tester.tap(find.text('نمای مرحله‌ای'));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('stage-g')), findsOneWidget);
