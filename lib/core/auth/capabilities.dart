@@ -11,6 +11,7 @@ class Capabilities {
   const Capabilities._({
     required this.canManageWorkflows,
     required this.canManageRequestTypes,
+    required this.canManageForms,
     required this.canManageRoles,
     required this.canManageOrganization,
     required this.canManageDocumentTemplates,
@@ -43,6 +44,7 @@ class Capabilities {
     return Capabilities._(
       canManageWorkflows: configurationWriter,
       canManageRequestTypes: configurationWriter,
+      canManageForms: system || accountsManager || purchaseManager || hrManager,
       canManageRoles: system,
       canManageOrganization: configurationWriter,
       canManageDocumentTemplates: system || accountsManager || purchaseManager,
@@ -62,6 +64,7 @@ class Capabilities {
   static const full = Capabilities._(
     canManageWorkflows: true,
     canManageRequestTypes: true,
+    canManageForms: true,
     canManageRoles: true,
     canManageOrganization: true,
     canManageDocumentTemplates: true,
@@ -78,6 +81,7 @@ class Capabilities {
 
   final bool canManageWorkflows;
   final bool canManageRequestTypes;
+  final bool canManageForms;
   final bool canManageRoles;
   final bool canManageOrganization;
   final bool canManageDocumentTemplates;

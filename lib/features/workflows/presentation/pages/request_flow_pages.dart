@@ -56,6 +56,13 @@ Future<Map<String, dynamic>?> pickRequestType(
                         style: TextStyle(
                             fontSize: 16, fontWeight: FontWeight.w900)),
                     const SizedBox(height: 12),
+                    ListTile(
+                      leading: const Icon(Icons.dynamic_form_outlined),
+                      title: const Text('فرم‌های منتشرشده سازمان'),
+                      subtitle: const Text('جست‌وجو و انتخاب فرم‌های نسخه‌دار'),
+                      onTap: () => Navigator.pop(
+                          context, <String, dynamic>{'versioned_forms': true}),
+                    ),
                     if (rows.isEmpty)
                       const Text('نوع درخواستی برای این دفتر تعریف نشده است.',
                           textAlign: TextAlign.center),

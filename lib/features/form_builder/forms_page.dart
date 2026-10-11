@@ -1,0 +1,787 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '../../core/network/frappe_client.dart';
+import '../../core/offline/offline_failure.dart';
+import '../../core/widgets/asoud_ui.dart';
+import '../../core/utils/jalali_date.dart';
+import '../request_types/presentation/pages/forms_management_page.dart';
+import 'form_editor.dart';
+import 'form_repository.dart';
+import 'form_runtime.dart';
+
+class VersionedFormsPage extends StatefulWidget {
+  const VersionedFormsPage({
+    required this.company,
+    this.manage = true,
+    this.initialKind = 'Request',
+    this.fixedKind = false,
+    super.key,
+  });
+  final String company, initialKind;
+  final bool manage;
+  final bool fixedKind;
+  @override
+  State<VersionedFormsPage> createState() => _VersionedFormsPageState();
+}
+
+class _VersionedFormsPageState extends State<VersionedFormsPage> {
+  late final repository = FormRepository(
+    context.read<FrappeApiClient>(),
+    widget.company,
+  );
+  late String kind = widget.initialKind;
+  String query = '', module = '', status = '';
+  late Future<List<FormMap>> rows = repository.list(
+    kind,
+    manage: widget.manage,
+  );
+  void reload() =>
+      setState(() => rows = repository.list(kind, manage: widget.manage));
+  Future<void> editor(FormMap initial) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            FormEditorPage(repository: repository, initial: initial),
+      ),
+    );
+    if (mounted) {
+      reload();
+    }
+  }
+
+  Future<void> create() async {
+    var type = kind, ready = false;
+    final choice = await formSheet<bool>(
+      context,
+      'ایجاد فرم جدید',
+      (sheet, update) => Column(
+        children: [
+          formSelect(
+              'نوع فرم',
+              type,
+              const {
+                'Request': 'درخواست',
+                'Document': 'سند',
+              },
+              (v) => update(() => type = v)),
+          SwitchListTile(
+            title: const Text('استفاده از قالب آماده آسود'),
+            subtitle: Text(
+              ready
+                  ? 'ساختار اولیه قابل ویرایش بارگذاری می‌شود.'
+                  : 'ساخت فرم از صفر',
+            ),
+            value: ready,
+            onChanged: (v) => update(() => ready = v),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(sheet, true),
+            child: const Text('ادامه'),
+          ),
+        ],
+      ),
+    );
+    if (choice != true || !mounted) {
+      return;
+    }
+    var schema = blankSchema(type);
+    if (ready) {
+      final templates = formPresets(type);
+      final selected = await formSheet<FormMap>(
+        context,
+        'قالب‌های آماده',
+        (sheet, update) => Column(
+          children: [
+            for (final template in templates)
+              ListTile(
+                title: Text('${template['title']}'),
+                subtitle: Text(formModules[template['module']] ?? ''),
+                onTap: () => Navigator.pop(sheet, template),
+              ),
+          ],
+        ),
+      );
+      if (selected == null || !mounted) {
+        return;
+      }
+      schema = selected;
+    }
+    await editor({'schema': schema, 'client_id': newFormId()});
+  }
+
+  Future<void> action(String action, FormMap row) async {
+    try {
+      if (action == 'edit' || action == 'copy') {
+        final data = row['schema'] != null
+            ? copyForm(row)
+            : formMap(
+                await repository.call('get_form', {
+                  'name': row['name'],
+                  'manage': 1,
+                }),
+              );
+        if (action == 'copy') {
+          final schema = formMap(data['schema']);
+          schema['title'] = '${schema['title']} (کپی)';
+          if (mounted) {
+            await editor({'schema': schema, 'client_id': newFormId()});
+          }
+        } else if (mounted) {
+          await editor(data);
+        }
+      } else if (action == 'preview') {
+        final data = formMap(
+          await repository.call('get_form', {
+            'name': row['name'],
+            'manage': widget.manage ? 1 : 0,
+          }),
+        );
+        if (!mounted) {
+          return;
+        }
+        await Navigator.push(
+          context,
+          MaterialPageRoute<void>(
+            builder: (_) => FormEntryPage(
+              repository: repository,
+              record: data,
+              previewOnly: widget.manage,
+            ),
+          ),
+        );
+      } else if (action == 'disable' || action == 'enable') {
+        if (!await formConfirm(
+          context,
+          action == 'disable'
+              ? 'فرم غیرفعال شود؟ ثبت‌های قبلی باقی می‌مانند.'
+              : 'نسخه منتشرشده دوباره فعال شود؟',
+        )) {
+          return;
+        }
+        await repository.call('transition', {
+          'name': row['name'],
+          'action': action,
+          'expected_version': row['draft_version'],
+        });
+      }
+      if (mounted) {
+        reload();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(offlineFailureMessage(e))));
+      }
+    }
+  }
+
+  Future<void> entries() async {
+    try {
+      final records = formMaps(
+        await repository.call('list_my_entries', {'company': widget.company}),
+      );
+      if (!mounted) {
+        return;
+      }
+      await formSheet<void>(
+        context,
+        'ثبت‌های من',
+        (sheet, update) => Column(
+          children: [
+            if (records.isEmpty) const Text('هنوز فرمی ثبت نشده است.'),
+            for (final entry in records)
+              ListTile(
+                title: Text('${entry['subject']}'),
+                subtitle: Text(
+                  '${formatJalaliDateTimeIso('${entry['creation']}')}\n${entry['name']}',
+                ),
+                onTap: () async {
+                  try {
+                    final data = formMap(
+                      await repository.call('get_entry', {
+                        'name': entry['name'],
+                      }),
+                    );
+                    if (!sheet.mounted) {
+                      return;
+                    }
+                    await formSheet<void>(
+                      sheet,
+                      '${data['subject']} — نسخه ${data['version']}',
+                      (c, s) => Column(
+                        children: [
+                          if (data['reference_name'] != null)
+                            Text('رکورد مرتبط: ${data['reference_name']}'),
+                          if (data['current_native_values'] == true)
+                            const Text(
+                                'مقادیر فعلی سند اصلی با چیدمان نسخه زمان ثبت نمایش داده می‌شوند.'),
+                          FormFieldsView(
+                            schema: formMap(data['schema']),
+                            values: formMap(data['values']),
+                            repository: repository,
+                            enabled: false,
+                            snapshot: true,
+                            onChanged: (_) {},
+                          ),
+                        ],
+                      ),
+                    );
+                  } catch (e) {
+                    if (sheet.mounted) {
+                      ScaffoldMessenger.of(sheet).showSnackBar(
+                        SnackBar(content: Text(offlineFailureMessage(e))),
+                      );
+                    }
+                  }
+                },
+              ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(offlineFailureMessage(e))));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: Scaffold(
+          appBar: AsoudHeader(
+            title: widget.manage ? 'مدیریت فرم‌ها' : 'فرم‌های قابل ثبت',
+            subtitle: widget.company,
+            action: IconButton(
+              onPressed: reload,
+              icon: const Icon(Icons.refresh),
+              tooltip: 'بازخوانی',
+            ),
+          ),
+          body: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              if (!widget.fixedKind)
+                AsoudSegmentedControl<String>(
+                  value: kind,
+                  options: const [
+                    AsoudSegmentedOption(value: 'Request', label: 'درخواست‌ها'),
+                    AsoudSegmentedOption(value: 'Document', label: 'سندها'),
+                  ],
+                  onChanged: (v) {
+                    kind = v;
+                    reload();
+                  },
+                ),
+              const SizedBox(height: 12),
+              TextField(
+                decoration: const InputDecoration(
+                  hintText: 'جست‌وجوی فرم',
+                  prefixIcon: Icon(Icons.search),
+                ),
+                onChanged: (v) => setState(() => query = v.trim()),
+              ),
+              const SizedBox(height: 12),
+              formSelect(
+                  'ماژول',
+                  module,
+                  {
+                    '': 'همه ماژول‌ها',
+                    ...formModules,
+                  },
+                  (v) => setState(() => module = v)),
+              if (widget.manage)
+                formSelect(
+                    'وضعیت',
+                    status,
+                    const {
+                      '': 'همه وضعیت‌ها',
+                      'Draft': 'پیش‌نویس',
+                      'Published': 'منتشرشده',
+                      'Pending': 'در انتظار تأیید',
+                      'Inactive': 'غیرفعال',
+                    },
+                    (v) => setState(() => status = v)),
+              FutureBuilder<List<FormMap>>(
+                future: rows,
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return Column(
+                      children: [
+                        Text(offlineFailureMessage(snapshot.error!)),
+                        const Text(
+                          'بخش نسخه‌دار نیازمند نصب نسخه جدید افزونه سرور است.',
+                        ),
+                        TextButton(
+                          onPressed: reload,
+                          child: const Text('تلاش مجدد'),
+                        ),
+                      ],
+                    );
+                  }
+                  if (!snapshot.hasData) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  final filtered = snapshot.data!.where((r) {
+                    final s = formMap(r['schema']);
+                    final title = '${s['title'] ?? r['title'] ?? ''}';
+                    return title.contains(query) &&
+                        (module.isEmpty ||
+                            (s['module'] ?? r['module_key']) == module) &&
+                        (status.isEmpty || (r['status'] ?? 'Draft') == status);
+                  }).toList();
+                  return Column(
+                    children: [
+                      if (filtered.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.all(20),
+                          child: Text('فرمی با این فیلتر پیدا نشد.'),
+                        ),
+                      for (final row in filtered)
+                        Card(
+                          child: ListTile(
+                            title: Text(
+                              '${formMap(row['schema'])['title'] ?? row['title'] ?? 'پیش‌نویس'}',
+                            ),
+                            subtitle: Text(
+                              '${row['local'] == true ? 'پیش‌نویس روی دستگاه' : row['cached'] == true ? 'نسخه ذخیره‌شده؛ نیازمند اتصال' : {
+                                    'Draft': 'پیش‌نویس',
+                                    'Published': 'منتشرشده',
+                                    'Pending': 'در انتظار تأیید',
+                                    'Inactive': 'غیرفعال'
+                                  }[row['status']] ?? ''} · نسخه ${row['version'] ?? 0}${row['has_changes'] == true ? '\nدارای ویرایش منتشرنشده' : ''}',
+                            ),
+                            onTap: () =>
+                                action(widget.manage ? 'edit' : 'preview', row),
+                            trailing: widget.manage
+                                ? PopupMenuButton<String>(
+                                    onSelected: (v) => action(v, row),
+                                    itemBuilder: (_) => [
+                                      const PopupMenuItem(
+                                        value: 'edit',
+                                        child: Text('ویرایش / نسخه جدید'),
+                                      ),
+                                      const PopupMenuItem(
+                                        value: 'copy',
+                                        child: Text('ایجاد نسخه مشابه'),
+                                      ),
+                                      if (row['name'] != null) ...[
+                                        const PopupMenuItem(
+                                          value: 'preview',
+                                          child: Text('پیش‌نمایش'),
+                                        ),
+                                        PopupMenuItem(
+                                          value: row['disabled'] == 1
+                                              ? 'enable'
+                                              : 'disable',
+                                          child: Text(
+                                            row['disabled'] == 1
+                                                ? 'فعال‌سازی'
+                                                : 'غیرفعال‌سازی',
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  )
+                                : const Icon(Icons.chevron_left),
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
+              if (widget.manage)
+                TextButton(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) =>
+                          FormsManagementPage(company: widget.company),
+                    ),
+                  ),
+                  child: const Text(
+                    'فرم‌ها و الگوهای نسخه قبلی (بدون مهاجرت خودکار)',
+                  ),
+                ),
+              if (!widget.manage)
+                TextButton(
+                  onPressed: entries,
+                  child: const Text('مشاهده ثبت‌های من'),
+                ),
+            ],
+          ),
+          bottomNavigationBar: widget.manage
+              ? AsoudBottomActions(
+                  primaryLabel: '+ ایجاد فرم جدید',
+                  onPrimary: create,
+                )
+              : null,
+        ),
+      );
+}
+
+class FormEntryPage extends StatefulWidget {
+  const FormEntryPage({
+    required this.repository,
+    required this.record,
+    this.previewOnly = false,
+    super.key,
+  });
+  final FormRepository repository;
+  final FormMap record;
+  final bool previewOnly;
+  @override
+  State<FormEntryPage> createState() => _FormEntryPageState();
+}
+
+class _FormEntryPageState extends State<FormEntryPage> {
+  final key = GlobalKey<FormState>();
+  FormMap values = {};
+  String subject = '', requestKey = newFormId();
+  String? error;
+  bool busy = false;
+  bool restoring = true;
+  final subjectController = TextEditingController();
+  @override
+  void initState() {
+    super.initState();
+    restore();
+  }
+
+  @override
+  void dispose() {
+    subjectController.dispose();
+    super.dispose();
+  }
+
+  Future<void> restore() async {
+    try {
+      final draft = widget.previewOnly
+          ? null
+          : await widget.repository.entryDraft('${widget.record['name']}');
+      if (!mounted) {
+        return;
+      }
+      if (draft != null) {
+        if (draft['revision'] != widget.record['revision']) {
+          error =
+              'نسخه فرم از زمان ذخیره پیش‌نویس تغییر کرده است. پیش‌نویس قبلی حفظ شده و خودکار به نسخه جدید منتقل نمی‌شود.';
+        } else {
+          values = formMap(draft['values']);
+          subject = '${draft['subject'] ?? ''}';
+          subjectController.text = subject;
+          requestKey = '${draft['request_key']}';
+        }
+      }
+    } catch (e) {
+      error = offlineFailureMessage(e);
+    } finally {
+      if (mounted) {
+        setState(() => restoring = false);
+      }
+    }
+  }
+
+  Future<void> saveLocal() async {
+    if (widget.previewOnly) {
+      return;
+    }
+    try {
+      await widget.repository.saveEntryDraft('${widget.record['name']}', {
+        'revision': widget.record['revision'],
+        'subject': subject,
+        'values': values,
+        'request_key': requestKey
+      });
+      if (mounted) {
+        setState(() =>
+            error = 'پیش‌نویس روی دستگاه ذخیره شد؛ ثبت قطعی انجام نشده است.');
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => error = offlineFailureMessage(e));
+      }
+    }
+  }
+
+  Future<void> submit() async {
+    if (!(key.currentState?.validate() ?? false)) {
+      return;
+    }
+    if (widget.previewOnly) {
+      setState(
+        () => error = 'بررسی محلی انجام شد؛ در پیش‌نمایش اطلاعات ثبت نمی‌شوند.',
+      );
+      return;
+    }
+    setState(() {
+      busy = true;
+      error = null;
+    });
+    try {
+      await widget.repository.saveEntryDraft('${widget.record['name']}', {
+        'revision': widget.record['revision'],
+        'subject': subject,
+        'values': values,
+        'request_key': requestKey
+      });
+      final result = formMap(
+        await widget.repository.call('submit_form', {
+          'name': widget.record['name'],
+          'revision_name': widget.record['revision'],
+          'subject': subject,
+          'values': evaluatedValues(formMap(widget.record['schema']), values),
+          'request_key': requestKey,
+        }),
+      );
+      await widget.repository.discardEntryDraft('${widget.record['name']}');
+      if (!mounted) {
+        return;
+      }
+      await showDialog<void>(
+        context: context,
+        builder: (c) => AlertDialog(
+          title: const Text('ثبت شد'),
+          content: Text(
+            'شماره ثبت: ${result['name']}${result['reference_name'] != null && result['reference_name'] != '' ? '\nرکورد مرتبط: ${result['reference_name']}' : ''}',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(c),
+              child: const Text('بستن'),
+            ),
+          ],
+        ),
+      );
+      if (mounted) {
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => error = offlineFailureMessage(e));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => busy = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: Scaffold(
+          appBar: AsoudHeader(
+            title: '${formMap(widget.record['schema'])['title']}',
+            subtitle: widget.previewOnly
+                ? 'پیش‌نمایش؛ بدون ثبت اطلاعات'
+                : 'نسخه ${widget.record['version']}',
+          ),
+          body: restoring
+              ? const Center(child: CircularProgressIndicator())
+              : Form(
+                  key: key,
+                  child: ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: [
+                      if (error != null) Text(error!),
+                      TextFormField(
+                        controller: subjectController,
+                        decoration:
+                            const InputDecoration(labelText: 'عنوان ثبت *'),
+                        onChanged: (v) => subject = v,
+                        validator: (v) => (v ?? '').trim().length < 3
+                            ? 'حداقل سه حرف وارد کنید.'
+                            : null,
+                      ),
+                      FormFieldsView(
+                        schema: formMap(widget.record['schema']),
+                        values: values,
+                        repository: widget.repository,
+                        formName: widget.previewOnly
+                            ? null
+                            : '${widget.record['name']}',
+                        enabled: !busy,
+                        onChanged: (v) => setState(() => values = v),
+                      ),
+                      if (!widget.previewOnly)
+                        TextButton(
+                            onPressed: busy ? null : saveLocal,
+                            child: const Text('ذخیره پیش‌نویس روی دستگاه')),
+                    ],
+                  ),
+                ),
+          bottomNavigationBar: AsoudBottomActions(
+            primaryLabel: busy
+                ? 'در حال ثبت…'
+                : widget.previewOnly
+                    ? 'بررسی فرم'
+                    : 'ثبت فرم',
+            onPrimary: busy || restoring ? null : submit,
+          ),
+        ),
+      );
+}
+
+List<FormMap> formPresets(String kind) {
+  FormMap field(
+    String key,
+    String label,
+    String type, [
+    FormMap extra = const {},
+  ]) =>
+      {'key': key, 'label': label, 'type': type, ...extra};
+  if (kind == 'Request') {
+    return [
+      for (final item in [
+        ('درخواست عمومی', 'General'),
+        ('درخواست مرخصی', 'HR'),
+        ('درخواست مأموریت', 'HR'),
+        ('درخواست تجهیزات', 'IT'),
+        ('درخواست تنخواه', 'Finance'),
+        ('درخواست خرید کالا', 'Purchase'),
+        ('اصلاح تردد', 'HR'),
+      ])
+        {
+          ...blankSchema(kind),
+          'title': item.$1,
+          'module': item.$2,
+          'sections': [
+            {
+              'id': 'main',
+              'title': 'اطلاعات درخواست',
+              'fields': [
+                field('description', 'شرح درخواست', 'LongText', {
+                  'required': true,
+                }),
+                field('date', 'تاریخ موردنیاز', 'Date'),
+                if (item.$2 == 'Purchase' || item.$2 == 'IT')
+                  field('items', 'اقلام', 'Table', {
+                    'max_rows': 100,
+                    'columns': [
+                      field('item', 'کالا', 'Link', {
+                        'source': 'Item',
+                        'required': true,
+                      }),
+                      field('qty', 'تعداد', 'Decimal', {
+                        'min': 0.001,
+                        'required': true,
+                      }),
+                    ],
+                  }),
+                if (item.$2 == 'Finance')
+                  field('amount', 'مبلغ', 'Money', {
+                    'min': 0,
+                    'required': true,
+                  }),
+              ],
+            },
+          ],
+        },
+    ];
+  }
+  return [
+    {
+      ...blankSchema(kind),
+      'title': 'درخواست کالا',
+      'module': 'Purchase',
+      'target': 'Material Request',
+      'sections': [
+        {
+          'id': 'main',
+          'title': 'اطلاعات سند',
+          'fields': [
+            field('purpose', 'نوع درخواست', 'Select', {
+              'options': [
+                'Purchase',
+                'Material Transfer',
+                'Material Issue',
+                'Manufacture',
+              ],
+              'option_labels': {
+                'Purchase': 'خرید',
+                'Material Transfer': 'انتقال کالا',
+                'Material Issue': 'مصرف کالا',
+                'Manufacture': 'تولید'
+              },
+              'default': 'Purchase',
+              'required': true,
+              'native_key': 'material_request_type',
+            }),
+            field('required_date', 'تاریخ نیاز', 'Date', {
+              'required': true,
+              'native_key': 'schedule_date',
+            }),
+            field('items', 'اقلام', 'Table', {
+              'native_key': 'items',
+              'min_rows': 1,
+              'max_rows': 100,
+              'required': true,
+              'columns': [
+                field('item', 'کالا', 'Link', {
+                  'source': 'Item',
+                  'native_key': 'item_code',
+                  'required': true,
+                }),
+                field('qty', 'تعداد', 'Decimal', {
+                  'min': 0.001,
+                  'native_key': 'qty',
+                  'required': true,
+                }),
+                field('date', 'تاریخ نیاز', 'Date', {
+                  'native_key': 'schedule_date',
+                  'required': true,
+                }),
+              ],
+            }),
+          ],
+        },
+      ],
+    },
+    {
+      ...blankSchema(kind),
+      'title': 'سند حسابداری',
+      'module': 'Finance',
+      'target': 'Journal Entry',
+      'sections': [
+        {
+          'id': 'main',
+          'title': 'اطلاعات سند',
+          'fields': [
+            field('date', 'تاریخ ثبت', 'Date', {
+              'native_key': 'posting_date',
+              'required': true,
+            }),
+            field('description', 'شرح', 'LongText', {
+              'native_key': 'user_remark',
+            }),
+            field('accounts', 'آرتیکل‌ها', 'Table', {
+              'native_key': 'accounts',
+              'min_rows': 2,
+              'max_rows': 100,
+              'required': true,
+              'columns': [
+                field('account', 'حساب', 'Link', {
+                  'source': 'Account',
+                  'native_key': 'account',
+                  'required': true,
+                }),
+                field('debit', 'بدهکار', 'Money', {
+                  'native_key': 'debit_in_account_currency',
+                  'min': 0,
+                }),
+                field('credit', 'بستانکار', 'Money', {
+                  'native_key': 'credit_in_account_currency',
+                  'min': 0,
+                }),
+              ],
+            }),
+          ],
+        },
+      ],
+    },
+  ];
+}

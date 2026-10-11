@@ -17,6 +17,7 @@ import '../../../hr/presentation/pages/hr_home_page.dart';
 import '../../../hr/presentation/pages/organization_page.dart';
 import '../../../office_setup/presentation/pages/offices_page.dart';
 import '../../../request_types/presentation/pages/request_types_page.dart';
+import '../../../form_builder/forms_page.dart';
 import '../../../roles/presentation/roles_page.dart';
 import '../../../workflows/presentation/pages/generic_request_page.dart';
 import '../../../workflows/presentation/pages/workflow_list_page.dart';
@@ -28,11 +29,12 @@ import '../widgets/dashboard_summary_sections.dart';
 
 /// Administrative entry points. Unavailable telemetry is never presented as live.
 class SettingsDashboardContent extends StatefulWidget {
-  const SettingsDashboardContent(
-      {this.company,
-      this.offlinePreview = false,
-      this.offlineStore,
-      super.key});
+  const SettingsDashboardContent({
+    this.company,
+    this.offlinePreview = false,
+    this.offlineStore,
+    super.key,
+  });
   final String? company;
   final bool offlinePreview;
 
@@ -82,9 +84,11 @@ class _SettingsDashboardContentState extends State<SettingsDashboardContent> {
       context: context,
       builder: (dialog) => AlertDialog(
         title: const Text('خروج از حساب'),
-        content: Text(unsent > 0
-            ? '${toPersianDigits(unsent)} مورد هنوز به سرور ارسال نشده؛ با خروج، این موارد تا ورود دوباره همین کاربر ارسال نمی‌شوند'
-            : 'از حساب سازمانی خارج می‌شوید؟'),
+        content: Text(
+          unsent > 0
+              ? '${toPersianDigits(unsent)} مورد هنوز به سرور ارسال نشده؛ با خروج، این موارد تا ورود دوباره همین کاربر ارسال نمی‌شوند'
+              : 'از حساب سازمانی خارج می‌شوید؟',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialog).pop(false),
@@ -104,7 +108,8 @@ class _SettingsDashboardContentState extends State<SettingsDashboardContent> {
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute<void>(
-          builder: (_) => LoginPage(initialServerUrl: serverUrl)),
+        builder: (_) => LoginPage(initialServerUrl: serverUrl),
+      ),
       (_) => false,
     );
   }
@@ -117,95 +122,136 @@ class _SettingsDashboardContentState extends State<SettingsDashboardContent> {
     final now = DateTime.now();
     final sync = syncServiceOf(context);
     return Directionality(
-        textDirection: TextDirection.rtl,
-        child: SafeArea(
-          child: ListView(padding: const EdgeInsets.all(16), children: [
-            Row(children: [
-              Flexible(
+      textDirection: TextDirection.rtl,
+      child: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Row(
+              children: [
+                Flexible(
                   child: OutlinedButton.icon(
-                onPressed: () => _open(const OfficesPage()),
-                style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(0, 42),
-                    padding: const EdgeInsets.symmetric(horizontal: 10)),
-                icon: const Icon(Icons.business_rounded, size: 20),
-                label: Text(company ?? 'انتخاب دفتر',
-                    overflow: TextOverflow.ellipsis),
-              )),
-              const Expanded(
-                  child: Text('ASOUD ERP',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                          color: AsoudColors.primary,
-                          fontWeight: FontWeight.w900))),
-              IconButton(
+                    onPressed: () => _open(const OfficesPage()),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(0, 42),
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                    ),
+                    icon: const Icon(Icons.business_rounded, size: 20),
+                    label: Text(
+                      company ?? 'انتخاب دفتر',
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+                const Expanded(
+                  child: Text(
+                    'ASOUD ERP',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: AsoudColors.primary,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                IconButton(
                   tooltip: 'اعلان‌ها',
                   onPressed: hasOffice
                       ? () => _open(const WorkflowNotificationsPage())
                       : null,
-                  icon: const Icon(Icons.notifications_outlined)),
-            ]),
+                  icon: const Icon(Icons.notifications_outlined),
+                ),
+              ],
+            ),
             if (sync != null) ...[
               const SizedBox(height: 12),
               SyncStatusIndicator(
-                  service: sync, onOpen: () => openSyncQueue(context, sync)),
+                service: sync,
+                onOpen: () => openSyncQueue(context, sync),
+              ),
             ],
             const SizedBox(height: 16),
             FutureBuilder<FrappeUserContext?>(
-                future: user,
-                builder: (context, snapshot) {
-                  final profile = snapshot.data;
-                  return Row(children: [
+              future: user,
+              builder: (context, snapshot) {
+                final profile = snapshot.data;
+                return Row(
+                  children: [
                     const CircleAvatar(
-                        radius: 34,
-                        child: Icon(Icons.person_outline_rounded, size: 38)),
+                      radius: 34,
+                      child: Icon(Icons.person_outline_rounded, size: 38),
+                    ),
                     const SizedBox(width: 14),
                     Expanded(
-                        child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           Text(
-                              profile == null
-                                  ? 'سلام، خوش آمدید!'
-                                  : 'سلام ${profile.fullName}!',
-                              style: const TextStyle(
-                                  fontSize: 21, fontWeight: FontWeight.w900)),
+                            profile == null
+                                ? 'سلام، خوش آمدید!'
+                                : 'سلام ${profile.fullName}!',
+                            style: const TextStyle(
+                              fontSize: 21,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
                           const SizedBox(height: 6),
                           const Text('مدیریت و تنظیمات دفتر'),
                           Text(
-                              profile == null
-                                  ? 'اطلاعات دسترسی دریافت نشده است'
-                                  : formatUserGreetingRoles(profile.roles),
-                              style: const TextStyle(
-                                  fontSize: 11, color: AsoudColors.muted)),
-                        ])),
-                  ]);
-                }),
+                            profile == null
+                                ? 'اطلاعات دسترسی دریافت نشده است'
+                                : formatUserGreetingRoles(profile.roles),
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: AsoudColors.muted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
             const SizedBox(height: 16),
             Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                    color: AsoudColors.primary.withValues(alpha: .07),
-                    borderRadius: BorderRadius.circular(18)),
-                child: Row(children: [
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: AsoudColors.primary.withValues(alpha: .07),
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Row(
+                children: [
                   Expanded(
-                      child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                        Text(formatJalaliLong(now),
-                            style: const TextStyle(
-                                fontSize: 15, fontWeight: FontWeight.w900)),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          formatJalaliLong(now),
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
                         const SizedBox(height: 2),
-                        const Text('دسترسی سریع به بخش‌های موجود آسود',
-                            style: TextStyle(
-                                color: AsoudColors.muted, fontSize: 11)),
-                      ])),
+                        const Text(
+                          'دسترسی سریع به بخش‌های موجود آسود',
+                          style: TextStyle(
+                            color: AsoudColors.muted,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                   const SizedBox(width: 12),
                   const AsoudIconBox(
-                      icon: Icons.calendar_month_outlined,
-                      color: AsoudColors.primary,
-                      size: 44),
-                ])),
+                    icon: Icons.calendar_month_outlined,
+                    color: AsoudColors.primary,
+                    size: 44,
+                  ),
+                ],
+              ),
+            ),
             // Live telemetry reads the server for a signed-in user; the offline
             // preview keeps the demo figures. A figure the server returns as
             // null is hidden, never shown as «—» (bug #10).
@@ -218,111 +264,167 @@ class _SettingsDashboardContentState extends State<SettingsDashboardContent> {
                   sync == null ? null : () => openSyncQueue(context, sync),
             ),
             const SizedBox(height: 18),
-            const Text('عملیات سریع',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+            const Text(
+              'عملیات سریع',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
+            ),
             if (!hasOffice)
               const Text(
-                  'برای بخش‌های وابسته به دفتر، ابتدا دفتر را انتخاب یا ایجاد کنید.'),
+                'برای بخش‌های وابسته به دفتر، ابتدا دفتر را انتخاب یا ایجاد کنید.',
+              ),
             const SizedBox(height: 10),
             FutureBuilder<FrappeUserContext?>(
-                future: user,
-                builder: (context, snapshot) {
-                  final capabilities = Capabilities.fromRoles(
-                    snapshot.data?.roles ?? const [],
-                    offlinePreview: widget.offlinePreview,
-                  );
-                  return LayoutBuilder(
-                      builder: (context, constraints) => GridView.count(
-                            crossAxisCount: constraints.maxWidth < 300 ? 3 : 4,
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            mainAxisSpacing: 8,
-                            crossAxisSpacing: 8,
-                            mainAxisExtent: 96,
-                            children: [
-                              if (capabilities.canManageUserAccess)
-                                _ActionCard('مدیریت کاربران',
-                                    Icons.person_outline, AsoudColors.primary,
-                                    onTap: widget.offlinePreview
-                                        ? null
-                                        : () => _open(UserAccessPage(
-                                            repository: UserAccessRepository(
-                                                context
-                                                    .read<FrappeApiClient>())))),
-                              if (capabilities.canManageOrganization)
-                                _ActionCard(
-                                    'ساختار سازمانی',
-                                    Icons.account_tree_outlined,
-                                    AsoudColors.purple,
-                                    onTap: hasOffice
-                                        ? () => _open(
-                                            OrganizationPage(company: company!))
-                                        : null),
-                              if (capabilities.canSeeSettingsAdmin)
-                                _ActionCard(
-                                    'ماژول‌ها',
-                                    Icons.view_module_outlined,
-                                    AsoudColors.primary,
-                                    onTap: hasOffice
-                                        ? () => _open(BaseAccountingSetupPage(
-                                            officeName: company,
-                                            offlinePreview:
-                                                widget.offlinePreview))
-                                        : null),
-                              if (capabilities.canManageRequestTypes)
-                                _ActionCard(
-                                    'انواع درخواست',
-                                    Icons.description_outlined,
-                                    AsoudColors.warning,
-                                    onTap: hasOffice
-                                        ? () => _open(
-                                            RequestTypesPage(company: company!))
-                                        : null),
-                              _ActionCard('دفترها', Icons.business_outlined,
-                                  AsoudColors.purple,
-                                  onTap: () => _open(const OfficesPage())),
-                              const _ActionCard('گزارش‌های سیستم',
-                                  Icons.bar_chart, AsoudColors.primary),
-                              if (capabilities.canManageRoles)
-                                _ActionCard('مدیریت نقش‌ها',
-                                    Icons.shield_outlined, AsoudColors.primary,
-                                    note: 'الگو و ایجاد دستی',
-                                    onTap: () => _open(RolesSetupPage(
-                                        officeName: company,
-                                        offlinePreview:
-                                            widget.offlinePreview))),
-                              if (capabilities.canManageWorkflows)
-                                _ActionCard('گردش کار', Icons.alt_route_rounded,
-                                    AsoudColors.success,
-                                    onTap: hasOffice
-                                        ? () => _open(
-                                            WorkflowListPage(company: company))
-                                        : null),
-                              _ActionCard('منابع انسانی', Icons.badge_outlined,
-                                  AsoudColors.warning,
-                                  onTap: hasOffice
-                                      ? () =>
-                                          _open(HrHomePage(company: company!))
-                                      : null),
-                              _ActionCard('ثبت درخواست‌ها',
-                                  Icons.note_add_outlined, AsoudColors.primary,
-                                  onTap: hasOffice
-                                      ? () => _open(GenericRequestsPage(
-                                          company: company!))
-                                      : null),
-                              _ActionCard(
-                                  'کارتابل',
-                                  Icons.assignment_ind_outlined,
-                                  AsoudColors.purple,
-                                  onTap: hasOffice
-                                      ? () => _open(const WorkflowTasksPage())
-                                      : null),
-                            ],
-                          ));
-                }),
+              future: user,
+              builder: (context, snapshot) {
+                final capabilities = Capabilities.fromRoles(
+                  snapshot.data?.roles ?? const [],
+                  offlinePreview: widget.offlinePreview,
+                );
+                return LayoutBuilder(
+                  builder: (context, constraints) => GridView.count(
+                    crossAxisCount: constraints.maxWidth < 300 ? 3 : 4,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    mainAxisSpacing: 8,
+                    crossAxisSpacing: 8,
+                    mainAxisExtent: 96,
+                    children: [
+                      if (capabilities.canManageUserAccess)
+                        _ActionCard(
+                          'مدیریت کاربران',
+                          Icons.person_outline,
+                          AsoudColors.primary,
+                          onTap: widget.offlinePreview
+                              ? null
+                              : () => _open(
+                                    UserAccessPage(
+                                      repository: UserAccessRepository(
+                                        context.read<FrappeApiClient>(),
+                                      ),
+                                    ),
+                                  ),
+                        ),
+                      if (capabilities.canManageOrganization)
+                        _ActionCard(
+                          'ساختار سازمانی',
+                          Icons.account_tree_outlined,
+                          AsoudColors.purple,
+                          onTap: hasOffice
+                              ? () => _open(OrganizationPage(company: company!))
+                              : null,
+                        ),
+                      if (capabilities.canSeeSettingsAdmin)
+                        _ActionCard(
+                          'ماژول‌ها',
+                          Icons.view_module_outlined,
+                          AsoudColors.primary,
+                          onTap: hasOffice
+                              ? () => _open(
+                                    BaseAccountingSetupPage(
+                                      officeName: company,
+                                      offlinePreview: widget.offlinePreview,
+                                    ),
+                                  )
+                              : null,
+                        ),
+                      if (capabilities.canManageForms)
+                        _ActionCard(
+                          'مدیریت فرم‌ها',
+                          Icons.dynamic_form_outlined,
+                          AsoudColors.primary,
+                          onTap: hasOffice
+                              ? () =>
+                                  _open(VersionedFormsPage(company: company!))
+                              : null,
+                        ),
+                      if (capabilities.canManageRequestTypes)
+                        _ActionCard(
+                          'انواع درخواست',
+                          Icons.description_outlined,
+                          AsoudColors.warning,
+                          onTap: hasOffice
+                              ? () => _open(RequestTypesPage(company: company!))
+                              : null,
+                        ),
+                      if (capabilities.canSeeAccounting ||
+                          capabilities.canManageDocumentTemplates)
+                        _ActionCard('ثبت سند با فرم', Icons.article_outlined,
+                            AsoudColors.primary,
+                            onTap: hasOffice
+                                ? () => _open(VersionedFormsPage(
+                                    company: company!,
+                                    manage: false,
+                                    initialKind: 'Document',
+                                    fixedKind: true))
+                                : null),
+                      _ActionCard(
+                        'دفترها',
+                        Icons.business_outlined,
+                        AsoudColors.purple,
+                        onTap: () => _open(const OfficesPage()),
+                      ),
+                      const _ActionCard(
+                        'گزارش‌های سیستم',
+                        Icons.bar_chart,
+                        AsoudColors.primary,
+                      ),
+                      if (capabilities.canManageRoles)
+                        _ActionCard(
+                          'مدیریت نقش‌ها',
+                          Icons.shield_outlined,
+                          AsoudColors.primary,
+                          note: 'الگو و ایجاد دستی',
+                          onTap: () => _open(
+                            RolesSetupPage(
+                              officeName: company,
+                              offlinePreview: widget.offlinePreview,
+                            ),
+                          ),
+                        ),
+                      if (capabilities.canManageWorkflows)
+                        _ActionCard(
+                          'گردش کار',
+                          Icons.alt_route_rounded,
+                          AsoudColors.success,
+                          onTap: hasOffice
+                              ? () => _open(WorkflowListPage(company: company))
+                              : null,
+                        ),
+                      _ActionCard(
+                        'منابع انسانی',
+                        Icons.badge_outlined,
+                        AsoudColors.warning,
+                        onTap: hasOffice
+                            ? () => _open(HrHomePage(company: company!))
+                            : null,
+                      ),
+                      _ActionCard(
+                        'ثبت درخواست‌ها',
+                        Icons.note_add_outlined,
+                        AsoudColors.primary,
+                        onTap: hasOffice
+                            ? () =>
+                                _open(GenericRequestsPage(company: company!))
+                            : null,
+                      ),
+                      _ActionCard(
+                        'کارتابل',
+                        Icons.assignment_ind_outlined,
+                        AsoudColors.purple,
+                        onTap: hasOffice
+                            ? () => _open(const WorkflowTasksPage())
+                            : null,
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
             const SizedBox(height: 18),
-            const Text('حساب کاربری',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+            const Text(
+              'حساب کاربری',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
+            ),
             const SizedBox(height: 10),
             if (widget.offlinePreview)
               SizedBox(
@@ -342,8 +444,10 @@ class _SettingsDashboardContentState extends State<SettingsDashboardContent> {
                   label: const Text('خروج از حساب'),
                 ),
               ),
-          ]),
-        ));
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -356,38 +460,50 @@ class _ActionCard extends StatelessWidget {
   final String? note;
   @override
   Widget build(BuildContext context) => Card(
-      color: color.withValues(alpha: onTap == null ? .03 : .06),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Opacity(
+        color: color.withValues(alpha: onTap == null ? .03 : .06),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Opacity(
             opacity: onTap == null ? .55 : 1,
             child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-                child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(icon,
-                          size: 24,
-                          color: onTap == null ? AsoudColors.muted : color),
-                      const SizedBox(height: 5),
-                      Text(title,
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              fontSize: 11,
-                              height: 1.25,
-                              fontWeight: FontWeight.w700)),
-                      if (onTap == null || note != null)
-                        Text(note ?? 'به‌زودی',
-                            textAlign: TextAlign.center,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                                fontSize: 9,
-                                height: 1.3,
-                                color: AsoudColors.muted)),
-                    ]))),
-      ));
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    icon,
+                    size: 24,
+                    color: onTap == null ? AsoudColors.muted : color,
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    title,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      height: 1.25,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  if (onTap == null || note != null)
+                    Text(
+                      note ?? 'به‌زودی',
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 9,
+                        height: 1.3,
+                        color: AsoudColors.muted,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
 }
