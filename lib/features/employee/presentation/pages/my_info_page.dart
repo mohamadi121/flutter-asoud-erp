@@ -3,7 +3,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/network/frappe_client.dart';
-import '../../../../core/utils/jalali_date.dart';
+import '../../../../core/utils/persian_format.dart';
 import '../../../hr/data/personnel_file_repository.dart';
 import '../../../hr/data/personnel_repository.dart';
 import '../../../hr/domain/personnel_file.dart';
@@ -204,8 +204,15 @@ class _MyInfoPageState extends State<MyInfoPage> {
           })
         ],
       _ => [
-          _section('اطلاعات تماس',
-              {'شماره موبایل': p.mobile, 'ایمیل': p.email, 'نشانی': p.address})
+          _section(
+              'اطلاعات تماس',
+              {
+                'شماره موبایل': p.mobile.isEmpty
+                    ? null
+                    : toPersianDigits(p.mobile),
+                'ایمیل': p.email,
+                'نشانی': p.address
+              })
         ],
     };
   }

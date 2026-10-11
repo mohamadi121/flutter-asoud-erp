@@ -4,7 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/network/frappe_client.dart';
 import '../../../../core/theme/asoud_colors.dart';
-import '../../../../core/utils/jalali_date.dart';
+import '../../../../core/utils/persian_format.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../data/workflow_automation_repository.dart';
 import '../../domain/entities/document_template.dart';
@@ -275,6 +275,12 @@ class _WizardState extends State<DocumentTemplateWizardPage> {
           minLines: 2,
           maxLines: 3,
           maxLength: 500,
+          buildCounter: (context,
+                  {required currentLength, required isFocused, maxLength}) =>
+              Text(
+            formatCounter(currentLength, maxLength),
+            style: const TextStyle(fontSize: 10, color: AsoudColors.muted),
+          ),
           decoration: const InputDecoration(
               labelText: 'توضیحات', alignLabelWithHint: true),
         ),
