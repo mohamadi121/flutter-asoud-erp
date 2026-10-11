@@ -19,6 +19,7 @@ void main() {
       expect(capabilities.canWritePersonnel, isTrue);
       expect(capabilities.canManageUserAccess, isTrue);
       expect(capabilities.canWriteHrRecords, isTrue);
+      expect(capabilities.canWriteOwnHrRecords, isTrue);
       expect(capabilities.canSeeAccounting, isTrue);
       expect(capabilities.canSeeSettingsAdmin, isTrue);
     });
@@ -29,6 +30,7 @@ void main() {
       expect(capabilities.canManageWorkflows, isTrue);
       expect(capabilities.canManageRoles, isTrue);
       expect(capabilities.canWritePersonnel, isTrue);
+      expect(capabilities.canWriteOwnHrRecords, isTrue);
       expect(capabilities.canSeeSettingsAdmin, isTrue);
       expect(capabilities.canReadRoleCatalog, isTrue);
       expect(capabilities.canReadOrganization, isTrue);
@@ -46,6 +48,8 @@ void main() {
       expect(capabilities.canWritePersonnel, isFalse);
       expect(capabilities.canManageUserAccess, isFalse);
       expect(capabilities.canWriteHrRecords, isFalse);
+      // HR Manager who is also an employee may write their own records.
+      expect(capabilities.canWriteOwnHrRecords, isTrue);
       expect(capabilities.canSeeAccounting, isFalse);
       expect(capabilities.canSeeSettingsAdmin, isFalse);
       expect(capabilities.canReadManagerViews, isTrue);
@@ -64,11 +68,21 @@ void main() {
       expect(capabilities.canWritePersonnel, isFalse);
       expect(capabilities.canManageUserAccess, isFalse);
       expect(capabilities.canWriteHrRecords, isFalse);
+      expect(capabilities.canWriteOwnHrRecords, isTrue);
       expect(capabilities.canSeeAccounting, isFalse);
       expect(capabilities.canSeeSettingsAdmin, isFalse);
       expect(capabilities.canReadManagerViews, isFalse);
       expect(capabilities.canReadRoleCatalog, isFalse);
       expect(capabilities.canReadOrganization, isFalse);
+    });
+
+    test('a non-employee manager cannot write even their own HR records', () {
+      final capabilities =
+          Capabilities.fromRoles(const ['Accounts Manager']);
+
+      expect(capabilities.canSeeAccounting, isTrue);
+      expect(capabilities.canWriteHrRecords, isFalse);
+      expect(capabilities.canWriteOwnHrRecords, isFalse);
     });
 
     test('offline preview keeps every capability visible', () {
@@ -79,6 +93,7 @@ void main() {
 
       expect(capabilities.canManageRoles, isTrue);
       expect(capabilities.canWritePersonnel, isTrue);
+      expect(capabilities.canWriteOwnHrRecords, isTrue);
       expect(capabilities.canWriteHrRecords, isTrue);
     });
   });

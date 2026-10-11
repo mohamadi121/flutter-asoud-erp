@@ -423,7 +423,7 @@ class WorkReportsPage extends StatelessWidget {
                           title: 'گزارش کار روزانه',
                           subtitle: 'ثبت فعالیت و بازخورد مدیر'),
                       floatingActionButton:
-                          snapshot.data?.canWriteHrRecords == true
+                          snapshot.data?.canWriteOwnHrRecords == true
                               ? FloatingActionButton.extended(
                                   onPressed: () => _add(context),
                                   icon: const Icon(Icons.add),
@@ -513,7 +513,7 @@ class HrCommunicationsPage extends StatelessWidget {
                           title: 'مکاتبات داخلی',
                           subtitle: 'دریافتی، ارسالی و اقدام‌ها'),
                       floatingActionButton:
-                          snapshot.data?.canWriteHrRecords == true
+                          snapshot.data?.canWriteOwnHrRecords == true
                               ? FloatingActionButton.extended(
                                   onPressed: () => _compose(context),
                                   icon: const Icon(Icons.edit),

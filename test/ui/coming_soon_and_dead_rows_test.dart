@@ -16,8 +16,9 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(_wrap(const AccountingHomePage()));
 
-    // The five unimplemented rows carry the «به‌زودی» badge (bug #11).
-    expect(find.text('به‌زودی'), findsNWidgets(5));
+    // The three unimplemented rows carry the «به‌زودی» badge (bug #11).
+    // «تراز آزمایشی» and «دفتر کل» now open their real report pages.
+    expect(find.text('به‌زودی'), findsNWidgets(3));
 
     // «سرفصل حساب‌ها» has no company here, so it is dimmed without a badge.
     expect(find.text('سرفصل حساب‌ها'), findsOneWidget);

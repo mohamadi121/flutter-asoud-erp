@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/auth/capabilities.dart';
 import '../../../../core/network/frappe_client.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/asoud_colors.dart';
@@ -222,11 +223,18 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   int selectedIndex = 0;
+  late final Future<Capabilities> _capabilities;
   String? get officeName => widget.officeName;
   Office? get office => widget.office;
   bool get offlinePreview => widget.offlinePreview;
   bool get loadError => widget.loadError;
   VoidCallback? get onOfficeCreated => widget.onOfficeCreated;
+
+  @override
+  void initState() {
+    super.initState();
+    _capabilities = capabilitiesOf(context, offlinePreview: widget.offlinePreview);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -280,50 +288,66 @@ class _DashboardPageState extends State<DashboardPage> {
                             style: TextStyle(
                                 fontSize: 14, fontWeight: FontWeight.w900)),
                         const SizedBox(height: 8),
-                        _QuickActions(
-                          onPayments: () => Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => const _UnavailablePage(
-                                title: 'دریافت و پرداخت',
+                        FutureBuilder<Capabilities>(
+                          future: _capabilities,
+                          builder: (context, snapshot) {
+                            if (!snapshot.hasData) {
+                              return const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 24),
+                                child: Center(
+                                    child: CircularProgressIndicator()),
+                              );
+                            }
+                            final canSeeAccounting =
+                                snapshot.data?.canSeeAccounting ?? false;
+                            return _QuickActions(
+                              onPayments: () => Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => const _UnavailablePage(
+                                    title: 'دریافت و پرداخت',
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
-                          onSalesInvoice: () => Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => const _UnavailablePage(
-                                title: 'فاکتور فروش',
+                              onSalesInvoice: () => Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => const _UnavailablePage(
+                                    title: 'فاکتور فروش',
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
-                          onAccounting: () => Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => AccountingHomePage(
-                                company: officeName,
+                              onAccounting: () => Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => AccountingHomePage(
+                                    company: officeName,
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
-                          onPurchaseRequest: () => Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => GenericRequestsPage(
-                                company: officeName ?? '',
+                              onPurchaseRequest: () =>
+                                  Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => GenericRequestsPage(
+                                    company: officeName ?? '',
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
-                          onDocuments: () => Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => DocumentTemplatesPage(
-                                  company: officeName ?? ''),
-                            ),
-                          ),
-                          onParties: offlinePreview
-                              ? () => Navigator.of(context).push(
-                                    MaterialPageRoute<void>(
-                                      builder: (_) => PartyManagementPage(
-                                        company: officeName,
-                                      ),
-                                    ),
-                                  )
-                              : null,
+                              onDocuments: () => Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => DocumentTemplatesPage(
+                                      company: officeName ?? ''),
+                                ),
+                              ),
+                              onParties: canSeeAccounting
+                                  ? () => Navigator.of(context).push(
+                                        MaterialPageRoute<void>(
+                                          builder: (_) =>
+                                              PartyManagementPage(
+                                            company: officeName,
+                                          ),
+                                        ),
+                                      )
+                                  : null,
+                            );
+                          },
                         ),
                       ],
                     ],
@@ -768,36 +792,71 @@ class _QuickActions extends StatelessWidget {
       mainAxisSpacing: 8,
       mainAxisExtent: 112,
       children: items
-          .map((item) => Card(
-                child: InkWell(
-                  onTap: item.$5,
-                  borderRadius: BorderRadius.circular(14),
-                  child: Padding(
-                    padding: const EdgeInsets.all(9),
-                    child: Row(children: [
-                      AsoudIconBox(icon: item.$3, color: item.$4, size: 34),
-                      const SizedBox(width: 7),
-                      Expanded(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(item.$1,
-                                style: const TextStyle(
-                                    fontSize: 10, fontWeight: FontWeight.w800)),
-                            Text(item.$2,
-                                style: const TextStyle(
-                                    fontSize: 7, color: AsoudColors.muted)),
+          .map((item) {
+            final enabled = item.$5 != null;
+            return Card(
+              child: InkWell(
+                onTap: item.$5,
+                borderRadius: BorderRadius.circular(14),
+                child: Padding(
+                  padding: const EdgeInsets.all(9),
+                  child: Row(children: [
+                    AsoudIconBox(
+                        icon: item.$3,
+                        color: enabled ? item.$4 : AsoudColors.muted,
+                        size: 34),
+                    const SizedBox(width: 7),
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(item.$1,
+                              style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  color: enabled
+                                      ? null
+                                      : AsoudColors.muted)),
+                          Text(item.$2,
+                              style: TextStyle(
+                                  fontSize: 7,
+                                  color: enabled
+                                      ? AsoudColors.muted
+                                      : AsoudColors.muted.withValues(
+                                          alpha: .6))),
+                          if (!enabled) ...[
+                            const SizedBox(height: 2),
+                            const _SoonBadge(),
                           ],
-                        ),
+                        ],
                       ),
-                    ]),
-                  ),
+                    ),
+                  ]),
                 ),
-              ))
+              ),
+            );
+          })
           .toList(),
     );
   }
+}
+
+class _SoonBadge extends StatelessWidget {
+  const _SoonBadge();
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: AsoudColors.warning.withValues(alpha: .12),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: const Text('به‌زودی',
+            style: TextStyle(
+                fontSize: 8,
+                color: AsoudColors.warning,
+                fontWeight: FontWeight.w800)),
+      );
 }
 
 class _UnavailablePage extends StatelessWidget {

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/widgets/asoud_ui.dart';
+import '../../../reports/presentation/pages/ledger_page.dart';
+import '../../../reports/presentation/pages/trial_balance_page.dart';
 import 'chart_setup_page.dart';
 import 'detail_groups_page.dart';
 import '../../../parties/presentation/pages/party_management_page.dart';
@@ -14,8 +16,6 @@ class AccountingHomePage extends StatelessWidget {
   /// dimmed with a «به‌زودی» badge instead of an inert chevron.
   static const _comingSoon = {
     'سند حسابداری',
-    'تراز آزمایشی',
-    'دفتر کل',
     'مرور حساب‌ها',
     'گزارش‌های مالی',
   };
@@ -53,7 +53,18 @@ class AccountingHomePage extends StatelessWidget {
                           MaterialPageRoute<void>(
                               builder: (_) =>
                                   ChartSetupPage(company: company!)))
-                      : action.$1 == 'گروه تفصیلی شناور'
+                      : action.$1 == 'تراز آزمایشی'
+                      ? () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                                builder: (_) => const TrialBalancePage()),
+                          )
+                      : action.$1 == 'دفتر کل'
+                          ? () => Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                    builder: (_) =>
+                                        const LedgerPage(title: 'دفتر کل')),
+                              )
+                          : action.$1 == 'گروه تفصیلی شناور'
                           ? () => Navigator.of(context).push(
                                 MaterialPageRoute<void>(
                                   builder: (_) => const DetailGroupsPage(),
