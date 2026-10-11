@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/jalali_date.dart';
+import '../../../../core/widgets/asoud_bottom_bar.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../../core/widgets/states.dart';
 import '../../domain/entities/office.dart';
@@ -82,23 +83,20 @@ class _OfficesView extends StatelessWidget {
             ),
           ),
           body: SafeArea(child: _body(context, state)),
-          bottomNavigationBar: NavigationBar(
-            height: 62,
+          bottomNavigationBar: AsoudBottomBar(
             selectedIndex: 2,
-            onDestinationSelected: (index) {
+            onSelected: (index) {
               if (index != 2) _unavailable(context);
             },
-            destinations: const [
-              NavigationDestination(
-                  icon: Icon(Icons.home_outlined), label: 'خانه'),
-              NavigationDestination(
-                  icon: Icon(Icons.list_alt_rounded), label: 'منوها'),
-              NavigationDestination(
-                  icon: Icon(Icons.business_outlined),
-                  selectedIcon: Icon(Icons.business_rounded),
+            items: const [
+              AsoudBottomBarItem(icon: Icons.home_outlined, label: 'خانه'),
+              AsoudBottomBarItem(icon: Icons.list_alt_rounded, label: 'منوها'),
+              AsoudBottomBarItem(
+                  icon: Icons.business_outlined,
+                  selectedIcon: Icons.business_rounded,
                   label: 'دفترها'),
-              NavigationDestination(
-                  icon: Icon(Icons.bar_chart_rounded), label: 'گزارش‌ها'),
+              AsoudBottomBarItem(
+                  icon: Icons.bar_chart_rounded, label: 'گزارش‌ها'),
             ],
           ),
         ),

@@ -8,6 +8,7 @@ import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/jalali_date.dart';
 import '../../../../core/utils/persian_server_values.dart';
 import '../../../../core/utils/persian_format.dart';
+import '../../../../core/widgets/asoud_bottom_bar.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../../core/widgets/states.dart';
 import '../../domain/entities/workflow_definition.dart';
@@ -487,9 +488,9 @@ class _StatusBadge extends StatelessWidget {
 class _WorkflowBottomNavigation extends StatelessWidget {
   const _WorkflowBottomNavigation();
   @override
-  Widget build(BuildContext context) => NavigationBar(
+  Widget build(BuildContext context) => AsoudBottomBar(
         selectedIndex: 2,
-        onDestinationSelected: (index) {
+        onSelected: (index) {
           if (index == 2) return;
           if (index == 1) {
             Navigator.push(
@@ -518,19 +519,17 @@ class _WorkflowBottomNavigation extends StatelessWidget {
                 builder: (_) => const WorkflowComingSoonPage()),
           );
         },
-        destinations: const [
-          NavigationDestination(
-              icon: Icon(Icons.home_outlined), label: 'داشبورد'),
-          NavigationDestination(
-              icon: Icon(Icons.notifications_none_rounded), label: 'اعلان‌ها'),
-          NavigationDestination(
-              icon: Icon(Icons.hub_outlined),
-              selectedIcon: Icon(Icons.hub_rounded),
+        items: const [
+          AsoudBottomBarItem(icon: Icons.home_outlined, label: 'داشبورد'),
+          AsoudBottomBarItem(
+              icon: Icons.notifications_none_rounded, label: 'اعلان‌ها'),
+          AsoudBottomBarItem(
+              icon: Icons.hub_outlined,
+              selectedIcon: Icons.hub_rounded,
               label: 'گردش‌کار'),
-          NavigationDestination(
-              icon: Icon(Icons.pie_chart_outline_rounded), label: 'گزارش‌ها'),
-          NavigationDestination(
-              icon: Icon(Icons.grid_view_rounded), label: 'بیشتر'),
+          AsoudBottomBarItem(
+              icon: Icons.pie_chart_outline_rounded, label: 'گزارش‌ها'),
+          AsoudBottomBarItem(icon: Icons.grid_view_rounded, label: 'بیشتر'),
         ],
       );
 }
