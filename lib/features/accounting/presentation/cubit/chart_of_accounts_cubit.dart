@@ -1,6 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
+import '../../../../core/utils/failure_message.dart';
 import '../../domain/entities/account_node.dart';
 import '../../domain/repositories/chart_of_accounts_repository.dart';
 
@@ -29,8 +30,7 @@ class ChartOfAccountsCubit extends Cubit<ChartOfAccountsState> {
           status: ChartStatus.success, accounts: _buildTree(accounts)));
     } catch (error) {
       emit(ChartOfAccountsState(
-          status: ChartStatus.failure,
-          message: 'دریافت سرفصل‌ها از ASOUD ERP ممکن نشد.'));
+          status: ChartStatus.failure, message: failureMessage(error)));
     }
   }
 

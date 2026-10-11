@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../domain/entities/workflow_task.dart';
 import '../../domain/repositories/workflow_task_repository.dart';
+import '../../../../core/utils/failure_message.dart';
 
 enum WorkflowInstancesStatus { loading, ready, failure }
 
@@ -38,7 +39,7 @@ class WorkflowInstancesCubit extends Cubit<WorkflowInstancesState> {
     } catch (error) {
       emit(WorkflowInstancesState(
         status: WorkflowInstancesStatus.failure,
-        message: error.toString(),
+        message: failureMessage(error),
       ));
     }
   }

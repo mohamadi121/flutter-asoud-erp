@@ -45,6 +45,26 @@ void main() {
     expect(find.text('ورود به نسخه نمایشی (آفلاین)'), findsNothing);
   });
 
+  testWidgets('ورود نخستین نشانی سرور خالی با راهنمای فارسی دارد', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AsoudTheme.light,
+        home: const Directionality(
+          textDirection: TextDirection.rtl,
+          child: LoginPage(showDemoButton: false),
+        ),
+      ),
+    );
+
+    final server = tester.widget<TextField>(
+      find.widgetWithText(TextField, 'نشانی سرور'),
+    );
+    expect(server.controller!.text, isEmpty);
+    expect(server.decoration!.hintText, 'http://آدرس-سرور:پورت');
+  });
+
   testWidgets('ادامه موقت ابتدا داشبورد خام را باز می‌کند', (tester) async {
     await tester.pumpWidget(
       RepositoryProvider<OfficeRepository>.value(

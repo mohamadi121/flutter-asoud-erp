@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:intl/intl.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/persian_server_values.dart';
+import '../../../../core/utils/persian_format.dart';
 import '../../../../core/widgets/asoud_ui.dart';
+import '../../../../core/widgets/states.dart';
 import '../../domain/entities/workflow_notification.dart';
 import '../../domain/repositories/workflow_notification_repository.dart';
 import '../cubit/workflow_notifications_cubit.dart';
@@ -37,13 +39,9 @@ class _View extends StatelessWidget {
             return const Center(child: CircularProgressIndicator());
           }
           if (state.status == WorkflowNotificationsStatus.failure) {
-            return Center(
-              child: OutlinedButton.icon(
-                onPressed: context.read<WorkflowNotificationsCubit>().load,
-                icon: const Icon(Icons.refresh_rounded),
-                label: const Text('تلاش دوباره'),
-              ),
-            );
+            return ErrorState(
+                failure: state.message ?? 'دریافت اعلان‌ها ممکن نشد.',
+                onRetry: context.read<WorkflowNotificationsCubit>().load);
           }
           return RefreshIndicator(
             onRefresh: context.read<WorkflowNotificationsCubit>().load,
@@ -111,7 +109,7 @@ class _NotificationCard extends StatelessWidget {
                   children: [
                     Row(children: [
                       Expanded(
-                        child: Text(item.title,
+                        child: Text(persianNotificationTitle(item.title),
                             style: const TextStyle(
                                 fontSize: 12, fontWeight: FontWeight.w900)),
                       ),
@@ -133,10 +131,7 @@ class _NotificationCard extends StatelessWidget {
                     ],
                     const SizedBox(height: 7),
                     Text(
-                      item.createdAt == null
-                          ? ''
-                          : DateFormat('yyyy/MM/dd – HH:mm')
-                              .format(item.createdAt!.toLocal()),
+                      formatDateTimeJalali(item.createdAt),
                       style: const TextStyle(
                           fontSize: 9, color: AsoudColors.muted),
                     ),

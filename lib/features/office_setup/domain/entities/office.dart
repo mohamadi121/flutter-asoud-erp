@@ -27,6 +27,9 @@ class Office extends Equatable {
     this.description,
     this.lastSyncedAt,
     this.setupComplete = false,
+    this.officeSaved,
+    this.accountingSaved,
+    this.rolesSaved,
   });
 
   final String name;
@@ -44,6 +47,18 @@ class Office extends Equatable {
   final String? fiscalYear, chartTemplate, description;
   final DateTime? lastSyncedAt;
   final bool setupComplete;
+  final bool? officeSaved;
+  final bool? accountingSaved;
+  final bool? rolesSaved;
+
+  int get savedStepCount {
+    if (officeSaved != null || accountingSaved != null || rolesSaved != null) {
+      return (officeSaved == true ? 1 : 0) +
+          (accountingSaved == true ? 1 : 0) +
+          (rolesSaved == true ? 1 : 0);
+    }
+    return setupComplete ? 3 : 0;
+  }
 
   @override
   List<Object?> get props => [
@@ -70,5 +85,8 @@ class Office extends Equatable {
         description,
         lastSyncedAt,
         setupComplete,
+        officeSaved,
+        accountingSaved,
+        rolesSaved,
       ];
 }

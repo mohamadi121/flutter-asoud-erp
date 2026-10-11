@@ -440,7 +440,7 @@ void main() {
         MaterialApp(home: PersonnelPage(company: 'office', repository: repo)));
     await tester.pumpAndSettle();
     expect(find.text('پرسنل'), findsNWidgets(2));
-    await tester.tap(find.widgetWithText(ChoiceChip, 'غیرفعال (1)'));
+    await tester.tap(find.widgetWithText(ChoiceChip, 'غیرفعال (۱)'));
     await tester.pumpAndSettle();
     expect(find.text('علی'), findsNothing);
     expect(find.text('رضا'), findsOneWidget);

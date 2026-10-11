@@ -2,6 +2,7 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
 import '../../../../core/offline/offline_failure.dart';
+import '../../../../core/utils/failure_message.dart';
 import '../../domain/entities/party_profile.dart';
 import '../../domain/repositories/party_repository.dart';
 
@@ -85,7 +86,7 @@ class PartiesCubit extends Cubit<PartiesState> {
             primaryRole: PartyRole.employee);
       }
       if (!isClosed) await load(role: role);
-    } catch (_) {
+    } catch (error) {
       if (!isClosed) {
         emit(PartiesState(
             status: PartiesStatus.failure,
@@ -108,12 +109,12 @@ class PartiesCubit extends Cubit<PartiesState> {
         status: items.isEmpty ? PartiesStatus.empty : PartiesStatus.success,
         items: items,
       ));
-    } catch (_) {
+    } catch (error) {
       if (isClosed || version != _loadVersion) return;
       emit(PartiesState(
         status: PartiesStatus.failure,
         items: state.items,
-        message: 'دریافت اطلاعات اشخاص از ASOUD ERP انجام نشد.',
+        message: failureMessage(error),
       ));
     }
   }

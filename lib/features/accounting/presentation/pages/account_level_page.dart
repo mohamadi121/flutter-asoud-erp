@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/persian_format.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../domain/entities/account_node.dart';
 import '../../domain/repositories/chart_of_accounts_repository.dart';
@@ -66,7 +67,7 @@ class _AccountLevelPageState extends State<AccountLevelPage> {
                   color: AsoudColors.primary.withValues(alpha: .08),
                   borderRadius: BorderRadius.circular(13)),
               child: Text(
-                  '${widget.parent.level == AccountLevel.group ? 'گروه' : 'حساب کل'}: ${widget.parent.code} - ${widget.parent.title}',
+                  '${widget.parent.level == AccountLevel.group ? 'گروه' : 'حساب کل'}: ${toPersianDigits(widget.parent.code)} - ${widget.parent.title}',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                       color: AsoudColors.primary, fontWeight: FontWeight.w900)),
@@ -135,7 +136,7 @@ class _AccountLevelPageState extends State<AccountLevelPage> {
                         color: const Color(0xFFFFF6E4),
                         borderRadius: BorderRadius.circular(12)),
                     child: const Text(
-                        'کد حساب توسط Backend و براساس الگوی دفتر تولید می‌شود.',
+                        'کد حساب توسط سرور و براساس الگوی دفتر تولید می‌شود.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                             fontSize: 9, color: AsoudColors.warning))),
@@ -170,7 +171,7 @@ class _LevelAccountCard extends StatelessWidget {
                   decoration: BoxDecoration(
                       color: AsoudColors.primary.withValues(alpha: .08),
                       borderRadius: BorderRadius.circular(12)),
-                  child: Text(account.code,
+                  child: Text(toPersianDigits(account.code),
                       style: const TextStyle(
                           color: AsoudColors.primary, fontSize: 9))),
               const SizedBox(width: 10),

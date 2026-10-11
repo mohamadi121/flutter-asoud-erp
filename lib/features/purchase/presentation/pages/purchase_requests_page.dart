@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/widgets/asoud_ui.dart';
+import '../../../../core/widgets/states.dart';
 import '../../domain/purchase_request.dart';
 import '../../domain/purchase_request_repository.dart';
 import 'purchase_request_page.dart';
@@ -41,12 +42,9 @@ class _PurchaseRequestsPageState extends State<PurchaseRequestsPage> {
               return const Center(child: CircularProgressIndicator());
             }
             if (snapshot.hasError) {
-              return Center(
-                child: OutlinedButton.icon(
-                  onPressed: _reload,
-                  icon: const Icon(Icons.refresh_rounded),
-                  label: const Text('تلاش دوباره'),
-                ),
+              return ErrorState(
+                failure: snapshot.error ?? 'دریافت درخواست‌ها ممکن نشد.',
+                onRetry: _reload,
               );
             }
             final items = snapshot.data ?? const [];

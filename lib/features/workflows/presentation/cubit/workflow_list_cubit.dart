@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
+import '../../../../core/utils/failure_message.dart';
 import '../../domain/entities/workflow_definition.dart';
 import '../../domain/repositories/workflow_repository.dart';
 
@@ -32,10 +33,10 @@ class WorkflowListCubit extends Cubit<WorkflowListState> {
             (repository as OfflinePreviewAware).isOfflinePreview,
         clearMessage: true,
       ));
-    } catch (_) {
+    } catch (error) {
       emit(state.copyWith(
         status: WorkflowListLoadStatus.failure,
-        message: 'دریافت فرایندها از ASOUD ERP ممکن نشد.',
+        message: failureMessage(error),
       ));
     }
   }

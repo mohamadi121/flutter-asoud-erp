@@ -7,6 +7,7 @@ import '../../../../core/network/frappe_client.dart';
 import '../../../../core/offline/local_record.dart';
 import '../../../../core/offline/offline_failure.dart';
 import '../../../../core/offline/offline_sync_service.dart';
+import '../../../../core/offline/queued_request_adapter.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/jalali_date.dart';
 
@@ -53,7 +54,7 @@ class _SyncQueuePageState extends State<SyncQueuePage> {
       builder: (context) => AlertDialog(
         title: const Text('حذف از صف'),
         content: const Text(
-          'این نوشته برای همیشه از صف ارسال پاک می‌شود و دیگر به سرور ارسال نخواهد شد. این تغییر قابل بازگشت نیست.',
+          'این نوشته از صف ارسال حذف می‌شود و دیگر به سرور ارسال نخواهد شد. تا چند لحظه می‌توانید آن را بازگردانید.',
         ),
         actions: [
           TextButton(
@@ -69,7 +70,27 @@ class _SyncQueuePageState extends State<SyncQueuePage> {
       ),
     );
     if (confirmed != true) return;
-    await _act(() => widget.service.discard(row.id));
+    final removed = await widget.service.discardReturning(row.id);
+    if (!mounted) return;
+    await _load();
+    if (!mounted) return;
+    final name = outboxRecordName(row);
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(SnackBar(
+      content: Text(
+          '«${name.isEmpty ? persianMutationLabel(row) : name}» از صف حذف شد'),
+      action: SnackBarAction(
+        label: 'بازگردانی',
+        onPressed: () => unawaited(_restore(removed)),
+      ),
+    ));
+  }
+
+  Future<void> _restore(List<LocalRecord> removed) async {
+    await widget.service.restore(removed);
+    if (!mounted) return;
+    await _load();
   }
 
   @override
@@ -80,7 +101,6 @@ class _SyncQueuePageState extends State<SyncQueuePage> {
       child: Scaffold(
         appBar: AppBar(
           title: const Text('صف ارسال به سرور'),
-          automaticallyImplyLeading: false,
         ),
         body: rows == null
             ? const Center(child: CircularProgressIndicator())
@@ -111,7 +131,7 @@ class _SyncQueuePageState extends State<SyncQueuePage> {
     );
   }
 
-  Future<void> _sendAll() => _act(widget.service.sendAll);
+  Future<void> _sendAll() => _act(widget.service.retryAll);
 }
 
 class _QueueSummary extends StatelessWidget {
@@ -128,25 +148,33 @@ class _QueueSummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-        child: Row(children: [
-          const Icon(Icons.cloud_upload_outlined, size: 20),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              '${toPersianDigits(rows.length)} نوشته در انتظار ارسال به سرور است',
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(children: [
+              const Icon(Icons.cloud_upload_outlined, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '${toPersianDigits(rows.length)} نوشته در انتظار ارسال به سرور است',
+                  style: const TextStyle(
+                      fontSize: 12, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ]),
+            const SizedBox(height: 8),
+            FilledButton.icon(
+              onPressed: busy ? null : () => onSendAll(),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(0, 48),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+              ),
+              icon: const Icon(Icons.send_rounded, size: 17),
+              label:
+                  const Text('ارسال دوباره همه', style: TextStyle(fontSize: 12)),
             ),
-          ),
-          FilledButton.icon(
-            onPressed: busy ? null : () => onSendAll(),
-            style: FilledButton.styleFrom(
-              minimumSize: const Size(0, 38),
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-            ),
-            icon: const Icon(Icons.send_rounded, size: 17),
-            label: const Text('ارسال همه', style: TextStyle(fontSize: 11)),
-          ),
-        ]),
+          ],
+        ),
       );
 }
 
@@ -168,6 +196,9 @@ class SyncQueueItemCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final failed = row.status == LocalSyncStatus.syncFailed;
     final message = persianSyncErrorMessage(row.lastError);
+    final operation = persianMutationLabel(row);
+    final name = outboxRecordName(row);
+    final title = name.isEmpty ? operation : name;
     return Card(
       margin: EdgeInsets.zero,
       child: Padding(
@@ -175,72 +206,98 @@ class SyncQueueItemCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              persianMutationLabel(row),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              formatJalaliDateTimeIso(row.createdAt.toIso8601String()),
-              style: const TextStyle(fontSize: 10, color: AsoudColors.muted),
-            ),
-            const SizedBox(height: 8),
             Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Icon(
                 failed ? Icons.error_outline_rounded : Icons.schedule_rounded,
-                size: 15,
+                size: 18,
                 color: failed ? AsoudColors.danger : AsoudColors.warning,
               ),
-              const SizedBox(width: 5),
+              const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  failed
-                      ? 'ناموفق: ${message.isEmpty ? 'خطای نامشخص سرور' : message}'
-                      : 'در انتظار اتصال',
+                  title,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: failed ? AsoudColors.danger : AsoudColors.warning,
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: const TextStyle(
+                      fontSize: 14, fontWeight: FontWeight.w800),
                 ),
               ),
             ]),
-            const SizedBox(height: 6),
-            Row(children: [
-              Expanded(
+            if (name.isNotEmpty) ...[
+              const SizedBox(height: 2),
+              Padding(
+                padding: const EdgeInsets.only(right: 24),
                 child: Text(
-                  'تلاش‌ها: ${toPersianDigits(row.attempts)}',
+                  operation,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style:
-                      const TextStyle(fontSize: 10, color: AsoudColors.muted),
+                      const TextStyle(fontSize: 12, color: AsoudColors.muted),
                 ),
               ),
-              TextButton(
-                onPressed: enabled ? onRetry : null,
-                style: TextButton.styleFrom(
-                  minimumSize: const Size(0, 36),
-                  visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                ),
-                child:
-                    const Text('تلاش دوباره', style: TextStyle(fontSize: 11)),
+            ],
+            const SizedBox(height: 4),
+            Padding(
+              padding: const EdgeInsets.only(right: 24),
+              child: Text(
+                formatJalaliDateTimeIso(row.createdAt.toIso8601String()),
+                style: const TextStyle(fontSize: 10, color: AsoudColors.muted),
               ),
-              TextButton(
-                onPressed: enabled ? onDiscard : null,
-                style: TextButton.styleFrom(
-                  minimumSize: const Size(0, 36),
-                  visualDensity: VisualDensity.compact,
-                  foregroundColor: AsoudColors.danger,
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.only(right: 24),
+              child: Text(
+                failed
+                    ? 'ناموفق: ${message.isEmpty ? 'خطای نامشخص سرور' : message}'
+                    : isQueuedRequest(row)
+                        ? 'در انتظار ارسال'
+                        : 'در انتظار اتصال',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: failed ? AsoudColors.danger : AsoudColors.warning,
+                  fontWeight: FontWeight.w700,
                 ),
-                child: const Text('حذف از صف', style: TextStyle(fontSize: 11)),
               ),
-            ]),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'تلاش‌ها: ${toPersianDigits(row.attempts)}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 11, color: AsoudColors.muted),
+            ),
+            const SizedBox(height: 4),
+            Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  OutlinedButton(
+                    onPressed: enabled ? onRetry : null,
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(0, 48),
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                    ),
+                    child: const Text('تلاش دوباره',
+                        style: TextStyle(fontSize: 12)),
+                  ),
+                  OutlinedButton(
+                    onPressed: enabled ? onDiscard : null,
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(0, 48),
+                      foregroundColor: AsoudColors.danger,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                    ),
+                    child: const Text('حذف از صف',
+                        style: TextStyle(fontSize: 12)),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -347,6 +404,7 @@ const _mutationLabels = <String, String>{
 /// The Persian name of a queued operation, falling back to the method name so an
 /// unknown write is still identifiable.
 String persianMutationLabel(LocalRecord row) {
+  if (isQueuedRequest(row)) return genericRequestOperationLabel;
   final operation = row.payload['operation']?.toString() ?? '';
   if (operation == 'create_resource' || operation == 'update_resource') {
     final doctype = row.entityType.split('/').first;
@@ -355,4 +413,36 @@ String persianMutationLabel(LocalRecord row) {
         : 'ویرایش $doctype';
   }
   return _mutationLabels[row.entityType.split('.').last] ?? row.entityType;
+}
+
+/// Payload keys, most specific first, that hold what the user actually wrote
+/// (a subject, a party/company name, an account or a document number).
+const _recordNameKeys = <String>[
+  'subject',
+  'title',
+  'display_name',
+  'customer_name',
+  'supplier_name',
+  'full_name',
+  'company_name',
+  'company',
+  'account_name',
+  'party_name',
+  'employee_name',
+  'item_name',
+  'group_name',
+  'request_id',
+  'name',
+];
+
+/// The document or request name of a queued row, so the queue shows what the
+/// user wrote instead of only the technical operation; empty when the payload
+/// carries no such value. An offline request is named by its own subject.
+String outboxRecordName(LocalRecord row) {
+  if (isQueuedRequest(row)) return requestSubjectOf(row);
+  for (final key in _recordNameKeys) {
+    final value = row.payload[key]?.toString().trim() ?? '';
+    if (value.isNotEmpty) return value;
+  }
+  return '';
 }

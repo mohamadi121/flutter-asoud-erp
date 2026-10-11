@@ -5,6 +5,7 @@ import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/jalali_date.dart';
 import '../../../../core/utils/persian_server_values.dart';
 import '../../../../core/widgets/asoud_ui.dart';
+import '../../../../core/widgets/states.dart';
 import '../../domain/entities/party_profile.dart';
 import '../../domain/repositories/party_repository.dart';
 import 'party_form_page.dart';
@@ -96,12 +97,10 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
                             '${detail.groupTitle ?? detail.groupId}: ${detail.code}'),
                     ]))),
             if (loading) const LinearProgressIndicator(),
-            if (error != null) ...[
-              Text(error!),
-              TextButton(
-                  onPressed: loading ? null : _reload,
-                  child: const Text('تلاش دوباره')),
-            ],
+            if (error != null)
+              ErrorState(
+                  failure: error!,
+                  onRetry: loading ? null : _reload),
             _section(
                 'اطلاعات اصلی',
                 Icons.person_outline,
@@ -125,9 +124,13 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
                 },
                 expanded: true),
             _section('راه‌های ارتباطی', Icons.call_outlined, {
-              'موبایل': profile.mobile,
-              'تلفن': profile.phone,
-              'تلفن دیگر': profile.secondaryPhone,
+              'موبایل': profile.mobile == null
+                  ? null
+                  : toPersianDigits(profile.mobile!),
+              'تلفن': profile.phone == null ? null : toPersianDigits(profile.phone!),
+              'تلفن دیگر': profile.secondaryPhone == null
+                  ? null
+                  : toPersianDigits(profile.secondaryPhone!),
               'ایمیل': profile.email,
               'وب‌سایت': profile.website,
             }),
@@ -195,10 +198,12 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
                                     const TextStyle(color: AsoudColors.muted))),
                         const SizedBox(width: 12),
                         Expanded(
-                            child: SelectableText(field.value == null ||
-                                    '${field.value}'.trim().isEmpty
-                                ? 'ثبت نشده'
-                                : '${field.value}')),
+                            child: Text(
+                                field.value == null ||
+                                        '${field.value}'.trim().isEmpty
+                                    ? 'ثبت نشده'
+                                    : '${field.value}',
+                                softWrap: true)),
                       ])),
           ],
         ),

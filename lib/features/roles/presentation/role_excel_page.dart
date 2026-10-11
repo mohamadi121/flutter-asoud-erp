@@ -91,7 +91,7 @@ class _RoleExcelPageState extends State<_RoleExcelPage> {
               if (_error != null) _RoleHint(_error!, error: true),
               for (final role in _rows)
                 ListTile(
-                    title: Text(role.title),
+                    title: Text(persianRoleLabel(role.title)),
                     subtitle: Text('${role.code} · ${role.category}'),
                     trailing: Text(role.parent)),
             ]),

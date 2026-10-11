@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/network/frappe_client.dart';
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/persian_format.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../data/repositories/preview_fallback_workflow_repository.dart';
 import '../../data/workflow_automation_repository.dart';
@@ -509,6 +510,13 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
                         minLines: 3,
                         maxLines: 4,
                         maxLength: 500,
+                        buildCounter: (context,
+                                {required currentLength,
+                                required isFocused,
+                                maxLength}) =>
+                            Text(formatCounter(currentLength, maxLength),
+                                style: const TextStyle(
+                                    fontSize: 10, color: AsoudColors.muted)),
                         decoration: const InputDecoration(
                             hintText: 'شرح کوتاهی از کار این مرحله...'),
                       ),
@@ -1121,7 +1129,7 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
         PickerField(
           value: formFields.isEmpty
               ? 'بدون فرم'
-              : 'فرم مرحله · ${formFields.length} فیلد',
+              : 'فرم مرحله · ${formatCount(formFields.length, 'فیلد')}',
           icon: Icons.dynamic_form_outlined,
           onTap: _pickForm,
         ),
@@ -1212,7 +1220,7 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
           PickerField(
             value: formFields.isEmpty
                 ? ''
-                : 'فرم تکمیلی · ${formFields.length} فیلد',
+                : 'فرم تکمیلی · ${formatCount(formFields.length, 'فیلد')}',
             placeholder: 'انتخاب یا ساخت فرم تکمیلی',
             icon: Icons.description_outlined,
             onTap: _pickForm,

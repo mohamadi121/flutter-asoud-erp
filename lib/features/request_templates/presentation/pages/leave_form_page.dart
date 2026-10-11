@@ -227,17 +227,18 @@ class _LeaveRequestFormPageState extends State<LeaveRequestFormPage> {
                   children: [
                     // The requester is the signed-in user; the unit is shown
                     // only when the profile has none to fill in.
-                    if (orgUnitMissing) templateField(session, 'org_unit'),
-                    templateField(session, 'leave_type'),
-                    templateField(session, 'request_kind'),
-                    templateField(session, 'start_date'),
-                    templateField(session, 'end_date'),
-                    templateField(session, 'leave_date'),
-                    templateField(session, 'start_time'),
-                    templateField(session, 'end_time'),
+                    if (orgUnitMissing)
+                      templateField(session, 'org_unit', unified: true),
+                    templateField(session, 'leave_type', unified: true),
+                    templateField(session, 'request_kind', unified: true),
+                    templateField(session, 'start_date', unified: true),
+                    templateField(session, 'end_date', unified: true),
+                    templateField(session, 'leave_date', unified: true),
+                    templateField(session, 'start_time', unified: true),
+                    templateField(session, 'end_time', unified: true),
                     _durationRow(),
-                    templateField(session, 'location'),
-                    templateField(session, 'reason'),
+                    templateField(session, 'location', unified: true),
+                    templateField(session, 'reason', unified: true),
                   ]),
               templateAttachmentsCard(session, title: 'پیوست‌ها (اختیاری)'),
               LeaveBalancePanel(

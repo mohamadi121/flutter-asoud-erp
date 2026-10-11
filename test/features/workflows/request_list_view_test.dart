@@ -280,12 +280,12 @@ void main() {
   testWidgets('empty and error states offer a retry', (tester) async {
     final repo = _Repo([])..failure = StateError('boom');
     await _open(tester, repo);
-    expect(find.text('دریافت ناموفق؛ تلاش دوباره'), findsOneWidget);
+    expect(find.text('تلاش دوباره'), findsOneWidget);
     repo.failure = null;
-    await tester.tap(find.text('دریافت ناموفق؛ تلاش دوباره'));
+    await tester.tap(find.text('تلاش دوباره'));
     await tester.pumpAndSettle();
     expect(find.text('هنوز درخواستی ثبت نشده است.'), findsOneWidget);
-    expect(find.text('دریافت ناموفق؛ تلاش دوباره'), findsNothing);
+    expect(find.text('تلاش دوباره'), findsNothing);
   });
 
   testWidgets('a custom empty text and card builder are used', (tester) async {

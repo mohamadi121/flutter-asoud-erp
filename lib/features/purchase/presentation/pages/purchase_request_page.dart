@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/persian_format.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../domain/purchase_request.dart';
 import '../../domain/purchase_request_repository.dart';
@@ -256,7 +257,7 @@ class _DateField extends StatelessWidget {
         },
         child: InputDecorator(
           decoration: const InputDecoration(labelText: 'تاریخ نیاز *'),
-          child: Text('${value.year}/${value.month}/${value.day}'),
+          child: Text(formatDateJalali(value)),
         ),
       );
 }

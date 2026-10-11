@@ -1158,112 +1158,124 @@ class _ProfileEditorState extends State<_ProfileEditor> {
         ['department', 'job_title', 'employment_type', 'branch', 'reports_to']
             .contains(key)) {
       final current = fields[key]!.text;
-      return AsoudFormDropdown(
-          controller: fields[key]!,
-          label: label,
-          enabled: !saving && !loadingOptions,
-          options: {
-            if (current.isNotEmpty) current: current,
-            ..._personnelLinkOptions(linkOptions, key),
-          });
+      return _linkSelect(key, label, {
+        if (current.isNotEmpty) current: current,
+        ..._personnelLinkOptions(linkOptions, key),
+      });
     }
     if (financialPersonnelFields.contains(key)) {
-      return AsoudFormField(
-          controller: fields[key]!,
-          label: label,
-          enabled: !saving,
-          keyboardType: TextInputType.number,
-          validator: (value) {
-            if (value == null || value.isEmpty) return null;
-            final amount = num.tryParse(value);
-            return amount == null ||
-                    !amount.isFinite ||
-                    amount < 0 ||
-                    amount > 1e15
-                ? 'مبلغ معتبر و غیرمنفی وارد کنید.'
-                : null;
-          });
+      return Padding(
+          padding: AsoudFormStyle.fieldPadding,
+          child: AppTextField(
+              controller: fields[key]!,
+              label: label,
+              enabled: !saving,
+              keyboardType: TextInputType.number,
+              validator: (value) {
+                if (value == null || value.isEmpty) return null;
+                final amount = num.tryParse(value);
+                return amount == null ||
+                        !amount.isFinite ||
+                        amount < 0 ||
+                        amount > 1e15
+                    ? 'مبلغ معتبر و غیرمنفی وارد کنید.'
+                    : null;
+              }));
     }
     if (key == 'employee_gender') {
-      return AsoudFormDropdown(
-          controller: fields[key]!,
-          label: label,
-          enabled: !saving,
-          options: _genderOptions);
+      return _linkSelect(key, label, _genderOptions);
     }
     if (key == 'marital_status' || key == 'blood_group') {
-      return AsoudFormDropdown(
-          controller: fields[key]!,
-          label: label,
-          enabled: !saving,
-          options: key == 'marital_status'
-              ? _maritalOptions
-              : {
-                  for (final group in [
-                    'A+',
-                    'A-',
-                    'B+',
-                    'B-',
-                    'AB+',
-                    'AB-',
-                    'O+',
-                    'O-'
-                  ])
-                    group: group,
-                });
+      return _linkSelect(key, label, key == 'marital_status'
+          ? _maritalOptions
+          : {
+              for (final group in [
+                'A+',
+                'A-',
+                'B+',
+                'B-',
+                'AB+',
+                'AB-',
+                'O+',
+                'O-'
+              ])
+                group: group,
+            });
     }
     if (key == 'branch' || key == 'reports_to') {
-      return AsoudFormDropdown(
-          controller: fields[key]!,
-          label: label,
-          enabled: !saving,
-          options: _personnelLinkOptions(linkOptions, key));
+      return _linkSelect(key, label, _personnelLinkOptions(linkOptions, key));
     }
     if (key == 'notice_number_of_days') {
-      return AsoudFormField(
-          controller: fields[key]!,
-          label: label,
-          enabled: !saving,
-          keyboardType: TextInputType.number,
-          validator: (value) {
-            if (value == null || value.trim().isEmpty) return null;
-            final days = int.tryParse(value.trim());
-            return days == null || days < 0
-                ? 'تعداد روز معتبر و غیرمنفی وارد کنید.'
-                : null;
-          });
+      return Padding(
+          padding: AsoudFormStyle.fieldPadding,
+          child: AppTextField(
+              controller: fields[key]!,
+              label: label,
+              enabled: !saving,
+              keyboardType: TextInputType.number,
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) return null;
+                final days = int.tryParse(value.trim());
+                return days == null || days < 0
+                    ? 'تعداد روز معتبر و غیرمنفی وارد کنید.'
+                    : null;
+              }));
     }
     if (key == 'employment_type') {
-      return AsoudFormDropdown(
-          controller: fields[key]!,
-          label: label,
-          enabled: !saving,
-          options: const {
-            'تمام وقت': 'تمام وقت',
-            'پاره وقت': 'پاره وقت',
-            'قراردادی': 'قراردادی',
-            'کارآموز': 'کارآموز'
-          });
+      return _linkSelect(key, label, const {
+        'تمام وقت': 'تمام وقت',
+        'پاره وقت': 'پاره وقت',
+        'قراردادی': 'قراردادی',
+        'کارآموز': 'کارآموز'
+      });
     }
     if (key.endsWith('_date') || key == 'date_of_joining') {
       return AsoudFormDateField(
           controller: fields[key]!, label: label, enabled: !saving);
     }
-    return AsoudFormField(
-        controller: fields[key]!,
-        label: label,
-        enabled: !saving,
-        lines: key == 'address_line' ? 3 : 1,
-        keyboardType: ['mobile', 'phone', 'emergency_phone'].contains(key)
-            ? TextInputType.phone
-            : key == 'email' || key == 'company_email'
-                ? TextInputType.emailAddress
-                : null,
-        validator: key == 'display_name'
-            ? (v) => (v?.trim().isEmpty ?? true)
-                ? 'نام و نام خانوادگی الزامی است.'
-                : null
-            : null);
+    return Padding(
+        padding: AsoudFormStyle.fieldPadding,
+        child: AppTextField(
+            controller: fields[key]!,
+            label: label,
+            enabled: !saving,
+            maxLines: key == 'address_line' ? 3 : 1,
+            keyboardType: ['mobile', 'phone', 'emergency_phone'].contains(key)
+                ? TextInputType.phone
+                : key == 'email' || key == 'company_email'
+                    ? TextInputType.emailAddress
+                    : null,
+            validator: key == 'display_name'
+                ? (v) => (v?.trim().isEmpty ?? true)
+                    ? 'نام و نام خانوادگی الزامی است.'
+                    : null
+                : null));
+  }
+
+  /// A value box in the shared form language ([AppSelectField]) that keeps its
+  /// selection in `fields[key]` exactly as [AsoudFormDropdown] did, so the
+  /// saved payloads do not change.
+  Widget _linkSelect(String key, String label, Map<String, String> options) {
+    final current = fields[key]!.text;
+    return Padding(
+        padding: AsoudFormStyle.fieldPadding,
+        child: AppSelectField(
+          label: label,
+          value: current,
+          displayValue: options[current] ?? current,
+          hint: 'انتخاب کنید',
+          enabled: !saving && !loadingOptions,
+          onPick: saving || loadingOptions
+              ? null
+              : () => showAppOptionSheet(context,
+                  title: label,
+                  current: options[current] ?? current,
+                  options: [
+                    for (final entry in options.entries)
+                      AppOption(entry.key, entry.value)
+                  ]),
+          onChanged: (value) => setState(() => fields[key]!.text = value),
+        ));
   }
 
   @override
@@ -1390,7 +1402,7 @@ class _RecordsPageState extends State<_RecordsPage> {
                     children: [
                       _HrSummary(
                           title: _recordTitle(widget.kind),
-                          subtitle: '${items.length} مورد ثبت‌شده',
+                          subtitle: formatCount(items.length, 'مورد ثبت‌شده'),
                           icon: _recordIcon(widget.kind),
                           color: _recordColor(widget.kind)),
                       TextField(
@@ -1443,7 +1455,7 @@ class _RecordsPageState extends State<_RecordsPage> {
                             padding: const EdgeInsets.only(top: 9),
                             child: _SummaryTile(
                                 title:
-                                    '${record['record_date'] ?? ''}${record['pending_sync'] == true ? ' • در انتظار همگام‌سازی' : ''}',
+                                    '${formatDateJalali(record['record_date'])}${record['pending_sync'] == true ? ' • در انتظار همگام‌سازی' : ''}',
                                 value: '${record['title']}',
                                 icon: _recordIcon('${record['kind']}'),
                                 color: _recordColor('${record['kind']}'),
@@ -1799,35 +1811,39 @@ class _RecordFormState extends State<_RecordForm> {
     }
   }
 
-  Widget time(String key) => AsoudFormField(
-      controller: fields[key]!,
-      label: _recordLabels[key]!,
-      enabled: !saving,
-      keyboardType: TextInputType.datetime,
-      hint: 'HH:mm',
-      validator: (v) => !RegExp(r'^([01]\d|2[0-3]):[0-5]\d$').hasMatch(v ?? '')
-          ? 'ساعت معتبر وارد کنید.'
-          : null,
-      suffixIcon: IconButton(
-          tooltip: 'انتخاب ساعت',
-          icon: const Icon(Icons.schedule),
-          onPressed: saving
-              ? null
-              : () async {
-                  final parts = fields[key]!.text.split(':');
-                  final hour = int.tryParse(parts.first) ?? 8,
-                      minute =
-                          parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0;
-                  final selected = await showTimePicker(
-                      context: context,
-                      initialTime: TimeOfDay(
-                          hour: hour.clamp(0, 23),
-                          minute: minute.clamp(0, 59)));
-                  if (selected != null) {
-                    fields[key]!.text =
-                        '${selected.hour.toString().padLeft(2, '0')}:${selected.minute.toString().padLeft(2, '0')}';
-                  }
-                }));
+  Widget time(String key) => Padding(
+      padding: AsoudFormStyle.fieldPadding,
+      child: AppTextField(
+          controller: fields[key]!,
+          label: _recordLabels[key]!,
+          enabled: !saving,
+          keyboardType: TextInputType.datetime,
+          hint: 'HH:mm',
+          validator: (v) => !RegExp(r'^([01]\d|2[0-3]):[0-5]\d$')
+                  .hasMatch(v ?? '')
+              ? 'ساعت معتبر وارد کنید.'
+              : null,
+          suffixIcon: IconButton(
+              tooltip: 'انتخاب ساعت',
+              icon: const Icon(Icons.schedule),
+              onPressed: saving
+                  ? null
+                  : () async {
+                      final parts = fields[key]!.text.split(':');
+                      final hour = int.tryParse(parts.first) ?? 8,
+                          minute = parts.length > 1
+                              ? int.tryParse(parts[1]) ?? 0
+                              : 0;
+                      final selected = await showTimePicker(
+                          context: context,
+                          initialTime: TimeOfDay(
+                              hour: hour.clamp(0, 23),
+                              minute: minute.clamp(0, 59)));
+                      if (selected != null) {
+                        fields[key]!.text =
+                            '${selected.hour.toString().padLeft(2, '0')}:${selected.minute.toString().padLeft(2, '0')}';
+                      }
+                    })));
   @override
   Widget build(BuildContext context) => AsoudFormPage(
           title:
@@ -1839,14 +1855,17 @@ class _RecordFormState extends State<_RecordForm> {
           onSave: save,
           children: [
             AsoudFormSection(title: 'اطلاعات اصلی', children: [
-              AsoudFormField(
-                  controller: fields['title']!,
-                  label: 'عنوان *',
-                  enabled: !saving,
-                  validator: (v) =>
-                      v == null || v.trim().isEmpty || v.trim().length > 140
-                          ? 'عنوان بین ۱ تا ۱۴۰ نویسه وارد کنید.'
-                          : null),
+              Padding(
+                  padding: AsoudFormStyle.fieldPadding,
+                  child: AppTextField(
+                      controller: fields['title']!,
+                      label: 'عنوان',
+                      required: true,
+                      enabled: !saving,
+                      validator: (v) =>
+                          v == null || v.trim().isEmpty || v.trim().length > 140
+                              ? 'عنوان بین ۱ تا ۱۴۰ نویسه وارد کنید.'
+                              : null)),
               AsoudFormDateField(
                   controller: fields['date']!,
                   label: 'تاریخ *',
@@ -1863,18 +1882,39 @@ class _RecordFormState extends State<_RecordForm> {
               ]),
             if (widget.kind == 'document')
               AsoudFormSection(title: 'اطلاعات مدرک', children: [
-                AsoudFormDropdown(
-                    controller: fields['document_category']!,
-                    label: 'نوع مدرک',
-                    enabled: !saving,
-                    options: {
-                      for (final category in personnelDocumentCategories)
-                        category: documentCategoryLabel(category),
-                    }),
-                AsoudFormField(
-                    controller: fields['document_number']!,
-                    label: 'شماره مدرک',
-                    enabled: !saving),
+                Builder(builder: (context) {
+                  final current = fields['document_category']!.text;
+                  final options = {
+                    for (final category in personnelDocumentCategories)
+                      category: documentCategoryLabel(category)
+                  };
+                  return Padding(
+                      padding: AsoudFormStyle.fieldPadding,
+                      child: AppSelectField(
+                        label: 'نوع مدرک',
+                        value: current,
+                        displayValue: options[current] ?? current,
+                        hint: 'انتخاب کنید',
+                        enabled: !saving,
+                        onPick: saving
+                            ? null
+                            : () => showAppOptionSheet(context,
+                                title: 'نوع مدرک',
+                                current: options[current] ?? current,
+                                options: [
+                                  for (final e in options.entries)
+                                    AppOption(e.key, e.value)
+                                ]),
+                        onChanged: (value) => setState(
+                            () => fields['document_category']!.text = value),
+                      ));
+                }),
+                Padding(
+                    padding: AsoudFormStyle.fieldPadding,
+                    child: AppTextField(
+                        controller: fields['document_number']!,
+                        label: 'شماره مدرک',
+                        enabled: !saving)),
                 AsoudFormDateField(
                     controller: fields['expiry_date']!,
                     label: 'تاریخ انقضا',
@@ -1886,32 +1926,61 @@ class _RecordFormState extends State<_RecordForm> {
                   if (loadingCycles) const LinearProgressIndicator(),
                   if (cycleError != null)
                     TextButton(onPressed: loadCycles, child: Text(cycleError!)),
-                  AsoudFormDropdown(
-                      controller: fields['appraisal_cycle']!,
-                      label: 'دوره ارزیابی *',
-                      options: appraisalCycles,
-                      required: true,
-                      enabled:
-                          !saving && !loadingCycles && widget.recordId == null),
+                  Builder(builder: (context) {
+                    final current = fields['appraisal_cycle']!.text;
+                    final cyclesEnabled = !saving &&
+                        !loadingCycles &&
+                        widget.recordId == null;
+                    return Padding(
+                        padding: AsoudFormStyle.fieldPadding,
+                        child: AppSelectField(
+                          label: 'دوره ارزیابی',
+                          required: true,
+                          value: current,
+                          displayValue: appraisalCycles[current] ?? current,
+                          hint: 'انتخاب کنید',
+                          enabled: cyclesEnabled,
+                          validator: (v) => !cyclesEnabled
+                              ? null
+                              : v == null || v.isEmpty
+                                  ? 'این فیلد الزامی است.'
+                                  : null,
+                          onPick: !cyclesEnabled
+                              ? null
+                              : () => showAppOptionSheet(context,
+                                  title: 'دوره ارزیابی',
+                                  current: appraisalCycles[current] ??
+                                      current,
+                                  options: [
+                                    for (final e in appraisalCycles.entries)
+                                      AppOption(e.key, e.value)
+                                  ]),
+                          onChanged: (value) => setState(
+                              () => fields['appraisal_cycle']!.text = value),
+                        ));
+                  }),
                   const Text(
                       'این فرم برای دوره‌های دارای یک معیار با وزن ۱۰۰٪ است. دوره و الگو باید در منابع انسانی تعریف و به پرسنل اختصاص داده شوند.',
                       style: TextStyle(fontSize: 11)),
                   const SizedBox(height: 12),
                 ],
-                AsoudFormField(
-                    controller: fields['score']!,
-                    label: 'امتیاز هدف از ۱۰۰ *',
-                    keyboardType: TextInputType.number,
-                    enabled: !saving,
-                    validator: (v) {
-                      final score = num.tryParse(v ?? '');
-                      return score == null ||
-                              !score.isFinite ||
-                              score < 0 ||
-                              score > 100
-                          ? 'امتیاز بین صفر و صد وارد کنید.'
-                          : null;
-                    }),
+                Padding(
+                    padding: AsoudFormStyle.fieldPadding,
+                    child: AppTextField(
+                        controller: fields['score']!,
+                        label: 'امتیاز هدف از ۱۰۰',
+                        required: true,
+                        keyboardType: TextInputType.number,
+                        enabled: !saving,
+                        validator: (v) {
+                          final score = num.tryParse(v ?? '');
+                          return score == null ||
+                                  !score.isFinite ||
+                                  score < 0 ||
+                                  score > 100
+                              ? 'امتیاز بین صفر و صد وارد کنید.'
+                              : null;
+                        })),
               ]),
             if (widget.kind == 'document' || widget.kind == 'photo')
               AsoudFormSection(title: 'فایل پیوست', children: [
@@ -1963,14 +2032,16 @@ class _RecordFormState extends State<_RecordForm> {
                         fontSize: 10, color: Color(0xFF8392B8))),
               ]),
             AsoudFormSection(title: 'توضیحات', children: [
-              AsoudFormField(
-                  controller: fields['notes']!,
-                  label: 'شرح و توضیحات',
-                  lines: 4,
-                  enabled: !saving,
-                  validator: (v) => (v?.length ?? 0) > 5000
-                      ? 'حداکثر ۵۰۰۰ نویسه وارد کنید.'
-                      : null)
+              Padding(
+                  padding: AsoudFormStyle.fieldPadding,
+                  child: AppTextField(
+                      controller: fields['notes']!,
+                      label: 'شرح و توضیحات',
+                      maxLines: 4,
+                      enabled: !saving,
+                      validator: (v) => (v?.length ?? 0) > 5000
+                          ? 'حداکثر ۵۰۰۰ نویسه وارد کنید.'
+                          : null))
             ]),
           ]);
 }

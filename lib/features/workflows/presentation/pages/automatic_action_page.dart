@@ -4,7 +4,7 @@ import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/persian_server_values.dart';
 import '../../../../core/widgets/asoud_form.dart';
-import '../../../../core/utils/jalali_date.dart';
+import '../../../../core/utils/persian_format.dart';
 import '../../data/workflow_automation_repository.dart';
 import '../../domain/entities/automatic_action.dart';
 import '../../domain/entities/workflow_definition.dart';
@@ -714,7 +714,7 @@ class _AutomaticActionPageState extends State<AutomaticActionPage> {
         Card(
             child: ListTile(
                 title: const Text('انتخاب گیرندگان'),
-                subtitle: Text('${recipients.length} گیرنده'),
+                subtitle: Text(formatCount(recipients.length, 'گیرنده')),
                 trailing: const Icon(Icons.people_outline),
                 onTap: saving ? null : _pickRecipients)),
         Wrap(spacing: 8, children: [

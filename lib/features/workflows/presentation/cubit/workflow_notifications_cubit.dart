@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/utils/failure_message.dart';
 import '../../domain/entities/workflow_notification.dart';
 import '../../domain/repositories/workflow_notification_repository.dart';
 
@@ -43,7 +44,7 @@ class WorkflowNotificationsCubit extends Cubit<WorkflowNotificationsState> {
       emit(WorkflowNotificationsState(
         status: WorkflowNotificationsStatus.failure,
         unreadOnly: filter,
-        message: error.toString(),
+        message: failureMessage(error),
       ));
     }
   }

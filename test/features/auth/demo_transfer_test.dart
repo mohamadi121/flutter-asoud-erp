@@ -11,7 +11,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../helpers/fake_local_record_store.dart';
 
-class _NoClient extends Fake implements FrappeApiClient {}
+class _NoClient extends Fake implements FrappeApiClient {
+  @override
+  bool get isAuthenticated => true;
+
+  @override
+  Future<FrappeUserContext> getCurrentUser() async =>
+      const FrappeUserContext(userId: 'user', fullName: 'کاربر آزمون', roles: []);
+}
 
 void main() {
   setUp(() {
@@ -31,7 +38,11 @@ void main() {
     await store.save(
         id: 'p1',
         entityType: 'm',
-        payload: const {'operation': 'asoud_method'},
+        payload: const {
+          'operation': 'asoud_method',
+          '_asoud_owner': 'user',
+          '_asoud_server': 'injected-client',
+        },
         status: LocalSyncStatus.pendingSync);
     // A local mirror row has no operation: it is not a queued write.
     await store.save(
@@ -47,19 +58,31 @@ void main() {
     await store.save(
         id: 'f1',
         entityType: 'm',
-        payload: const {'operation': 'asoud_method'},
+        payload: const {
+          'operation': 'asoud_method',
+          '_asoud_owner': 'user',
+          '_asoud_server': 'injected-client',
+        },
         status: LocalSyncStatus.syncFailed);
     await store.save(
         id: 's1',
         entityType: 'm',
-        payload: const {'operation': 'asoud_method'},
+        payload: const {
+          'operation': 'asoud_method',
+          '_asoud_owner': 'user',
+          '_asoud_server': 'injected-client',
+        },
         status: LocalSyncStatus.synced);
     // The queue screen lists localOnly writes that carry an operation, but
     // not preview rows (no operation).
     await store.save(
         id: 'l1',
         entityType: 'm',
-        payload: const {'operation': 'asoud_method'},
+        payload: const {
+          'operation': 'asoud_method',
+          '_asoud_owner': 'user',
+          '_asoud_server': 'injected-client',
+        },
         status: LocalSyncStatus.localOnly);
     await store.save(
         id: 'preview',
@@ -74,6 +97,23 @@ void main() {
         await OfflineSyncService(_NoClient(), local: store).unsentCount());
     expect(toPersianDigits(3), '۳');
     expect(toPersianDigits(12), '۱۲');
+  });
+
+  test('the sign-out count includes a pending offline request but not a preview row',
+      () async {
+    final store = FakeLocalRecordStore();
+    await store.save(
+        id: 'generic-request:["srv","user","c"]:request-1',
+        entityType: 'generic_request_outbox',
+        payload: const {'scope': ['srv', 'user', 'c'], 'data': {}},
+        status: LocalSyncStatus.pendingSync);
+    await store.save(
+        id: 'preview',
+        entityType: 'generic_request_outbox',
+        payload: const {'scope': 's', 'data': {}},
+        status: LocalSyncStatus.localOnly);
+
+    expect(await countUnsentOfflineRows(store: store), 1);
   });
 
   test('transfer list contains only user-created preview items', () async {

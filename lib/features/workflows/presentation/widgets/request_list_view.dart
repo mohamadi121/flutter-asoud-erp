@@ -2,8 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/failure_message.dart';
 import '../../../../core/utils/jalali_date.dart';
 import '../../../../core/widgets/asoud_form.dart';
 import '../../../../core/widgets/asoud_ui.dart';
@@ -394,11 +394,11 @@ class RequestListViewState extends State<RequestListView> {
                     child: Center(child: CircularProgressIndicator()))
               else if (_error != null && _items.isEmpty)
                 _state(
-                    Icons.cloud_off_rounded,
-                    _error is ApiException
-                        ? (_error as ApiException).message
-                        : 'دریافت فهرست ممکن نشد.',
-                    action: 'دریافت ناموفق؛ تلاش دوباره',
+                    failureIsForbidden(_error)
+                        ? Icons.lock_outline_rounded
+                        : Icons.cloud_off_rounded,
+                    failureMessage(_error),
+                    action: failureCanRetry(_error) ? 'تلاش دوباره' : null,
                     onAction: () => _load())
               else if (_items.isEmpty)
                 _state(

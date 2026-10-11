@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/persian_format.dart';
 import '../../../../core/widgets/asoud_ui.dart';
+import '../../../../core/widgets/states.dart';
 import '../../domain/entities/account_node.dart';
 import '../../domain/repositories/chart_of_accounts_repository.dart';
 import '../cubit/chart_of_accounts_cubit.dart';
@@ -77,8 +79,8 @@ class _ChartOfAccountsViewState extends State<_ChartOfAccountsView> {
                 if (state.status == ChartStatus.loading)
                   const LinearProgressIndicator(),
                 if (state.status == ChartStatus.failure) ...[
-                  _ChartMessage(
-                    message: state.message ?? 'دریافت اطلاعات ممکن نشد.',
+                  ErrorState(
+                    failure: state.message ?? 'دریافت اطلاعات ممکن نشد.',
                     onRetry: context.read<ChartOfAccountsCubit>().load,
                   ),
                   const SizedBox(height: 12),
@@ -154,7 +156,11 @@ class _ChartOfAccountsViewState extends State<_ChartOfAccountsView> {
                                 : 'افزودن حساب معین'))),
                 ],
                 if (visible.isEmpty)
-                  const _EmptyAccounts()
+                  const EmptyState(
+                      icon: Icons.account_tree_outlined,
+                      title: 'سرفصلی برای نمایش نیست',
+                      description:
+                          'پس از ثبت، سرفصل‌ها در اینجا نمایش داده می‌شوند.')
                 else if (_view == 1)
                   ...visible.map((account) => Card(
                         key: ValueKey('stage-${account.id}'),
@@ -168,7 +174,7 @@ class _ChartOfAccountsViewState extends State<_ChartOfAccountsView> {
                           subtitle: Text(_levelTitle(account.level)),
                           trailing:
                               Row(mainAxisSize: MainAxisSize.min, children: [
-                            Text(account.code,
+                            Text(toPersianDigits(account.code),
                                 textDirection: TextDirection.ltr,
                                 style: const TextStyle(
                                     fontSize: 16, fontWeight: FontWeight.w700)),
@@ -302,44 +308,6 @@ class _ChartOfAccountsViewState extends State<_ChartOfAccountsView> {
       };
 }
 
-class _ChartMessage extends StatelessWidget {
-  const _ChartMessage({required this.message, required this.onRetry});
-  final String message;
-  final VoidCallback onRetry;
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: AsoudColors.warning.withValues(alpha: .08),
-          border: Border.all(color: AsoudColors.warning.withValues(alpha: .4)),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(children: [
-          const Icon(Icons.cloud_off_rounded, color: AsoudColors.warning),
-          const SizedBox(width: 8),
-          Expanded(child: Text(message, style: const TextStyle(fontSize: 10))),
-          TextButton(onPressed: onRetry, child: const Text('تلاش مجدد')),
-        ]),
-      );
-}
-
-class _EmptyAccounts extends StatelessWidget {
-  const _EmptyAccounts();
-  @override
-  Widget build(BuildContext context) => const Padding(
-        padding: EdgeInsets.symmetric(vertical: 48),
-        child: Column(children: [
-          AsoudIconBox(
-              icon: Icons.search_off_rounded,
-              color: AsoudColors.muted,
-              size: 52),
-          SizedBox(height: 12),
-          Text('حسابی با این مشخصات پیدا نشد.',
-              style: TextStyle(color: AsoudColors.muted)),
-        ]),
-      );
-}
-
 class _AccountTile extends StatelessWidget {
   const _AccountTile({
     required this.account,
@@ -383,7 +351,7 @@ class _AccountTile extends StatelessWidget {
             title: Text(account.title,
                 style: const TextStyle(fontWeight: FontWeight.w700)),
             trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-              Text(account.code,
+              Text(toPersianDigits(account.code),
                   textDirection: TextDirection.ltr,
                   style: const TextStyle(
                       fontSize: 16,
@@ -417,12 +385,12 @@ class _AccountTile extends StatelessWidget {
                   color: color),
               title: Text(account.title),
               trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                Text(account.code,
-                    textDirection: TextDirection.ltr,
-                    style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: AsoudColors.muted)),
+                Text(toPersianDigits(account.code),
+                  textDirection: TextDirection.ltr,
+                  style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: AsoudColors.muted)),
                 _AccountMenu(
                     account: account, company: company, repository: repository),
               ]),

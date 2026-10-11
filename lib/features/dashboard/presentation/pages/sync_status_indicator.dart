@@ -6,14 +6,15 @@ import '../../../../core/offline/offline_sync_service.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/jalali_date.dart';
 
-/// A small app-bar badge: how many writes are still on this phone, whether the
-/// queue is running, and that nothing is left when the count reaches zero.
+/// A full-width, tappable status bar: how many writes are still on this phone,
+/// whether the queue is running, and that nothing is left when the count
+/// reaches zero. It is the home entry point to «صف ارسال به سرور».
 class SyncStatusIndicator extends StatefulWidget {
   const SyncStatusIndicator({required this.service, this.onOpen, super.key});
 
   final OfflineSyncService service;
 
-  /// Opens «صف ارسال به سرور»; the badge is inert without it.
+  /// Opens «صف ارسال به سرور»; the bar is inert without it.
   final VoidCallback? onOpen;
 
   @override
@@ -67,47 +68,54 @@ class _SyncStatusIndicatorState extends State<SyncStatusIndicator> {
     if (unsent == null) return const SizedBox.shrink();
     final clear = unsent == 0 && _localOnly == 0;
     final color = clear ? AsoudColors.success : AsoudColors.warning;
+    final surface =
+        clear ? AsoudColors.successSurface : AsoudColors.warningSurface;
     final label = clear
         ? 'همه داده‌ها ارسال شده'
         : unsent > 0
-            ? '${toPersianDigits(unsent)} نوشته ارسال نشده'
+            ? '${toPersianDigits(unsent)} تغییر ارسال نشد — مشاهده'
             : '${toPersianDigits(_localOnly)} داده روی گوشی';
-    final badge = Material(
-      color: Colors.transparent,
+    final bar = Material(
+      color: surface,
+      borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: widget.onOpen,
-        borderRadius: BorderRadius.circular(18),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: double.infinity,
+          constraints: const BoxConstraints(minHeight: 48),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(children: [
             if (_syncing)
               const SizedBox(
-                width: 15,
-                height: 15,
+                width: 20,
+                height: 20,
                 child: CircularProgressIndicator(
-                    strokeWidth: 2, color: AsoudColors.primary),
+                    strokeWidth: 2.4, color: AsoudColors.primary),
               )
             else
               Icon(
                   clear
                       ? Icons.check_circle_rounded
                       : Icons.cloud_upload_outlined,
-                  size: 17,
+                  size: 22,
                   color: color),
-            const SizedBox(width: 5),
-            Flexible(
+            const SizedBox(width: 8),
+            Expanded(
               child: Text(
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                    fontSize: 10, fontWeight: FontWeight.w800, color: color),
+                    fontSize: 13, fontWeight: FontWeight.w800, color: color),
               ),
             ),
+            if (!clear && widget.onOpen != null)
+              Icon(Icons.chevron_left_rounded, size: 20, color: color),
           ]),
         ),
       ),
     );
-    return Directionality(textDirection: TextDirection.rtl, child: badge);
+    return Directionality(textDirection: TextDirection.rtl, child: bar);
   }
 }

@@ -140,3 +140,19 @@ String formatJalaliDateTimeIso(String iso) {
       '${date.minute.toString().padLeft(2, '0')}';
   return '$formatted - ${toPersianDigits(time)}';
 }
+
+/// `۰۲:۱۲`
+String formatPersianTime(DateTime value) {
+  final local = value.toLocal();
+  final time = '${local.hour.toString().padLeft(2, '0')}:'
+      '${local.minute.toString().padLeft(2, '0')}';
+  return toPersianDigits(time);
+}
+
+/// `۰۲:۱۲` from an ISO string, or empty if no time component.
+String formatPersianTimeIso(String iso) {
+  if (!RegExp(r'[Tt ]\d{2}:\d{2}').hasMatch(iso)) return '';
+  final date = DateTime.tryParse(iso);
+  if (date == null) return '';
+  return formatPersianTime(date);
+}

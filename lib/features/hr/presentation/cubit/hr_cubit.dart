@@ -83,6 +83,7 @@ class HrCubit extends Cubit<HrState> {
         ApiFailureKind.network => 'ارتباط با سرور برقرار نشد.',
         ApiFailureKind.server => 'سرور هنگام پردازش با خطا روبه‌رو شد.',
         ApiFailureKind.protocol => 'پاسخ سرور قابل پردازش نیست.',
+        ApiFailureKind.responseTooLarge => 'پاسخ سرور بیش از حد بزرگ است.',
         ApiFailureKind.cancelled => 'دریافت اطلاعات لغو شد.',
       };
       return 'دریافت خدمات منابع انسانی ممکن نشد. دلیل: $reason';

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/persian_format.dart';
 import '../../domain/entities/workflow_definition.dart';
 import '../../../request_types/presentation/pages/request_field_editor_page.dart';
 
@@ -23,7 +24,7 @@ class WorkflowFormBuilder extends StatelessWidget {
               child: Text('فیلدهای فرم',
                   style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900)),
             ),
-            Text('${fields.length}/۳۰',
+            Text(formatCounter(fields.length, 30),
                 style: const TextStyle(fontSize: 10, color: AsoudColors.muted)),
           ]),
           const SizedBox(height: 8),
@@ -157,11 +158,9 @@ class _FieldCard extends StatelessWidget {
             )),
             IconButton(
                 onPressed: onMoveUp,
-                visualDensity: VisualDensity.compact,
                 icon: const Icon(Icons.keyboard_arrow_up_rounded, size: 20)),
             IconButton(
                 onPressed: onMoveDown,
-                visualDensity: VisualDensity.compact,
                 icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 20)),
             PopupMenuButton<String>(
               onSelected: (value) => value == 'edit' ? onEdit() : onDelete(),

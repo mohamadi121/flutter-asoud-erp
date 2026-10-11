@@ -189,17 +189,25 @@ class CapRows extends StatelessWidget {
               child:
                   Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Expanded(
-                    flex: 2,
-                    child: Text(entry.key,
-                        style: const TextStyle(
-                            color: AsoudColors.muted, fontSize: 11))),
-                const SizedBox(width: 12),
+                    flex: 5,
+                    child: Tooltip(
+                      message: entry.key,
+                      child: Text(entry.key,
+                          softWrap: true,
+                          style: const TextStyle(
+                              color: AsoudColors.muted, fontSize: 11)),
+                    )),
+                const SizedBox(width: 8),
                 Expanded(
-                    flex: 3,
-                    child: capValueText(entry.value,
-                        textAlign: TextAlign.left,
-                        style: const TextStyle(
-                            fontSize: 12, fontWeight: FontWeight.w700))),
+                    flex: 6,
+                    child: Tooltip(
+                      message: entry.value,
+                      child: capValueText(entry.value,
+                          textAlign: TextAlign.left,
+                          maxLines: 2,
+                          style: const TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.w700)),
+                    )),
               ])),
         ],
       ]));

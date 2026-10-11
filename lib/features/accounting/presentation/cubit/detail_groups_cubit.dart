@@ -2,6 +2,7 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
 import '../../../../core/offline/offline_failure.dart';
+import '../../../../core/utils/failure_message.dart';
 import '../../domain/entities/detail_group.dart';
 import '../../domain/repositories/detail_group_repository.dart';
 
@@ -19,12 +20,14 @@ class DetailGroupsState extends Equatable {
     this.status = DetailGroupsStatus.initial,
     this.groups = const [],
     this.message,
+    this.canRetry = true,
   });
   final DetailGroupsStatus status;
   final List<DetailGroup> groups;
   final String? message;
+  final bool canRetry;
   @override
-  List<Object?> get props => [status, groups, message];
+  List<Object?> get props => [status, groups, message, canRetry];
 }
 
 class DetailGroupsCubit extends Cubit<DetailGroupsState> {
@@ -41,10 +44,11 @@ class DetailGroupsCubit extends Cubit<DetailGroupsState> {
             : DetailGroupsStatus.success,
         groups: groups,
       ));
-    } catch (_) {
-      emit(const DetailGroupsState(
+    } catch (error) {
+      emit(DetailGroupsState(
         status: DetailGroupsStatus.failure,
-        message: 'دریافت گروه‌های تفصیلی از ASOUD ERP ممکن نشد.',
+        message: failureMessage(error),
+        canRetry: failureCanRetry(error),
       ));
     }
   }
@@ -69,9 +73,10 @@ class DetailGroupsCubit extends Cubit<DetailGroupsState> {
         return;
       }
       if (!isClosed) {
-        emit(const DetailGroupsState(
+        emit(DetailGroupsState(
           status: DetailGroupsStatus.failure,
-          message: 'ایجاد گروه‌های پیشنهادی در ASOUD ERP انجام نشد.',
+          message: failureMessage(error),
+          canRetry: failureCanRetry(error),
         ));
       }
     }

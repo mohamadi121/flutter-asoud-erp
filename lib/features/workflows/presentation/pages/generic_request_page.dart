@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/network/frappe_client.dart';
 import '../../../../core/offline/queued_offline_exception.dart';
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/persian_format.dart';
 import '../../../../core/widgets/asoud_form.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../data/generic_request_repository.dart';
@@ -221,7 +222,7 @@ class _GenericRequestPageState extends State<GenericRequestPage> {
         builder: (ctx) => AlertDialog(
                 title: const Text('بررسی درخواست'),
                 content: Text(
-                    '${subject.text}\n${selected!['workflow_title']}\nتعداد پیوست: ${uploads.length}'),
+                    '${subject.text}\n${selected!['workflow_title']}\nتعداد پیوست: ${formatCount(uploads.length)}'),
                 actions: [
                   TextButton(
                       onPressed: () => Navigator.pop(ctx, false),
@@ -363,14 +364,20 @@ class _GenericRequestPageState extends State<GenericRequestPage> {
                 for (final field in all)
                   if (field.type != 'Item Table' && field.type != 'Attachment')
                     RequestFieldWidget(
-                        controller: controller, field: field, enabled: !saving),
+                        controller: controller,
+                        field: field,
+                        enabled: !saving,
+                        unified: true),
             ]),
             if (controller != null)
               for (final field in all)
                 if (field.type == 'Item Table')
                   _card('', [
                     RequestFieldWidget(
-                        controller: controller, field: field, enabled: !saving)
+                        controller: controller,
+                        field: field,
+                        enabled: !saving,
+                        unified: true)
                   ]),
             if (controller != null && !editing)
               _card('پیوست‌ها', [
@@ -385,14 +392,18 @@ class _GenericRequestPageState extends State<GenericRequestPage> {
                         child: RequestFieldWidget(
                             controller: controller,
                             field: field,
-                            enabled: !saving)),
+                            enabled: !saving,
+                            unified: true)),
               ]),
             if (controller != null && editing)
               for (final field in all)
                 if (field.type == 'Attachment')
                   _card('فایل پیوست', [
                     RequestFieldWidget(
-                        controller: controller, field: field, enabled: !saving)
+                        controller: controller,
+                        field: field,
+                        enabled: !saving,
+                        unified: true)
                   ]),
             if (!isTemplate)
               Card(

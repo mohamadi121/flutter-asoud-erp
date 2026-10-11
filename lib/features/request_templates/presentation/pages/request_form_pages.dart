@@ -10,11 +10,15 @@ import '../widgets/template_form_session.dart';
 
 /// The field [key] of the template as a form widget, or nothing when the type
 /// has no such field (a server that changed the template).
-Widget templateField(TemplateFormSession session, String key) {
+Widget templateField(TemplateFormSession session, String key,
+    {bool unified = false}) {
   final field = session.form.field(key);
   if (field == null) return const SizedBox.shrink();
   return RequestFieldWidget(
-      controller: session.form, field: field, enabled: !session.saving);
+      controller: session.form,
+      field: field,
+      enabled: !session.saving,
+      unified: unified);
 }
 
 /// The «عنوان درخواست» input of templates whose subject is typed by the user.

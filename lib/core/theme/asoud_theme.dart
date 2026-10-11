@@ -75,6 +75,19 @@ abstract final class AsoudTheme {
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
         ),
       ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: ButtonStyle(
+          foregroundColor: const WidgetStatePropertyAll(AsoudColors.primary),
+          side: const WidgetStatePropertyAll(
+              BorderSide(color: AsoudColors.border)),
+          textStyle: WidgetStatePropertyAll(
+              textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700)),
+        ),
+      ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: AsoudColors.primary,
+        foregroundColor: Colors.white,
+      ),
       cardTheme: CardThemeData(
         color: AsoudColors.surface,
         elevation: 0,

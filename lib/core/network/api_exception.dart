@@ -10,6 +10,7 @@ enum ApiFailureKind {
   server,
   protocol,
   cancelled,
+  responseTooLarge,
 }
 
 class ApiException implements Exception {

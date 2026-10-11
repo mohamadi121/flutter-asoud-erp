@@ -1,3 +1,5 @@
+import 'package:asoud_erp/core/network/api_exception.dart';
+import 'package:asoud_erp/core/utils/failure_message.dart';
 import 'package:asoud_erp/features/workflows/domain/entities/workflow_task.dart';
 import 'package:asoud_erp/features/workflows/domain/entities/workflow_definition.dart';
 import 'package:asoud_erp/features/workflows/domain/repositories/workflow_task_repository.dart';
@@ -8,11 +10,14 @@ import 'package:flutter_test/flutter_test.dart';
 
 class _Repository implements WorkflowTaskRepository {
   var instances = const <WorkflowInstanceSummary>[];
+  Object? failure;
 
   @override
   Future<List<WorkflowInstanceSummary>> getMyInstances(
-          {String? status}) async =>
-      instances;
+          {String? status}) async {
+    if (failure != null) throw failure!;
+    return instances;
+  }
 
   @override
   Future<WorkflowInstanceDetail> getInstance(String instance) async =>
@@ -26,6 +31,7 @@ class _Repository implements WorkflowTaskRepository {
   @override
   Future<List<WorkflowTask>> getMyTasks({String status = 'Open'}) async {
     lastStatus = status;
+    if (failure != null) throw failure!;
     return completed.isEmpty && status == 'Open'
         ? const [
             WorkflowTask(
@@ -143,6 +149,29 @@ void main() {
     expect(cubit.state.instances.single.currentAssignees.single,
         'manager@example.com');
     expect(cubit.state.offline, isTrue);
+    await cubit.close();
+  });
+
+  test('خطای کارتابل به متن فارسی تبدیل می‌شود و متن خام فنی ندارد', () async {
+    final repository = _Repository()
+      ..failure =
+          const ApiException(kind: ApiFailureKind.forbidden, message: 'x');
+    final cubit = WorkflowTasksCubit(repository);
+    await cubit.load();
+    expect(cubit.state.status, WorkflowTasksStatus.failure);
+    expect(cubit.state.message, forbiddenFailureMessage);
+    expect(cubit.state.message, isNot(contains('ApiException')));
+    expect(failureCanRetry(cubit.state.message), isFalse);
+    await cubit.close();
+  });
+
+  test('خطای ارسال‌شده‌های من متن فارسی و قابل‌تلاش‌دوباره است', () async {
+    final repository = _Repository()..failure = StateError('boom');
+    final cubit = WorkflowInstancesCubit(repository);
+    await cubit.load();
+    expect(cubit.state.status, WorkflowInstancesStatus.failure);
+    expect(cubit.state.message, contains('دوباره'));
+    expect(cubit.state.message, isNot(contains('ApiException')));
     await cubit.close();
   });
 }

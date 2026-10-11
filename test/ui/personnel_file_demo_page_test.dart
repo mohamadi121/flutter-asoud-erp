@@ -129,7 +129,8 @@ void main() {
           expect(find.text('ویرایش سابقه'), findsNothing);
           final attachment = await personnel.record(document['name'] as String);
           expect(attachment['file'], isNotEmpty);
-          expect(find.text(attachment['date'] as String), findsOneWidget);
+          expect(find.text(formatJalaliIso(attachment['date'] as String)),
+              findsOneWidget);
           expect(find.text('—'), findsNothing);
           await _pop(tester);
         }

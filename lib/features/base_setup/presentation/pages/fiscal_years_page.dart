@@ -105,7 +105,7 @@ class _FiscalYearsViewState extends State<_FiscalYearsView> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      'سال مالی ${_persianDigits(year)} از روز ${_persianDigits(day)} ماه ${_months[month - 1]} آغاز می‌شود و پایان آن توسط Backend محاسبه خواهد شد.',
+                      'سال مالی ${_persianDigits(year)} از روز ${_persianDigits(day)} ماه ${_months[month - 1]} آغاز می‌شود و پایان آن توسط سرور محاسبه خواهد شد.',
                       style: const TextStyle(fontSize: 10),
                     ),
                   ),

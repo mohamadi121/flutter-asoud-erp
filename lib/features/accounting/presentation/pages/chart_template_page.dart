@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/widgets/asoud_ui.dart';
+import '../../../../core/widgets/states.dart';
 import '../../domain/repositories/chart_of_accounts_repository.dart';
 
 class ChartTemplatePage extends StatefulWidget {
@@ -94,7 +95,9 @@ class _ChartTemplatePageState extends State<ChartTemplatePage> {
               if (snapshot.connectionState == ConnectionState.waiting)
                 const LinearProgressIndicator()
               else if (snapshot.hasError)
-                _ErrorCard(
+                ErrorState(
+                    failure: snapshot.error ??
+                        'دریافت پیش‌نمایش از سرور انجام نشد.',
                     onRetry: () => setState(() => preview = loadPreview()))
               else
                 _TemplateTree(rows: snapshot.data ?? const []),
@@ -151,20 +154,6 @@ class _TemplateTree extends StatelessWidget {
               ]),
             ),
         ]),
-      ));
-}
-
-class _ErrorCard extends StatelessWidget {
-  const _ErrorCard({required this.onRetry});
-  final VoidCallback onRetry;
-  @override
-  Widget build(BuildContext context) => Card(
-          child: ListTile(
-        leading:
-            const Icon(Icons.cloud_off_rounded, color: AsoudColors.warning),
-        title: const Text('دریافت پیش‌نمایش از Backend انجام نشد.'),
-        trailing:
-            TextButton(onPressed: onRetry, child: const Text('تلاش مجدد')),
       ));
 }
 

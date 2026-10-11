@@ -230,6 +230,7 @@ class _PreviewHintCard extends StatelessWidget {
           Expanded(
             child: Text(
               'برای دیدن ساختار واقعی قالب، «استفاده از قالب آماده» را انتخاب کنید. تا قبل از تأیید شما هیچ حسابی در ASOUD ERP ایجاد نمی‌شود.',
+              softWrap: true,
               style: TextStyle(fontSize: 9, color: AsoudColors.muted),
             ),
           ),

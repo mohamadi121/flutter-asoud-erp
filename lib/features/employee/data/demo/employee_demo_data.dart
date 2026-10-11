@@ -283,9 +283,11 @@ List<Map<String, dynamic>> demoAttendance(String fromDate, String toDate,
   }
   // One leave day inside the range so the status is always tryable.
   if (rows.length >= 4) {
-    final leave = rows[rows.length - 3];
-    if (leave['status'] == 'Present') {
-      rows[rows.length - 3] = {...leave, 'status': 'On Leave'};
+    final idx = rows.length > 3 && rows[rows.length - 3]['status'] == 'Present'
+        ? rows.length - 3
+        : rows.lastIndexWhere((r) => r['status'] == 'Present');
+    if (idx != -1) {
+      rows[idx] = {...rows[idx], 'status': 'On Leave'};
     }
   }
   return rows.reversed.toList(growable: false);

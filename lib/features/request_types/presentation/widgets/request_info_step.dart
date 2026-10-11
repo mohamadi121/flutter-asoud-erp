@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/widgets/app_fields.dart';
 import '../../../../core/widgets/asoud_form.dart';
 import '../../../workflows/domain/entities/workflow_definition.dart';
 import '../../domain/request_type_catalog.dart';
@@ -55,38 +56,45 @@ class _RequestInfoStepState extends State<RequestInfoStep> {
           const Text('اطلاعات کلی',
               style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900)),
           const SizedBox(height: 12),
-          AsoudFormField(
+          AppTextField(
               controller: title,
-              label: 'نام درخواست *',
+              label: 'نام درخواست',
+              required: true,
               hint: 'مثال: درخواست خرید',
               validator: (value) => (value?.trim().length ?? 0) < 3
                   ? 'نام درخواست حداقل ۳ حرف باشد.'
                   : null),
-          AsoudFormField(
+          const SizedBox(height: 12),
+          AppTextField(
               controller: shortTitle,
               label: 'عنوان کوتاه',
               hint: 'مثال: خرید کالا و خدمات'),
-          AsoudFormField(
+          const SizedBox(height: 12),
+          AppTextField(
               controller: description,
               label: 'توضیحات درخواست',
-              lines: 3,
+              maxLines: 3,
               hint: 'کاربرد این درخواست برای کاربران'),
-          Padding(
-            padding: AsoudFormStyle.fieldPadding,
-            child: DropdownButtonFormField<String>(
-              initialValue: category,
-              isExpanded: true,
-              decoration: const InputDecoration(labelText: 'دسته‌بندی'),
-              items: [
-                for (final item in requestCategories)
-                  DropdownMenuItem(value: item.key, child: Text(item.label)),
-              ],
+          const SizedBox(height: 12),
+          AppSelectField(
+              label: 'دسته‌بندی',
+              value: category,
+              displayValue: requestCategories
+                  .where((item) => item.key == category)
+                  .map((item) => item.label)
+                  .firstOrNull,
+              hint: 'انتخاب دسته',
+              onPick: () => showAppOptionSheet(context,
+                  title: 'دسته‌بندی',
+                  current: category,
+                  options: [
+                    for (final item in requestCategories)
+                      AppOption(item.key, item.label)
+                  ]),
               onChanged: (value) {
-                category = value ?? category;
+                category = value;
                 _changed();
-              },
-            ),
-          ),
+              }),
           const SizedBox(height: 6),
           const Text('آیکون',
               style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
@@ -113,21 +121,23 @@ class _RequestInfoStepState extends State<RequestInfoStep> {
           const SizedBox(height: 10),
           BlocSelector<RequestTypeBuilderCubit, RequestTypeBuilderState, bool>(
             selector: (state) => state.active,
-            builder: (context, active) => _Toggle(
-                label: 'فعال',
+            builder: (context, active) => AppSwitchTile(
+                title: 'فعال',
                 subtitle: 'پس از تکمیل گردش کار قابل ثبت است',
                 value: active,
                 onChanged: cubit.setActive),
           ),
-          _Toggle(
-              label: 'نمایش در لیست درخواست‌ها',
+          const SizedBox(height: 8),
+          AppSwitchTile(
+              title: 'نمایش در لیست درخواست‌ها',
               value: showInList,
               onChanged: (value) {
                 setState(() => showInList = value);
                 _changed();
               }),
-          _Toggle(
-              label: 'امکان ثبت توسط کاربران',
+          const SizedBox(height: 8),
+          AppSwitchTile(
+              title: 'امکان ثبت توسط کاربران',
               value: userSubmittable,
               onChanged: (value) {
                 setState(() => userSubmittable = value);
@@ -158,31 +168,5 @@ class _IconChoice extends StatelessWidget {
           ),
           child: Icon(option.icon, color: option.color, size: 24),
         ),
-      );
-}
-
-class _Toggle extends StatelessWidget {
-  const _Toggle(
-      {required this.label,
-      required this.value,
-      required this.onChanged,
-      this.subtitle});
-  final String label;
-  final String? subtitle;
-  final bool value;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) => SwitchListTile(
-        contentPadding: EdgeInsets.zero,
-        dense: true,
-        title: Text(label,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-        subtitle: subtitle == null
-            ? null
-            : Text(subtitle!,
-                style: const TextStyle(fontSize: 10, color: AsoudColors.muted)),
-        value: value,
-        onChanged: onChanged,
       );
 }

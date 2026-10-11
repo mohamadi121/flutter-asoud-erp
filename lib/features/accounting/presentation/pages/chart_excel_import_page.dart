@@ -3,6 +3,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/persian_format.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../domain/repositories/chart_of_accounts_repository.dart';
 
@@ -130,7 +131,7 @@ class _ChartExcelImportPageState extends State<ChartExcelImportPage> {
               ],
               if (rows.isNotEmpty) ...[
                 const SizedBox(height: 18),
-                Text('پیش‌نمایش ${rows.length} حساب',
+                Text('پیش‌نمایش ${formatCount(rows.length, 'حساب')}',
                     style: const TextStyle(fontWeight: FontWeight.w900)),
                 const SizedBox(height: 8),
                 for (final row in rows.take(20))

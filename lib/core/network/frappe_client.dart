@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
@@ -8,6 +9,7 @@ import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 import '../config/app_config.dart';
 import '../offline/offline_mutation_store.dart';
 import '../offline/queued_offline_exception.dart';
+import '../utils/failure_message.dart';
 import 'api_exception.dart';
 import 'session_vault.dart';
 import '../offline/offline_failure.dart';
@@ -155,6 +157,9 @@ class FrappeClient implements FrappeApiClient {
 
     final memoryCookies = cookieJar ?? CookieJar();
     client.interceptors.add(CookieManager(memoryCookies));
+    // Bound every download, so a malicious or broken server cannot exhaust the
+    // app's memory with an unbounded body.
+    client.httpClientAdapter = _BoundedHttpAdapter(client.httpClientAdapter);
     return FrappeClient._(
       client,
       memoryCookies,
@@ -177,6 +182,15 @@ class FrappeClient implements FrappeApiClient {
   int _sessionGeneration = 0;
   Future<void> _vaultWrites = Future<void>.value();
   String get serverIdentity => _baseUri.toString();
+
+  /// The largest normal JSON response the client will buffer. A larger body is
+  /// aborted mid-download and surfaced as an oversized-response failure instead
+  /// of being read into memory.
+  static const maxJsonResponseBytes = 10 * 1024 * 1024;
+
+  /// The higher cap a known-large download (a PDF or Excel export) can pass to
+  /// [`_requestJson`] explicitly, so it keeps working above the JSON limit.
+  static const maxDownloadResponseBytes = 100 * 1024 * 1024;
 
   Future<String?> getRememberedServer() async => _serverStore?.read();
 
@@ -659,13 +673,18 @@ class FrappeClient implements FrappeApiClient {
     Map<String, dynamic>? queryParameters,
     Map<String, dynamic>? headers,
     bool isLoginRequest = false,
+    int maxResponseBytes = maxJsonResponseBytes,
   }) async {
     try {
       final response = await _dio.request<dynamic>(
         path,
         data: data,
         queryParameters: queryParameters,
-        options: Options(method: method, headers: headers),
+        options: Options(
+          method: method,
+          headers: headers,
+          extra: {_maxResponseBytesKey: maxResponseBytes},
+        ),
       );
       final body = response.data;
       if (body is! Map) throw const ApiException.protocol();
@@ -683,6 +702,12 @@ class FrappeClient implements FrappeApiClient {
     DioException error, {
     required bool isLoginRequest,
   }) {
+    if (error.error is _ResponseTooLarge) {
+      return const ApiException(
+        kind: ApiFailureKind.responseTooLarge,
+        message: oversizedResponseFailureMessage,
+      );
+    }
     final statusCode = error.response?.statusCode;
     if (statusCode == 401) {
       return ApiException(
@@ -837,5 +862,55 @@ class FrappeClient implements FrappeApiClient {
     await _cookies.deleteAll();
     await _authenticationController.close();
     _dio.close(force: true);
+  }
+}
+
+/// The per-request byte cap carried in `RequestOptions.extra`; the bounded
+/// adapter reads it and falls back to the JSON limit when it is absent.
+const _maxResponseBytesKey = 'asoud_max_response_bytes';
+
+/// Thrown from the bounded response stream when the body exceeds its cap, so
+/// Dio aborts the download before the whole body is buffered.
+class _ResponseTooLarge implements Exception {
+  const _ResponseTooLarge();
+}
+
+/// Wraps the Dio HTTP adapter and caps each response body to the limit its
+/// request asked for, turning an oversized response into an [ApiException].
+class _BoundedHttpAdapter implements HttpClientAdapter {
+  _BoundedHttpAdapter(this._inner);
+
+  final HttpClientAdapter _inner;
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    final body = await _inner.fetch(options, requestStream, cancelFuture);
+    final limit = options.extra[_maxResponseBytesKey];
+    final maxBytes =
+        limit is int ? limit : FrappeClient.maxJsonResponseBytes;
+    return ResponseBody(
+      _bounded(body.stream, maxBytes),
+      body.statusCode,
+      statusMessage: body.statusMessage,
+      headers: body.headers,
+      isRedirect: body.isRedirect,
+      redirects: body.redirects,
+    );
+  }
+
+  @override
+  void close({bool force = false}) => _inner.close(force: force);
+}
+
+Stream<Uint8List> _bounded(Stream<Uint8List> source, int maxBytes) async* {
+  var total = 0;
+  await for (final chunk in source) {
+    total += chunk.length;
+    if (total > maxBytes) throw const _ResponseTooLarge();
+    yield chunk;
   }
 }

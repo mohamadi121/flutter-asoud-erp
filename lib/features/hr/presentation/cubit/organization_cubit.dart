@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:bloc/bloc.dart';
 import '../../../../core/network/api_exception.dart';
+import '../../../../core/utils/failure_message.dart';
 import '../../data/organization_repository.dart';
 import '../../domain/organization_chart.dart';
 
@@ -52,9 +53,7 @@ class OrganizationCubit extends Cubit<OrganizationState> {
                     (e.isUnauthorized || e.kind == ApiFailureKind.forbidden)
                 ? const OrganizationSnapshot([], 0, false)
                 : state.snapshot,
-            error: e is ApiException
-                ? e.message
-                : 'دریافت چارت ممکن نشد؛ دوباره تلاش کنید.'));
+            error: failureMessage(e)));
       }
     }
   }

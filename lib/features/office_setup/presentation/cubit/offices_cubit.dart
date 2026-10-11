@@ -3,6 +3,7 @@ import 'package:equatable/equatable.dart';
 
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/offline/offline_failure.dart';
+import '../../../../core/utils/failure_message.dart';
 import '../../domain/entities/office.dart';
 import '../../domain/repositories/office_repository.dart';
 
@@ -35,7 +36,8 @@ class OfficesCubit extends Cubit<OfficesState> {
         showCreatedBanner: showCreatedBanner,
       ));
     } on ApiException catch (error) {
-      emit(OfficesState(status: OfficesStatus.error, message: error.message));
+      emit(OfficesState(
+          status: OfficesStatus.error, message: failureMessage(error)));
     } catch (_) {
       emit(const OfficesState(
           status: OfficesStatus.error,

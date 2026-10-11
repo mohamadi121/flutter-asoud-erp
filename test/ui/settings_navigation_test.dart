@@ -10,7 +10,30 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../helpers/fake_role_client.dart';
 
-Widget app(Widget page, {FakeRoleClient? client}) =>
+class _SettingsClient extends Fake implements FrappeApiClient {
+  _SettingsClient(this.roles);
+  final List<String> roles;
+  @override
+  bool get isAuthenticated => true;
+  @override
+  Future<FrappeUserContext> getCurrentUser() async => FrappeUserContext(
+        userId: 'user@asoud-demo.local',
+        fullName: roles.contains('System Manager')
+            ? 'مدیر سیستم'
+            : 'مدیر منابع انسانی',
+        roles: roles,
+      );
+}
+
+Widget settingsApp(List<String> roles) => RepositoryProvider<FrappeApiClient>.value(
+    value: _SettingsClient(roles),
+    child: MaterialApp(
+        theme: AsoudTheme.light,
+        home: const Directionality(
+            textDirection: TextDirection.rtl,
+            child: SettingsDashboardContent(company: 'دفتر نمونه'))));
+
+Widget app(Widget page, {FrappeApiClient? client}) =>
     RepositoryProvider<FrappeApiClient>.value(
         value: client ?? FakeRoleClient(),
         child: MaterialApp(
@@ -68,13 +91,21 @@ void main() {
 
   testWidgets('settings remains accessible before office creation',
       (tester) async {
-    await tester.pumpWidget(app(const DashboardPage()));
+    await tester.pumpWidget(app(
+        const DashboardPage(),
+        client: _SettingsClient(const [
+          'System Manager',
+          'Accounts Manager',
+          'HR Manager',
+          'Employee',
+        ])));
     await tester.tap(find.text('تنظیمات'));
     await tester.pumpAndSettle();
     expect(find.byType(SettingsDashboardContent), findsOneWidget);
     expect(find.text('انتخاب دفتر'), findsOneWidget);
-    expect(find.text('مدیریت کاربران'),
-        findsNothing); // Below the initial viewport.
+    // The system-status cards are hidden outside the offline preview, so the
+    // actions grid now fits inside the initial viewport.
+    expect(find.text('مدیریت کاربران'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.tap(find.text('گزارش‌ها'));
     await tester.pumpAndSettle();
@@ -101,5 +132,51 @@ void main() {
       tester.state<NavigatorState>(find.byType(Navigator)).pop();
       await tester.pumpAndSettle();
     }
+  });
+
+  testWidgets('hr-manager sees no administrative settings tile',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(430, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(settingsApp(const ['HR Manager', 'Employee']));
+    await tester.pumpAndSettle();
+    for (final tile in [
+      'مدیریت کاربران',
+      'ساختار سازمانی',
+      'ماژول‌ها',
+      'انواع درخواست',
+      'مدیریت نقش‌ها',
+      'گردش کار',
+    ]) {
+      expect(find.text(tile), findsNothing);
+    }
+    for (final tile in ['دفترها', 'منابع انسانی', 'ثبت درخواست‌ها', 'کارتابل']) {
+      expect(find.text(tile), findsOneWidget);
+    }
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('administrator keeps the administrative settings tiles',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(430, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(settingsApp(const [
+      'System Manager',
+      'Accounts Manager',
+      'HR Manager',
+      'Employee',
+    ]));
+    await tester.pumpAndSettle();
+    for (final tile in [
+      'مدیریت کاربران',
+      'ساختار سازمانی',
+      'ماژول‌ها',
+      'انواع درخواست',
+      'مدیریت نقش‌ها',
+      'گردش کار',
+    ]) {
+      expect(find.text(tile), findsOneWidget);
+    }
+    expect(tester.takeException(), isNull);
   });
 }

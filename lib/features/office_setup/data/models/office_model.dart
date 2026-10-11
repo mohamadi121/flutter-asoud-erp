@@ -1,4 +1,5 @@
 import '../../../../core/utils/jalali_date.dart';
+import '../../../../core/utils/persian_server_values.dart';
 import '../../domain/entities/office.dart';
 
 class OfficeModel extends Office {
@@ -26,6 +27,9 @@ class OfficeModel extends Office {
     super.description,
     super.lastSyncedAt,
     super.setupComplete,
+    super.officeSaved,
+    super.accountingSaved,
+    super.rolesSaved,
   });
 
   factory OfficeModel.fromEntity(Office office) => OfficeModel(
@@ -52,6 +56,9 @@ class OfficeModel extends Office {
         description: office.description,
         lastSyncedAt: office.lastSyncedAt,
         setupComplete: office.setupComplete,
+        officeSaved: office.officeSaved,
+        accountingSaved: office.accountingSaved,
+        rolesSaved: office.rolesSaved,
       );
 
   factory OfficeModel.fromJson(Map<String, dynamic> json) => OfficeModel(
@@ -104,15 +111,17 @@ class OfficeModel extends Office {
                 (json['accounting_saved'] == true ||
                     json['accounting_saved'] == 1) &&
                 (json['roles_saved'] == true || json['roles_saved'] == 1)),
+        officeSaved: json['office_saved'] == true || json['office_saved'] == 1,
+        accountingSaved: json['accounting_saved'] == true ||
+            json['accounting_saved'] == 1,
+        rolesSaved: json['roles_saved'] == true || json['roles_saved'] == 1,
       );
 
-  static String? _chartTemplateToPersian(String? value) => switch (value) {
-        'Iran Standard' || 'استاندارد ایران' => 'استاندارد ایران',
-        'Service' || 'خدماتی' => 'خدماتی',
-        'Commercial' || 'بازرگانی' => 'بازرگانی',
-        'Manufacturing' || 'تولیدی' => 'تولیدی',
-        _ => value,
-      };
+  static String? _chartTemplateToPersian(String? value) {
+    if (value == null) return null;
+    final label = persianChartTemplateLabel(value);
+    return label.isEmpty ? null : label;
+  }
 
   static String? _provinceToPersian(String? value) => switch (value) {
         'Tehran' => 'تهران',

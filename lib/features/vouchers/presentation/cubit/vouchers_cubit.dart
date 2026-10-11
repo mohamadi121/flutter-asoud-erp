@@ -1,6 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
+import '../../../../core/utils/failure_message.dart';
 import '../../domain/entities/accounting_voucher.dart';
 import '../../domain/repositories/vouchers_repository.dart';
 
@@ -24,7 +25,7 @@ class VouchersCubit extends Cubit<VouchersState> {
     try {
       emit(VouchersState(status: VouchersStatus.success, items: await _repository.getVouchers(company, status: status, search: search)));
     } catch (error) {
-      emit(VouchersState(status: VouchersStatus.failure, message: error.toString()));
+      emit(VouchersState(status: VouchersStatus.failure, message: failureMessage(error)));
     }
   }
 
@@ -39,7 +40,7 @@ class VouchersCubit extends Cubit<VouchersState> {
         items: state.items.map((item) => item.id == updated.id ? updated : item).toList(),
       ));
     } catch (error) {
-      emit(VouchersState(status: VouchersStatus.failure, items: state.items, message: error.toString()));
+      emit(VouchersState(status: VouchersStatus.failure, items: state.items, message: failureMessage(error)));
     }
   }
 }

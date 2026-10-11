@@ -223,22 +223,22 @@ class _AsoudFormDateFieldState extends State<AsoudFormDateField> {
 
   @override
   Widget build(BuildContext context) => AsoudFormField(
-        controller: _display,
-        label: widget.label,
-        enabled: widget.enabled,
-        keyboardType: TextInputType.datetime,
-        hint: '۱۴۰۵/۰۷/۱۱',
-        errorText: widget.errorText,
-        validator: (value) {
-          if ((value ?? '').trim().isEmpty) {
-            return widget.required ? 'این فیلد الزامی است.' : null;
-          }
-          return parseJalaliDate(value!) == null
-              ? 'تاریخ شمسی معتبر به شکل سال/ماه/روز وارد کنید.'
-              : null;
-        },
-        suffixIcon: _suffix(),
-      );
+    controller: _display,
+    label: widget.label,
+    enabled: widget.enabled,
+    keyboardType: TextInputType.number,
+    hint: '۱۴۰۵/۰۷/۱۱',
+    errorText: widget.errorText,
+    validator: (value) {
+      if ((value ?? '').trim().isEmpty) {
+        return widget.required ? 'این فیلد الزامی است.' : null;
+      }
+      return parseJalaliDate(value!) == null
+          ? 'تاریخ شمسی معتبر به شکل سال/ماه/روز وارد کنید.'
+          : null;
+    },
+    suffixIcon: _suffix(),
+  );
 
   Widget _suffix() {
     final picker = IconButton(

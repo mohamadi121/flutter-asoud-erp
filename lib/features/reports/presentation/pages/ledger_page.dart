@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/network/frappe_client.dart';
+import '../../../../core/utils/persian_format.dart';
 import '../../data/repositories/frappe_reports_repository.dart';
 import '../../domain/entities/ledger_report.dart';
 import '../cubit/ledger_cubit.dart';
@@ -58,11 +59,11 @@ class _LedgerResult extends StatelessWidget {
         if (report.entries.isEmpty) const Card(child: Padding(padding: EdgeInsets.all(24), child: Text('در این بازه گردش حسابی ثبت نشده است.'))),
         ...report.entries.map((entry) => Card(child: ListTile(
           title: Text(entry.description.isEmpty ? entry.voucherNo : entry.description, style: const TextStyle(fontWeight: FontWeight.w700)),
-          subtitle: Text('${entry.date.toIso8601String().split('T').first} • ${entry.account}\n${entry.voucherType} ${entry.voucherNo}${entry.party.isEmpty ? '' : ' • ${entry.party}'}'),
+          subtitle: Text('${formatDateJalali(entry.date)} • ${entry.account}\n${entry.voucherType} ${entry.voucherNo}${entry.party.isEmpty ? '' : ' • ${entry.party}'}'),
           isThreeLine: true,
           trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
-            Text(entry.debit > 0 ? 'بدهکار ${entry.debit.toStringAsFixed(0)}' : 'بستانکار ${entry.credit.toStringAsFixed(0)}'),
-            Text('مانده ${entry.balance.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.w800)),
+            Text(entry.debit > 0 ? 'بدهکار ${formatNumber(entry.debit.round())}' : 'بستانکار ${formatNumber(entry.credit.round())}'),
+            Text('مانده ${formatNumber(entry.balance.round())}', style: const TextStyle(fontWeight: FontWeight.w800)),
           ]),
         ))),
       ]);
@@ -73,5 +74,5 @@ class _Metric extends StatelessWidget {
   final String title;
   final double value;
   @override
-  Widget build(BuildContext context) => Column(children: [Text(title, style: Theme.of(context).textTheme.labelSmall), const SizedBox(height: 4), Text(value.toStringAsFixed(0), style: const TextStyle(fontWeight: FontWeight.w800))]);
+  Widget build(BuildContext context) => Column(children: [Text(title, style: Theme.of(context).textTheme.labelSmall), const SizedBox(height: 4), Text(formatNumber(value.round()), style: const TextStyle(fontWeight: FontWeight.w800))]);
 }

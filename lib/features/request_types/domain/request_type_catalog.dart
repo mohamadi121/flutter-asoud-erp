@@ -26,18 +26,18 @@ const requestIcons = [
   RequestIconOption(
       'purchase', Icons.shopping_cart_outlined, Color(0xFF1769F6), '#1769F6'),
   RequestIconOption(
-      'leave', Icons.event_note_outlined, Color(0xFFEF3340), '#EF3340'),
+      'leave', Icons.event_note_outlined, Color(0xFFB3261E), '#B3261E'),
   RequestIconOption(
       'mission', Icons.flight_takeoff_rounded, Color(0xFF1769F6), '#1769F6'),
   RequestIconOption(
-      'loan', Icons.payments_outlined, Color(0xFF16A34A), '#16A34A'),
+      'loan', Icons.payments_outlined, Color(0xFF0B6B3A), '#0B6B3A'),
   RequestIconOption(
       'equipment', Icons.laptop_mac_outlined, Color(0xFF1769F6), '#1769F6'),
   RequestIconOption('it', Icons.lan_outlined, Color(0xFF7C24E8), '#7C24E8'),
   RequestIconOption(
       'hr', Icons.person_outline_rounded, Color(0xFFD946EF), '#D946EF'),
   RequestIconOption(
-      'other', Icons.more_horiz_rounded, Color(0xFF71809B), '#71809B'),
+      'other', Icons.more_horiz_rounded, Color(0xFF5B6478), '#5B6478'),
 ];
 
 RequestIconOption requestIconFor(String? key) => requestIcons
