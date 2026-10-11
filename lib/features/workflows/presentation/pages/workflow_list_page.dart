@@ -514,7 +514,11 @@ class _WorkflowBottomNavigation extends StatelessWidget {
             }
             return;
           }
-          final signedIn = context.read<FrappeApiClient>().isAuthenticated;
+          // Without a client in the tree (preview and unit tests) there is no session.
+          var signedIn = false;
+          try {
+            signedIn = context.read<FrappeApiClient>().isAuthenticated;
+          } catch (_) {}
           Navigator.push(
             context,
             MaterialPageRoute<void>(
