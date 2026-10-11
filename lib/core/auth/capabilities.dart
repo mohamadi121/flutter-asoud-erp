@@ -17,6 +17,7 @@ class Capabilities {
     required this.canWritePersonnel,
     required this.canManageUserAccess,
     required this.canWriteHrRecords,
+    required this.canWriteOwnHrRecords,
     required this.canSeeAccounting,
     required this.canSeeSettingsAdmin,
     required this.canReadManagerViews,
@@ -48,6 +49,7 @@ class Capabilities {
       canWritePersonnel: system,
       canManageUserAccess: system,
       canWriteHrRecords: system,
+      canWriteOwnHrRecords: system || names.contains('Employee'),
       canSeeAccounting: system || accountsManager || accountsUser,
       canSeeSettingsAdmin: configurationWriter,
       canReadManagerViews:
@@ -66,6 +68,7 @@ class Capabilities {
     canWritePersonnel: true,
     canManageUserAccess: true,
     canWriteHrRecords: true,
+    canWriteOwnHrRecords: true,
     canSeeAccounting: true,
     canSeeSettingsAdmin: true,
     canReadManagerViews: true,
@@ -81,6 +84,7 @@ class Capabilities {
   final bool canWritePersonnel;
   final bool canManageUserAccess;
   final bool canWriteHrRecords;
+  final bool canWriteOwnHrRecords;
   final bool canSeeAccounting;
   final bool canSeeSettingsAdmin;
   final bool canReadManagerViews;
