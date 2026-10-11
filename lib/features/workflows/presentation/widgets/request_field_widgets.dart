@@ -83,7 +83,15 @@ class RequestFieldWidget extends StatelessWidget {
             field: field,
             label: _label,
             enabled: _enabled),
-        'Choice' => _choice(context),
+        'Choice' => unified &&
+        field.widget != 'segmented' &&
+        field.widget != 'chips'
+    ? _UnifiedChoice(
+        controller: controller,
+        field: field,
+        label: _label,
+        enabled: _enabled)
+    : _choice(context),
         'Multi Choice' => _multiChoice(),
         'Checkbox' => _checkbox(),
         'User' || 'Department' || 'System Select' => unified
@@ -646,6 +654,48 @@ class _LinkFieldView extends StatelessWidget {
             style: TextStyle(
                 color: value == null ? AsoudColors.muted : AsoudColors.text)),
       ),
+    );
+  }
+}
+
+/// The unified look (bug #31) of a `Choice` field: an [AppSelectField] that
+/// opens the shared option sheet instead of the native dropdown; the key and
+/// the committed value (the option code) are identical to [_choice] so
+/// payloads and tests that read the value do not change.
+class _UnifiedChoice extends StatelessWidget {
+  const _UnifiedChoice(
+      {required this.controller,
+      required this.field,
+      required this.label,
+      required this.enabled});
+  final RequestFormController controller;
+  final WorkflowFormFieldDefinition field;
+  final String label;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final current = controller.value(field.key) as String?;
+    return AppSelectField(
+      key: ValueKey('${controller.idPrefix}:${field.key}'),
+      label: label,
+      value: current ?? '',
+      displayValue: current == null ? null : field.optionLabel(current),
+      hint: 'انتخاب کنید',
+      enabled: enabled,
+      errorText: controller.errorFor(field.key),
+      helperText: field.helpText.isEmpty ? null : field.helpText,
+      onPick: !enabled
+          ? null
+          : () => showAppOptionSheet(context,
+              title: field.label,
+              current: current,
+              options: [
+                for (final option in field.options)
+                  AppOption(option, field.optionLabel(option))
+              ]),
+      onChanged: (value) =>
+          controller.setValue(field.key, value.isEmpty ? null : value),
     );
   }
 }

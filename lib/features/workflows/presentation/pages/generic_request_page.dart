@@ -364,14 +364,20 @@ class _GenericRequestPageState extends State<GenericRequestPage> {
                 for (final field in all)
                   if (field.type != 'Item Table' && field.type != 'Attachment')
                     RequestFieldWidget(
-                        controller: controller, field: field, enabled: !saving),
+                        controller: controller,
+                        field: field,
+                        enabled: !saving,
+                        unified: true),
             ]),
             if (controller != null)
               for (final field in all)
                 if (field.type == 'Item Table')
                   _card('', [
                     RequestFieldWidget(
-                        controller: controller, field: field, enabled: !saving)
+                        controller: controller,
+                        field: field,
+                        enabled: !saving,
+                        unified: true)
                   ]),
             if (controller != null && !editing)
               _card('پیوست‌ها', [
@@ -386,14 +392,18 @@ class _GenericRequestPageState extends State<GenericRequestPage> {
                         child: RequestFieldWidget(
                             controller: controller,
                             field: field,
-                            enabled: !saving)),
+                            enabled: !saving,
+                            unified: true)),
               ]),
             if (controller != null && editing)
               for (final field in all)
                 if (field.type == 'Attachment')
                   _card('فایل پیوست', [
                     RequestFieldWidget(
-                        controller: controller, field: field, enabled: !saving)
+                        controller: controller,
+                        field: field,
+                        enabled: !saving,
+                        unified: true)
                   ]),
             if (!isTemplate)
               Card(
