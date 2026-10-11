@@ -5,6 +5,7 @@ import '../network/frappe_client.dart';
 import 'local_database_store.dart';
 import 'local_record.dart';
 import 'offline_failure.dart';
+import 'queued_request_adapter.dart';
 
 /// What one replay run achieved. [remaining] counts every unsent row, failed
 /// rows included, so a caller can tell the user how much is still on the phone.
@@ -47,6 +48,7 @@ class OfflineSyncService {
     this._client, {
     LocalRecordStore? local,
     this.afterSync,
+    this.syncRequests,
     DateTime Function()? clock,
   })  : _local = local ?? LocalDatabaseStore.instance,
         _clock = clock ?? DateTime.now;
@@ -70,6 +72,14 @@ class OfflineSyncService {
   final LocalRecordStore _local;
   final DateTime Function() _clock;
   final Future<void> Function()? afterSync;
+
+  /// Replays the queued generic requests of one company through
+  /// `GenericRequestRepository.sync`, so the shared queue can resend request
+  /// rows with the repository's own idempotent path instead of reimplementing
+  /// it. Null when requests are not wired (tests without requests).
+  final Future<void> Function(String company, {required bool retry})?
+      syncRequests;
+
   final StreamController<void> _changes = StreamController<void>.broadcast();
   Future<OfflineSyncReport>? _activeSync;
 
@@ -96,12 +106,15 @@ class OfflineSyncService {
   }
 
   /// Every write still waiting for the server that belongs to the signed-in
-  /// user on the current server, oldest first. Rows of another user or another
-  /// server are left in the store and never shown.
+  /// user on the current server, oldest first: raw queued mutations and the
+  /// offline requests saved by `GenericRequestRepository` together. Rows of
+  /// another user or another server are left in the store and never shown.
   Future<List<LocalRecord>> unsent() async {
     final scope = await _scope();
     if (scope == null) return const <LocalRecord>[];
-    return _unsentFor(scope);
+    final rows = [...await _unsentFor(scope), ...await _requestsFor(scope)]
+      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    return rows;
   }
 
   Future<int> unsentCount() async => (await unsent()).length;
@@ -115,13 +128,29 @@ class OfflineSyncService {
   }
 
   bool _ownedBy(LocalRecord record, ({String owner, String server}) scope) =>
-      record.payload['_asoud_owner'] == scope.owner &&
-      record.payload['_asoud_server'] == scope.server;
+      isQueuedRequest(record)
+          ? isRequestOwnedBy(record, scope)
+          : record.payload['_asoud_owner'] == scope.owner &&
+              record.payload['_asoud_server'] == scope.server;
 
   /// Every queued mutation on the device, regardless of owner or server.
   Future<List<LocalRecord>> _queued() async =>
       (await _local.list(statuses: unsentQueueStatuses))
           .where(isQueuedMutation)
+          .toList();
+
+  /// Every offline request outbox row still waiting for (or refused by) the
+  /// server, regardless of owner or server; synced requests live on the server.
+  Future<List<LocalRecord>> _requestOutbox() async =>
+      (await _local.list(entityType: genericRequestOutboxEntity))
+          .where((row) => row.status != LocalSyncStatus.synced)
+          .toList();
+
+  /// The offline request rows of the signed-in user on the current server.
+  Future<List<LocalRecord>> _requestsFor(
+          QueueScope scope) async =>
+      (await _requestOutbox())
+          .where((row) => isRequestOwnedBy(row, scope))
           .toList();
 
   Future<List<LocalRecord>> _unsentFor(
@@ -142,9 +171,17 @@ class OfflineSyncService {
           .length;
 
   /// A manual retry of one row: it clears the backoff and is sent right away.
+  /// For an offline request row the resend runs through the repository's own
+  /// sync path, so the idempotent send stays the server contract it already is.
   Future<void> retry(String id) async {
     final scope = await _scope();
     if (scope == null) return;
+    final record = await _local.get(id);
+    if (record != null && isQueuedRequest(record)) {
+      if (!isRequestOwnedBy(record, scope)) return;
+      await _resendRequests(scope, retry: true);
+      return;
+    }
     await _retryOwned(id, scope);
   }
 
@@ -187,6 +224,7 @@ class OfflineSyncService {
       );
     }
     await syncNow();
+    await _resendRequests(scope, retry: true);
   }
 
   /// A manual resend through the per-row retry path, so every queued write
@@ -206,6 +244,27 @@ class OfflineSyncService {
     for (final record in await _unsentFor(scope)) {
       await _retryOwned(record.id, scope);
     }
+    await _resendRequests(scope, retry: true);
+  }
+
+  /// Replays the offline request rows of [scope] through `syncRequests`, once
+  /// per company holding a waiting row. With [retry] false the repository
+  /// skips rows the server refused (they keep waiting for the user).
+  Future<void> _resendRequests(QueueScope scope, {required bool retry}) async {
+    final sync = syncRequests;
+    if (sync == null) return;
+    final companies = <String>{};
+    for (final row in await _requestsFor(scope)) {
+      final company = requestCompanyOf(row);
+      if (company != null) companies.add(company);
+    }
+    // Deterministic order: every run of «ارسال دوباره همه» resends the same
+    // companies in the same sequence.
+    final ordered = companies.toList()..sort();
+    for (final company in ordered) {
+      await sync(company, retry: retry);
+    }
+    _notify();
   }
 
   /// Drops one queued write and the local row it mirrored, so no phantom draft
@@ -267,8 +326,18 @@ class OfflineSyncService {
 
   Future<OfflineSyncReport> _runAll() async {
     final report = await _run();
+    await _syncQueuedRequests();
     await afterSync?.call();
     return report;
+  }
+
+  /// Replays the offline requests along with the raw mutations, so a pending
+  /// request does not linger after the network returns: the home bar counts it
+  /// and must report it sent again once it actually reached the server.
+  Future<void> _syncQueuedRequests() async {
+    final scope = await _scope();
+    if (scope == null) return;
+    await _resendRequests(scope, retry: false);
   }
 
   Future<OfflineSyncReport> _run() async {
