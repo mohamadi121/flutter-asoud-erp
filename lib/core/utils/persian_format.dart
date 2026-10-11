@@ -156,3 +156,75 @@ String formatDateTimeJalali(
 /// Convenience helper: formats a date ([DateTime] or [String]) to Jalali without time.
 String formatDateJalali(Object? value) =>
     formatDateTimeJalali(value, showTime: false);
+
+/// Checks if a map or string represents a duration map (e.g. from leave/workflow requests).
+bool isDurationMap(dynamic value) {
+  if (value is Map) {
+    return value.containsKey('unit') ||
+        value.containsKey('days') ||
+        value.containsKey('hours') ||
+        value.containsKey('day_equivalent');
+  }
+  if (value is String) {
+    final s = value.trim();
+    return s.startsWith('{') &&
+        s.endsWith('}') &&
+        (s.contains('unit') || s.contains('days') || s.contains('hours'));
+  }
+  return false;
+}
+
+/// Formats a workflow/leave duration map or string into a Persian summary
+/// (e.g. «۱ روز», «۲ ساعت», «روزانه», «ساعتی»).
+String formatPersianDuration(dynamic value) {
+  if (value == null) return '';
+  Map<dynamic, dynamic>? map;
+  if (value is Map) {
+    map = value;
+  } else if (value is String) {
+    final str = value.trim();
+    if (str.startsWith('{') && str.endsWith('}')) {
+      final inner = str.substring(1, str.length - 1);
+      final entries = inner.split(RegExp(r',\s*'));
+      final parsed = <String, dynamic>{};
+      for (final entry in entries) {
+        final parts = entry.split(RegExp(r':\s*'));
+        if (parts.length == 2) {
+          final k = parts[0].trim().replaceAll("'", '').replaceAll('"', '');
+          final v = parts[1].trim().replaceAll("'", '').replaceAll('"', '');
+          parsed[k] = v == 'null' ? null : (num.tryParse(v) ?? v);
+        }
+      }
+      if (parsed.isNotEmpty) map = parsed;
+    }
+  }
+
+  if (map == null) return value.toString();
+
+  final unit = map['unit']?.toString().toLowerCase().trim();
+  final daysVal = map['days'] ?? map['day_equivalent'];
+  final num? days = daysVal is num
+      ? daysVal
+      : (daysVal != null ? num.tryParse(daysVal.toString()) : null);
+  final hoursVal = map['hours'];
+  final num? hours = hoursVal is num
+      ? hoursVal
+      : (hoursVal != null ? num.tryParse(hoursVal.toString()) : null);
+
+  if (days != null && days > 0) {
+    final daysStr = '${formatNumber(days)} روز';
+    if (hours != null && hours > 0) {
+      return '$daysStr و ${formatNumber(hours)} ساعت';
+    }
+    return daysStr;
+  }
+
+  if (hours != null && hours > 0) {
+    return '${formatNumber(hours)} ساعت';
+  }
+
+  if (unit == 'day' || unit == 'daily') return 'روزانه';
+  if (unit == 'hour' || unit == 'hourly') return 'ساعتی';
+
+  return '—';
+}

@@ -113,21 +113,69 @@ const erpNextLeaveTypes = <String, String>{
   'Maternity Leave': 'مرخصی زایمان',
   'Paternity Leave': 'مرخصی تشویقی پدر شدن',
   'Other Leave': 'سایر مرخصی‌ها',
+  'Casual': 'مرخصی اتفاقی',
+  'Compensatory': 'مرخصی جبرانی',
+  'Privilege': 'مرخصی استحقاقی',
+  'Sick': 'مرخصی استعلاجی',
+  'LWP': 'مرخصی بدون حقوق',
 };
 
-String persianLeaveTypeLabel(String? type) {
-  if (type == null || type.trim().isEmpty) return '';
+bool isKnownLeaveType(String? type) {
+  if (type == null || type.trim().isEmpty) return false;
+  final trimmed = type.trim();
+  if (erpNextLeaveTypes.containsKey(trimmed)) return true;
+  final lower = trimmed.toLowerCase();
+  for (final key in erpNextLeaveTypes.keys) {
+    if (lower.contains(key.toLowerCase())) return true;
+  }
+  for (final val in erpNextLeaveTypes.values) {
+    if (trimmed.contains(val)) return true;
+  }
+  return false;
+}
+
+String persianLeaveTypeLabel(String? type, {String? value}) {
+  if (type == null || type.trim().isEmpty) {
+    if (value != null && value.trim().isNotEmpty) {
+      return persianLeaveTypeLabel(value);
+    }
+    return '';
+  }
   final trimmed = type.trim();
   final direct = erpNextLeaveTypes[trimmed];
   if (direct != null) return direct;
 
-  final normalized = trimmed.replaceAll(RegExp(r'[-_]+'), ' ').toLowerCase();
+  final lower = trimmed.replaceAll(RegExp(r'[-_—/]+'), ' ').toLowerCase();
   for (final entry in erpNextLeaveTypes.entries) {
-    if (entry.key.toLowerCase() == normalized) {
+    if (lower.contains(entry.key.toLowerCase())) {
       return entry.value;
     }
   }
+
+  if (value != null && value.trim().isNotEmpty) {
+    final valTrimmed = value.trim();
+    final valDirect = erpNextLeaveTypes[valTrimmed];
+    if (valDirect != null) return valDirect;
+    final valLower = valTrimmed.replaceAll(RegExp(r'[-_—/]+'), ' ').toLowerCase();
+    for (final entry in erpNextLeaveTypes.entries) {
+      if (valLower.contains(entry.key.toLowerCase())) {
+        return entry.value;
+      }
+    }
+  }
+
   return trimmed;
+}
+
+String persianLeaveTypeOptionLabel({String? label, String? value}) {
+  if (label == null || label.trim().isEmpty) {
+    return persianLeaveTypeLabel(value);
+  }
+  final mapped = persianLeaveTypeLabel(label);
+  if (mapped != label) {
+    return mapped;
+  }
+  return label.trim();
 }
 
 /// The server stores chart templates as `Iran Standard`, `Service`,
@@ -234,15 +282,21 @@ String persianRequestFieldTypeLabel(String type) => switch (type) {
 
 String persianWorkflowStageTitle(String title) {
   final trimmed = title.trim();
-  final lower = trimmed.replaceAll(RegExp(r'[-_]+'), ' ').toLowerCase();
-  return switch (lower) {
+  var normalized = trimmed.replaceAll(RegExp(r'[-_]+'), ' ').toLowerCase();
+  normalized = normalized
+      .replaceFirst(RegExp(r'^(?:workflow\s+)?stage(?:\s*:|\s*-|\s+)+'), '')
+      .trim();
+  if (normalized.endsWith(' stage')) {
+    normalized = normalized.substring(0, normalized.length - 6).trim();
+  }
+  return switch (normalized) {
     'start' => 'شروع',
     'user task' => 'وظیفه کاربر',
-    'approval' => 'تأیید',
-    'condition' => 'شرط',
+    'approval' || 'approval or reject' || 'approval / reject' => 'تأیید',
+    'condition' || 'condition and path' || 'condition / branch' => 'شرط',
     'system action' => 'اقدام خودکار',
-    'wait' => 'انتظار',
-    'end' => 'پایان',
+    'wait' || 'wait and timing' || 'wait / schedule' => 'انتظار',
+    'end' || 'end process' => 'پایان',
     'start / user task' || 'start/user task' => 'شروع / وظیفه کاربر',
     _ => title,
   };
@@ -303,15 +357,36 @@ String persianDocumentFieldLabel(String label) => switch (label.trim()) {
       'Workflow' => 'گردش‌کار',
       'Request Type' => 'نوع درخواست',
       'Subject' => 'موضوع',
-      'Priority' => 'اولویت',
-      'Status' => 'وضعیت',
+      'Priority' || 'priority' => 'اولویت',
+      'Status' || 'status' => 'وضعیت',
       'Workflow Instance' => 'نمونه گردش‌کار',
       'Attachments' => 'پیوست‌ها',
       'Dynamic Values' => 'مقادیر متغیر',
       'Template Version' => 'نسخه الگو',
       'Status Key' => 'کلید وضعیت',
       'Search Text' => 'متن جستجو',
+      'Frequency' || 'frequency' => 'تواتر',
+      'unit' || 'Unit' => 'واحد',
+      'days' || 'Days' => 'روزها',
+      'hours' || 'Hours' => 'ساعت‌ها',
+      'day_equivalent' || 'Day Equivalent' => 'معادل روز',
       _ => label,
+    };
+
+String persianPriorityLabel(String priority) => switch (priority.trim()) {
+      'Low' => 'کم',
+      'Normal' => 'عادی',
+      'High' => 'زیاد',
+      'Urgent' => 'فوری',
+      _ => priority,
+    };
+
+String persianFrequencyLabel(String frequency) => switch (frequency.trim()) {
+      'Daily' => 'روزانه',
+      'Hourly' => 'ساعتی',
+      'Weekly' => 'هفتگی',
+      'Monthly' => 'ماهانه',
+      _ => frequency,
     };
 
 String persianDoctypeLabel(String doctype) => switch (doctype.trim()) {

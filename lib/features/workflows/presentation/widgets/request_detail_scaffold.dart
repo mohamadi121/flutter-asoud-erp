@@ -703,7 +703,9 @@ class _RequestDetailScaffoldState extends State<RequestDetailScaffold> {
                         : persianWorkflowStageTitle(activity.stageTitle),
                     subtitle: [
                       requestActionLabel(activity.action),
-                      persianRoleLabel(activity.actor),
+                      activity.actor.contains('@')
+                          ? '${String.fromCharCode(0x2066)}${activity.actor}${String.fromCharCode(0x2069)}'
+                          : persianRoleLabel(activity.actor),
                       if (activity.createdOn != null)
                         formatJalaliDateTimeIso(
                             activity.createdOn!.toIso8601String()),
@@ -737,17 +739,34 @@ class RequestInfoRow extends StatelessWidget {
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           SizedBox(
               width: 104,
-              child: Text(label,
-                  style:
-                      const TextStyle(fontSize: 12, color: AsoudColors.muted))),
+              child: Tooltip(
+                message: label,
+                child: Text(label,
+                    softWrap: true,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style:
+                        const TextStyle(fontSize: 12, color: AsoudColors.muted)),
+              )),
           Expanded(
               child: Align(
                   alignment: AlignmentDirectional.centerEnd,
                   child: trailing ??
-                      Text(value.isEmpty ? '—' : value,
-                          textAlign: TextAlign.end,
-                          style: const TextStyle(
-                              fontSize: 12, fontWeight: FontWeight.w700)))),
+                      Tooltip(
+                        message: value,
+                        child: Text(
+                            value.isEmpty
+                                ? '—'
+                                : value.contains('@')
+                                    ? '${String.fromCharCode(0x2066)}$value${String.fromCharCode(0x2069)}'
+                                    : value,
+                            textAlign: TextAlign.end,
+                            softWrap: true,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                fontSize: 12, fontWeight: FontWeight.w700)),
+                      ))),
         ]),
       );
 }
@@ -824,9 +843,15 @@ class _Step extends StatelessWidget {
                   style: TextStyle(
                       fontWeight: FontWeight.w800,
                       color: done ? AsoudColors.success : AsoudColors.text)),
-              Text(subtitle,
-                  style:
-                      const TextStyle(fontSize: 11, color: AsoudColors.muted)),
+              Tooltip(
+                message: subtitle,
+                child: Text(subtitle,
+                    softWrap: true,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style:
+                        const TextStyle(fontSize: 11, color: AsoudColors.muted)),
+              ),
               if (comment.trim().isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 2),

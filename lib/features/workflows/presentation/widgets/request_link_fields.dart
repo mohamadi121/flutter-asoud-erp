@@ -45,8 +45,9 @@ class RequestBooleanField extends FormField<bool> {
 }
 
 String _label(Map row) {
-  final raw = '${row['label'] ?? row['value']}';
-  return persianLeaveTypeLabel(raw);
+  final val = row['value']?.toString();
+  final lbl = row['label']?.toString();
+  return persianLeaveTypeOptionLabel(label: lbl, value: val);
 }
 
 /// Group heading of a delivery location kind.
@@ -273,9 +274,14 @@ class _OptionPickerState extends State<_OptionPicker> {
                     ])
                       if (data.any((row) => row['kind'] == kind)) kind
                   ];
+                  final isLeave = widget.title == 'نوع مرخصی' ||
+                      data.any((r) =>
+                          isKnownLeaveType('${r['value']}') ||
+                          isKnownLeaveType('${r['label']}'));
                   Widget tile(Map<String, dynamic> row) => ListTile(
                         title: Text(_label(row)),
-                        subtitle: _label(row) == '${row['value']}' ||
+                        subtitle: isLeave ||
+                                _label(row) == '${row['value']}' ||
                                 row['kind'] != null ||
                                 '${row['value']}'.contains('- DEMO') ||
                                 '${row['value']}'.startsWith('PREVIEW-')
