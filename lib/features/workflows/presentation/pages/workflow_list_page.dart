@@ -18,6 +18,7 @@ import 'workflow_form_page.dart';
 import 'workflow_notifications_page.dart';
 import 'workflow_designer_page.dart';
 import '../../../dashboard/presentation/pages/dashboard_page.dart';
+import '../../../reports/presentation/pages/reports_hub_page.dart';
 
 class WorkflowListPage extends StatelessWidget {
   const WorkflowListPage({this.company, this.onCreate, super.key});
@@ -512,10 +513,13 @@ class _WorkflowBottomNavigation extends StatelessWidget {
             }
             return;
           }
+          final signedIn = context.read<FrappeApiClient>().isAuthenticated;
           Navigator.push(
             context,
             MaterialPageRoute<void>(
-                builder: (_) => const WorkflowComingSoonPage()),
+                builder: (_) => signedIn
+                    ? const ReportsHubPage()
+                    : const WorkflowComingSoonPage()),
           );
         },
         destinations: const [

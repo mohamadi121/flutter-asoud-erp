@@ -18,6 +18,7 @@ import '../../../office_setup/domain/repositories/office_repository.dart';
 import '../../../office_setup/presentation/pages/office_type_page.dart';
 import '../../../office_setup/presentation/pages/offices_page.dart';
 import '../../../parties/presentation/pages/party_management_page.dart';
+import '../../../reports/presentation/pages/reports_hub_page.dart';
 import '../../../workflows/presentation/pages/workflow_list_page.dart';
 import '../../../workflows/presentation/pages/workflow_tasks_page.dart';
 import '../../../workflows/presentation/pages/generic_request_page.dart';
@@ -354,7 +355,9 @@ class _DashboardPageState extends State<DashboardPage> {
             ));
           } else if (index == 3) {
             Navigator.of(context).push(MaterialPageRoute<void>(
-              builder: (_) => const _UnavailablePage(title: 'گزارش‌ها'),
+              builder: (_) => offlinePreview
+                  ? const _UnavailablePage(title: 'گزارش‌ها')
+                  : const ReportsHubPage(),
             ));
           } else if (index != 0) {
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
