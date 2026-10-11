@@ -99,6 +99,23 @@ void main() {
     expect(toPersianDigits(12), '۱۲');
   });
 
+  test('the sign-out count includes a pending offline request but not a preview row',
+      () async {
+    final store = FakeLocalRecordStore();
+    await store.save(
+        id: 'generic-request:["srv","user","c"]:request-1',
+        entityType: 'generic_request_outbox',
+        payload: const {'scope': ['srv', 'user', 'c'], 'data': {}},
+        status: LocalSyncStatus.pendingSync);
+    await store.save(
+        id: 'preview',
+        entityType: 'generic_request_outbox',
+        payload: const {'scope': 's', 'data': {}},
+        status: LocalSyncStatus.localOnly);
+
+    expect(await countUnsentOfflineRows(store: store), 1);
+  });
+
   test('transfer list contains only user-created preview items', () async {
     final store = FakeLocalRecordStore();
     // A user-created demo request (preview owner, localOnly).
