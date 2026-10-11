@@ -1,4 +1,5 @@
 import 'package:asoud_erp/core/theme/asoud_theme.dart';
+import 'package:asoud_erp/core/widgets/app_fields.dart';
 import 'package:asoud_erp/core/widgets/asoud_form.dart';
 import 'package:asoud_erp/features/workflows/data/generic_request_repository.dart';
 import 'package:asoud_erp/features/workflows/presentation/pages/generic_request_page.dart';
@@ -56,7 +57,7 @@ void main() {
             find.byType(DropdownButtonFormField<String>).first)
         .onChanged!('one');
     await tester.pumpAndSettle();
-    final old = tester.widget<TextFormField>(
+    final old = tester.widget<AppTextField>(
         find.byKey(const ValueKey('one:old'), skipOffstage: false));
     old.controller!.text = 'stale';
     tester
@@ -86,6 +87,61 @@ void main() {
     await tester.pumpAndSettle();
     expect(saved!['values'], {'confirm': false});
     expect(page.title, isNotEmpty);
+  });
+  testWidgets(
+      'generic request Choice renders as the shared select, keeps the required mark and submits the picked option',
+      (tester) async {
+    final repo = _Repository();
+    when(() => repo.options()).thenAnswer((_) async => [
+          {
+            'name': 'trip',
+            'workflow_title': 'سفر کاری',
+            'fields': [
+              {
+                'key': 'transport',
+                'label': 'وسیله نقلیه',
+                'type': 'Choice',
+                'required': true,
+                'options': ['Car', 'Train'],
+                'option_labels': {'Car': 'خودرو', 'Train': 'قطار'}
+              }
+            ]
+          }
+        ]);
+    Map<String, dynamic>? saved;
+    when(() => repo.create(any(), any())).thenAnswer((call) async {
+      saved = Map.from(call.positionalArguments.first as Map);
+      return null;
+    });
+    await tester.pumpWidget(MaterialApp(
+        theme: AsoudTheme.light, home: GenericRequestPage(repository: repo)));
+    await tester.pumpAndSettle();
+    tester
+        .widget<DropdownButtonFormField<String>>(
+            find.byType(DropdownButtonFormField<String>).first)
+        .onChanged!('trip');
+    await tester.pumpAndSettle();
+    expect(find.text('عنوان درخواست *'), findsOneWidget);
+    expect(find.text('وسیله نقلیه'), findsOneWidget);
+    expect(find.byType(AppSelectField), findsOneWidget);
+    expect(find.byType(DropdownButtonFormField<String>), findsOneWidget);
+    final subject = tester
+        .widgetList<AsoudFormField>(
+            find.byType(AsoudFormField, skipOffstage: false))
+        .first;
+    subject.controller.text = 'درخواست سفر کاری';
+    await tester.ensureVisible(find.byType(AppSelectField));
+    await tester.tap(find.byType(AppSelectField));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('قطار'));
+    await tester.pumpAndSettle();
+    expect(find.text('قطار'), findsOneWidget);
+    tester.widget<AsoudFormPage>(find.byType(AsoudFormPage)).onSave();
+    await tester.pumpAndSettle();
+    await tester.tap(find.descendant(
+        of: find.byType(AlertDialog), matching: find.byType(FilledButton)));
+    await tester.pumpAndSettle();
+    expect(saved!['values'], {'transport': 'Train'});
   });
   testWidgets('role editor persists canonical roles with no unsupported matrix',
       (tester) async {

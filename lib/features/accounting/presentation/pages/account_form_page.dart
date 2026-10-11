@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/persian_format.dart';
+import '../../../../core/widgets/app_fields.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../domain/entities/account_node.dart';
 import '../../domain/entities/detail_group.dart';
@@ -130,29 +131,33 @@ class _AccountFormViewState extends State<_AccountFormView> {
                             ],
                             if (state.requiresParent && !widget.contextual) ...[
                               const SizedBox(height: 10),
-                              Text('${_parentTitle(state.level)} والد *',
-                                  style: _labelStyle),
-                              const SizedBox(height: 5),
-                              DropdownButtonFormField<String>(
-                                key: ValueKey(
-                                    '${state.level}-${parents.length}'),
-                                isExpanded: true,
-                                initialValue:
-                                    parents.any((e) => e.id == state.parentId)
-                                        ? state.parentId
-                                        : null,
-                                hint: Text(parents.isEmpty
-                                    ? 'ابتدا ${_parentTitle(state.level)} را ایجاد کنید'
-                                    : 'انتخاب ${_parentTitle(state.level)}'),
-                                items: parents
-                                    .map((item) => DropdownMenuItem(
-                                          value: item.id,
-                                          child: Text(
-                                              '${toPersianDigits(item.code)}  ${item.title}'),
-                                        ))
-                                    .toList(),
-                                onChanged:
-                                    parents.isEmpty ? null : cubit.setParent,
+                              Padding(
+                                padding:
+                                    const EdgeInsets.only(bottom: 8),
+                                child: AppSelectField(
+                                  label: '${_parentTitle(state.level)} والد',
+                                  required: true,
+                                  value: state.parentId ?? '',
+                                  displayValue: _parentLabel(parents,
+                                      state.parentId, state.level),
+                                  hint: parents.isEmpty
+                                      ? 'ابتدا ${_parentTitle(state.level)} را ایجاد کنید'
+                                      : 'انتخاب ${_parentTitle(state.level)}',
+                                  enabled: parents.isNotEmpty,
+                                  onPick: parents.isEmpty
+                                      ? null
+                                      : () => showAppOptionSheet(context,
+                                          title:
+                                              '${_parentTitle(state.level)} والد',
+                                          current: state.parentId,
+                                          options: [
+                                            for (final item in parents)
+                                              AppOption(
+                                                  item.id,
+                                                  '${toPersianDigits(item.code)}  ${item.title}')
+                                          ]),
+                                  onChanged: cubit.setParent,
+                                ),
                               ),
                             ],
                             const SizedBox(height: 10),
@@ -178,58 +183,57 @@ class _AccountFormViewState extends State<_AccountFormView> {
                               ),
                             ]),
                             const SizedBox(height: 10),
-                            Text('ماهیت حساب *', style: _labelStyle),
-                            const SizedBox(height: 5),
-                            DropdownButtonFormField<AccountNature>(
-                              isExpanded: true,
-                              initialValue: state.nature,
-                              items: const [
-                                DropdownMenuItem(
-                                    value: AccountNature.debit,
-                                    child: Text('بدهکار')),
-                                DropdownMenuItem(
-                                    value: AccountNature.credit,
-                                    child: Text('بستانکار')),
-                                DropdownMenuItem(
-                                    value: AccountNature.both,
-                                    child: Text('بدهکار و بستانکار')),
-                              ],
-                              onChanged: (value) =>
-                                  value == null ? null : cubit.setNature(value),
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: AppSelectField(
+                                label: 'ماهیت حساب',
+                                required: true,
+                                value: state.nature.name,
+                                displayValue: _natureTitle(state.nature),
+                                hint: 'ماهیت حساب را انتخاب کنید',
+                                onPick: () => showAppOptionSheet(context,
+                                    title: 'ماهیت حساب',
+                                    current: state.nature.name,
+                                    options: [
+                                      for (final nature in AccountNature.values)
+                                        AppOption(
+                                            nature.name, _natureTitle(nature))
+                                    ]),
+                                onChanged: (value) => cubit.setNature(
+                                    AccountNature.values.byName(value)),
+                              ),
                             ),
                             const SizedBox(height: 10),
                             if (state.level == AccountLevel.ledger) ...[
-                              Text('نوع حساب *', style: _labelStyle),
-                              const SizedBox(height: 5),
-                              DropdownButtonFormField<String>(
-                                isExpanded: true,
-                                initialValue: state.accountType,
-                                items: const [
-                                  DropdownMenuItem(
-                                      value: '', child: Text('عادی')),
-                                  DropdownMenuItem(
-                                      value: 'Bank', child: Text('بانک')),
-                                  DropdownMenuItem(
-                                      value: 'Cash', child: Text('صندوق')),
-                                  DropdownMenuItem(
-                                      value: 'Receivable',
-                                      child: Text('دریافتنی')),
-                                  DropdownMenuItem(
-                                      value: 'Payable',
-                                      child: Text('پرداختنی')),
-                                  DropdownMenuItem(
-                                      value: 'Fixed Asset',
-                                      child: Text('دارایی ثابت')),
-                                  DropdownMenuItem(
-                                      value: 'Income Account',
-                                      child: Text('حساب درآمد')),
-                                  DropdownMenuItem(
-                                      value: 'Expense Account',
-                                      child: Text('حساب هزینه')),
-                                ],
-                                onChanged: (value) => value == null
-                                    ? null
-                                    : cubit.setAccountType(value),
+                              Padding(
+                                padding:
+                                    const EdgeInsets.only(bottom: 8),
+                                child: AppSelectField(
+                                  label: 'نوع حساب',
+                                  required: true,
+                                  value: state.accountType,
+                                  displayValue: _accountTypeTitle(
+                                      state.accountType),
+                                  hint: 'نوع حساب را انتخاب کنید',
+                                  onPick: () => showAppOptionSheet(context,
+                                      title: 'نوع حساب',
+                                      current: state.accountType,
+                                      options: const [
+                                        AppOption('', 'عادی'),
+                                        AppOption('Bank', 'بانک'),
+                                        AppOption('Cash', 'صندوق'),
+                                        AppOption(
+                                            'Receivable', 'دریافتنی'),
+                                        AppOption('Payable', 'پرداختنی'),
+                                        AppOption(
+                                            'Fixed Asset', 'دارایی ثابت'),
+                                        AppOption(
+                                            'Income Account', 'حساب درآمد'),
+                                        AppOption(
+                                            'Expense Account', 'حساب هزینه'),
+                                      ]),
+                                  onChanged: cubit.setAccountType,
+                                ),
                               ),
                             ],
                             const SizedBox(height: 12),
@@ -524,19 +528,16 @@ class _LabeledTextField extends StatelessWidget {
   final TextInputType? keyboardType;
   final String? hint;
   @override
-  Widget build(BuildContext context) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: _labelStyle),
-          const SizedBox(height: 5),
-          TextFormField(
-            initialValue: initialValue,
-            enabled: enabled,
-            keyboardType: keyboardType,
-            decoration: InputDecoration(hintText: hint),
-            onChanged: onChanged,
-          ),
-        ],
+  Widget build(BuildContext context) => AppTextField(
+        label: label.endsWith(' *')
+            ? label.substring(0, label.length - 2)
+            : label,
+        required: label.endsWith(' *'),
+        initialValue: initialValue,
+        enabled: enabled,
+        keyboardType: keyboardType,
+        hint: hint,
+        onChanged: onChanged,
       );
 }
 
@@ -579,6 +580,33 @@ String _levelTitle(AccountLevel level) => switch (level) {
       AccountLevel.general => 'سرفصل حساب کل',
       AccountLevel.ledger => 'سرفصل حساب معین',
       AccountLevel.detail => 'تفصیلی شناور',
+    };
+
+String _parentLabel(List<AccountNode> parents, String? parentId, AccountLevel level) {
+  for (final item in parents) {
+    if (item.id == parentId) {
+      return '${toPersianDigits(item.code)}  ${item.title}';
+    }
+  }
+  return parentId ?? '';
+}
+
+String _natureTitle(AccountNature nature) => switch (nature) {
+      AccountNature.debit => 'بدهکار',
+      AccountNature.credit => 'بستانکار',
+      AccountNature.both => 'بدهکار و بستانکار',
+    };
+
+String _accountTypeTitle(String type) => switch (type) {
+      '' => 'عادی',
+      'Bank' => 'بانک',
+      'Cash' => 'صندوق',
+      'Receivable' => 'دریافتنی',
+      'Payable' => 'پرداختنی',
+      'Fixed Asset' => 'دارایی ثابت',
+      'Income Account' => 'حساب درآمد',
+      'Expense Account' => 'حساب هزینه',
+      _ => type,
     };
 
 const _labelStyle = TextStyle(fontSize: 10, fontWeight: FontWeight.w800);
