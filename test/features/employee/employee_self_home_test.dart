@@ -72,7 +72,8 @@ class SelfService extends Fake implements SelfServiceRepository {
 }
 
 Future<void> openOperations(WidgetTester tester) async {
-  await tester.ensureVisible(find.text('عملیات'));
+  await tester.scrollUntilVisible(find.text('عملیات'), 150,
+      scrollable: find.byType(Scrollable).first);
   await tester.pumpAndSettle();
   await tester.tap(find.text('عملیات'));
   await tester.pumpAndSettle();

@@ -1,4 +1,5 @@
 import 'package:asoud_erp/core/network/frappe_client.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:asoud_erp/core/offline/offline_sync_service.dart';
 import 'package:asoud_erp/core/theme/asoud_theme.dart';
 import 'package:asoud_erp/features/office_setup/data/demo/office_demo_data.dart';
@@ -114,6 +115,7 @@ Widget _app({required FrappeApiClient client}) => MultiRepositoryProvider(
     );
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
   for (final (label, roles) in [
     ('Administrator', <String>['Administrator']),
     ('HR Manager', <String>['HR Manager', 'Employee']),

@@ -1,4 +1,5 @@
 import 'package:asoud_erp/core/theme/asoud_theme.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:asoud_erp/core/network/frappe_client.dart';
 import 'package:asoud_erp/features/accounting/presentation/pages/account_form_page.dart';
 import 'package:asoud_erp/features/accounting/presentation/pages/accounting_home_page.dart';
@@ -30,6 +31,7 @@ Widget _app(Widget page) => RepositoryProvider<OfficeRepository>.value(
     );
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
   for (final width in [360.0, 390.0, 430.0]) {
     testWidgets(
         'صفحه انتخاب دفتر در عرض $width بدون خطای چیدمان نمایش داده می‌شود',

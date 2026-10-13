@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:asoud_erp/core/network/api_exception.dart';
 import 'package:asoud_erp/core/network/frappe_client.dart';
@@ -127,6 +128,7 @@ Widget _wrap(Widget child,
 }
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
   testWidgets(
       'مسیر ایجاد دفتر: نوع دفتر -> فرم -> ارسال با پاسخ واقعی سرور به داشبورد هدایت می‌شود',
       (tester) async {

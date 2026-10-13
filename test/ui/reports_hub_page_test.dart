@@ -1,4 +1,5 @@
 import 'package:asoud_erp/core/network/frappe_client.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:asoud_erp/core/theme/asoud_theme.dart';
 import 'package:asoud_erp/core/widgets/states.dart';
 import 'package:asoud_erp/features/dashboard/presentation/pages/dashboard_page.dart';
@@ -33,6 +34,7 @@ const _hrManager = FrappeUserContext(
 );
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
   late _Client client;
 
   setUp(() {

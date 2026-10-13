@@ -1,4 +1,5 @@
 import 'package:asoud_erp/core/theme/asoud_theme.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:asoud_erp/features/office_setup/domain/entities/office.dart';
 import 'package:asoud_erp/features/office_setup/presentation/cubit/offices_cubit.dart';
 import 'package:asoud_erp/features/office_setup/presentation/pages/office_type_page.dart';
@@ -34,6 +35,7 @@ Widget app(Widget child) => RepositoryProvider<OfficeRepository>.value(
     );
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
   for (final size in const [Size(360, 800), Size(390, 844), Size(430, 932)]) {
     testWidgets('صفحه دفترها در اندازه $size overflow ندارد', (tester) async {
       await tester.binding.setSurfaceSize(size);

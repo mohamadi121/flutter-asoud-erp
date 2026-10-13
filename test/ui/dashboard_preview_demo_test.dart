@@ -1,4 +1,5 @@
 import 'package:asoud_erp/core/network/frappe_client.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:asoud_erp/core/network/api_exception.dart';
 import 'package:asoud_erp/features/employee/presentation/pages/employee_shell.dart';
 import 'package:asoud_erp/features/office_setup/data/repositories/frappe_office_repository.dart';
@@ -70,6 +71,7 @@ Widget _landingApp({
     );
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
   late _Client client;
   setUp(() {
     client = _Client();

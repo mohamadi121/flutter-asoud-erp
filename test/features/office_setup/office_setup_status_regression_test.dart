@@ -1,4 +1,5 @@
 import 'package:asoud_erp/core/network/api_exception.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:asoud_erp/core/network/frappe_client.dart';
 import 'package:asoud_erp/core/theme/asoud_theme.dart';
 import 'package:asoud_erp/features/base_setup/presentation/pages/base_accounting_setup_page.dart';
@@ -17,6 +18,7 @@ import '../../helpers/fake_local_record_store.dart';
 class _MockClient extends Mock implements FrappeApiClient {}
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
   const realLiveStatus = <String, dynamic>{
     'company': 'شرکت نمونه آسود',
     'office_type': 'Legal',
