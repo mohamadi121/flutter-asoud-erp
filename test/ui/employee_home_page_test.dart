@@ -112,6 +112,7 @@ void main() {
       expect(find.text('نیازمند اقدام من'), findsOneWidget);
       await tester.scrollUntilVisible(find.text('عملیات'), 150,
           scrollable: find.byType(Scrollable).first);
+      await tester.pumpAndSettle();
       await tester.tap(find.text('عملیات'));
       await tester.pumpAndSettle();
       for (final label in [
@@ -128,6 +129,7 @@ void main() {
       }
       await tester.scrollUntilVisible(find.text('درخواست‌ها'), -150,
           scrollable: find.byType(Scrollable).first);
+      await tester.pumpAndSettle();
       expect(find.descendant(of: find.byType(Badge), matching: find.text('۲')),
           findsOneWidget);
       await tester.tap(find.text('درخواست‌ها'));
@@ -135,6 +137,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.scrollUntilVisible(find.byTooltip('پرونده من'), -150,
           scrollable: find.byType(Scrollable).first);
+      await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('پرونده من'));
       await tester.pumpAndSettle();
       expect(find.byType(MyInfoPage), findsOneWidget);

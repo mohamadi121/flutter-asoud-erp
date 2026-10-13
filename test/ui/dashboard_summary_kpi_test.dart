@@ -142,6 +142,7 @@ Widget _app(Widget page, FrappeApiClient client) => MaterialApp(
 
 Widget _home(FrappeApiClient client) => _app(
       DashboardPage(
+        operationsOnly: true,
         office: _office(),
         officeName: _company,
       ),

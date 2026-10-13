@@ -93,13 +93,12 @@ void main() {
     await _queue(store, 'two');
     await _queue(store, 'three');
 
-    await tester.pumpWidget(_app(SyncStatusIndicator(
-        service: service, onOpen: () {})));
+    await tester
+        .pumpWidget(_app(SyncStatusIndicator(service: service, onOpen: () {})));
     await _settle(tester);
 
     final inkWell = find.descendant(
-        of: find.byType(SyncStatusIndicator),
-        matching: find.byType(InkWell));
+        of: find.byType(SyncStatusIndicator), matching: find.byType(InkWell));
     expect(inkWell, findsOneWidget, reason: 'نوار باید قابل‌لمس باشد');
     final size = tester.getSize(inkWell);
     expect(size.width, 390, reason: 'نوار باید تمام‌عرض باشد');
@@ -112,8 +111,8 @@ void main() {
       (tester) async {
     await _queue(store, 'one');
 
-    await tester.pumpWidget(_app(SyncStatusIndicator(
-        service: service, onOpen: () {})));
+    await tester
+        .pumpWidget(_app(SyncStatusIndicator(service: service, onOpen: () {})));
     await _settle(tester);
 
     final bar = tester.widget<Text>(find.text('۱ تغییر ارسال نشد — مشاهده'));
@@ -238,7 +237,7 @@ void main() {
     ));
     await _settle(tester);
 
-    await tester.tap(find.text('تنظیمات'));
+    await tester.tap(find.widgetWithText(NavigationDestination, 'بیشتر'));
     await _settle(tester);
     expect(find.byType(SettingsDashboardContent), findsOneWidget);
 

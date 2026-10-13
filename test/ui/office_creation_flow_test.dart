@@ -195,7 +195,7 @@ void main() {
     // Navigates to DashboardPage with offline mode
     expect(find.byType(DashboardPage), findsOneWidget);
     expect(find.text('دفتر کار آفلاین'), findsWidgets);
-    expect(find.text('حالت موقت آفلاین'), findsOneWidget);
+    expect(find.text('نسخه نمایشی آفلاین'), findsOneWidget);
     expect(find.text(QueuedOfflineException.queuedFeedback), findsOneWidget);
     await tester.binding.setSurfaceSize(null);
   });

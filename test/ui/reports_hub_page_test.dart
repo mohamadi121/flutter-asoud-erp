@@ -77,7 +77,8 @@ void main() {
       expect(find.byType(TrialBalancePage), findsOneWidget);
     });
 
-    testWidgets('hr-manager without accounting access sees the empty state at $width',
+    testWidgets(
+        'hr-manager without accounting access sees the empty state at $width',
         (tester) async {
       await tester.binding.setSurfaceSize(Size(width, 800));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -103,7 +104,9 @@ void main() {
         client));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('گزارش‌ها'));
+    await tester.tap(find.widgetWithText(NavigationDestination, 'عملیات'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ListTile, 'گزارش‌ها'));
     await tester.pumpAndSettle();
 
     expect(find.byType(ReportsHubPage), findsNothing);

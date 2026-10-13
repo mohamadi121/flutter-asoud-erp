@@ -47,6 +47,10 @@ Future<void> _openHome(WidgetTester tester, FrappeApiClient client) async {
               company: 'Tabaan', files: _Files(), selfService: _SelfService())),
       client: client));
   await tester.pumpAndSettle();
+  await tester.ensureVisible(find.text('عملیات'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('عملیات'));
+  await tester.pumpAndSettle();
 }
 
 void main() {

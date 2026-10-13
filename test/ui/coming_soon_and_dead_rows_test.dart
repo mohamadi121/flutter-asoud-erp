@@ -46,8 +46,8 @@ void main() {
       (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    await tester.pumpWidget(
-        _wrap(const DashboardPage(officeName: 'دفتر نمونه', offlinePreview: true)));
+    await tester.pumpWidget(_wrap(const DashboardPage(
+        officeName: 'دفتر نمونه', offlinePreview: true, operationsOnly: true)));
     await tester.pumpAndSettle();
 
     await tester.dragUntilVisible(

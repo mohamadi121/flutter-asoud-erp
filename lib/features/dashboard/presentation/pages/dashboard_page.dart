@@ -302,6 +302,19 @@ class _DashboardPageState extends State<DashboardPage> {
                   key: ValueKey(officeName),
                   company: officeName!,
                   demoPreview: offlinePreview,
+                  statusBanner: Column(children: [
+                    if (offlinePreview) const OrganizationLoginBanner(),
+                    if (office != null && office!.setupComplete != true)
+                      _SetupProgress(
+                        offline: offlinePreview,
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                              builder: (_) => BaseAccountingSetupPage(
+                                  officeName: officeName,
+                                  offlinePreview: offlinePreview)),
+                        ),
+                      ),
+                  ]),
                   onOperations: _operations)
               : SafeArea(
                   child: Column(children: [

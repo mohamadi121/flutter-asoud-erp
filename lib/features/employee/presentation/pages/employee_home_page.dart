@@ -12,6 +12,8 @@ import '../../../reports/presentation/pages/reports_hub_page.dart';
 import '../../../workflows/presentation/widgets/home_inbox_summary.dart';
 import '../../../workflows/presentation/pages/workflow_tasks_page.dart';
 import '../../../calendar/calendar_page.dart';
+import '../../../dashboard/presentation/pages/sync_status_indicator.dart';
+import '../../../dashboard/presentation/pages/sync_queue_page.dart';
 import '../../../hr/domain/personnel_file.dart';
 import '../../../hr/presentation/pages/hr_home_page.dart';
 import 'my_info_page.dart';
@@ -39,10 +41,12 @@ class EmployeeHomePage extends StatefulWidget {
     this.now,
     this.demoPreview = false,
     this.onOperations,
+    this.statusBanner,
     super.key,
   });
 
   final String company;
+  final Widget? statusBanner;
   final VoidCallback? onOperations;
   final WorkflowNotificationRepository? notifications;
   final DateTime? now;
@@ -186,6 +190,7 @@ class _EmployeeHomePageState extends State<EmployeeHomePage> {
                             FutureBuilder<List<WorkflowNotification>>(
                                 future: notices,
                                 builder: (context, alerts) => _TopBar(
+                                    company: widget.company,
                                     unread: notifications != null &&
                                             alerts.hasData
                                         ? alerts.data!
@@ -196,6 +201,10 @@ class _EmployeeHomePageState extends State<EmployeeHomePage> {
                                     onNotifications: () => _push(
                                         const WorkflowNotificationsPage()))),
                             const SizedBox(height: 10),
+                            if (widget.statusBanner != null) ...[
+                              widget.statusBanner!,
+                              const SizedBox(height: 10),
+                            ],
                             if (snapshot.connectionState !=
                                 ConnectionState.done)
                               const LinearProgressIndicator()
@@ -310,10 +319,12 @@ class _EmployeeHomePageState extends State<EmployeeHomePage> {
 
 class _TopBar extends StatelessWidget {
   const _TopBar(
-      {required this.unread,
+      {required this.company,
+      required this.unread,
       required this.onNotifications,
       required this.onProfile});
   final int unread;
+  final String company;
   final VoidCallback onNotifications, onProfile;
   @override
   Widget build(BuildContext context) => Container(
@@ -322,29 +333,41 @@ class _TopBar extends StatelessWidget {
           color: AsoudColors.surface,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: AsoudColors.border)),
-      child: Row(children: [
-        const AsoudIconBox(
-            icon: Icons.hub_outlined, color: AsoudColors.primary, size: 36),
-        const SizedBox(width: 8),
-        const Expanded(
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('آسود',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
-          Text('خانه من',
-              style: TextStyle(fontSize: 11, color: AsoudColors.muted)),
-        ])),
-        IconButton(
-            tooltip: 'اعلان‌ها',
-            onPressed: onNotifications,
-            icon: Badge(
-                isLabelVisible: unread > 0,
-                label: Text(toPersianDigits(unread)),
-                child: const Icon(Icons.notifications_none_rounded))),
-        IconButton(
-            tooltip: 'پرونده من',
-            onPressed: onProfile,
-            icon: const Icon(Icons.account_circle_outlined)),
+      child: Column(children: [
+        Row(children: [
+          const AsoudIconBox(
+              icon: Icons.hub_outlined, color: AsoudColors.primary, size: 36),
+          const SizedBox(width: 8),
+          Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                const Text('آسود',
+                    style:
+                        TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                const Text('خانه من',
+                    style: TextStyle(fontSize: 11, color: AsoudColors.muted)),
+                Text(company,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 10, color: AsoudColors.muted)),
+              ])),
+          IconButton(
+              tooltip: 'اعلان‌ها',
+              onPressed: onNotifications,
+              icon: Badge(
+                  isLabelVisible: unread > 0,
+                  label: Text(toPersianDigits(unread)),
+                  child: const Icon(Icons.notifications_none_rounded))),
+          IconButton(
+              tooltip: 'پرونده من',
+              onPressed: onProfile,
+              icon: const Icon(Icons.account_circle_outlined)),
+        ]),
+        if (syncServiceOf(context) case final service?)
+          SyncStatusIndicator(
+              service: service, onOpen: () => openSyncQueue(context, service)),
       ]));
 }
 

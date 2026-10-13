@@ -71,6 +71,13 @@ class SelfService extends Fake implements SelfServiceRepository {
       [];
 }
 
+Future<void> openOperations(WidgetTester tester) async {
+  await tester.ensureVisible(find.text('عملیات'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('عملیات'));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
   testWidgets('today status ignores yesterday and shows today check-in',
@@ -82,6 +89,7 @@ void main() {
               files: HomeFiles(checkin: '2026-10-0$day 08:12:00'),
               now: DateTime(2026, 10, 5)))));
       await tester.pumpAndSettle();
+      await openOperations(tester);
       expect(
           find.text(
               day == 5 ? 'ورود امروز: ۰۸:۱۲' : 'امروز هنوز ورودی ثبت نشده'),
@@ -95,7 +103,7 @@ void main() {
       'حضور و غیاب': MyAttendancePage,
       'گزارش کار': WorkReportsPage,
       'مکاتبات': HrCommunicationsPage,
-      'اطلاعات من': MyInfoPage,
+      'پرونده من': MyInfoPage,
       'مدارک': MyInfoPage
     };
     for (final entry in destinations.entries) {
@@ -111,7 +119,9 @@ void main() {
                   selfService: SelfService(),
                   notifications: Notifications())))));
       await tester.pumpAndSettle();
+      await openOperations(tester);
       await tester.ensureVisible(find.text(entry.key));
+      await tester.pumpAndSettle();
       await tester.tap(find.text(entry.key));
       await tester.pumpAndSettle();
       expect(find.byType(entry.value), findsOneWidget, reason: entry.key);
@@ -121,13 +131,13 @@ void main() {
       await tester.pumpAndSettle();
     }
   });
-  testWidgets('shell four destinations retains tasks and announcements in More',
+  testWidgets('shell five destinations retains tasks and announcements in More',
       (tester) async {
     await tester.pumpWidget(app(EmployeeShell(
         company: 'شرکت', files: HomeFiles(), selfService: SelfService())));
     await tester.pumpAndSettle();
-    expect(find.byType(NavigationDestination), findsNWidgets(4));
-    for (final label in ['خانه', 'درخواست‌ها', 'مکاتبات', 'بیشتر']) {
+    expect(find.byType(NavigationDestination), findsNWidgets(5));
+    for (final label in ['خانه', 'عملیات', 'ایجاد', 'کارتابل', 'بیشتر']) {
       expect(find.widgetWithText(NavigationDestination, label), findsOneWidget);
     }
     await tester.tap(find.widgetWithText(NavigationDestination, 'بیشتر'));
@@ -137,19 +147,19 @@ void main() {
       'اطلاعیه‌ها',
       'اعلان‌ها',
       'مدارک من',
-      'اطلاعات من',
+      'پرونده من',
       'حضور و غیاب',
       'گزارش کار'
     ]) {
-      expect(find.text(label), findsOneWidget);
+      expect(find.widgetWithText(ListTile, label), findsOneWidget);
     }
-    await tester.tap(find.text('اطلاعات من'));
+    await tester.tap(find.text('پرونده من'));
     await tester.pumpAndSettle();
     expect(find.byType(MyInfoPage), findsOneWidget);
   });
 
   for (final width in [320.0, 390.0]) {
-    testWidgets('home greeting date six tiles latest three at $width',
+    testWidgets('personal home and preserved operation tiles at $width',
         (tester) async {
       await tester.binding.setSurfaceSize(Size(width, 1000));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -160,9 +170,12 @@ void main() {
               notifications: Notifications(),
               now: DateTime(2026, 10, 5, 13)))));
       await tester.pumpAndSettle();
-      expect(find.text('سلام امیر!'), findsOneWidget);
-      expect(find.text('روز خوبی داشته باشی'), findsOneWidget);
+      expect(find.text('آسود'), findsOneWidget);
+      expect(find.text('خانه من'), findsOneWidget);
       expect(find.text('امیر موفق'), findsOneWidget);
+      expect(find.descendant(of: find.byType(Badge), matching: find.text('۴')),
+          findsOneWidget);
+      await openOperations(tester);
       expect(
           find.text(formatJalaliLong(DateTime(2026, 10, 5))), findsOneWidget);
       expect(find.text('امروز هنوز ورودی ثبت نشده'), findsOneWidget);
@@ -171,7 +184,7 @@ void main() {
         'حضور و غیاب',
         'گزارش کار',
         'مکاتبات',
-        'اطلاعات من',
+        'پرونده من',
         'مدارک',
         'ثبت و پیگیری درخواست',
         'ثبت ورود و خروج',
@@ -182,16 +195,6 @@ void main() {
       ]) {
         expect(find.text(title), findsOneWidget);
       }
-      await tester.drag(find.byType(ListView).first, const Offset(0, -500));
-      await tester.pumpAndSettle();
-      for (final i in [4, 3, 2]) {
-        expect(find.text('اعلان $i'), findsOneWidget);
-      }
-      expect(find.text('اعلان 1'), findsNothing);
-      expect(find.text('اعلان 0'), findsNothing);
-      expect(find.byKey(const ValueKey('unread-3')), findsOneWidget);
-      expect(find.byKey(const ValueKey('unread-4')), findsNothing);
-      expect(find.text('۱ ساعت پیش'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   }

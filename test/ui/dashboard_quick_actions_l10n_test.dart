@@ -33,7 +33,8 @@ void main() {
               theme: AsoudTheme.light,
               home: const Directionality(
                 textDirection: TextDirection.rtl,
-                child: DashboardPage(officeName: 'شرکت نمونه'),
+                child: DashboardPage(
+                    officeName: 'شرکت نمونه', operationsOnly: true),
               ),
             ),
           ),

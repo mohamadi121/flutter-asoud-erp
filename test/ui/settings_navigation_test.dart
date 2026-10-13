@@ -25,13 +25,15 @@ class _SettingsClient extends Fake implements FrappeApiClient {
       );
 }
 
-Widget settingsApp(List<String> roles) => RepositoryProvider<FrappeApiClient>.value(
-    value: _SettingsClient(roles),
-    child: MaterialApp(
-        theme: AsoudTheme.light,
-        home: const Directionality(
-            textDirection: TextDirection.rtl,
-            child: SettingsDashboardContent(company: 'دفتر نمونه'))));
+Widget settingsApp(
+        List<String> roles) =>
+    RepositoryProvider<FrappeApiClient>.value(
+        value: _SettingsClient(roles),
+        child: MaterialApp(
+            theme: AsoudTheme.light,
+            home: const Directionality(
+                textDirection: TextDirection.rtl,
+                child: SettingsDashboardContent(company: 'دفتر نمونه'))));
 
 Widget app(Widget page, {FrappeApiClient? client}) =>
     RepositoryProvider<FrappeApiClient>.value(
@@ -79,7 +81,9 @@ void main() {
       expect(tester.takeException(), isNull);
       await tester.tap(find.byIcon(Icons.chevron_right_rounded).first);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('گزارش‌ها'));
+      await tester.tap(find.widgetWithText(NavigationDestination, 'عملیات'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ListTile, 'گزارش‌ها'));
       await tester.pumpAndSettle();
       expect(find.byType(SettingsDashboardContent), findsNothing);
       expect(find.text('گزارش‌ها'), findsOneWidget);
@@ -91,8 +95,7 @@ void main() {
 
   testWidgets('settings remains accessible before office creation',
       (tester) async {
-    await tester.pumpWidget(app(
-        const DashboardPage(),
+    await tester.pumpWidget(app(const DashboardPage(),
         client: _SettingsClient(const [
           'System Manager',
           'Accounts Manager',
@@ -107,9 +110,9 @@ void main() {
     // actions grid now fits inside the initial viewport.
     expect(find.text('مدیریت کاربران'), findsOneWidget);
     expect(tester.takeException(), isNull);
-      await tester.tap(find.widgetWithText(NavigationDestination, 'عملیات'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(ListTile, 'گزارش‌ها'));
+    await tester.tap(find.widgetWithText(NavigationDestination, 'عملیات'));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(ListTile, 'گزارش‌ها'), findsNothing);
     await tester.pumpAndSettle();
     expect(find.byType(SettingsDashboardContent), findsOneWidget);
   });
@@ -117,7 +120,10 @@ void main() {
   testWidgets('payment and sales quick actions open their destinations',
       (tester) async {
     await tester.pumpWidget(
-      app(const DashboardPage(officeName: 'دفتر نمونه', offlinePreview: true)),
+      app(const DashboardPage(
+          officeName: 'دفتر نمونه',
+          offlinePreview: true,
+          operationsOnly: true)),
     );
     await tester.pumpAndSettle();
 
@@ -152,7 +158,12 @@ void main() {
     ]) {
       expect(find.text(tile), findsNothing);
     }
-    for (final tile in ['دفترها', 'منابع انسانی', 'ثبت درخواست‌ها', 'کارتابل']) {
+    for (final tile in [
+      'دفترها',
+      'منابع انسانی',
+      'ثبت درخواست‌ها',
+      'کارتابل'
+    ]) {
       expect(find.text(tile), findsOneWidget);
     }
     expect(tester.takeException(), isNull);

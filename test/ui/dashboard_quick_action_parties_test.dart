@@ -27,7 +27,8 @@ Widget _app(_Client client) => MultiRepositoryProvider(
         theme: AsoudTheme.light,
         home: Directionality(
           textDirection: TextDirection.rtl,
-          child: const DashboardPage(officeName: 'شرکت نمونه آسود'),
+          child: const DashboardPage(
+              officeName: 'شرکت نمونه آسود', operationsOnly: true),
         ),
       ),
     );
@@ -80,8 +81,7 @@ void main() {
         (tester) async {
       await tester.binding.setSurfaceSize(Size(width, 844));
       addTearDown(() => tester.binding.setSurfaceSize(null));
-      await tester
-          .pumpWidget(_app(withRoles(const ['Purchase Manager'])));
+      await tester.pumpWidget(_app(withRoles(const ['Purchase Manager'])));
       await tester.pumpAndSettle();
 
       await tester.ensureVisible(find.text('طرف حساب‌ها'));

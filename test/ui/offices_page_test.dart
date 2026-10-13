@@ -133,6 +133,10 @@ void main() {
     await tester.tap(find.text('ورود به دفتر کار'));
     await tester.pumpAndSettle();
     expect(find.byType(DashboardPage), findsOneWidget);
+    await tester.tap(find.widgetWithText(NavigationDestination, 'عملیات'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ListTile, 'همه عملیات'));
+    await tester.pumpAndSettle();
     expect(find.textContaining('حالت موقت آفلاین'), findsOneWidget);
 
     final setupButton = find.text('تکمیل تنظیمات پایه');

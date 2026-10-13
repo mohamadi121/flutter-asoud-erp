@@ -25,7 +25,7 @@ class CalendarRepository {
   final FrappeApiClient? client;
   final String company;
   String? _identity;
-  static Future<void> _writes = Future<void>.value();
+  static Future<void>? _writes;
 
   Future<String> _scope() async {
     final api = client;
@@ -82,8 +82,17 @@ class CalendarRepository {
   }
 
   Future<T> _serial<T>(Future<T> Function() action) {
-    final result = _writes.then((_) => action());
-    _writes = result.then<void>((_) {}, onError: (Object _) {});
+    // Keep only in-flight work. A completed Future retains its originating
+    // zone; reusing it can strand later callers in a disposed async context.
+    final previous = _writes;
+    final result = previous == null
+        ? Future<T>.sync(action)
+        : previous.then((_) => action());
+    final settled = result.then<void>((_) {}, onError: (Object _) {});
+    _writes = settled;
+    settled.then((_) {
+      if (identical(_writes, settled)) _writes = null;
+    });
     return result;
   }
 
