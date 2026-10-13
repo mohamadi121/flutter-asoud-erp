@@ -12,6 +12,8 @@ import '../../../../core/widgets/asoud_ui.dart';
 import '../../../../core/widgets/states.dart';
 import '../../../accounting/presentation/pages/accounting_home_page.dart';
 import '../../../employee/domain/employee_mode.dart';
+import '../../../employee/presentation/pages/employee_home_page.dart';
+import '../../../calendar/calendar_navigation.dart';
 import '../../../employee/presentation/pages/employee_shell.dart';
 import '../../../base_setup/presentation/pages/base_accounting_setup_page.dart';
 import '../../../office_setup/domain/entities/office.dart';
@@ -98,29 +100,30 @@ class _DashboardLandingPageState extends State<DashboardLandingPage> {
 
   @override
   Widget build(BuildContext context) => FutureBuilder<_LandingState>(
-    future: _landing,
-    builder: (context, snapshot) {
-      if (snapshot.connectionState == ConnectionState.waiting &&
-          !snapshot.hasData) {
-        return const Scaffold(body: Center(child: CircularProgressIndicator()));
-      }
-      final landing =
-          snapshot.data ?? const _LandingState.dashboard(null, loadError: true);
-      return switch (landing.destination) {
-        _LandingDestination.employee => EmployeeShell(
-          company: landing.company!,
-        ),
-        _LandingDestination.noOfficeAccess => const _NoOfficeAccessPage(),
-        _LandingDestination.dashboard => DashboardPage(
-          office: landing.office,
-          officeName: landing.office?.name,
-          offlinePreview: widget.offlinePreview || landing.loadError,
-          loadError: landing.loadError,
-          onOfficeCreated: _reload,
-        ),
-      };
-    },
-  );
+        future: _landing,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting &&
+              !snapshot.hasData) {
+            return const Scaffold(
+                body: Center(child: CircularProgressIndicator()));
+          }
+          final landing = snapshot.data ??
+              const _LandingState.dashboard(null, loadError: true);
+          return switch (landing.destination) {
+            _LandingDestination.employee => EmployeeShell(
+                company: landing.company!,
+              ),
+            _LandingDestination.noOfficeAccess => const _NoOfficeAccessPage(),
+            _LandingDestination.dashboard => DashboardPage(
+                office: landing.office,
+                officeName: landing.office?.name,
+                offlinePreview: widget.offlinePreview || landing.loadError,
+                loadError: landing.loadError,
+                onOfficeCreated: _reload,
+              ),
+          };
+        },
+      );
 }
 
 enum _LandingDestination { employee, dashboard, noOfficeAccess }
@@ -209,6 +212,7 @@ class DashboardPage extends StatefulWidget {
       this.offlinePreview = false,
       this.loadError = false,
       this.onOfficeCreated,
+      this.operationsOnly = false,
       super.key});
 
   final String? officeName;
@@ -216,12 +220,60 @@ class DashboardPage extends StatefulWidget {
   final bool offlinePreview;
   final bool loadError;
   final VoidCallback? onOfficeCreated;
+  final bool operationsOnly;
 
   @override
   State<DashboardPage> createState() => _DashboardPageState();
 }
 
 class _DashboardPageState extends State<DashboardPage> {
+  Future<void> _operations() async {
+    final access =
+        await capabilitiesOf(context, offlinePreview: offlinePreview);
+    if (!mounted) return;
+    final value = await showModalBottomSheet<String>(
+        context: context,
+        showDragHandle: true,
+        builder: (ctx) => SafeArea(
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+              ListTile(
+                  title: const Text('همه عملیات'),
+                  leading: const Icon(Icons.apps),
+                  onTap: () => Navigator.pop(ctx, 'all')),
+              if (access.canManageWorkflows)
+                ListTile(
+                    title: const Text('گردش‌کار'),
+                    leading: const Icon(Icons.hub_outlined),
+                    onTap: () => Navigator.pop(ctx, 'workflow')),
+              if (access.canSeeAccounting)
+                ListTile(
+                    title: const Text('گزارش‌ها'),
+                    leading: const Icon(Icons.bar_chart),
+                    onTap: () => Navigator.pop(ctx, 'reports')),
+            ])));
+    if (value == null || !mounted) return;
+    if (value == 'all') {
+      await Navigator.push(
+          context,
+          MaterialPageRoute<void>(
+              builder: (_) => DashboardPage(
+                  officeName: officeName,
+                  office: office,
+                  offlinePreview: offlinePreview,
+                  onOfficeCreated: onOfficeCreated,
+                  operationsOnly: true)));
+      return;
+    }
+    await Navigator.push(
+        context,
+        MaterialPageRoute<void>(
+            builder: (_) => value == 'workflow'
+                ? WorkflowListPage(company: officeName)
+                : offlinePreview
+                    ? const _UnavailablePage(title: 'گزارش‌ها')
+                    : const ReportsHubPage()));
+  }
+
   int selectedIndex = 0;
   late final Future<Capabilities> _capabilities;
   String? get officeName => widget.officeName;
@@ -233,177 +285,199 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   void initState() {
     super.initState();
-    _capabilities = capabilitiesOf(context, offlinePreview: widget.offlinePreview);
+    _capabilities =
+        capabilitiesOf(context, offlinePreview: widget.offlinePreview);
   }
 
   @override
   Widget build(BuildContext context) {
     final hasOffice = officeName?.trim().isNotEmpty == true;
     return Scaffold(
+      appBar: widget.operationsOnly ? const AsoudHeader(title: 'عملیات') : null,
       body: selectedIndex == 4
           ? SettingsDashboardContent(
               company: officeName, offlinePreview: offlinePreview)
-          : SafeArea(
-              child: Column(children: [
-                _Header(officeName: officeName),
-                Expanded(
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                    children: [
-                      if (offlinePreview) ...[
-                        const OrganizationLoginBanner(),
-                        const SizedBox(height: 10),
-                      ],
-                      if (!hasOffice && !loadError)
-                        FirstOfficeCard(onCreated: onOfficeCreated)
-                      else if (!hasOffice)
-                        _EmptyOfficeDashboard(
-                          loadError: loadError,
-                          onCreated: onOfficeCreated,
-                        )
-                      else ...[
-                        _ConnectionBanner(offline: offlinePreview),
-                        const SizedBox(height: 10),
-                        HomeMetricsSection(
-                            company: officeName,
-                            offlinePreview: offlinePreview),
-                        const SizedBox(height: 10),
-                        if (office?.setupComplete != true) ...[
-                          _SetupProgress(
-                            offline: offlinePreview,
-                            onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) => BaseAccountingSetupPage(
-                                  officeName: officeName,
-                                  offlinePreview: offlinePreview,
+          : hasOffice && !widget.operationsOnly
+              ? EmployeeHomePage(
+                  key: ValueKey(officeName),
+                  company: officeName!,
+                  demoPreview: offlinePreview,
+                  onOperations: _operations)
+              : SafeArea(
+                  child: Column(children: [
+                    _Header(officeName: officeName),
+                    Expanded(
+                      child: ListView(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                        children: [
+                          if (offlinePreview) ...[
+                            const OrganizationLoginBanner(),
+                            const SizedBox(height: 10),
+                          ],
+                          if (!hasOffice && !loadError)
+                            FirstOfficeCard(onCreated: onOfficeCreated)
+                          else if (!hasOffice)
+                            _EmptyOfficeDashboard(
+                              loadError: loadError,
+                              onCreated: onOfficeCreated,
+                            )
+                          else ...[
+                            _ConnectionBanner(offline: offlinePreview),
+                            const SizedBox(height: 10),
+                            HomeMetricsSection(
+                                company: officeName,
+                                offlinePreview: offlinePreview),
+                            const SizedBox(height: 10),
+                            if (office?.setupComplete != true) ...[
+                              _SetupProgress(
+                                offline: offlinePreview,
+                                onTap: () => Navigator.of(context).push(
+                                  MaterialPageRoute<void>(
+                                    builder: (_) => BaseAccountingSetupPage(
+                                      officeName: officeName,
+                                      offlinePreview: offlinePreview,
+                                    ),
+                                  ),
                                 ),
                               ),
+                              const SizedBox(height: 10),
+                            ],
+                            _InfoCards(office: office),
+                            const SizedBox(height: 14),
+                            const Text('عملیات سریع',
+                                style: TextStyle(
+                                    fontSize: 14, fontWeight: FontWeight.w900)),
+                            const SizedBox(height: 8),
+                            FutureBuilder<Capabilities>(
+                              future: _capabilities,
+                              builder: (context, snapshot) {
+                                if (!snapshot.hasData) {
+                                  return const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 24),
+                                    child: Center(
+                                        child: CircularProgressIndicator()),
+                                  );
+                                }
+                                final canSeeAccounting =
+                                    snapshot.data?.canSeeAccounting ?? false;
+                                return _QuickActions(
+                                  onPayments: () => Navigator.of(context).push(
+                                    MaterialPageRoute<void>(
+                                      builder: (_) => const _UnavailablePage(
+                                        title: 'دریافت و پرداخت',
+                                      ),
+                                    ),
+                                  ),
+                                  onSalesInvoice: () =>
+                                      Navigator.of(context).push(
+                                    MaterialPageRoute<void>(
+                                      builder: (_) => const _UnavailablePage(
+                                        title: 'فاکتور فروش',
+                                      ),
+                                    ),
+                                  ),
+                                  onAccounting: () =>
+                                      Navigator.of(context).push(
+                                    MaterialPageRoute<void>(
+                                      builder: (_) => AccountingHomePage(
+                                        company: officeName,
+                                      ),
+                                    ),
+                                  ),
+                                  onPurchaseRequest: () =>
+                                      Navigator.of(context).push(
+                                    MaterialPageRoute<void>(
+                                      builder: (_) => GenericRequestsPage(
+                                        company: officeName ?? '',
+                                      ),
+                                    ),
+                                  ),
+                                  onDocuments: () => Navigator.of(context).push(
+                                    MaterialPageRoute<void>(
+                                      builder: (_) => DocumentTemplatesPage(
+                                          company: officeName ?? ''),
+                                    ),
+                                  ),
+                                  onParties: canSeeAccounting
+                                      ? () => Navigator.of(context).push(
+                                            MaterialPageRoute<void>(
+                                              builder: (_) =>
+                                                  PartyManagementPage(
+                                                company: officeName,
+                                              ),
+                                            ),
+                                          )
+                                      : null,
+                                );
+                              },
                             ),
-                          ),
-                          const SizedBox(height: 10),
+                          ],
                         ],
-                        _InfoCards(office: office),
-                        const SizedBox(height: 14),
-                        const Text('عملیات سریع',
-                            style: TextStyle(
-                                fontSize: 14, fontWeight: FontWeight.w900)),
-                        const SizedBox(height: 8),
-                        FutureBuilder<Capabilities>(
-                          future: _capabilities,
-                          builder: (context, snapshot) {
-                            if (!snapshot.hasData) {
-                              return const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 24),
-                                child: Center(
-                                    child: CircularProgressIndicator()),
-                              );
-                            }
-                            final canSeeAccounting =
-                                snapshot.data?.canSeeAccounting ?? false;
-                            return _QuickActions(
-                              onPayments: () => Navigator.of(context).push(
-                                MaterialPageRoute<void>(
-                                  builder: (_) => const _UnavailablePage(
-                                    title: 'دریافت و پرداخت',
-                                  ),
-                                ),
-                              ),
-                              onSalesInvoice: () => Navigator.of(context).push(
-                                MaterialPageRoute<void>(
-                                  builder: (_) => const _UnavailablePage(
-                                    title: 'فاکتور فروش',
-                                  ),
-                                ),
-                              ),
-                              onAccounting: () => Navigator.of(context).push(
-                                MaterialPageRoute<void>(
-                                  builder: (_) => AccountingHomePage(
-                                    company: officeName,
-                                  ),
-                                ),
-                              ),
-                              onPurchaseRequest: () =>
-                                  Navigator.of(context).push(
-                                MaterialPageRoute<void>(
-                                  builder: (_) => GenericRequestsPage(
-                                    company: officeName ?? '',
-                                  ),
-                                ),
-                              ),
-                              onDocuments: () => Navigator.of(context).push(
-                                MaterialPageRoute<void>(
-                                  builder: (_) => DocumentTemplatesPage(
-                                      company: officeName ?? ''),
-                                ),
-                              ),
-                              onParties: canSeeAccounting
-                                  ? () => Navigator.of(context).push(
-                                        MaterialPageRoute<void>(
-                                          builder: (_) =>
-                                              PartyManagementPage(
-                                            company: officeName,
-                                          ),
-                                        ),
-                                      )
-                                  : null,
-                            );
-                          },
-                        ),
-                      ],
-                    ],
-                  ),
+                      ),
+                    ),
+                  ]),
                 ),
-              ]),
+      bottomNavigationBar: widget.operationsOnly
+          ? null
+          : NavigationBar(
+              selectedIndex: selectedIndex,
+              onDestinationSelected: (index) {
+                if (index == 0 || index == 4) {
+                  setState(() => selectedIndex = index);
+                  return;
+                }
+                if (!hasOffice) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content: Text(
+                        'برای استفاده از این بخش ابتدا دفتر کار را ایجاد کنید.'),
+                  ));
+                  return;
+                }
+                if (index == 1) {
+                  _operations();
+                } else if (index == 2) {
+                  showAsoudCreateMenu(context, officeName!);
+                } else if (index == 3) {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const WorkflowTasksPage(),
+                    ),
+                  );
+                } else if (index != 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content: Text('این بخش هنوز به سرور متصل نشده است.'),
+                  ));
+                }
+              },
+              destinations: const [
+                NavigationDestination(
+                  icon: Icon(Icons.home_outlined),
+                  selectedIcon: Icon(Icons.home_rounded),
+                  label: 'خانه',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.hub_outlined),
+                  label: 'عملیات',
+                ),
+                NavigationDestination(
+                  icon: DecoratedBox(
+                      decoration: BoxDecoration(
+                          color: AsoudColors.primary, shape: BoxShape.circle),
+                      child: Padding(
+                          padding: EdgeInsets.all(8),
+                          child: Icon(Icons.add, color: Colors.white))),
+                  label: 'ایجاد',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.assignment_ind_outlined),
+                  label: 'کارتابل',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.settings_outlined),
+                  label: 'بیشتر',
+                ),
+              ],
             ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: selectedIndex,
-        onDestinationSelected: (index) {
-          if (index == 0 || index == 4) {
-            setState(() => selectedIndex = index);
-            return;
-          }
-          if (!hasOffice) {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content:
-                  Text('برای استفاده از این بخش ابتدا دفتر کار را ایجاد کنید.'),
-            ));
-            return;
-          }
-          if (index == 1) {
-            Navigator.of(context).push(MaterialPageRoute<void>(
-              builder: (_) => WorkflowListPage(company: officeName),
-            ));
-          } else if (index == 2) {
-            Navigator.of(context).push(MaterialPageRoute<void>(
-              builder: (_) => const WorkflowTasksPage(),
-            ));
-          } else if (index == 3) {
-            Navigator.of(context).push(MaterialPageRoute<void>(
-              builder: (_) => offlinePreview
-                  ? const _UnavailablePage(title: 'گزارش‌ها')
-                  : const ReportsHubPage(),
-            ));
-          } else if (index != 0) {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('این بخش هنوز به سرور متصل نشده است.'),
-            ));
-          }
-        },
-        destinations: const [
-          NavigationDestination(
-              icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home_rounded),
-              label: 'خانه'),
-          NavigationDestination(
-              icon: Icon(Icons.hub_outlined), label: 'گردش‌کار'),
-          NavigationDestination(
-              icon: Icon(Icons.assignment_ind_outlined), label: 'کارتابل'),
-          NavigationDestination(
-              icon: Icon(Icons.bar_chart_rounded), label: 'گزارش‌ها'),
-          NavigationDestination(
-              icon: Icon(Icons.settings_outlined), label: 'تنظیمات'),
-        ],
-      ),
     );
   }
 }
@@ -513,7 +587,8 @@ class _Header extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                 const Text('دفتر کار',
-                    style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
+                    style:
+                        TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
                 Text(officeName ?? 'برای شروع، اطلاعات اولیه دفتر را ثبت کنید',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -791,53 +866,48 @@ class _QuickActions extends StatelessWidget {
       crossAxisSpacing: 8,
       mainAxisSpacing: 8,
       mainAxisExtent: 112,
-      children: items
-          .map((item) {
-            final enabled = item.$5 != null;
-            return Card(
-              child: InkWell(
-                onTap: item.$5,
-                borderRadius: BorderRadius.circular(14),
-                child: Padding(
-                  padding: const EdgeInsets.all(9),
-                  child: Row(children: [
-                    AsoudIconBox(
-                        icon: item.$3,
-                        color: enabled ? item.$4 : AsoudColors.muted,
-                        size: 34),
-                    const SizedBox(width: 7),
-                    Expanded(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(item.$1,
-                              style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w800,
-                                  color: enabled
-                                      ? null
-                                      : AsoudColors.muted)),
-                          Text(item.$2,
-                              style: TextStyle(
-                                  fontSize: 7,
-                                  color: enabled
-                                      ? AsoudColors.muted
-                                      : AsoudColors.muted.withValues(
-                                          alpha: .6))),
-                          if (!enabled) ...[
-                            const SizedBox(height: 2),
-                            const _SoonBadge(),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ]),
+      children: items.map((item) {
+        final enabled = item.$5 != null;
+        return Card(
+          child: InkWell(
+            onTap: item.$5,
+            borderRadius: BorderRadius.circular(14),
+            child: Padding(
+              padding: const EdgeInsets.all(9),
+              child: Row(children: [
+                AsoudIconBox(
+                    icon: item.$3,
+                    color: enabled ? item.$4 : AsoudColors.muted,
+                    size: 34),
+                const SizedBox(width: 7),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(item.$1,
+                          style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              color: enabled ? null : AsoudColors.muted)),
+                      Text(item.$2,
+                          style: TextStyle(
+                              fontSize: 7,
+                              color: enabled
+                                  ? AsoudColors.muted
+                                  : AsoudColors.muted.withValues(alpha: .6))),
+                      if (!enabled) ...[
+                        const SizedBox(height: 2),
+                        const _SoonBadge(),
+                      ],
+                    ],
+                  ),
                 ),
-              ),
-            );
-          })
-          .toList(),
+              ]),
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 }

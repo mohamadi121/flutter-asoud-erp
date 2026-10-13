@@ -242,7 +242,7 @@ class _MyInfoPageState extends State<MyInfoPage> {
       child: FutureBuilder<PersonnelFile>(
           future: future,
           builder: (context, snapshot) => Scaffold(
-                appBar: AppBar(title: const Text('اطلاعات من'), actions: [
+                appBar: AppBar(title: const Text('پرونده من'), actions: [
                   TextButton(
                       onPressed:
                           snapshot.hasData ? () => _edit(snapshot.data!) : null,

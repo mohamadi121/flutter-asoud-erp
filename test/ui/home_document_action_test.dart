@@ -30,7 +30,7 @@ void main() {
             theme: AsoudTheme.light,
             home: const Directionality(
                 textDirection: TextDirection.rtl,
-                child: DashboardPage(officeName: 'شرکت نمونه')))));
+                child: DashboardPage(officeName: 'شرکت نمونه', operationsOnly: true)))));
     await tester.pumpAndSettle();
     expect(find.text('منابع انسانی'), findsNothing);
     final action = find.text('ایجاد سند');

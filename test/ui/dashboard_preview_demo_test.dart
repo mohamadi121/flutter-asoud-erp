@@ -85,7 +85,8 @@ void main() {
       final office = demoPreviewOffice();
       await tester.pumpWidget(_app(
           DashboardPage(
-              office: office, officeName: office.name, offlinePreview: true),
+              office: office, officeName: office.name, offlinePreview: true,
+              operationsOnly: true),
           client));
       await tester.pumpAndSettle();
 
@@ -187,7 +188,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('تنظیمات'));
+    await tester.tap(find.widgetWithText(NavigationDestination, 'بیشتر'));
     await tester.pumpAndSettle();
     expect(find.byType(SettingsDashboardContent), findsOneWidget);
 

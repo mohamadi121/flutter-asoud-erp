@@ -38,7 +38,7 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(app(
         const DashboardPage(officeName: 'دفتر نمونه', offlinePreview: true)));
-    await tester.tap(find.text('تنظیمات'));
+    await tester.tap(find.widgetWithText(NavigationDestination, 'بیشتر'));
     await tester.pumpAndSettle();
     await tester.drag(find.byType(ListView).first, const Offset(0, -500));
     await tester.pumpAndSettle();

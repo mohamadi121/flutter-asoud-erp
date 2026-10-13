@@ -36,7 +36,7 @@ void main() {
                     textDirection: TextDirection.rtl,
                     child: DashboardPage(
                         officeName: 'دفتر نمونه', offlinePreview: true))))));
-    await tester.tap(find.text('تنظیمات'));
+    await tester.tap(find.widgetWithText(NavigationDestination, 'بیشتر'));
     await tester.pumpAndSettle();
     expect(find.text('اشخاص و شرکت‌ها'), findsNothing);
     final action = find.text('گردش کار');

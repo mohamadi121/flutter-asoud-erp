@@ -102,20 +102,9 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      expect(find.text('سلام سارا!'), findsOneWidget);
+      expect(find.text('سارا محمدی'), findsOneWidget);
       expect(find.text('کارشناس فروش · فروش'), findsOneWidget);
-      await tester.dragUntilVisible(
-        find.text('کار جدید به شما ارجاع شد'),
-        find.byType(Scrollable).first,
-        const Offset(0, -200),
-      );
-      expect(find.text('کار جدید به شما ارجاع شد'), findsOneWidget);
-      await tester.dragUntilVisible(
-        find.text('مشاهده همه'),
-        find.byType(Scrollable).first,
-        const Offset(0, -200),
-      );
-      await tester.tap(find.text('مشاهده همه'));
+      await tester.tap(find.byTooltip('اعلان‌ها'));
       await tester.pumpAndSettle();
       expect(find.text('اعلان‌ها'), findsWidgets);
       await tester.dragUntilVisible(

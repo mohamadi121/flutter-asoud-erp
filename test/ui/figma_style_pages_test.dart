@@ -53,9 +53,11 @@ void main() {
         .pumpWidget(_app(const DashboardPage(officeName: 'شرکت نمونه')));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('ASOUD ERP'), findsWidgets);
-    expect(find.text('عملیات سریع'), findsOneWidget);
+    expect(find.text('آسود'), findsOneWidget);
+    expect(find.text('خانه من'), findsOneWidget);
     expect(find.text('خانه'), findsOneWidget);
+    await tester.dragUntilVisible(find.text('دسترسی سریع'),
+        find.byType(Scrollable).first, const Offset(0, -200));
     expect(find.text('گزارش‌ها'), findsWidgets);
     expect(tester.takeException(), isNull);
     await tester.binding.setSurfaceSize(null);

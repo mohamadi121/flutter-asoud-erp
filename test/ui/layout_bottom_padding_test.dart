@@ -186,7 +186,7 @@ void main() {
               w.padding is EdgeInsets &&
               (w.padding as EdgeInsets).bottom >= 88),
           findsOneWidget);
-      expect(find.text('اطلاعات من'), findsOneWidget);
+    expect(find.text('پرونده من'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 

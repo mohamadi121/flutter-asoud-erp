@@ -6,6 +6,7 @@ import '../../../../core/config/app_config.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../hr/data/personnel_file_repository.dart';
+import '../../../calendar/calendar_navigation.dart';
 import '../../../hr/presentation/pages/hr_home_page.dart';
 import 'my_info_page.dart';
 import '../../../workflows/presentation/pages/generic_request_page.dart';
@@ -77,17 +78,37 @@ class _EmployeeShellState extends State<EmployeeShell> {
         child: Scaffold(
           body: _body(),
           bottomNavigationBar: NavigationBar(
-            selectedIndex: tab == 1 ? 3 : const [0, 2, 3, 4].indexOf(tab),
-            onDestinationSelected: (index) => _open(const [0, 2, 3, 4][index]),
+            selectedIndex: tab == 1
+                ? 3
+                : tab == 2
+                    ? 1
+                    : tab == 0
+                        ? 0
+                        : 4,
+            onDestinationSelected: (index) {
+              if (index == 2) {
+                showAsoudCreateMenu(context, widget.company);
+              } else {
+                _open(const [0, 2, 0, 1, 4][index]);
+              }
+            },
             destinations: const [
               NavigationDestination(
                   icon: Icon(Icons.home_outlined),
                   selectedIcon: Icon(Icons.home_rounded),
                   label: 'خانه'),
               NavigationDestination(
-                  icon: Icon(Icons.description_outlined), label: 'درخواست‌ها'),
+                  icon: Icon(Icons.description_outlined), label: 'عملیات'),
               NavigationDestination(
-                  icon: Icon(Icons.mail_outline_rounded), label: 'مکاتبات'),
+                  icon: DecoratedBox(
+                      decoration: BoxDecoration(
+                          color: AsoudColors.primary, shape: BoxShape.circle),
+                      child: Padding(
+                          padding: EdgeInsets.all(8),
+                          child: Icon(Icons.add, color: Colors.white))),
+                  label: 'ایجاد'),
+              NavigationDestination(
+                  icon: Icon(Icons.assignment_ind_outlined), label: 'کارتابل'),
               NavigationDestination(
                   icon: Icon(Icons.more_horiz_rounded), label: 'بیشتر'),
             ],
@@ -119,7 +140,7 @@ class _MoreTab extends StatelessWidget {
         () => push(const WorkflowTasksPage())
       ),
       (
-        'اطلاعات من',
+        'پرونده من',
         Icons.badge_outlined,
         AsoudColors.cyan,
         () => push(MyInfoPage(repository: files))

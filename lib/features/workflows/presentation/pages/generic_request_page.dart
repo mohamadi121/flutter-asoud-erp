@@ -25,15 +25,27 @@ class GenericRequestsPage extends StatefulWidget {
   const GenericRequestsPage({
     required this.company,
     this.repository,
+    this.createOnOpen = false,
     super.key,
   });
   final String company;
   final GenericRequestRepository? repository;
+  final bool createOnOpen;
   @override
   State<GenericRequestsPage> createState() => _GenericRequestsPageState();
 }
 
 class _GenericRequestsPageState extends State<GenericRequestsPage> {
+  @override
+  void initState() {
+    super.initState();
+    if (widget.createOnOpen) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _create();
+      });
+    }
+  }
+
   late final repository = widget.repository ??
       GenericRequestRepository(context.read<FrappeApiClient>(), widget.company);
   final listKey = GlobalKey<RequestListViewState>();

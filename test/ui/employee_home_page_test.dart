@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class _Client extends Mock implements FrappeApiClient {}
 
@@ -73,14 +74,19 @@ class _SelfService extends Fake implements SelfServiceRepository {
       ];
 }
 
-Widget _app(Widget page) => RepositoryProvider<FrappeApiClient>.value(
-      value: _Client(),
-      child: MaterialApp(
-          theme: AsoudTheme.light,
-          home: Directionality(textDirection: TextDirection.rtl, child: page)),
-    );
+Widget _app(Widget page) {
+  final client = _Client();
+  when(() => client.isAuthenticated).thenReturn(false);
+  return RepositoryProvider<FrappeApiClient>.value(
+    value: client,
+    child: MaterialApp(
+        theme: AsoudTheme.light,
+        home: Directionality(textDirection: TextDirection.rtl, child: page)),
+  );
+}
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
   for (final width in [320.0, 390.0]) {
     testWidgets('employee home at $width', (tester) async {
       await tester.binding.setSurfaceSize(Size(width, 844));
@@ -93,45 +99,63 @@ void main() {
               selfService: _SelfService(),
               onOpenTab: opened.add))));
       await tester.pumpAndSettle();
-      expect(find.text('سلام امیر!'), findsOneWidget);
+      expect(find.text('آسود'), findsOneWidget);
+      expect(find.text('خانه من'), findsOneWidget);
+      expect(find.text('امیر موفق'), findsOneWidget);
       expect(find.text('کارشناس فروش · فروش'), findsOneWidget);
       expect(find.textContaining('۱۴۰'), findsWidgets);
+      expect(find.text('برنامه هفتگی من'), findsOneWidget);
+      expect(find.descendant(of: find.byType(Badge), matching: find.text('۳')),
+          findsOneWidget);
+      await tester.scrollUntilVisible(find.text('نیازمند اقدام من'), 150,
+          scrollable: find.byType(Scrollable).first);
+      expect(find.text('نیازمند اقدام من'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('عملیات'), 150,
+          scrollable: find.byType(Scrollable).first);
+      await tester.tap(find.text('عملیات'));
+      await tester.pumpAndSettle();
       for (final label in [
         'درخواست‌ها',
         'حضور و غیاب',
         'گزارش کار',
         'مکاتبات',
-        'اطلاعات من',
+        'پرونده من',
         'مدارک'
       ]) {
+        await tester.scrollUntilVisible(find.text(label), 150,
+            scrollable: find.byType(Scrollable).first);
         expect(find.text(label), findsOneWidget, reason: label);
       }
-      expect(find.text('۳'), findsOneWidget); // unread notifications badge
-      expect(find.text('۲'), findsOneWidget); // open requests badge
-      expect(find.text('مشاهده همه'), findsOneWidget);
-      expect(find.text('اعلانی برای نمایش وجود ندارد.'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('درخواست‌ها'), -150,
+          scrollable: find.byType(Scrollable).first);
+      expect(find.descendant(of: find.byType(Badge), matching: find.text('۲')),
+          findsOneWidget);
       await tester.tap(find.text('درخواست‌ها'));
       expect(opened, [2]);
-      await tester.tap(find.text('اطلاعات من'));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(find.byTooltip('پرونده من'), -150,
+          scrollable: find.byType(Scrollable).first);
+      await tester.tap(find.byTooltip('پرونده من'));
       await tester.pumpAndSettle();
       expect(find.byType(MyInfoPage), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   }
 
-  testWidgets('shell shows the four destinations and the more tab',
+  testWidgets('shell shows the five destinations and the more tab',
       (tester) async {
     await tester.pumpWidget(_app(EmployeeShell(
         company: 'Tabaan', files: _Files(), selfService: _SelfService())));
     await tester.pumpAndSettle();
-    for (final label in ['خانه', 'درخواست‌ها', 'مکاتبات', 'بیشتر']) {
+    for (final label in ['خانه', 'عملیات', 'ایجاد', 'کارتابل', 'بیشتر']) {
       expect(find.widgetWithText(NavigationDestination, label), findsOneWidget,
           reason: label);
     }
     await tester.tap(find.widgetWithText(NavigationDestination, 'بیشتر'));
     await tester.pumpAndSettle();
-    for (final label in ['کارتابل', 'اطلاعات من', 'مدارک من', 'اطلاعیه‌ها']) {
-      expect(find.text(label), findsOneWidget, reason: label);
+    for (final label in ['کارتابل', 'پرونده من', 'مدارک من', 'اطلاعیه‌ها']) {
+      expect(find.widgetWithText(ListTile, label), findsOneWidget,
+          reason: label);
     }
     await tester.tap(find.text('حضور و غیاب'));
     await tester.pumpAndSettle();

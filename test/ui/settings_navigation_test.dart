@@ -51,7 +51,7 @@ void main() {
       await tester.pumpWidget(app(
           const DashboardPage(officeName: 'دفتر نمونه', offlinePreview: true),
           client: client));
-      await tester.tap(find.text('تنظیمات'));
+      await tester.tap(find.widgetWithText(NavigationDestination, 'بیشتر'));
       await tester.pumpAndSettle();
       expect(find.byType(SettingsDashboardContent), findsOneWidget);
       expect(find.text('۱۲۴'), findsNothing);
@@ -99,7 +99,7 @@ void main() {
           'HR Manager',
           'Employee',
         ])));
-    await tester.tap(find.text('تنظیمات'));
+    await tester.tap(find.widgetWithText(NavigationDestination, 'بیشتر'));
     await tester.pumpAndSettle();
     expect(find.byType(SettingsDashboardContent), findsOneWidget);
     expect(find.text('انتخاب دفتر'), findsOneWidget);
@@ -107,7 +107,9 @@ void main() {
     // actions grid now fits inside the initial viewport.
     expect(find.text('مدیریت کاربران'), findsOneWidget);
     expect(tester.takeException(), isNull);
-    await tester.tap(find.text('گزارش‌ها'));
+      await tester.tap(find.widgetWithText(NavigationDestination, 'عملیات'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ListTile, 'گزارش‌ها'));
     await tester.pumpAndSettle();
     expect(find.byType(SettingsDashboardContent), findsOneWidget);
   });
