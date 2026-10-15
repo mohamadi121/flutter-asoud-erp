@@ -28,7 +28,10 @@ class _FakeSetupClient extends Fake implements FrappeApiClient {
   bool get isAuthenticated => true;
 
   @override
-  Stream<bool> get authenticationChanges => const Stream.empty();
+  // Cancellation must complete inside the widget test's async zone.
+  // An already-closed stream can reuse a completion future from outside it.
+  Stream<bool> get authenticationChanges =>
+      StreamController<bool>(onCancel: () async {}).stream;
 
   @override
   Future<Map<String, dynamic>> callMethod(String method,
