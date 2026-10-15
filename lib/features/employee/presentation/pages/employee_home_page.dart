@@ -65,7 +65,9 @@ class EmployeeHomePage extends StatefulWidget {
 
 class _EmployeeHomePageState extends State<EmployeeHomePage> {
   late final PersonnelFileRepository files =
-      widget.files ?? PersonnelFileRepository(context.read<FrappeApiClient>());
+      widget.files ??
+      context.read<PersonnelFileRepository?>() ??
+      PersonnelFileRepository(context.read<FrappeApiClient>());
   Future<EmployeeHome> _loadHome() async =>
       widget.demoPreview ? demoEmployeeHome() : await files.myHome();
   late Future<EmployeeHome> future = _loadHome();

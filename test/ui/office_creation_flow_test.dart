@@ -5,6 +5,7 @@ import 'package:asoud_erp/core/network/api_exception.dart';
 import 'package:asoud_erp/core/network/frappe_client.dart';
 import 'package:asoud_erp/core/offline/queued_offline_exception.dart';
 import 'package:asoud_erp/core/theme/asoud_theme.dart';
+import 'package:asoud_erp/features/hr/data/personnel_file_repository.dart';
 import 'package:asoud_erp/features/dashboard/presentation/pages/dashboard_page.dart';
 import 'package:asoud_erp/features/office_setup/data/repositories/frappe_office_repository.dart';
 import 'package:asoud_erp/features/office_setup/data/repositories/server_first_office_repository.dart';
@@ -30,6 +31,21 @@ class _FakeSetupClient extends Fake implements FrappeApiClient {
   Stream<bool> get authenticationChanges => const Stream.empty();
 
   @override
+  Future<Map<String, dynamic>> callMethod(String method,
+      {Map<String, dynamic>? data}) async {
+    calls.add(method);
+    if (method == 'asoud_erp.api.v1.calendar.get_calendar') {
+      return {
+        'message': {
+          'ok': true,
+          'data': {'items': [], 'can_manage': false},
+        },
+      };
+    }
+    throw UnimplementedError('Method $method not stubbed');
+  }
+
+  @override
   Future<FrappeUserContext> getCurrentUser() async => const FrappeUserContext(
         userId: 'Administrator',
         fullName: 'Administrator',
@@ -42,6 +58,13 @@ class _FakeSetupClient extends Fake implements FrappeApiClient {
     Map<String, dynamic>? data,
   }) async {
     calls.add(method);
+    if (method == 'asoud_erp.api.v1.personnel_file.get_my_home') {
+      return {
+        'name': 'مدیر آزمایشی',
+        'company': 'شرکت تست آسود',
+        'counts': <String, dynamic>{},
+      };
+    }
     if (method == 'asoud_erp.api.v1.setup.save_office') {
       lastSaveOfficeData = data;
       if (saveOfficeHandler != null) {
@@ -115,6 +138,10 @@ Widget _wrap(Widget child,
     providers: [
       RepositoryProvider<FrappeApiClient>.value(value: client),
       RepositoryProvider<OfficeRepository>.value(value: repository),
+      RepositoryProvider<PersonnelFileRepository>(
+        create: (_) => PersonnelFileRepository(client,
+            store: FakeLocalRecordStore()),
+      ),
     ],
     child: MaterialApp(
       locale: const Locale('fa'),
@@ -162,6 +189,11 @@ void main() {
     // Successfully arrives on DashboardPage with the office name
     expect(find.byType(DashboardPage), findsOneWidget);
     expect(find.text('شرکت تست آسود'), findsWidgets);
+    expect(find.text('مدیر آزمایشی'), findsOneWidget);
+    expect(client.calls,
+        contains('asoud_erp.api.v1.personnel_file.get_my_home'));
+    expect(client.calls, contains('asoud_erp.api.v1.calendar.get_calendar'));
+    expect(tester.takeException(), isNull);
     await tester.binding.setSurfaceSize(null);
   });
 
