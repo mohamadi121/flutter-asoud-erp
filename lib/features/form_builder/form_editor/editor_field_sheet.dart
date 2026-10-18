@@ -994,6 +994,16 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
         '${field['key']}': '${field['label']}',
     };
 
+    if (f['type'] == 'Formula') {
+      return buildFormulaAdvancedTab(
+        f: f,
+        schema: widget.schema,
+        fieldOptions: fieldOptions,
+        set: set,
+        onSelectType: (t) => set('type', t),
+      );
+    }
+
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(16),
