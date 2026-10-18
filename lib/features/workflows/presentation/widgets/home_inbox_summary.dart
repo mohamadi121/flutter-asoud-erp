@@ -51,16 +51,13 @@ class _HomeInboxSummaryState extends State<HomeInboxSummary> {
 
   @override
   Widget build(BuildContext context) => Card(
+      margin: EdgeInsets.zero,
+      elevation: 0,
       child: Padding(
           padding: const EdgeInsets.all(12),
           child:
               Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Row(children: [
-              const AsoudIconBox(
-                  icon: Icons.assignment_late_outlined,
-                  color: AsoudColors.warning,
-                  size: 34),
-              const SizedBox(width: 8),
               const Expanded(
                   child: Text('نیازمند اقدام من',
                       style: TextStyle(fontWeight: FontWeight.w800))),
@@ -95,17 +92,30 @@ class _HomeInboxSummaryState extends State<HomeInboxSummary> {
                           const Text('پیش‌نمایش آفلاین · داده نمونه/محلی',
                               style: TextStyle(
                                   fontSize: 11, color: AsoudColors.warning)),
-                        Wrap(spacing: 8, runSpacing: 4, children: [
-                          Chip(
-                              label: Text(
-                                  'باز: ${toPersianDigits(rows.length)}${rows.length >= 200 ? '+' : ''}')),
-                          Chip(
-                              backgroundColor: AsoudColors.dangerSurface,
-                              label: Text('معوق: ${toPersianDigits(overdue)}')),
-                          const Tooltip(
-                              message:
-                                  'API فعلی کارتابل اولویت را ارائه نمی‌کند.',
-                              child: Chip(label: Text('فوری: —'))),
+                        Row(children: [
+                          Expanded(
+                              child: _summaryTile(
+                                  'در انتظار',
+                                  '${toPersianDigits(rows.length)}${rows.length >= 200 ? '+' : ''}',
+                                  AsoudColors.primary,
+                                  const Color(0xFFE8F2FF))),
+                          const SizedBox(width: 8),
+                          Expanded(
+                              child: _summaryTile(
+                                  'معوق',
+                                  toPersianDigits(overdue),
+                                  AsoudColors.danger,
+                                  const Color(0xFFFCEBF1))),
+                          const SizedBox(width: 8),
+                          Expanded(
+                              child: Tooltip(
+                                  message:
+                                      'API فعلی کارتابل اولویت را ارائه نمی‌کند.',
+                                  child: _summaryTile(
+                                      'اولویت بالا',
+                                      '—',
+                                      AsoudColors.warning,
+                                      const Color(0xFFFFF1E1)))),
                         ]),
                         if (rows.length >= 200)
                           const Text('خلاصه بر اساس موارد دریافت‌شده است.',
@@ -148,4 +158,24 @@ class _HomeInboxSummaryState extends State<HomeInboxSummary> {
                       ]);
                 }),
           ])));
+
+  Widget _summaryTile(
+          String label, String value, Color foreground, Color background) =>
+      Container(
+        constraints: const BoxConstraints(minHeight: 64),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+        decoration: BoxDecoration(
+            color: background, borderRadius: BorderRadius.circular(10)),
+        child: Column(children: [
+          Text(value,
+              style: TextStyle(
+                  color: foreground,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800)),
+          const SizedBox(height: 4),
+          Text(label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 11, color: AsoudColors.muted)),
+        ]),
+      );
 }

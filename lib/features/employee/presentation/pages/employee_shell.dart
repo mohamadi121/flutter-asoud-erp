@@ -11,7 +11,7 @@ import '../../../hr/presentation/pages/hr_home_page.dart';
 import 'my_info_page.dart';
 import '../../../workflows/presentation/pages/generic_request_page.dart';
 import '../../../workflows/presentation/pages/workflow_notifications_page.dart';
-import '../../../workflows/presentation/pages/workflow_tasks_page.dart';
+import '../../../workflows/presentation/pages/cartable_page.dart';
 import '../../data/demo/employee_demo_data.dart';
 import '../../data/self_service_repository.dart';
 import 'employee_home_page.dart';
@@ -56,7 +56,7 @@ class _EmployeeShellState extends State<EmployeeShell> {
   }
 
   Widget _body() => switch (tab) {
-        1 => const WorkflowTasksPage(),
+        1 => CartablePage(company: widget.company, embedded: true),
         2 => GenericRequestsPage(company: widget.company),
         3 => HrCommunicationsPage(company: widget.company),
         4 => _MoreTab(
@@ -137,7 +137,7 @@ class _MoreTab extends StatelessWidget {
         'کارتابل',
         Icons.assignment_ind_outlined,
         AsoudColors.primary,
-        () => push(const WorkflowTasksPage())
+        () => push(CartablePage(company: company))
       ),
       (
         'پرونده من',

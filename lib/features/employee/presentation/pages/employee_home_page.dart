@@ -10,7 +10,7 @@ import '../../../hr/data/personnel_file_repository.dart';
 import '../../../../core/auth/capabilities.dart';
 import '../../../reports/presentation/pages/reports_hub_page.dart';
 import '../../../workflows/presentation/widgets/home_inbox_summary.dart';
-import '../../../workflows/presentation/pages/workflow_tasks_page.dart';
+import '../../../workflows/presentation/pages/cartable_page.dart';
 import '../../../calendar/calendar_page.dart';
 import '../../../dashboard/presentation/pages/sync_status_indicator.dart';
 import '../../../dashboard/presentation/pages/sync_queue_page.dart';
@@ -64,8 +64,7 @@ class EmployeeHomePage extends StatefulWidget {
 }
 
 class _EmployeeHomePageState extends State<EmployeeHomePage> {
-  late final PersonnelFileRepository files =
-      widget.files ??
+  late final PersonnelFileRepository files = widget.files ??
       context.read<PersonnelFileRepository?>() ??
       PersonnelFileRepository(context.read<FrappeApiClient>());
   Future<EmployeeHome> _loadHome() async =>
@@ -187,12 +186,13 @@ class _EmployeeHomePageState extends State<EmployeeHomePage> {
                       onRefresh: _reload,
                       child: ListView(
                           physics: const AlwaysScrollableScrollPhysics(),
-                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                          padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
                           children: [
                             FutureBuilder<List<WorkflowNotification>>(
                                 future: notices,
                                 builder: (context, alerts) => _TopBar(
                                     company: widget.company,
+                                    now: widget.now ?? DateTime.now(),
                                     unread: notifications != null &&
                                             alerts.hasData
                                         ? alerts.data!
@@ -203,10 +203,6 @@ class _EmployeeHomePageState extends State<EmployeeHomePage> {
                                     onNotifications: () => _push(
                                         const WorkflowNotificationsPage()))),
                             const SizedBox(height: 10),
-                            if (widget.statusBanner != null) ...[
-                              widget.statusBanner!,
-                              const SizedBox(height: 10),
-                            ],
                             if (snapshot.connectionState !=
                                 ConnectionState.done)
                               const LinearProgressIndicator()
@@ -239,6 +235,15 @@ class _EmployeeHomePageState extends State<EmployeeHomePage> {
                                 compact: true,
                                 now: widget.now),
                             const SizedBox(height: 10),
+                            if (widget.statusBanner != null) ...[
+                              widget.statusBanner!,
+                              const SizedBox(height: 10),
+                            ],
+                            if (syncServiceOf(context) case final service?)
+                              SyncStatusIndicator(
+                                  service: service,
+                                  onOpen: () =>
+                                      openSyncQueue(context, service)),
                             HomeInboxSummary(
                                 key: ValueKey(
                                     'inbox:${widget.company}:$refreshVersion'),
@@ -270,7 +275,8 @@ class _EmployeeHomePageState extends State<EmployeeHomePage> {
                                       'کارتابل',
                                       Icons.assignment_ind_outlined,
                                       AsoudColors.warning,
-                                      () => _push(const WorkflowTasksPage())
+                                      () => _push(
+                                          CartablePage(company: widget.company))
                                     ),
                                     (
                                       'پرونده من',
@@ -280,17 +286,18 @@ class _EmployeeHomePageState extends State<EmployeeHomePage> {
                                     ),
                                   ];
                                   return GridView.count(
-                                      crossAxisCount: 2,
+                                      crossAxisCount: 4,
                                       shrinkWrap: true,
                                       physics:
                                           const NeverScrollableScrollPhysics(),
-                                      mainAxisExtent: 90,
+                                      mainAxisExtent: 84,
                                       mainAxisSpacing: 8,
                                       crossAxisSpacing: 8,
                                       children: [
                                         for (final action in actions)
                                           Card(
                                               margin: EdgeInsets.zero,
+                                              color: const Color(0xFFF5F8FD),
                                               child: InkWell(
                                                   borderRadius:
                                                       BorderRadius.circular(14),
@@ -307,7 +314,10 @@ class _EmployeeHomePageState extends State<EmployeeHomePage> {
                                                         const SizedBox(
                                                             height: 6),
                                                         Text(action.$1,
+                                                            textAlign: TextAlign
+                                                                .center,
                                                             style: const TextStyle(
+                                                                fontSize: 11,
                                                                 fontWeight:
                                                                     FontWeight
                                                                         .w700)),
@@ -322,33 +332,34 @@ class _EmployeeHomePageState extends State<EmployeeHomePage> {
 class _TopBar extends StatelessWidget {
   const _TopBar(
       {required this.company,
+      required this.now,
       required this.unread,
       required this.onNotifications,
       required this.onProfile});
   final int unread;
   final String company;
+  final DateTime now;
   final VoidCallback onNotifications, onProfile;
   @override
   Widget build(BuildContext context) => Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
       decoration: BoxDecoration(
           color: AsoudColors.surface,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: AsoudColors.border)),
       child: Column(children: [
         Row(children: [
-          const AsoudIconBox(
-              icon: Icons.hub_outlined, color: AsoudColors.primary, size: 36),
-          const SizedBox(width: 8),
           Expanded(
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                const Text('آسود',
-                    style:
-                        TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                Text(formatJalaliLong(now),
+                    style: const TextStyle(
+                        fontSize: 10, color: AsoudColors.muted)),
+                const SizedBox(height: 4),
                 const Text('خانه من',
-                    style: TextStyle(fontSize: 11, color: AsoudColors.muted)),
+                    style:
+                        TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
                 Text(company,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -356,6 +367,9 @@ class _TopBar extends StatelessWidget {
                         fontSize: 10, color: AsoudColors.muted)),
               ])),
           IconButton(
+              style: IconButton.styleFrom(
+                  backgroundColor: const Color(0xFFF0F6FF),
+                  foregroundColor: AsoudColors.primary),
               tooltip: 'اعلان‌ها',
               onPressed: onNotifications,
               icon: Badge(
@@ -363,13 +377,13 @@ class _TopBar extends StatelessWidget {
                   label: Text(toPersianDigits(unread)),
                   child: const Icon(Icons.notifications_none_rounded))),
           IconButton(
+              style: IconButton.styleFrom(
+                  backgroundColor: const Color(0xFFF0F6FF),
+                  foregroundColor: AsoudColors.primary),
               tooltip: 'پرونده من',
               onPressed: onProfile,
               icon: const Icon(Icons.account_circle_outlined)),
         ]),
-        if (syncServiceOf(context) case final service?)
-          SyncStatusIndicator(
-              service: service, onOpen: () => openSyncQueue(context, service)),
       ]));
 }
 
@@ -380,6 +394,7 @@ class _Greeting extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Card(
       margin: EdgeInsets.zero,
+      color: const Color(0xFFF0F6FF),
       child: ListTile(
           onTap: onTap,
           contentPadding:
@@ -394,7 +409,7 @@ class _Greeting extends StatelessWidget {
                   .join(' · '),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 12, color: AsoudColors.muted)),
+              style: const TextStyle(fontSize: 11, color: AsoudColors.muted)),
           trailing: const Icon(Icons.chevron_left_rounded)));
 }
 

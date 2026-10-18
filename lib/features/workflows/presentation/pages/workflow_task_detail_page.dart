@@ -14,6 +14,7 @@ import '../cubit/workflow_task_detail_cubit.dart';
 import '../widgets/request_custom_table.dart';
 import '../widgets/request_link_fields.dart';
 import '../widgets/workflow_activity_timeline.dart';
+import '../../../directives/presentation/directive_pages.dart';
 
 class WorkflowTaskDetailPage extends StatelessWidget {
   const WorkflowTaskDetailPage({required this.task, super.key});
@@ -40,6 +41,10 @@ class _TaskDetailView extends StatelessWidget {
             .showSnackBar(SnackBar(content: Text(state.message!))),
         builder: (context, state) {
           final detail = state.detail;
+          if (detail?.activityType == 'Directive' &&
+              detail!.referenceName.isNotEmpty) {
+            return DirectiveDetailPage(id: detail.referenceName);
+          }
           return Scaffold(
             appBar: AsoudHeader(
               title: detail?.task.title.isNotEmpty == true
@@ -199,8 +204,7 @@ class _DecisionBarState extends State<_DecisionBar> {
         const SizedBox(height: 10),
         LayoutBuilder(builder: (context, constraints) {
           final sized = [
-            for (final button in buttons)
-              SizedBox(height: 56, child: button),
+            for (final button in buttons) SizedBox(height: 56, child: button),
           ];
           if (constraints.maxWidth < 360) {
             return Column(mainAxisSize: MainAxisSize.min, children: [
@@ -219,9 +223,8 @@ class _DecisionBarState extends State<_DecisionBar> {
         }),
         const SizedBox(height: 4),
         TextButton(
-          onPressed: saving
-              ? null
-              : context.read<WorkflowTaskDetailCubit>().saveDraft,
+          onPressed:
+              saving ? null : context.read<WorkflowTaskDetailCubit>().saveDraft,
           child: const Text('ذخیره پیش‌نویس'),
         ),
       ]),
@@ -308,7 +311,8 @@ List<_SummaryRow> _summaryRows(WorkflowTaskDetail detail) {
         'started_by',
         'initiator_name',
       ]));
-  add('موضوع',
+  add(
+      'موضوع',
       _lookupValue(detail, const ['subject', 'request_title', 'title']) ??
           (detail.task.title.isEmpty ? null : detail.task.title));
   final assigned = detail.task.assignedOn;
@@ -338,7 +342,9 @@ List<WorkflowTaskDataValue> _technicalValues(WorkflowTaskDetail detail) => [
             key: 'task_id', label: 'شناسه کار', value: detail.task.id),
       if (detail.task.instance.isNotEmpty)
         WorkflowTaskDataValue(
-            key: 'instance', label: 'شناسه درخواست', value: detail.task.instance),
+            key: 'instance',
+            label: 'شناسه درخواست',
+            value: detail.task.instance),
       for (final value in detail.documentValues)
         if ((value.value?.toString().trim() ?? '').isNotEmpty) value,
     ];
@@ -364,16 +370,16 @@ class _TaskSummaryCard extends StatelessWidget {
             SizedBox(
               width: 96,
               child: Text(rows[i].label,
-                  style: const TextStyle(
-                      fontSize: 12, color: AsoudColors.muted)),
+                  style:
+                      const TextStyle(fontSize: 12, color: AsoudColors.muted)),
             ),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
                 rows[i].value,
                 textAlign: TextAlign.end,
-                style: const TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w800),
+                style:
+                    const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
               ),
             ),
           ]),
@@ -400,19 +406,19 @@ class _TechnicalDetailsSection extends StatelessWidget {
           child: Theme(
             data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
             child: ExpansionTile(
-            key: const PageStorageKey<String>('technical-details'),
-            initiallyExpanded: false,
-            tilePadding: const EdgeInsets.symmetric(horizontal: 14),
-            childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-            leading: const Icon(Icons.data_object_rounded,
-                size: 22, color: AsoudColors.muted),
-            title: const Text('جزئیات فنی',
-                style: TextStyle(fontWeight: FontWeight.w800)),
-            subtitle: const Text('شناسه‌ها، کدها و مقادیر خام سرور',
-                style: TextStyle(fontSize: 10, color: AsoudColors.muted)),
-            children: [
-              for (final value in values) _TechnicalRow(value: value),
-            ],
+              key: const PageStorageKey<String>('technical-details'),
+              initiallyExpanded: false,
+              tilePadding: const EdgeInsets.symmetric(horizontal: 14),
+              childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+              leading: const Icon(Icons.data_object_rounded,
+                  size: 22, color: AsoudColors.muted),
+              title: const Text('جزئیات فنی',
+                  style: TextStyle(fontWeight: FontWeight.w800)),
+              subtitle: const Text('شناسه‌ها، کدها و مقادیر خام سرور',
+                  style: TextStyle(fontSize: 10, color: AsoudColors.muted)),
+              children: [
+                for (final value in values) _TechnicalRow(value: value),
+              ],
             ),
           ),
         ),
@@ -434,8 +440,7 @@ class _TechnicalRow extends StatelessWidget {
           Expanded(
             flex: 2,
             child: Text(persianDocumentFieldLabel(value.label),
-                style:
-                    const TextStyle(fontSize: 10, color: AsoudColors.muted)),
+                style: const TextStyle(fontSize: 10, color: AsoudColors.muted)),
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -628,7 +633,8 @@ class _DynamicField extends StatelessWidget {
         items: field.options
             .map((option) => DropdownMenuItem(
                 value: option,
-                child: Text(_formatChoiceLabel(option), overflow: TextOverflow.ellipsis)))
+                child: Text(_formatChoiceLabel(option),
+                    overflow: TextOverflow.ellipsis)))
             .toList(growable: false),
         onChanged: enabled ? (next) => cubit.setValue(field.key, next) : null,
       );
@@ -687,7 +693,9 @@ class _DynamicField extends StatelessWidget {
         ),
       );
     }
-    if (value is List && field.type != 'Table' && field.type != 'Multi Choice') {
+    if (value is List &&
+        field.type != 'Table' &&
+        field.type != 'Multi Choice') {
       return InputDecorator(
         decoration: InputDecoration(labelText: label),
         child: Column(

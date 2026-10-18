@@ -178,6 +178,9 @@ class FrappeClient implements FrappeApiClient {
   final SessionVault? _vault;
   final ServerAddressStore? _serverStore;
   FrappeUserContext? _knownUser;
+
+  /// Local storage identity only; never use this as authorization.
+  String? get localStorageUserId => isAuthenticated ? _knownUser?.userId : null;
   DateTime? _offlineUntil;
   int _sessionGeneration = 0;
   Future<void> _vaultWrites = Future<void>.value();
@@ -890,8 +893,7 @@ class _BoundedHttpAdapter implements HttpClientAdapter {
   ) async {
     final body = await _inner.fetch(options, requestStream, cancelFuture);
     final limit = options.extra[_maxResponseBytesKey];
-    final maxBytes =
-        limit is int ? limit : FrappeClient.maxJsonResponseBytes;
+    final maxBytes = limit is int ? limit : FrappeClient.maxJsonResponseBytes;
     return ResponseBody(
       _bounded(body.stream, maxBytes),
       body.statusCode,

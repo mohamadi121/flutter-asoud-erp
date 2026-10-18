@@ -23,7 +23,7 @@ import '../../../office_setup/presentation/pages/offices_page.dart';
 import '../../../parties/presentation/pages/party_management_page.dart';
 import '../../../reports/presentation/pages/reports_hub_page.dart';
 import '../../../workflows/presentation/pages/workflow_list_page.dart';
-import '../../../workflows/presentation/pages/workflow_tasks_page.dart';
+import '../../../workflows/presentation/pages/cartable_page.dart';
 import '../../../workflows/presentation/pages/generic_request_page.dart';
 import '../../../workflows/presentation/pages/document_templates_page.dart';
 import '../widgets/dashboard_summary_sections.dart';
@@ -181,7 +181,7 @@ class _NoOfficeAccessPage extends StatelessWidget {
                       OutlinedButton.icon(
                         onPressed: () => Navigator.of(context).push(
                           MaterialPageRoute<void>(
-                              builder: (_) => const WorkflowTasksPage()),
+                              builder: (_) => const CartablePage()),
                         ),
                         icon: const Icon(Icons.assignment_ind_outlined),
                         label: const Text('کارتابل'),
@@ -453,7 +453,8 @@ class _DashboardPageState extends State<DashboardPage> {
                 } else if (index == 3) {
                   Navigator.of(context).push(
                     MaterialPageRoute<void>(
-                      builder: (_) => const WorkflowTasksPage(),
+                      builder: (_) =>
+                          CartablePage(company: widget.officeName ?? ''),
                     ),
                   );
                 } else if (index != 0) {

@@ -22,7 +22,7 @@ import '../../../roles/presentation/roles_page.dart';
 import '../../../workflows/presentation/pages/generic_request_page.dart';
 import '../../../workflows/presentation/pages/workflow_list_page.dart';
 import '../../../workflows/presentation/pages/workflow_notifications_page.dart';
-import '../../../workflows/presentation/pages/workflow_tasks_page.dart';
+import '../../../workflows/presentation/pages/cartable_page.dart';
 import 'sync_queue_page.dart';
 import 'sync_status_indicator.dart';
 import '../widgets/dashboard_summary_sections.dart';
@@ -258,8 +258,9 @@ class _SettingsDashboardContentState extends State<SettingsDashboardContent> {
             const SizedBox(height: 18),
             SystemSummarySection(
               offlinePreview: demo,
-              onOpenTasks:
-                  hasOffice ? () => _open(const WorkflowTasksPage()) : null,
+              onOpenTasks: hasOffice
+                  ? () => _open(CartablePage(company: widget.company ?? ''))
+                  : null,
               onOpenSync:
                   sync == null ? null : () => openSyncQueue(context, sync),
             ),
@@ -412,7 +413,8 @@ class _SettingsDashboardContentState extends State<SettingsDashboardContent> {
                         Icons.assignment_ind_outlined,
                         AsoudColors.purple,
                         onTap: hasOffice
-                            ? () => _open(const WorkflowTasksPage())
+                            ? () => _open(
+                                CartablePage(company: widget.company ?? ''))
                             : null,
                       ),
                     ],

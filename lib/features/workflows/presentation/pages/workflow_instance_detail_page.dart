@@ -7,48 +7,57 @@ import '../../../../core/widgets/asoud_ui.dart';
 import '../../domain/entities/workflow_task.dart';
 import '../../domain/repositories/workflow_task_repository.dart';
 import '../widgets/workflow_activity_timeline.dart';
+import '../../../directives/presentation/directive_pages.dart';
 
 class WorkflowInstanceDetailPage extends StatelessWidget {
   const WorkflowInstanceDetailPage({required this.instance, super.key});
   final String instance;
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => FutureBuilder<WorkflowInstanceDetail>(
+        future: context.read<WorkflowTaskRepository>().getInstance(instance),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return _shell(const Center(child: CircularProgressIndicator()));
+          }
+          if (snapshot.hasError) {
+            return _shell(
+                const Center(child: Text('دریافت اطلاعات پیگیری ممکن نشد.')));
+          }
+          final detail = snapshot.requireData;
+          if (detail.summary.referenceDoctype ==
+                  'ASOUD Internal Communication' &&
+              detail.summary.workflowDefinition
+                  .startsWith('ASOUD-DIRECTIVE-')) {
+            return DirectiveDetailPage(id: detail.summary.referenceName);
+          }
+          return _shell(ListView(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+            children: [
+              if (detail.summary.localOnly) const AsoudOfflinePreviewBanner(),
+              _InstanceStatusCard(item: detail.summary),
+              const SizedBox(height: 16),
+              const AsoudSectionTitle(title: 'تاریخچه گردش درخواست'),
+              if (detail.activities.isEmpty &&
+                  detail.summary.status != 'Running')
+                const _EmptyTimeline()
+              else
+                WorkflowActivityTimeline(
+                  activities: detail.activities,
+                  pending: detail.summary.status == 'Running',
+                  pendingLabel: 'در حال گردش',
+                ),
+            ],
+          ));
+        },
+      );
+
+  Widget _shell(Widget body) => Scaffold(
         appBar: const AsoudHeader(
           title: 'پیگیری درخواست',
           subtitle: 'مرحله، مسئول فعلی و تاریخچه اقدامات',
         ),
-        body: FutureBuilder<WorkflowInstanceDetail>(
-          future: context.read<WorkflowTaskRepository>().getInstance(instance),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (snapshot.hasError) {
-              return const Center(
-                  child: Text('دریافت اطلاعات پیگیری ممکن نشد.'));
-            }
-            final detail = snapshot.requireData;
-            return ListView(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-              children: [
-                if (detail.summary.localOnly) const AsoudOfflinePreviewBanner(),
-                _InstanceStatusCard(item: detail.summary),
-                const SizedBox(height: 16),
-                const AsoudSectionTitle(title: 'تاریخچه گردش درخواست'),
-                if (detail.activities.isEmpty &&
-                    detail.summary.status != 'Running')
-                  const _EmptyTimeline()
-                else
-                  WorkflowActivityTimeline(
-                    activities: detail.activities,
-                    pending: detail.summary.status == 'Running',
-                    pendingLabel: 'در حال گردش',
-                  ),
-              ],
-            );
-          },
-        ),
+        body: body,
       );
 }
 
@@ -100,7 +109,8 @@ class WorkflowInstanceOverviewCard extends StatelessWidget {
               message: label,
               child: Text(label,
                   softWrap: true,
-                  style: const TextStyle(fontSize: 10, color: AsoudColors.muted)),
+                  style:
+                      const TextStyle(fontSize: 10, color: AsoudColors.muted)),
             ),
           ),
           const SizedBox(width: 8),
@@ -112,8 +122,8 @@ class WorkflowInstanceOverviewCard extends StatelessWidget {
                   softWrap: true,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style:
-                      const TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
+                  style: const TextStyle(
+                      fontSize: 11, fontWeight: FontWeight.w800)),
             ),
           ),
         ]),
@@ -139,5 +149,3 @@ String _status(String value) => switch (value) {
       'Failed' => 'ناموفق',
       _ => value,
     };
-
-

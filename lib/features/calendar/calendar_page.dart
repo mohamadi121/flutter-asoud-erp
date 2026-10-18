@@ -62,7 +62,7 @@ class _AsoudCalendarState extends State<AsoudCalendar> {
 
   DateTime get weekStart => _add(selected, -((selected.weekday + 1) % 7));
 
-  Future<void> _load() async {
+  Future<void> _load({bool refreshRemote = true}) async {
     final token = ++generation;
     if (mounted) {
       setState(() {
@@ -74,8 +74,14 @@ class _AsoudCalendarState extends State<AsoudCalendar> {
       final result = await repository.load(
         widget.compact || weekly ? weekStart : first,
         widget.compact || weekly ? _add(weekStart, 6) : last,
+        refreshRemote: refreshRemote,
       );
-      if (mounted && token == generation) setState(() => data = result);
+      if (mounted && token == generation) {
+        setState(() {
+          data = result;
+          error = result['load_warning'] as String?;
+        });
+      }
     } catch (e) {
       if (mounted && token == generation) {
         setState(() {
@@ -94,7 +100,8 @@ class _AsoudCalendarState extends State<AsoudCalendar> {
           ? e.message
           : 'دریافت یا ذخیره تقویم انجام نشد؛ دوباره تلاش کنید.';
 
-  Future<void> _perform(Future<void> Function() action) async {
+  Future<void> _perform(Future<void> Function() action,
+      {bool refreshRemote = true}) async {
     if (busy) return;
     setState(() {
       busy = true;
@@ -104,7 +111,7 @@ class _AsoudCalendarState extends State<AsoudCalendar> {
       await action();
       if (!mounted) return;
       setState(() => editing = null);
-      await _load();
+      await _load(refreshRemote: refreshRemote);
     } catch (e) {
       if (mounted) setState(() => error = _message(e));
     } finally {
@@ -117,9 +124,20 @@ class _AsoudCalendarState extends State<AsoudCalendar> {
           await repository.holiday(row);
         } else {
           await repository.save(row);
-          await repository.sync();
+          // Local persistence is success even when the server is unavailable.
+          // The existing sync action sends the durable queue explicitly.
         }
-      });
+        if (!mounted) return;
+        setState(() {
+          selected = DateTime.tryParse('${row['date']}') ?? selected;
+          month = selected;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(row['kind'] == 'Organization'
+              ? 'تعطیلی سازمانی ذخیره شد.'
+              : 'روی دستگاه ذخیره شد؛ در انتظار ارسال به سرور.'),
+        ));
+      }, refreshRemote: row['kind'] == 'Organization');
 
   Future<void> _delete(CalendarRow row) async {
     final yes = await showDialog<bool>(
@@ -265,7 +283,7 @@ class _AsoudCalendarState extends State<AsoudCalendar> {
   }
 
   Widget _editor(CalendarRow? row) => CalendarEntryEditor(
-        key: ValueKey(editing),
+        key: ValueKey('$editing:$newKind'),
         date: selected,
         row: row,
         kind: row?['kind'] as String? ?? newKind,
@@ -358,28 +376,29 @@ class _AsoudCalendarState extends State<AsoudCalendar> {
         if (widget.compact || weekly)
           SizedBox(
             height: 80,
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  for (var i = 0; i < 7; i++)
-                    Padding(
-                      padding: const EdgeInsetsDirectional.only(end: 5),
-                      child: SizedBox(
-                        width: 43,
-                        child: _day(_add(weekStart, i)),
+            child: LayoutBuilder(
+                builder: (context, constraints) => SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          for (var i = 0; i < 7; i++)
+                            Padding(
+                              padding: const EdgeInsetsDirectional.only(end: 8),
+                              child: SizedBox(
+                                width: (constraints.maxWidth - 40) / 5.5,
+                                child: _day(_add(weekStart, i)),
+                              ),
+                            ),
+                        ],
                       ),
-                    ),
-                ],
-              ),
-            ),
+                    )),
           )
         else
           GridView.count(
             crossAxisCount: 7,
             mainAxisSpacing: 5,
             crossAxisSpacing: 5,
-            mainAxisExtent: 80,
+            mainAxisExtent: 64,
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             children: [
@@ -450,6 +469,14 @@ class _AsoudCalendarState extends State<AsoudCalendar> {
               ),
             ),
             TextButton.icon(
+              style: TextButton.styleFrom(
+                backgroundColor: const Color(0xFFF0E9FF),
+                foregroundColor: const Color(0xFF6841B5),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+              ),
               onPressed: busy
                   ? null
                   : () => setState(() {
@@ -464,7 +491,9 @@ class _AsoudCalendarState extends State<AsoudCalendar> {
         AnimatedSize(
             duration: const Duration(milliseconds: 200),
             alignment: Alignment.topCenter,
-            child: editing == 'new' ? _editor(null) : const SizedBox.shrink()),
+            child: editing == 'new' && newKind == 'Reminder'
+                ? _editor(null)
+                : const SizedBox.shrink()),
         if (selected.weekday == DateTime.friday)
           const Text(
             'جمعه · تعطیل هفتگی',
@@ -477,6 +506,7 @@ class _AsoudCalendarState extends State<AsoudCalendar> {
           ),
         for (final row in dayRows) ...[
           Card(
+            color: const Color(0xFFF5F8FD),
             margin: const EdgeInsets.symmetric(vertical: 4),
             child: ListTile(
               contentPadding: const EdgeInsets.symmetric(horizontal: 8),
@@ -503,7 +533,7 @@ class _AsoudCalendarState extends State<AsoudCalendar> {
               ),
               subtitle: Text(
                 row['kind'] == 'Reminder'
-                    ? toPersianDigits(row['time'] ?? '')
+                    ? '${toPersianDigits(row['time'] ?? '')}${row['pending'] == true ? ' · منتظر ارسال' : ''}'
                     : row['kind'] == 'PersonalDay'
                         ? 'روز غیرکاری شخصی · بدون ثبت مرخصی'
                         : row['kind'] == 'Official'
@@ -561,6 +591,13 @@ class _AsoudCalendarState extends State<AsoudCalendar> {
                 ),
             ],
           ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 200),
+            alignment: Alignment.topCenter,
+            child: editing == 'new' && newKind != 'Reminder'
+                ? _editor(null)
+                : const SizedBox.shrink(),
+          ),
           const Text(
             'این تقویم حقوق، حضور و غیاب یا سررسید اسناد را تغییر نمی‌دهد. یادآور ذخیره‌شده فقط روی دستگاه، اعلان پس‌زمینه ندارد.',
             style: TextStyle(fontSize: 11, color: AsoudColors.muted),
@@ -575,6 +612,11 @@ class _AsoudCalendarState extends State<AsoudCalendar> {
         textDirection: TextDirection.rtl,
         child: widget.compact
             ? Card(
+                margin: EdgeInsets.zero,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: const BorderSide(color: Color(0xFFD9E7FC)),
+                ),
                 child: Padding(
                   padding: const EdgeInsets.all(12),
                   child: _content(),
@@ -680,12 +722,24 @@ class _CalendarEntryEditorState extends State<CalendarEntryEditor> {
                           : 'تعطیلی سازمانی',
                   style: const TextStyle(fontWeight: FontWeight.w800),
                 ),
+                Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: IconButton(
+                    tooltip: 'بستن',
+                    onPressed: widget.busy ? null : widget.onCancel,
+                    icon: const Icon(Icons.close, size: 20),
+                  ),
+                ),
                 const SizedBox(height: 8),
                 TextFormField(
                   controller: title,
                   enabled: !widget.busy,
                   maxLength: 140,
-                  decoration: const InputDecoration(labelText: 'عنوان'),
+                  decoration: InputDecoration(
+                      labelText: 'عنوان',
+                      hintText: widget.kind == 'Reminder'
+                          ? 'مثلاً تماس با مشتری'
+                          : 'عنوان تعطیلی'),
                   validator: (v) =>
                       (v ?? '').trim().isEmpty ? 'عنوان را وارد کنید.' : null,
                 ),
@@ -713,54 +767,77 @@ class _CalendarEntryEditorState extends State<CalendarEntryEditor> {
                     ),
                   ),
                   if (timeOpen)
-                    Row(
-                      children: [
-                        Expanded(
-                          child: DropdownButtonFormField<int>(
-                            initialValue: hour,
-                            decoration:
-                                const InputDecoration(labelText: 'ساعت'),
-                            items: [
-                              for (var i = 0; i < 24; i++)
-                                DropdownMenuItem(
-                                  value: i,
-                                  child: Text(
-                                    toPersianDigits(
-                                        i.toString().padLeft(2, '0')),
-                                  ),
-                                ),
-                            ],
-                            onChanged: widget.busy
-                                ? null
-                                : (v) => setState(() => hour = v!),
-                          ),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF0F6FF),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Directionality(
+                        textDirection: TextDirection.ltr,
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: DropdownButtonFormField<int>(
+                                initialValue: hour,
+                                decoration:
+                                    const InputDecoration(labelText: 'ساعت'),
+                                items: [
+                                  for (var i = 0; i < 24; i++)
+                                    DropdownMenuItem(
+                                      value: i,
+                                      child: Text(
+                                        toPersianDigits(
+                                            i.toString().padLeft(2, '0')),
+                                      ),
+                                    ),
+                                ],
+                                onChanged: widget.busy
+                                    ? null
+                                    : (v) => setState(() => hour = v!),
+                              ),
+                            ),
+                            const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 12),
+                              child: Text(':', style: TextStyle(fontSize: 24)),
+                            ),
+                            Expanded(
+                              child: DropdownButtonFormField<int>(
+                                initialValue: minute,
+                                decoration:
+                                    const InputDecoration(labelText: 'دقیقه'),
+                                items: [
+                                  for (final i in ({
+                                    for (var n = 0; n < 60; n += 5) n,
+                                    minute,
+                                  }.toList()
+                                    ..sort()))
+                                    DropdownMenuItem(
+                                      value: i,
+                                      child: Text(
+                                        toPersianDigits(
+                                            i.toString().padLeft(2, '0')),
+                                      ),
+                                    ),
+                                ],
+                                onChanged: widget.busy
+                                    ? null
+                                    : (v) => setState(() => minute = v!),
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: DropdownButtonFormField<int>(
-                            initialValue: minute,
-                            decoration:
-                                const InputDecoration(labelText: 'دقیقه'),
-                            items: [
-                              for (final i in ({
-                                for (var n = 0; n < 60; n += 5) n,
-                                minute,
-                              }.toList()
-                                ..sort()))
-                                DropdownMenuItem(
-                                  value: i,
-                                  child: Text(
-                                    toPersianDigits(
-                                        i.toString().padLeft(2, '0')),
-                                  ),
-                                ),
-                            ],
-                            onChanged: widget.busy
-                                ? null
-                                : (v) => setState(() => minute = v!),
-                          ),
-                        ),
-                      ],
+                      ),
+                    ),
+                  if (timeOpen)
+                    Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: TextButton(
+                        onPressed: widget.busy
+                            ? null
+                            : () => setState(() => timeOpen = false),
+                        child: const Text('تأیید ساعت'),
+                      ),
                     ),
                 ],
                 if (end.isBefore(date))

@@ -12,6 +12,7 @@ import '../cubit/workflow_tasks_cubit.dart';
 import '../cubit/workflow_instances_cubit.dart';
 import 'workflow_instance_detail_page.dart';
 import 'workflow_task_detail_page.dart';
+import 'workflow_notifications_page.dart';
 
 class WorkflowTasksPage extends StatelessWidget {
   const WorkflowTasksPage({super.key});
@@ -46,11 +47,59 @@ class _WorkflowTasksViewState extends State<_WorkflowTasksView> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: const AsoudHeader(
-          title: 'کارتابل من',
-          subtitle: 'کارهای ارجاع‌شده به شما',
+        appBar: AsoudHeader(
+          title: 'نیازمند اقدام من',
+          subtitle: 'ASOUD ERP · کارتابل سازمانی',
+          action: IconButton(
+            tooltip: 'اعلان‌ها',
+            style: IconButton.styleFrom(
+              backgroundColor: const Color(0xFFF0F6FF),
+              foregroundColor: AsoudColors.primary,
+            ),
+            icon: const Icon(Icons.notifications_none_rounded),
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
+              builder: (_) => const WorkflowNotificationsPage(),
+            )),
+          ),
         ),
         body: Column(children: [
+          Container(
+            margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEAF2FC),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Row(children: [
+              Expanded(
+                  child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('برنامه کاری امروز',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          color: AsoudColors.primary)),
+                  const SizedBox(height: 4),
+                  const Text('اقدام‌های ارجاع‌شده و مهلت انجام آن‌ها',
+                      style: TextStyle(fontSize: 11, color: AsoudColors.muted)),
+                  BlocBuilder<WorkflowTasksCubit, WorkflowTasksState>(
+                    builder: (_, state) => state.status ==
+                                WorkflowTasksStatus.ready &&
+                            state.filter == 'Open'
+                        ? Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Text(
+                                '${toPersianDigits(state.tasks.length)} اقدام باز',
+                                style: const TextStyle(
+                                    fontSize: 11, color: AsoudColors.primary)))
+                        : const SizedBox.shrink(),
+                  ),
+                ],
+              )),
+              const Icon(Icons.calendar_month_outlined,
+                  color: AsoudColors.primary, size: 22),
+            ]),
+          ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 2),
             child: AsoudSegmentedControl<String>(
@@ -74,8 +123,7 @@ class _WorkflowTasksViewState extends State<_WorkflowTasksView> {
                           state.tasks.isEmpty) {
                         return ErrorState(
                           failure: state.message ?? 'دریافت کارتابل ممکن نشد.',
-                          onRetry:
-                              context.read<WorkflowTasksCubit>().load,
+                          onRetry: context.read<WorkflowTasksCubit>().load,
                         );
                       }
                       return Column(children: [
@@ -149,7 +197,8 @@ class _SentInstances extends StatelessWidget {
             return const EmptyState(
                 icon: Icons.outbox_outlined,
                 title: 'درخواستی ارسال نکرده‌اید',
-                description: 'پس از ارسال درخواست، وضعیت آن اینجا نمایش داده می‌شود.');
+                description:
+                    'پس از ارسال درخواست، وضعیت آن اینجا نمایش داده می‌شود.');
           }
           return Column(children: [
             if (state.offline) const AsoudOfflinePreviewBanner(),
@@ -209,7 +258,7 @@ class WorkflowInstanceSummaryCard extends StatelessWidget {
                   style: const TextStyle(fontSize: 10)),
               Tooltip(
                 message:
-                  'مسئول فعلی: ${item.currentAssignees.isEmpty ? 'بدون مسئول باز' : item.currentAssignees.map((a) => a.contains('@') ? '${String.fromCharCode(0x2066)}$a${String.fromCharCode(0x2069)}' : persianRoleLabel(a)).join('، ')}',
+                    'مسئول فعلی: ${item.currentAssignees.isEmpty ? 'بدون مسئول باز' : item.currentAssignees.map((a) => a.contains('@') ? '${String.fromCharCode(0x2066)}$a${String.fromCharCode(0x2069)}' : persianRoleLabel(a)).join('، ')}',
                 child: Text(
                   'مسئول فعلی: ${item.currentAssignees.isEmpty ? 'بدون مسئول باز' : item.currentAssignees.map((a) => a.contains('@') ? '${String.fromCharCode(0x2066)}$a${String.fromCharCode(0x2069)}' : persianRoleLabel(a)).join('، ')}',
                   softWrap: true,

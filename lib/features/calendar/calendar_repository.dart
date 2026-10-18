@@ -30,7 +30,8 @@ class CalendarRepository {
   Future<String> _scope() async {
     final api = client;
     final user = api != null && api.isAuthenticated
-        ? (await api.getCurrentUser()).userId
+        ? (api is FrappeClient ? api.localStorageUserId : null) ??
+            (await api.getCurrentUser()).userId
         : '__local__';
     final site =
         api is FrappeClient ? api.serverIdentity : AppConfig.erpNextBaseUrl;
@@ -53,10 +54,29 @@ class CalendarRepository {
 
   Future<CalendarRow> _call(String method, CalendarRow data) async {
     await _scope();
-    final response = await client!.callMethod(
-      'asoud_erp.api.v1.calendar.$method',
-      data: {'company': company, ...data},
-    );
+    late final Map<String, dynamic> response;
+    try {
+      response = await client!.callMethod(
+        'asoud_erp.api.v1.calendar.$method',
+        data: {'company': company, ...data},
+      );
+    } on ApiException catch (e) {
+      // Frappe can report missing Python modules as HTTP 417 (validation).
+      // Match this endpoint specifically; never downgrade permission failures.
+      if (e.kind != ApiFailureKind.forbidden &&
+          e.kind != ApiFailureKind.unauthenticated &&
+          e.message.contains('asoud_erp.api.v1.calendar') &&
+          (e.message.contains('No module named') ||
+              e.message.contains('has no attribute'))) {
+        throw const ApiException(
+          kind: ApiFailureKind.server,
+          code: 'CALENDAR_NOT_DEPLOYED',
+          message:
+              'سرویس تقویم روی سرور به‌روز نشده است. یادآورهای شخصی روی دستگاه ذخیره می‌شوند؛ ارسال آن‌ها و ثبت تعطیلی سازمانی پس از به‌روزرسانی سرور ممکن است.',
+        );
+      }
+      rethrow;
+    }
     final envelope = calendarMap(response['message']);
     if (envelope['ok'] != true) throw const ApiException.protocol();
     return calendarMap(envelope['data']);
@@ -96,11 +116,14 @@ class CalendarRepository {
     return result;
   }
 
-  Future<CalendarRow> load(DateTime from, DateTime to) => _serial(() async {
+  Future<CalendarRow> load(DateTime from, DateTime to,
+          {bool refreshRemote = true}) =>
+      _serial(() async {
         var state = await _read();
         final range = '${calendarDate(from)}:${calendarDate(to)}';
         var cached = true;
-        if (onlineSession) {
+        String? warning;
+        if (onlineSession && refreshRemote) {
           try {
             final result = await _call('get_calendar', {
               'start': calendarDate(from),
@@ -115,7 +138,15 @@ class CalendarRepository {
             await _write(state);
             cached = false;
           } catch (e) {
-            if (!_offline(e)) rethrow;
+            if (!_offline(e) &&
+                !(e is ApiException &&
+                    (e.kind == ApiFailureKind.server ||
+                        e.kind == ApiFailureKind.protocol))) {
+              rethrow;
+            }
+            warning = e is ApiException && e.code == 'CALENDAR_NOT_DEPLOYED'
+                ? e.message
+                : 'دریافت تقویم از سرور انجام نشد؛ اطلاعات دستگاه نمایش داده می‌شود.';
           }
         }
         final data = calendarMap(calendarMap(state['ranges'])[range]);
@@ -137,6 +168,7 @@ class CalendarRepository {
           'cached': cached,
           'can_manage': !cached && data['can_manage'] == true,
           'pending_count': pending.length,
+          'load_warning': warning,
         };
       });
 
