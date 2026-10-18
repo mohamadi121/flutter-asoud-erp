@@ -1004,6 +1004,17 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
       );
     }
 
+    if (f['type'] == 'Table') {
+      return buildTableAdvancedTab(
+        context: context,
+        f: f,
+        schema: widget.schema,
+        set: set,
+        onEditColumn: editSchemaField,
+        onSelectType: _selectType,
+      );
+    }
+
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(16),

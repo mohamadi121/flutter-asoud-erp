@@ -4,11 +4,15 @@ class AdvancedFieldLibraryCards extends StatelessWidget {
   const AdvancedFieldLibraryCards({
     required this.selectedType,
     required this.onSelectType,
+    this.showTitle = true,
+    this.compact = false,
     super.key,
   });
 
   final String selectedType;
   final ValueChanged<String> onSelectType;
+  final bool showTitle;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -40,7 +44,7 @@ class AdvancedFieldLibraryCards extends StatelessWidget {
     ];
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.all(compact ? 8 : 12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -49,15 +53,17 @@ class AdvancedFieldLibraryCards extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'کتابخانه فیلدها',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF122044),
+          if (showTitle) ...[
+            const Text(
+              'کتابخانه فیلدها',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF122044),
+              ),
             ),
-          ),
-          const SizedBox(height: 10),
+            const SizedBox(height: 10),
+          ],
           Row(
             children: [
               for (var i = 0; i < cards.length; i++) ...[
@@ -79,7 +85,10 @@ class AdvancedFieldLibraryCards extends StatelessWidget {
       onTap: () => onSelectType(data.type),
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
+        padding: EdgeInsets.symmetric(
+          vertical: compact ? 8 : 12,
+          horizontal: compact ? 4 : 6,
+        ),
         decoration: BoxDecoration(
           color: data.bgColor,
           borderRadius: BorderRadius.circular(12),
@@ -91,13 +100,13 @@ class AdvancedFieldLibraryCards extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(data.icon, color: data.iconColor, size: 24),
-            const SizedBox(height: 6),
+            Icon(data.icon, color: data.iconColor, size: compact ? 20 : 24),
+            SizedBox(height: compact ? 4 : 6),
             Text(
               data.label,
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 11,
+                fontSize: compact ? 10.5 : 11,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                 color: isSelected ? data.iconColor : const Color(0xFF2D3748),
               ),

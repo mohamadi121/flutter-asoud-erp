@@ -4,7 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:asoud_erp/core/theme/asoud_theme.dart';
 import 'package:asoud_erp/features/form_builder/form_editor/editor_field_sheet.dart';
-import 'package:asoud_erp/features/form_builder/form_editor/editor_widgets.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -23,24 +22,42 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    final schema = blankSchema('Request');
+    final field = <String, dynamic>{
+      'key': 'items',
+      'label': 'اقلام درخواست خرید',
+      'type': 'Table',
+      'orientation': 'horizontal',
+      'columns': [
+        {'key': 'c_item', 'label': 'شرح کالا', 'type': 'Text', 'required': true},
+        {'key': 'c_qty', 'label': 'تعداد', 'type': 'Integer', 'required': true},
+        {'key': 'c_price', 'label': 'قیمت واحد', 'type': 'Money', 'required': true},
+        {'key': 'c_total', 'label': 'مبلغ ردیف', 'type': 'Formula'},
+      ],
+    };
+    final schema = <String, dynamic>{
+      'name': 'purchase_request',
+      'label': 'درخواست خرید',
+      'sections': [
+        {
+          'key': 's_items',
+          'label': 'اقلام',
+          'fields': [field],
+        },
+      ],
+    };
 
     await tester.pumpWidget(MaterialApp(
+      debugShowCheckedModeBanner: false,
       theme: AsoudTheme.light,
       home: Directionality(
         textDirection: TextDirection.rtl,
         child: Builder(
           builder: (context) => ElevatedButton(
-            onPressed: () => editSchemaField(context, schema, {
-              'key': 'items',
-              'label': 'اقلام درخواست خرید',
-              'type': 'Table',
-              'orientation': 'horizontal',
-              'columns': [
-                {'key': 'c_item', 'label': 'نام کالا', 'type': 'Text', 'required': true},
-                {'key': 'c_qty', 'label': 'تعداد', 'type': 'Integer'},
-              ],
-            }),
+            onPressed: () => editSchemaField(
+              context,
+              schema,
+              field,
+            ),
             child: const Text('باز کردن'),
           ),
         ),
