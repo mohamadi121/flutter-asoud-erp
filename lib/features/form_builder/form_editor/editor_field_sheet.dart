@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/utils/jalali_date.dart';
@@ -139,10 +141,7 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
   }
 
   bool _hasUnsavedChanges() {
-    return f['label'] != widget.initialField['label'] ||
-        f['type'] != widget.initialField['type'] ||
-        f['help'] != widget.initialField['help'] ||
-        f['required'] != widget.initialField['required'];
+    return jsonEncode(f) != jsonEncode(widget.initialField);
   }
 
   Future<void> _handleCancel() async {
@@ -164,6 +163,15 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
         const SnackBar(content: Text('عنوان فیلد را وارد کنید.')),
       );
       return;
+    }
+    if (widget.column) {
+      final duplicate = schemaFields(widget.schema).any((field) =>
+          field['key'] != f['key'] &&
+          '${field['label']}'.trim().toLowerCase() == label.toLowerCase());
+      if (duplicate) {
+        setState(() => labelError = 'عنوان مشخصه در این جدول تکراری است');
+        return;
+      }
     }
 
     Navigator.pop(context, f);

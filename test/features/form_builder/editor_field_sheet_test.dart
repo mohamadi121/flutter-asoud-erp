@@ -289,4 +289,43 @@ void main() {
     expect(result?['type'], 'Text');
     expect(result?['source'], 'Item');
   });
+
+  testWidgets('changing a column card clears incompatible settings', (tester) async {
+    FormMap? result;
+    await tester.pumpWidget(_wrapTestWidget(
+      Builder(
+        builder: (context) => ElevatedButton(
+          onPressed: () async {
+            result = await editSchemaField(
+              context,
+              blankSchema('Request'),
+              {
+                'key': 'c_item',
+                'label': 'کالا',
+                'type': 'Text',
+                'source_mode': 'asoud',
+                'source': 'Item',
+                'max_length': 24,
+              },
+              column: true,
+            );
+          },
+          child: const Text('Open type switch'),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('Open type switch'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('مبلغ'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('حداقل مبلغ'), findsOneWidget);
+    expect(find.text('انتخاب از سیستم آسود'), findsNothing);
+    await tester.tap(find.text('ذخیره تغییرات'));
+    await tester.pumpAndSettle();
+
+    expect(result?['type'], 'Money');
+    expect(result!.containsKey('source'), false);
+    expect(result!.containsKey('max_length'), false);
+  });
 }
