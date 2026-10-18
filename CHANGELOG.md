@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.28.0+49
+
+Form builder (settings → forms): a complete rewrite of the form designer, plus the gaps found in a line-by-line audit against the spec.
+
+- Forms list: requests / documents tabs, module grid with show more / less, search, per-form icon and colour, enable / disable with confirmation, view and edit from the card menu.
+- Create form: blank or from a ready template (template icon, colour and description carried over), module required, inline title error.
+- Designer: sections and fields with move / delete (the last section cannot be deleted), full-width and half-width fields, preview and print preview (A4 portrait / landscape), draft save, stable random ids, schema versions 1 and 2 with automatic migration of old forms.
+- Field sheet: basic and advanced tabs; text, long text, number, amount, date (Jalali), live-clock time picker, single / multi choice with editable options that keep their ids, checklist, file attachment, system-linked fields, repeatable tables with columns and aggregates, computed fields.
+- Formulas: calculator with + - × ÷, parentheses, constants, standard precedence, IF with lazy branches, ROUND, MAX, MIN, comparisons; evaluated identically in the app and the backend (shared test vectors).
+- Runtime: the same form renders in preview and in request entry; offline-safe.
+- Requires backend 0.16.0 and the formula functions of the backend change that follows it (frappe-erp-next-2 PR #17).
+
 ## 0.27.0+48
 
 UI/UX and access fixes from the live role-based test of 0.26.2.
