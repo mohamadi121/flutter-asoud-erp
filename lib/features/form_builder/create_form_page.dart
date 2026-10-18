@@ -24,7 +24,7 @@ class CreateFormPage extends StatefulWidget {
 
 class _CreateFormPageState extends State<CreateFormPage> {
   late String kind = widget.initialKind;
-  late final String effectiveModule =
+  late String effectiveModule =
       widget.selectedModule.isEmpty ? 'General' : widget.selectedModule;
 
   bool useTemplate = false;
@@ -33,9 +33,30 @@ class _CreateFormPageState extends State<CreateFormPage> {
   late final TextEditingController _titleController = TextEditingController();
   late final TextEditingController _descController = TextEditingController();
 
+  String? _titleError;
+
   int selectedIconIndex = 0;
   bool expandedIcons = false;
   int selectedColorIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.selectedModule.isEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        final chosen = await pickModuleModal(context);
+        if (!mounted) return;
+        if (chosen == null || chosen.isEmpty) {
+          Navigator.of(context).pop();
+        } else {
+          setState(() {
+            effectiveModule = chosen;
+          });
+        }
+      });
+    }
+  }
 
   static const List<(String, IconData)> availableIcons = [
     ('clipboard', Icons.assignment_outlined),
@@ -130,8 +151,7 @@ class _CreateFormPageState extends State<CreateFormPage> {
         .where((p) =>
             p['module'] == effectiveModule || effectiveModule == 'General')
         .toList();
-    final candidatePresets =
-        modulePresets.isNotEmpty ? modulePresets : allPresets;
+    final candidatePresets = modulePresets;
 
     String templateQuery = '';
     final chosen = await showModalBottomSheet<FormMap>(
@@ -208,8 +228,12 @@ class _CreateFormPageState extends State<CreateFormPage> {
                     const SizedBox(height: 10),
                     Expanded(
                       child: filtered.isEmpty
-                          ? const Center(
-                              child: Text('الگویی با این عنوان یافت نشد.'),
+                          ? Center(
+                              child: Text(
+                                candidatePresets.isEmpty
+                                    ? 'الگویی برای این ماژول یافت نشد.'
+                                    : 'الگویی با این عنوان یافت نشد.',
+                              ),
                             )
                           : ListView.separated(
                               itemCount: filtered.length,
@@ -300,6 +324,26 @@ class _CreateFormPageState extends State<CreateFormPage> {
         selectedPreset = chosen;
         if (_titleController.text.trim().isEmpty) {
           _titleController.text = 'کپی ${chosen['title']}';
+          if (_titleError != null) _titleError = null;
+        }
+        if (_descController.text.trim().isEmpty &&
+            (chosen['description'] ?? '').isNotEmpty) {
+          _descController.text = chosen['description'];
+        }
+        if (chosen['icon'] != null) {
+          final iconIdx =
+              availableIcons.indexWhere((i) => i.$1 == chosen['icon']);
+          if (iconIdx != -1) selectedIconIndex = iconIdx;
+        }
+        if (chosen['color'] != null) {
+          final hex =
+              chosen['color'].toString().replaceAll('#', '').toLowerCase();
+          final colorIdx = availableColors.indexWhere((c) {
+            final cHex =
+                c.toARGB32().toRadixString(16).substring(2).toLowerCase();
+            return cHex == hex;
+          });
+          if (colorIdx != -1) selectedColorIndex = colorIdx;
         }
       });
     }
@@ -308,8 +352,15 @@ class _CreateFormPageState extends State<CreateFormPage> {
   Future<void> _submit() async {
     final title = _titleController.text.trim();
     if (title.isEmpty) {
+      setState(() {
+        _titleError = 'لطفاً عنوان قالب فرم را وارد کنید.';
+      });
+      return;
+    }
+
+    if (useTemplate && selectedPreset == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('لطفاً عنوان قالب فرم را وارد کنید.')),
+        const SnackBar(content: Text('لطفاً یک الگوی آماده انتخاب کنید.')),
       );
       return;
     }
@@ -370,9 +421,13 @@ class _CreateFormPageState extends State<CreateFormPage> {
       child: Directionality(
         textDirection: TextDirection.rtl,
         child: Scaffold(
-          appBar: const AsoudHeader(
-            title: 'ایجاد فرم جدید',
-            subtitle: 'طراحی قالب خام',
+          appBar: _CreateFormHeader(
+            onBack: () async {
+              final shouldPop = await _confirmLeave();
+              if (shouldPop && context.mounted) {
+                Navigator.of(context).pop();
+              }
+            },
           ),
           body: ListView(
             padding: const EdgeInsets.all(16),
@@ -595,8 +650,24 @@ class _CreateFormPageState extends State<CreateFormPage> {
                                 ),
                                 child: Row(
                                   children: [
-                                    const Icon(Icons.copy_rounded,
-                                        size: 18, color: Color(0xFF1E88E5)),
+                                    Icon(
+                                      selectedPreset != null &&
+                                              selectedPreset!['icon'] != null
+                                          ? availableIcons
+                                              .firstWhere(
+                                                (i) =>
+                                                    i.$1 ==
+                                                    selectedPreset!['icon'],
+                                                orElse: () =>
+                                                    ('', Icons.copy_rounded),
+                                              )
+                                              .$2
+                                          : Icons.copy_rounded,
+                                      size: 18,
+                                      color: selectedPreset != null
+                                          ? availableColors[selectedColorIndex]
+                                          : const Color(0xFF1E88E5),
+                                    ),
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
@@ -644,8 +715,14 @@ class _CreateFormPageState extends State<CreateFormPage> {
                     const SizedBox(height: 6),
                     TextField(
                       controller: _titleController,
-                      decoration: const InputDecoration(
+                      onChanged: (_) {
+                        if (_titleError != null) {
+                          setState(() => _titleError = null);
+                        }
+                      },
+                      decoration: InputDecoration(
                         hintText: 'عنوان قالب را وارد کنید...',
+                        errorText: _titleError,
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -888,4 +965,72 @@ class _CreateFormPageState extends State<CreateFormPage> {
       ),
     );
   }
+}
+
+class _CreateFormHeader extends StatelessWidget implements PreferredSizeWidget {
+  const _CreateFormHeader({required this.onBack});
+  final VoidCallback onBack;
+
+  @override
+  Size get preferredSize => const Size.fromHeight(94);
+
+  @override
+  Widget build(BuildContext context) => SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          child: Row(children: [
+            if (Navigator.of(context).canPop())
+              InkWell(
+                onTap: onBack,
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: const Icon(
+                    Icons.chevron_right_rounded,
+                    size: 20,
+                    color: Color(0xFF0F172A),
+                  ),
+                ),
+              )
+            else
+              const SizedBox(width: 40),
+            const SizedBox(width: 10),
+            const Expanded(
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Text(
+                  'ایجاد فرم جدید',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 17,
+                    height: 1.3,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  'طراحی قالب خام',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF64748B),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ]),
+            ),
+            const SizedBox(width: 50),
+          ]),
+        ),
+      );
 }
