@@ -328,4 +328,64 @@ void main() {
     expect(result!.containsKey('source'), false);
     expect(result!.containsKey('max_length'), false);
   });
+
+  testWidgets('each column type opens its dedicated settings at mobile widths', (tester) async {
+    const settings = {
+      'متن کوتاه': 'روش تأمین مقدار فیلد',
+      'متن بلند': 'تعداد سطر اولیه',
+      'عدد': 'حداقل مقدار',
+      'مبلغ': 'حداقل مبلغ',
+      'تاریخ': 'نوع تقویم',
+      'ساعت': 'فاصله دقیقه',
+      'فهرست انتخابی': 'گزینه‌ها (هر خط یک گزینه)',
+      'چک‌لیست': 'حداقل تعداد انتخاب',
+      'فیلد محاسباتی': 'نوع خروجی',
+      'پیوست فایل': 'حداکثر تعداد فایل (تا ۱۰)',
+    };
+    for (final width in [360.0, 320.0]) {
+      for (final entry in settings.entries) {
+        await tester.pumpWidget(_wrapTestWidget(
+          Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () => editSchemaField(context, blankSchema('Request'), {
+                'key': 'c_type', 'label': 'مشخصه', 'type': 'Text',
+              }, column: true),
+              child: const Text('باز کردن ستون'),
+            ),
+          ),
+          width: width,
+        ));
+        await tester.tap(find.text('باز کردن ستون'));
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.text(entry.key));
+        await tester.tap(find.text(entry.key));
+        await tester.pumpAndSettle();
+        expect(find.text(entry.value), findsOneWidget, reason: '${entry.key} در عرض $width');
+        await tester.tap(find.byIcon(Icons.close).first);
+        await tester.pumpAndSettle();
+        if (find.text('تأیید').evaluate().isNotEmpty) {
+          await tester.tap(find.text('تأیید'));
+          await tester.pumpAndSettle();
+        }
+      }
+    }
+  });
+
+  testWidgets('two table definitions keep their own column structures', (tester) async {
+    final first = {
+      'key': 'first', 'type': 'Table', 'columns': [
+        {'key': 'first_name', 'label': 'نام کالا', 'type': 'Text'},
+      ],
+    };
+    final second = {
+      'key': 'second', 'type': 'Table', 'columns': [
+        {'key': 'second_count', 'label': 'تعداد', 'type': 'Integer'},
+      ],
+    };
+    expect(formMaps(first['columns']).single['key'], 'first_name');
+    expect(formMaps(second['columns']).single['key'], 'second_count');
+    (first['columns'] as List).add({'key': 'first_price', 'label': 'مبلغ', 'type': 'Money'});
+    expect(formMaps(first['columns']).map((column) => column['key']), ['first_name', 'first_price']);
+    expect(formMaps(second['columns']).map((column) => column['key']), ['second_count']);
+  });
 }

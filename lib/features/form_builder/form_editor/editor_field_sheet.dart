@@ -173,6 +173,30 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
         return;
       }
     }
+    final min = f['min'] as num?, max = f['max'] as num?;
+    if (min != null && max != null && min > max) {
+      setState(() => labelError = 'حداقل نمی‌تواند از حداکثر بیشتر باشد');
+      return;
+    }
+    if (['Select', 'Checkbox'].contains(f['type'])) {
+      final options = choiceOptions(f);
+      if (options.isEmpty) {
+        setState(() => labelError = 'حداقل یک گزینه معتبر وارد کنید');
+        return;
+      }
+      if (f['type'] == 'Checkbox') {
+        final minSelected = f['min_selected'] as num? ?? 0;
+        final maxSelected = f['max_selected'] as num?;
+        if (maxSelected != null && minSelected > maxSelected) {
+          setState(() => labelError = 'حداقل انتخاب نمی‌تواند از حداکثر بیشتر باشد');
+          return;
+        }
+      }
+    }
+    if (f['type'] == 'Table' && formMaps(f['columns']).isEmpty) {
+      setState(() => labelError = 'برای جدول حداقل یک مشخصه تعریف کنید');
+      return;
+    }
 
     Navigator.pop(context, f);
   }
@@ -430,6 +454,12 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
               value: f['required'] == true,
               onChanged: (v) => set('required', v),
             ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('این مشخصه در فرم نمایش داده شود', style: TextStyle(fontSize: 13)),
+            value: f['visible'] != false,
+            onChanged: (v) => set('visible', v),
+          ),
           const Divider(height: 18, color: Color(0xFFE2E8F2)),
           // Specific Settings by Type
           _buildSpecificTypeSettings(type),
@@ -601,13 +631,19 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
             ),
           ],
         ),
-        if (type == 'Decimal')
+        if (type != 'Integer')
           editorFieldText(
-            label: 'تعداد اعشار مجاز',
+            label: 'تعداد اعشار مجاز (۰ تا ۴)',
             value: f['precision'] ?? 2,
             numeric: true,
             onChanged: (v) => set('precision', v),
           ),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('نمایش جداکننده سه‌رقمی', style: TextStyle(fontSize: 13)),
+          value: f['thousands_separator'] != false,
+          onChanged: (v) => set('thousands_separator', v),
+        ),
         editorFieldText(
           label: 'مقدار پیش‌فرض',
           value: f['default'],
@@ -623,6 +659,12 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        formSelect(
+          'نوع تقویم',
+          '${f['calendar'] ?? 'jalali'}',
+          const {'jalali': 'شمسی', 'gregorian': 'میلادی'},
+          (v) => set('calendar', v),
+        ),
         const Text(
           'مقدار پیش‌فرض تاریخ',
           style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF122044)),
@@ -674,6 +716,12 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
             },
           ),
         ],
+        ...buildDateTimeConfig(
+          context: context,
+          f: f,
+          set: set,
+          update: (fn) => setState(fn),
+        ),
       ],
     );
   }
@@ -749,6 +797,13 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
             ),
           ],
         ],
+        Row(
+          children: [
+            Expanded(child: editorFieldText(label: 'حداقل ساعت', value: f['min_time'], onChanged: (v) => set('min_time', v))),
+            const SizedBox(width: 8),
+            Expanded(child: editorFieldText(label: 'حداکثر ساعت', value: f['max_time'], onChanged: (v) => set('max_time', v))),
+          ],
+        ),
       ],
     );
   }
@@ -777,6 +832,16 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
           'تعداد گزینه‌ها: ${toPersianDigits(opts.length)}',
           style: const TextStyle(fontSize: 11, color: Color(0xFF5B6478)),
         ),
+        if (multi) ...[
+          editorFieldText(label: 'حداقل تعداد انتخاب', value: f['min_selected'] ?? 0, numeric: true, onChanged: (v) => set('min_selected', v)),
+          editorFieldText(label: 'حداکثر تعداد انتخاب', value: f['max_selected'], numeric: true, onChanged: (v) => set('max_selected', v)),
+        ] else if (opts.isNotEmpty)
+          formSelect(
+            'گزینه پیش‌فرض',
+            f['default'] as String?,
+            {'': 'بدون پیش‌فرض', for (final option in opts) '${option['id']}': '${option['label']}'},
+            (v) => set('default', v.isEmpty ? null : v),
+          ),
       ],
     );
   }
@@ -911,6 +976,13 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
           title: const Text('پیوست‌کردن حداقل یک فایل الزامی باشد', style: TextStyle(fontSize: 13)),
           value: f['required'] == true,
           onChanged: (v) => set('required', v),
+        ),
+        ...buildFileConfig(f, set),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('حذف فایل پیش از ثبت مجاز باشد', style: TextStyle(fontSize: 13)),
+          value: f['allow_delete'] != false,
+          onChanged: (v) => set('allow_delete', v),
         ),
       ],
     );

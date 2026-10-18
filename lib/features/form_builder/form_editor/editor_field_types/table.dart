@@ -132,6 +132,18 @@ List<Widget> buildTableConfig({
             IconButton(
               tooltip: 'حذف مشخصه',
               onPressed: () async {
+                final column = columns[i];
+                final dependencies = [
+                  ...formMaps(column['formula_dependents']),
+                  ...formMaps(column['aggregate_dependents']),
+                  ...formMaps(column['rule_dependents']),
+                ];
+                if (dependencies.isNotEmpty || column['has_data'] == true) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('این مشخصه داده یا وابستگی دارد و قابل حذف نیست.')),
+                  );
+                  return;
+                }
                 if (!await formConfirm(context, 'مشخصه حذف شود؟') || !context.mounted) return;
                 final cols = formMaps(f['columns'])..removeAt(i);
                 set('columns', cols);
