@@ -51,13 +51,19 @@ class EditorBottomBar extends StatelessWidget {
                         foregroundColor: const Color(0xFF1E293B),
                         side: const BorderSide(color: Color(0xFFCBD5E1)),
                         minimumSize: const Size(double.infinity, 44),
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
                       ),
-                      child: const Text(
-                        'پیش‌نمایش',
-                        style: TextStyle(fontWeight: FontWeight.w600),
+                      child: const FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          'پیش‌نمایش',
+                          maxLines: 1,
+                          softWrap: false,
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
                       ),
                     ),
                   ),
@@ -66,14 +72,20 @@ class EditorBottomBar extends StatelessWidget {
                     child: FilledButton.icon(
                       onPressed: busy ? null : onSave,
                       icon: const Icon(Icons.arrow_downward, size: 18),
-                      label: Text(
-                        busy ? 'در حال ذخیره…' : 'ذخیره پیش‌نویس',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      label: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          busy ? 'در حال ذخیره…' : 'ذخیره پیش‌نویس',
+                          maxLines: 1,
+                          softWrap: false,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
                       ),
                       style: FilledButton.styleFrom(
                         backgroundColor: const Color(0xFF1E88E5),
                         foregroundColor: Colors.white,
                         minimumSize: const Size(double.infinity, 44),
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),

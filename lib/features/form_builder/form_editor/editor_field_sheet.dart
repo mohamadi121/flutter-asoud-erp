@@ -460,6 +460,43 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
             value: f['visible'] != false,
             onChanged: (v) => set('visible', v),
           ),
+          if (!widget.column) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'چیدمان فیلد',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF1E293B),
+                    ),
+                  ),
+                ),
+                SegmentedButton<int>(
+                  segments: const [
+                    ButtonSegment<int>(
+                      value: 1,
+                      label: Text('نیم‌عرض', style: TextStyle(fontSize: 12)),
+                    ),
+                    ButtonSegment<int>(
+                      value: 2,
+                      label: Text('تمام‌عرض', style: TextStyle(fontSize: 12)),
+                    ),
+                  ],
+                  selected: {(f['span'] as num?)?.toInt() == 1 ? 1 : 2},
+                  onSelectionChanged: (Set<int> newSelection) {
+                    set('span', newSelection.first);
+                  },
+                  style: const ButtonStyle(
+                    visualDensity: VisualDensity.compact,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+              ],
+            ),
+          ],
           const Divider(height: 18, color: Color(0xFFE2E8F2)),
           // Specific Settings by Type
           _buildSpecificTypeSettings(type),

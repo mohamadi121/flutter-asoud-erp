@@ -136,7 +136,7 @@ class _EditorDesignStepState extends State<EditorDesignStep> {
       return;
     }
     final nextColor = pickNextSectionColor(sections);
-    final newId = newFormId();
+    final newId = 'sec_${newFormId()}';
     widget.change(() {
       final updated = [
         ...sections,
@@ -310,15 +310,44 @@ class _EditorDesignStepState extends State<EditorDesignStep> {
                           ),
                         ),
                       const PopupMenuDivider(),
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'delete',
-                        child: Row(
+                        enabled: sections.length > 1,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.delete_outline,
-                                size: 18, color: Color(0xFFDC2626)),
-                            SizedBox(width: 8),
-                            Text('حذف بخش',
-                                style: TextStyle(color: Color(0xFFDC2626))),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.delete_outline,
+                                  size: 18,
+                                  color: sections.length > 1
+                                      ? const Color(0xFFDC2626)
+                                      : const Color(0xFF94A3B8),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'حذف بخش',
+                                  style: TextStyle(
+                                    color: sections.length > 1
+                                        ? const Color(0xFFDC2626)
+                                        : const Color(0xFF94A3B8),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (sections.length <= 1)
+                              const Padding(
+                                padding: EdgeInsets.only(top: 4),
+                                child: Text(
+                                  'فرم باید حداقل یک بخش داشته باشد',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Color(0xFF94A3B8),
+                                  ),
+                                ),
+                              ),
                           ],
                         ),
                       ),
@@ -335,8 +364,31 @@ class _EditorDesignStepState extends State<EditorDesignStep> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  for (var fi = 0; fi < fields.length; fi++)
-                    _buildFieldCard(context, sections, si, fi),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final totalWidth = constraints.maxWidth;
+                      const spacing = 8.0;
+                      final halfWidth = (totalWidth - spacing) / 2;
+                      return Wrap(
+                        spacing: spacing,
+                        runSpacing: 0,
+                        children: [
+                          for (var fi = 0; fi < fields.length; fi++)
+                            SizedBox(
+                              width: (fields[fi]['span'] as num?)?.toInt() == 1
+                                  ? halfWidth
+                                  : totalWidth,
+                              child: _buildFieldCard(
+                                context,
+                                sections,
+                                si,
+                                fi,
+                              ),
+                            ),
+                        ],
+                      );
+                    },
+                  ),
                   const SizedBox(height: 8),
                   OutlinedButton.icon(
                     onPressed: () async {
@@ -454,6 +506,8 @@ class _EditorDesignStepState extends State<EditorDesignStep> {
                     const SizedBox(height: 2),
                     Text(
                       typeName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 11,
                         color: Color(0xFF64748B),
@@ -592,6 +646,16 @@ class _EditorDesignStepState extends State<EditorDesignStep> {
         widget.schema['sections'] = sections;
       });
     } else if (action == 'delete') {
+      if (sections.length <= 1) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('فرم باید حداقل یک بخش داشته باشد'),
+            ),
+          );
+        }
+        return;
+      }
       final fields = formMaps(sections[si]['fields']);
       final confirm = await formConfirm(
         context,

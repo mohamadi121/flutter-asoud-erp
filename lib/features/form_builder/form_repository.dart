@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -13,7 +14,15 @@ FormMap formMap(Object? value) =>
 List<FormMap> formMaps(Object? value) =>
     (value as List? ?? []).map(formMap).toList();
 FormMap copyForm(FormMap value) => formMap(jsonDecode(jsonEncode(value)));
-String newFormId() => DateTime.now().microsecondsSinceEpoch.toRadixString(36);
+String newFormId() {
+  final rng = Random.secure();
+  const letters = 'abcdefghijklmnopqrstuvwxyz';
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  final first = letters[rng.nextInt(letters.length)];
+  final rest =
+      List.generate(15, (_) => chars[rng.nextInt(chars.length)]).join();
+  return '$first$rest';
+}
 
 class FormRepository {
   FormRepository(this.client, this.company);
