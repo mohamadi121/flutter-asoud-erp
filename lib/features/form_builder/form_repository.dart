@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/config/app_config.dart';
 import '../../core/network/frappe_client.dart';
 import '../../core/network/api_exception.dart';
+import 'form_runtime/schema_migration.dart';
 
 typedef FormMap = Map<String, dynamic>;
 FormMap formMap(Object? value) =>
@@ -117,27 +118,31 @@ class FormRepository {
       });
 
   Future<FormMap> save(FormMap record) async {
-    await keepDraft(record);
+    final prepared = {
+      ...record,
+      'schema': migrateFormSchema(formMap(record['schema'])),
+    };
+    await keepDraft(prepared);
     if (!client.isAuthenticated) {
-      return {...record, 'local': true};
+      return {...prepared, 'local': true};
     }
     try {
       final result = formMap(
         await call('save_form', {
           'company': company,
-          'schema': jsonEncode(record['schema']),
-          'name': record['name'],
-          'client_id': record['client_id'],
-          'expected_version': record['draft_version'] ?? 0,
+          'schema': jsonEncode(prepared['schema']),
+          'name': prepared['name'],
+          'client_id': prepared['client_id'],
+          'expected_version': prepared['draft_version'] ?? 0,
         }),
       );
-      await discardDraft('${record['client_id']}');
-      return {...result, 'client_id': record['client_id']};
+      await discardDraft('${prepared['client_id']}');
+      return {...result, 'client_id': prepared['client_id']};
     } catch (error) {
       if (!unavailable(error)) {
         rethrow;
       }
-      return {...record, 'local': true};
+      return {...prepared, 'local': true};
     }
   }
 
@@ -177,6 +182,6 @@ class FormRepository {
           .toList();
       rows.insertAll(0, local.map((r) => {...r, 'local': true}));
     }
-    return rows;
+    return rows.map(migrateFormRecord).toList();
   }
 }
