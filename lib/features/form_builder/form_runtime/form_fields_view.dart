@@ -193,6 +193,7 @@ class FormFieldsView extends StatelessWidget {
     }
 
     final tableWidget = buildTableField(
+      context: context,
       f: f,
       value: v,
       label: label,
