@@ -9,7 +9,7 @@ const formModules = {
   'General': 'عمومی',
   'HR': 'منابع انسانی',
   'Finance': 'مالی',
-  'Purchase': 'خرید',
+  'Purchase': 'خرید و تدارکات',
   'Sales': 'فروش',
   'Stock': 'انبار',
   'Manufacturing': 'تولید',
