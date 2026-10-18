@@ -41,10 +41,15 @@ FormMap evaluatedValues(FormMap schema, FormMap raw) {
       if (byKey[dependency] != null) evaluate(byKey[dependency]!);
     }
     values.putIfAbsent(key, () => field['default']);
-    if (!formFlag(field, schema, values, 'visible')) values.remove(key);
-    else if (field['type'] == 'Table') values[key] = formMaps(values[key]).map((row) => evaluatedValues({'sections': [{'fields': field['columns']}], 'rules': []}, row)).toList();
-    else if (field['type'] == 'Formula') values[key] = calculateForm(formula, values);
-    else if (formFlag(field, schema, values, 'readonly') || field['type'] == 'Display') values[key] = field['default'];
+    if (!formFlag(field, schema, values, 'visible')) {
+      values.remove(key);
+    } else if (field['type'] == 'Table') {
+      values[key] = formMaps(values[key]).map((row) => evaluatedValues({'sections': [{'fields': field['columns']}], 'rules': []}, row)).toList();
+    } else if (field['type'] == 'Formula') {
+      values[key] = calculateForm(formula, values);
+    } else if (formFlag(field, schema, values, 'readonly') || field['type'] == 'Display') {
+      values[key] = field['default'];
+    }
     visiting.remove(key); done.add(key);
   }
   for (final field in fields) { evaluate(field); }
@@ -74,7 +79,13 @@ List<String> schemaProblems(FormMap schema) {
   void visit(String key) {
     if (done.contains(key)) return;
     if (!visiting.add(key)) { problems.add('چرخه وابستگی وجود دارد.'); return; }
-    for (final dependency in graph[key] ?? <String>{}) { if (!keys.contains(dependency)) problems.add('فیلد ورودی قانون یا فرمول وجود ندارد.'); else visit(dependency); }
+    for (final dependency in graph[key] ?? <String>{}) {
+      if (!keys.contains(dependency)) {
+        problems.add('فیلد ورودی قانون یا فرمول وجود ندارد.');
+      } else {
+        visit(dependency);
+      }
+    }
     visiting.remove(key); done.add(key);
   }
   for (final key in keys) { visit(key); }
