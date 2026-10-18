@@ -22,15 +22,18 @@ Widget? buildFileInput({
 
   return Column(
     children: [
-      ListTile(
-        title: Text(label),
-        subtitle: Text('${value ?? 'فایل انتخاب نشده'}'),
-        trailing: value == null
-            ? null
-            : IconButton(
-                onPressed: () => onChanged(null),
-                icon: const Icon(Icons.close),
-              ),
+      Material(
+        color: Colors.transparent,
+        child: ListTile(
+          title: Text(label),
+          subtitle: Text('${value ?? 'فایل انتخاب نشده'}'),
+          trailing: value == null
+              ? null
+              : IconButton(
+                  onPressed: () => onChanged(null),
+                  icon: const Icon(Icons.close),
+                ),
+        ),
       ),
       OutlinedButton.icon(
         icon: const Icon(Icons.attach_file),

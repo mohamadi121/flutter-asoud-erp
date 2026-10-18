@@ -26,11 +26,13 @@ Widget? buildDateTimeInput({
   return FormField<dynamic>(
     validator: (_) =>
         required && isEmptyValue(value) ? 'انتخاب الزامی است.' : null,
-    builder: (state) => ListTile(
-      title: Text(label),
-      subtitle: Text(state.errorText ?? display),
-      trailing: const Icon(Icons.calendar_month),
-      onTap: () async {
+    builder: (state) => Material(
+      color: Colors.transparent,
+      child: ListTile(
+        title: Text(label),
+        subtitle: Text(state.errorText ?? display),
+        trailing: const Icon(Icons.calendar_month),
+        onTap: () async {
         DateTime? picked;
         if (type != 'Time') {
           picked = await showAsoudJalaliPicker(context, initialDate: date);
@@ -67,5 +69,6 @@ Widget? buildDateTimeInput({
         );
       },
     ),
-  );
+  ),
+);
 }
