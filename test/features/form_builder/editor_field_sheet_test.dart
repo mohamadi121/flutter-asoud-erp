@@ -388,4 +388,28 @@ void main() {
     expect(formMaps(first['columns']).map((column) => column['key']), ['first_name', 'first_price']);
     expect(formMaps(second['columns']).map((column) => column['key']), ['second_count']);
   });
+
+  testWidgets('table column deletion asks before removing a safe column', (tester) async {
+    await tester.pumpWidget(_wrapTestWidget(
+      Builder(builder: (context) => ElevatedButton(
+        onPressed: () => editSchemaField(context, blankSchema('Request'), {
+          'key': 'items', 'label': 'اقلام', 'type': 'Table', 'columns': [
+            {'key': 'item', 'label': 'کالا', 'type': 'Text'},
+          ],
+        }),
+        child: const Text('باز کردن جدول'),
+      )),
+    ));
+    await tester.tap(find.text('باز کردن جدول'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('پیشرفته'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byTooltip('حذف مشخصه'));
+    await tester.tap(find.byTooltip('حذف مشخصه'));
+    await tester.pumpAndSettle();
+    expect(find.text('مشخصه حذف شود؟'), findsOneWidget);
+    await tester.tap(find.text('تأیید'));
+    await tester.pumpAndSettle();
+    expect(find.text('کالا'), findsNothing);
+  });
 }
