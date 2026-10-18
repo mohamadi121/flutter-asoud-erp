@@ -11,6 +11,8 @@ import 'package:asoud_erp/features/form_builder/form_repository.dart';
 import 'package:asoud_erp/features/form_builder/form_runtime/form_preview_page.dart';
 import 'package:asoud_erp/features/form_builder/forms_page.dart';
 import 'package:asoud_erp/features/form_builder/form_editor.dart';
+import 'package:asoud_erp/features/form_builder/form_editor/editor_field_sheet.dart';
+import 'package:asoud_erp/features/form_builder/form_editor/editor_widgets.dart';
 
 class _GoldenMockClient extends Fake implements FrappeApiClient {
   @override
@@ -398,6 +400,41 @@ void main() {
     await expectLater(
       find.byType(MaterialApp),
       matchesGoldenFile('goldens/form_designer_360x800.png'),
+    );
+  }, tags: 'golden');
+
+  testWidgets('editor field sheet basic tab 360x800 golden', (tester) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final client = _GoldenMockClient();
+    final repo = FormRepository(client, 'شرکت نمونه آسود');
+    final schema = blankSchema('Request');
+
+    await tester.pumpWidget(_wrapGolden(
+      Builder(
+        builder: (context) => ElevatedButton(
+          onPressed: () => editSchemaField(
+            context,
+            schema,
+            {'key': 'f_1', 'label': 'مبلغ نهایی', 'type': 'Money', 'required': true},
+            repository: repo,
+          ),
+          child: const Text('Open Sheet'),
+        ),
+      ),
+      client,
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Open Sheet'));
+    await tester.pumpAndSettle();
+
+    await expectLater(
+      find.byType(MaterialApp),
+      matchesGoldenFile('goldens/editor_field_sheet_basic_360x800.png'),
     );
   }, tags: 'golden');
 }
