@@ -68,8 +68,11 @@ class _VersionedFormsPageState extends State<VersionedFormsPage> {
       } catch (_) {}
     }
   }
-  void reload() =>
-      setState(() => rows = repository.list(kind, manage: widget.manage));
+  void reload() {
+    setState(() {
+      rows = repository.list(kind, manage: widget.manage);
+    });
+  }
   Future<void> editor(FormMap initial) async {
     await Navigator.push(
       context,
@@ -83,85 +86,10 @@ class _VersionedFormsPageState extends State<VersionedFormsPage> {
     }
   }
 
-  Future<String?> _pickModuleModal() async {
-    String? selected;
-    return await showModalBottomSheet<String>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      useSafeArea: true,
-      builder: (sheetCtx) => StatefulBuilder(
-        builder: (sheetCtx, setSheetState) => Directionality(
-          textDirection: TextDirection.rtl,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Text(
-                  'انتخاب ماژول',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1E293B),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  'برای ایجاد فرم جدید، ابتدا ماژول مربوطه را مشخص کنید.',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF64748B),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                for (final entry in formModules.entries) ...[
-                  InkWell(
-                    onTap: () => setSheetState(() => selected = entry.key),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Row(
-                        children: [
-                          Icon(
-                            selected == entry.key
-                                ? Icons.radio_button_checked
-                                : Icons.radio_button_off,
-                            color: selected == entry.key
-                                ? const Color(0xFF1E88E5)
-                                : Colors.grey,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 10),
-                          Text(entry.value,
-                              style: const TextStyle(fontSize: 13)),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 16),
-                SizedBox(
-                  height: 44,
-                  child: FilledButton(
-                    onPressed: selected == null
-                        ? null
-                        : () => Navigator.pop(sheetCtx, selected),
-                    child: const Text('ادامه'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   Future<void> create() async {
     String targetModule = module;
     if (targetModule.isEmpty) {
-      final chosen = await _pickModuleModal();
+      final chosen = await pickModuleModal(context);
       if (chosen == null || !mounted) {
         return;
       }
@@ -462,19 +390,27 @@ class _VersionedFormsPageState extends State<VersionedFormsPage> {
               const SizedBox(height: 10),
               LayoutBuilder(
                 builder: (context, constraints) {
-                  final moduleItems = [
+                  final baseItems = [
                     ('', 'همه'),
                     ('HR', 'منابع انسانی'),
                     ('Finance', 'مالی'),
                     ('Sales', 'فروش'),
                     ('Stock', 'انبار'),
                     ('Purchase', 'اداری'),
-                    if (expandedModules) ...[
-                      ('Manufacturing', 'تولید'),
-                      ('Projects', 'پروژه‌ها'),
-                      ('IT', 'فناوری اطلاعات'),
-                      ('General', 'عمومی'),
-                    ],
+                  ];
+                  final expandedList = [
+                    ('Manufacturing', 'تولید'),
+                    ('Projects', 'پروژه‌ها'),
+                    ('IT', 'فناوری اطلاعات'),
+                    ('General', 'عمومی'),
+                  ];
+                  final moduleItems = [
+                    ...baseItems,
+                    if (expandedModules)
+                      ...expandedList
+                    else if (module.isNotEmpty &&
+                        !baseItems.any((m) => m.$1 == module))
+                      (module, formModules[module] ?? module),
                   ];
                   return GridView.builder(
                     shrinkWrap: true,
@@ -664,6 +600,38 @@ class _VersionedFormsPageState extends State<VersionedFormsPage> {
     ),
   };
 
+  static const _iconMap = <String, IconData>{
+    'clipboard': Icons.assignment_outlined,
+    'calendar': Icons.calendar_today_outlined,
+    'clock': Icons.access_time_outlined,
+    'users': Icons.people_outline_rounded,
+    'cart': Icons.shopping_cart_outlined,
+    'wallet': Icons.account_balance_wallet_outlined,
+    'box': Icons.inventory_2_outlined,
+    'briefcase': Icons.business_center_outlined,
+    'document': Icons.description_outlined,
+    'truck': Icons.local_shipping_outlined,
+    'wrench': Icons.build_outlined,
+    'building': Icons.business_outlined,
+    'laptop': Icons.laptop_outlined,
+    'phone': Icons.phone_android_outlined,
+    'receipt': Icons.receipt_long_outlined,
+    'credit_card': Icons.credit_card_outlined,
+    'security': Icons.security_outlined,
+    'help': Icons.help_outline_rounded,
+  };
+
+  static Color? _parseHexColor(String? hex) {
+    if (hex == null || hex.isEmpty) return null;
+    final cleaned = hex.replaceAll('#', '').trim();
+    if (cleaned.length == 6) {
+      return Color(int.parse('FF$cleaned', radix: 16));
+    } else if (cleaned.length == 8) {
+      return Color(int.parse(cleaned, radix: 16));
+    }
+    return null;
+  }
+
   Widget _buildTemplateCard(FormMap row) {
     final s = formMap(row['schema']);
     final title = '${s['title'] ?? row['title'] ?? 'پیش‌نویس'}';
@@ -674,6 +642,13 @@ class _VersionedFormsPageState extends State<VersionedFormsPage> {
           const Color(0xFF10B981),
           const Color(0xFFE8F5E9)
         );
+    final customIcon = s['icon'] != null ? _iconMap[s['icon']] : null;
+    final customColor = _parseHexColor(s['color']?.toString());
+    final cardIcon = customIcon ?? visual.$1;
+    final cardIconColor = customColor ?? visual.$2;
+    final cardIconBg = customColor != null
+        ? customColor.withValues(alpha: 0.12)
+        : visual.$3;
     final status = '${row['status'] ?? 'Draft'}';
 
     String statusText;
@@ -718,10 +693,10 @@ class _VersionedFormsPageState extends State<VersionedFormsPage> {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: visual.$3,
+                color: cardIconBg,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(visual.$1, size: 22, color: visual.$2),
+              child: Icon(cardIcon, size: 22, color: cardIconColor),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -1020,6 +995,81 @@ class _FormEntryPageState extends State<FormEntryPage> {
       );
 }
 
+Future<String?> pickModuleModal(BuildContext context, {String? current}) async {
+  String? selected = current;
+  return await showModalBottomSheet<String>(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    useSafeArea: true,
+    builder: (sheetCtx) => StatefulBuilder(
+      builder: (sheetCtx, setSheetState) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'انتخاب ماژول',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1E293B),
+                ),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'برای ایجاد فرم جدید، ابتدا ماژول مربوطه را مشخص کنید.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFF64748B),
+                ),
+              ),
+              const SizedBox(height: 14),
+              for (final entry in formModules.entries) ...[
+                InkWell(
+                  onTap: () => setSheetState(() => selected = entry.key),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Row(
+                      children: [
+                        Icon(
+                          selected == entry.key
+                              ? Icons.radio_button_checked
+                              : Icons.radio_button_off,
+                          color: selected == entry.key
+                              ? const Color(0xFF1E88E5)
+                              : Colors.grey,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 10),
+                        Text(entry.value,
+                            style: const TextStyle(fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
+              SizedBox(
+                height: 44,
+                child: FilledButton(
+                  onPressed: selected == null
+                      ? null
+                      : () => Navigator.pop(sheetCtx, selected),
+                  child: const Text('ادامه'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
 List<FormMap> formPresets(String kind) {
   FormMap field(
     String key,
@@ -1031,18 +1081,63 @@ List<FormMap> formPresets(String kind) {
   if (kind == 'Request') {
     return [
       for (final item in [
-        ('درخواست عمومی', 'General'),
-        ('درخواست مرخصی', 'HR'),
-        ('درخواست مأموریت', 'HR'),
-        ('درخواست تجهیزات', 'IT'),
-        ('درخواست تنخواه', 'Finance'),
-        ('درخواست خرید کالا', 'Purchase'),
-        ('اصلاح تردد', 'HR'),
+        (
+          'درخواست عمومی',
+          'General',
+          'clipboard',
+          '#1E88E5',
+          'قالب پیش‌فرض برای ثبت انواع درخواست‌های عمومی سازمانی',
+        ),
+        (
+          'درخواست مرخصی',
+          'HR',
+          'calendar',
+          '#2E7D32',
+          'قالب آماده برای ثبت انواع مرخصی استحقاقی، استعلاجی و ساعتی',
+        ),
+        (
+          'درخواست مأموریت',
+          'HR',
+          'briefcase',
+          '#2E7D32',
+          'قالب آماده برای اعزام و مأموریت‌های اداری و عملیاتی',
+        ),
+        (
+          'درخواست تجهیزات',
+          'IT',
+          'laptop',
+          '#0288D1',
+          'قالب درخواست سخت‌افزار، تجهیزات شبکه و امکانات انفورماتیک',
+        ),
+        (
+          'درخواست تنخواه',
+          'Finance',
+          'wallet',
+          '#F57F17',
+          'قالب ثبت تنخواه، هزینه‌های جاری و تسویه‌حساب مالی',
+        ),
+        (
+          'درخواست خرید کالا',
+          'Purchase',
+          'cart',
+          '#C2185B',
+          'قالب ثبت نیاز و درخواست خرید کالا و تجهیزات',
+        ),
+        (
+          'اصلاح تردد',
+          'HR',
+          'clock',
+          '#2E7D32',
+          'قالب اصلاح ساعت ورود و خروج و تردد پرسنلی',
+        ),
       ])
         {
           ...blankSchema(kind),
           'title': item.$1,
           'module': item.$2,
+          'icon': item.$3,
+          'color': item.$4,
+          'description': item.$5,
           'sections': [
             {
               'id': 'main',
@@ -1082,6 +1177,9 @@ List<FormMap> formPresets(String kind) {
       ...blankSchema(kind),
       'title': 'درخواست کالا',
       'module': 'Purchase',
+      'icon': 'box',
+      'color': '#00796B',
+      'description': 'سند درخواست و حواله انتقال کالا از انبار',
       'target': 'Material Request',
       'sections': [
         {
@@ -1139,6 +1237,9 @@ List<FormMap> formPresets(String kind) {
       ...blankSchema(kind),
       'title': 'سند حسابداری',
       'module': 'Finance',
+      'icon': 'receipt',
+      'color': '#F57F17',
+      'description': 'سند ثبت دستی آرتیکل‌های حسابداری و اسناد مالی',
       'target': 'Journal Entry',
       'sections': [
         {

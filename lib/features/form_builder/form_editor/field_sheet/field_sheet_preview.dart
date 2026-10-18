@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/utils/jalali_date.dart';
 import '../../form_repository.dart';
+import '../../form_runtime/formula_engine.dart';
 import '../../form_runtime/schema_migration.dart';
 import 'live_clock_time_picker.dart';
 import 'smart_link_picker.dart';
@@ -23,6 +24,7 @@ class FieldSheetPreview extends StatefulWidget {
 class _FieldSheetPreviewState extends State<FieldSheetPreview> {
   dynamic currentValue;
   bool isClockOpen = false;
+  final Map<String, dynamic> _sampleFormulaInputs = {};
 
   @override
   void initState() {
@@ -303,27 +305,74 @@ class _FieldSheetPreviewState extends State<FieldSheetPreview> {
       case 'Formula':
         final hasFormula = f['formula'] != null && (formMap(f['formula'])['op'] != null);
         final outputType = f['output_type'] == 'Money' ? 'مبلغ' : 'عدد';
-        return Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF8FAFD),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: const Color(0xFFE2E8F2)),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.calculate_outlined, color: Color(0xFF7C24E8), size: 20),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  hasFormula
-                      ? 'خروجی: $outputType (فرمول تعریف‌شده در تب پیشرفته)'
-                      : 'خروجی: $outputType · بدون فرمول',
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF5B6478)),
+        final formula = formMap(f['formula']);
+        final inputs = (formula['inputs'] as List? ?? []).map((e) => '$e').toList();
+        final effectiveInputs = inputs.isNotEmpty ? inputs : ['in_1', 'in_2'];
+        for (var i = 0; i < effectiveInputs.length; i++) {
+          final inp = effectiveInputs[i];
+          _sampleFormulaInputs.putIfAbsent(inp, () => '${(i + 1) * 10}');
+        }
+
+        String calcResult;
+        if (hasFormula) {
+          calcResult = calculateForm(formula, _sampleFormulaInputs);
+        } else {
+          final v1 = double.tryParse(toLatinDigits('${_sampleFormulaInputs[effectiveInputs[0]]}')) ?? 0;
+          final v2 = effectiveInputs.length > 1
+              ? (double.tryParse(toLatinDigits('${_sampleFormulaInputs[effectiveInputs[1]]}')) ?? 0)
+              : 0;
+          final sum = v1 + v2;
+          calcResult = sum == sum.truncateToDouble() ? sum.toInt().toString() : sum.toString();
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (var i = 0; i < effectiveInputs.length; i++) ...[
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: TextFormField(
+                  key: ValueKey('sample_input_${effectiveInputs[i]}'),
+                  initialValue: '${_sampleFormulaInputs[effectiveInputs[i]]}',
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: 'ورودی عددی ${toPersianDigits(i + 1)}',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                  onChanged: (val) {
+                    setState(() {
+                      _sampleFormulaInputs[effectiveInputs[i]] = val;
+                    });
+                  },
                 ),
               ),
             ],
-          ),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEBF7EE),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFC3E6CB)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.calculate_outlined, color: Color(0xFF0B6B3A), size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'نتیجه محاسبه ($outputType):',
+                      style: const TextStyle(fontSize: 13, color: Color(0xFF0B6B3A), fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  Text(
+                    toPersianDigits(calcResult),
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0B6B3A)),
+                  ),
+                ],
+              ),
+            ),
+          ],
         );
 
       case 'Table':

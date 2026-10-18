@@ -45,6 +45,8 @@ class _GoldenMockClient extends Fake implements FrappeApiClient {
               'schema': {
                 'title': 'فرم درخواست مرخصی',
                 'module': 'HR',
+                'icon': 'calendar',
+                'color': '#2E7D32',
               },
             },
             {
@@ -58,6 +60,8 @@ class _GoldenMockClient extends Fake implements FrappeApiClient {
               'schema': {
                 'title': 'فرم درخواست اضافه‌کاری',
                 'module': 'HR',
+                'icon': 'clock',
+                'color': '#2E7D32',
               },
             },
             {
@@ -71,6 +75,8 @@ class _GoldenMockClient extends Fake implements FrappeApiClient {
               'schema': {
                 'title': 'فرم درخواست مأموریت',
                 'module': 'Purchase',
+                'icon': 'briefcase',
+                'color': '#C2185B',
               },
             },
             {
@@ -84,6 +90,8 @@ class _GoldenMockClient extends Fake implements FrappeApiClient {
               'schema': {
                 'title': 'فرم درخواست خرید کالا',
                 'module': 'Purchase',
+                'icon': 'cart',
+                'color': '#C2185B',
               },
             },
           ],
@@ -99,17 +107,54 @@ class _GoldenMockClient extends Fake implements FrappeApiClient {
   }
 }
 
-Widget _wrapGolden(Widget child, FrappeApiClient client) =>
+class _GoldenNavigationHost extends StatefulWidget {
+  const _GoldenNavigationHost({required this.child});
+  final Widget child;
+
+  @override
+  State<_GoldenNavigationHost> createState() => _GoldenNavigationHostState();
+}
+
+class _GoldenNavigationHostState extends State<_GoldenNavigationHost> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        Navigator.of(context).push(
+          PageRouteBuilder<void>(
+            pageBuilder: (_, __, ___) => Directionality(
+              textDirection: TextDirection.rtl,
+              child: widget.child,
+            ),
+            transitionDuration: Duration.zero,
+          ),
+        );
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => const Scaffold(backgroundColor: Colors.white);
+}
+
+Widget _wrapGolden(
+  Widget child,
+  FrappeApiClient client, {
+  bool canPop = false,
+}) =>
     RepositoryProvider<FrappeApiClient>.value(
       value: client,
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
         locale: const Locale('fa'),
         theme: AsoudTheme.light,
-        home: Directionality(
-          textDirection: TextDirection.rtl,
-          child: child,
-        ),
+        home: canPop
+            ? _GoldenNavigationHost(child: child)
+            : Directionality(
+                textDirection: TextDirection.rtl,
+                child: child,
+              ),
       ),
     );
 
@@ -140,6 +185,7 @@ void main() {
     await tester.pumpWidget(_wrapGolden(
       const VersionedFormsPage(company: 'شرکت نمونه آسود'),
       client,
+      canPop: true,
     ));
     await tester.pumpAndSettle();
 
@@ -165,6 +211,7 @@ void main() {
         initialKind: 'Request',
       ),
       client,
+      canPop: true,
     ));
     await tester.pumpAndSettle();
 
@@ -191,6 +238,7 @@ void main() {
         initialKind: 'Request',
       ),
       client,
+      canPop: true,
     ));
     await tester.pumpAndSettle();
 

@@ -8,6 +8,7 @@ class SheetBottomButtons extends StatelessWidget {
     required this.onPreviewToggle,
     required this.onCancel,
     this.primaryBusy = false,
+    this.isColumn = false,
     super.key,
   });
 
@@ -17,6 +18,7 @@ class SheetBottomButtons extends StatelessWidget {
   final VoidCallback onPreviewToggle;
   final VoidCallback onCancel;
   final bool primaryBusy;
+  final bool isColumn;
 
   @override
   Widget build(BuildContext context) {
@@ -51,7 +53,9 @@ class SheetBottomButtons extends StatelessWidget {
                         const Icon(Icons.check, size: 20, color: Colors.white),
                         const SizedBox(width: 8),
                         Text(
-                          isEditing ? 'ذخیره تغییرات' : 'تأیید و افزودن',
+                          isColumn
+                              ? (isEditing ? 'ذخیره تغییرات مشخصه' : 'تأیید و افزودن مشخصه')
+                              : (isEditing ? 'ذخیره تغییرات' : 'تأیید و افزودن'),
                           style: const TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.bold,

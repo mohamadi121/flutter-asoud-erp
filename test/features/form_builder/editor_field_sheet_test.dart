@@ -284,7 +284,7 @@ void main() {
     expect(find.text('جدول تکرارشونده'), findsNothing);
     expect(find.text('انتخاب از سیستم آسود'), findsOneWidget);
 
-    await tester.tap(find.text('ذخیره تغییرات'));
+    await tester.tap(find.text('ذخیره تغییرات مشخصه'));
     await tester.pumpAndSettle();
     expect(result?['type'], 'Text');
     expect(result?['source'], 'Item');
@@ -321,7 +321,7 @@ void main() {
 
     expect(find.text('حداقل مبلغ'), findsOneWidget);
     expect(find.text('انتخاب از سیستم آسود'), findsNothing);
-    await tester.tap(find.text('ذخیره تغییرات'));
+    await tester.tap(find.text('ذخیره تغییرات مشخصه'));
     await tester.pumpAndSettle();
 
     expect(result?['type'], 'Money');
@@ -340,7 +340,7 @@ void main() {
       'فهرست انتخابی': 'گزینه‌ها (هر خط یک گزینه)',
       'چک‌لیست': 'حداقل تعداد انتخاب',
       'فیلد محاسباتی': 'نوع خروجی',
-      'پیوست فایل': 'حداکثر تعداد فایل (تا ۱۰)',
+      'پیوست فایل': 'پیوست‌کردن حداقل یک فایل الزامی باشد',
     };
     for (final width in [360.0, 320.0]) {
       for (final entry in settings.entries) {

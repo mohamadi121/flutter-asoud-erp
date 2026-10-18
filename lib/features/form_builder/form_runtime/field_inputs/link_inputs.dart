@@ -13,7 +13,8 @@ Widget? buildLinkInput({
   required String? formName,
   required ValueChanged<dynamic> onChanged,
 }) {
-  if (f['type'] != 'Link') {
+  final isAsoudText = f['type'] == 'Text' && f['source_mode'] == 'asoud';
+  if (f['type'] != 'Link' && !isAsoudText) {
     return null;
   }
 
@@ -31,7 +32,9 @@ Widget? buildLinkInput({
           useSafeArea: true,
           builder: (_) => LinkPicker(
             repository: repository,
-            source: '${f['source']}',
+            source: f['source'] != null && '${f['source']}'.isNotEmpty
+                ? '${f['source']}'
+                : 'Employee',
             formName: formName,
             filterField: formMap(f['link_filter'])['field'] as String?,
             filterValue: computed[formMap(f['link_filter'])['value_field']],

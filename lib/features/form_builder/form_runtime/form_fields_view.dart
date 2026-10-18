@@ -21,7 +21,7 @@ export 'table_field.dart';
 
 const formTypes = <String, String>{
   'Text': 'متن کوتاه',
-  'LongText': 'متن چندخطی',
+  'LongText': 'متن بلند',
   'Integer': 'عدد صحیح',
   'Decimal': 'عدد اعشاری',
   'Money': 'مبلغ (ریال)',
@@ -142,12 +142,30 @@ class FormFieldsView extends StatelessWidget {
               ),
               const SizedBox(height: 12),
             ],
-            for (final field in formMaps(section['fields']))
-              if (formFlag(field, schema, computed, 'visible'))
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _input(context, field, computed),
-                ),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final totalWidth = constraints.maxWidth;
+                const spacing = 12.0;
+                final halfWidth = (totalWidth - spacing) / 2;
+                final visibleFields = formMaps(section['fields'])
+                    .where((field) => formFlag(field, schema, computed, 'visible'))
+                    .toList();
+
+                return Wrap(
+                  spacing: spacing,
+                  runSpacing: 12,
+                  children: [
+                    for (final field in visibleFields)
+                      SizedBox(
+                        width: (field['span'] as num?)?.toInt() == 1
+                            ? halfWidth
+                            : totalWidth,
+                        child: _input(context, field, computed),
+                      ),
+                  ],
+                );
+              },
+            ),
           ],
         ),
       );
