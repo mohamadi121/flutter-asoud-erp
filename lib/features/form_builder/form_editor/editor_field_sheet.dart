@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/utils/jalali_date.dart';
@@ -16,6 +18,7 @@ import 'field_sheet/field_type_grid.dart';
 import 'field_sheet/live_clock_time_picker.dart';
 import 'field_sheet/sheet_bottom_buttons.dart';
 import 'field_sheet/smart_link_picker.dart';
+import 'field_sheet/advanced/column_type_cards.dart';
 
 export 'field_sheet/field_sheet_preview.dart';
 export 'field_sheet/field_type_grid.dart';
@@ -84,7 +87,7 @@ class _FieldSheetModal extends StatefulWidget {
 
 class _FieldSheetModalState extends State<_FieldSheetModal> {
   late FormMap f;
-  late int selectedTab; // 0: پایه, 1: پیشرفته, 2: سیستمی
+  late int selectedTab; // 0: پایه, 1: پیشرفته
   bool isPreview = false;
   String? labelError;
   bool isClockPickerOpen = false;
@@ -105,11 +108,40 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
     });
   }
 
+  Future<void> _selectType(String type) async {
+    if (type == f['type']) return;
+    final hasDependencies = f['has_data'] == true ||
+        f['dependencies'] is List && (f['dependencies'] as List).isNotEmpty ||
+        f['formula_dependents'] is List &&
+            (f['formula_dependents'] as List).isNotEmpty;
+    if (widget.isEditing && hasDependencies) {
+      final confirmed = await formConfirm(
+        context,
+        'با تغییر نوع، تنظیمات ناسازگار این مشخصه حذف می‌شوند. ادامه می‌دهید؟',
+      );
+      if (!confirmed || !mounted) return;
+    }
+    const typeSpecificKeys = {
+      'source', 'source_mode', 'max_length', 'min_length', 'lines', 'format',
+      'error_message', 'min', 'max', 'precision', 'thousands_separator',
+      'digits', 'default_date_mode', 'default_time_mode', 'minute_step',
+      'min_date', 'max_date', 'min_time', 'max_time', 'options', 'formula',
+      'output_type', 'extensions', 'max_files', 'max_mb', 'allow_delete',
+      'readonly', 'default', 'default_source',
+    };
+    setState(() {
+      for (final key in typeSpecificKeys) {
+        f.remove(key);
+      }
+      f['type'] = type;
+      f['source_mode'] = 'manual';
+      if (type == 'Formula') f['output_type'] = 'Integer';
+      if (type == 'Table') f['orientation'] = 'horizontal';
+    });
+  }
+
   bool _hasUnsavedChanges() {
-    return f['label'] != widget.initialField['label'] ||
-        f['type'] != widget.initialField['type'] ||
-        f['help'] != widget.initialField['help'] ||
-        f['required'] != widget.initialField['required'];
+    return jsonEncode(f) != jsonEncode(widget.initialField);
   }
 
   Future<void> _handleCancel() async {
@@ -132,11 +164,38 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
       );
       return;
     }
-
-    // Clean up type specific requirements
-    if (f['type'] == 'Text' && f['source_mode'] == 'asoud') {
-      f['type'] = 'Link';
-      f['source'] ??= 'Employee';
+    if (widget.column) {
+      final duplicate = schemaFields(widget.schema).any((field) =>
+          field['key'] != f['key'] &&
+          '${field['label']}'.trim().toLowerCase() == label.toLowerCase());
+      if (duplicate) {
+        setState(() => labelError = 'عنوان مشخصه در این جدول تکراری است');
+        return;
+      }
+    }
+    final min = f['min'] as num?, max = f['max'] as num?;
+    if (min != null && max != null && min > max) {
+      setState(() => labelError = 'حداقل نمی‌تواند از حداکثر بیشتر باشد');
+      return;
+    }
+    if (['Select', 'Checkbox'].contains(f['type'])) {
+      final options = choiceOptions(f);
+      if (options.isEmpty) {
+        setState(() => labelError = 'حداقل یک گزینه معتبر وارد کنید');
+        return;
+      }
+      if (f['type'] == 'Checkbox') {
+        final minSelected = f['min_selected'] as num? ?? 0;
+        final maxSelected = f['max_selected'] as num?;
+        if (maxSelected != null && minSelected > maxSelected) {
+          setState(() => labelError = 'حداقل انتخاب نمی‌تواند از حداکثر بیشتر باشد');
+          return;
+        }
+      }
+    }
+    if (f['type'] == 'Table' && formMaps(f['columns']).isEmpty) {
+      setState(() => labelError = 'برای جدول حداقل یک مشخصه تعریف کنید');
+      return;
     }
 
     Navigator.pop(context, f);
@@ -169,7 +228,7 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
                       : Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            // 3 Tabs (پایه, پیشرفته, سیستمی)
+                            // دو تب نهایی فرمساز
                             _buildTabs(),
                             const SizedBox(height: 14),
                             if (selectedTab == 0) ...[
@@ -180,8 +239,6 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
                               _buildFieldSettingsCard(type),
                             ] else if (selectedTab == 1) ...[
                               _buildAdvancedTabContent(),
-                            ] else ...[
-                              _buildSystemTabContent(),
                             ],
                           ],
                         ),
@@ -252,7 +309,7 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
   }
 
   Widget _buildTabs() {
-    final tabs = ['پایه', 'پیشرفته', 'سیستمی'];
+    final tabs = ['پایه', 'پیشرفته'];
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFFF1F4F9),
@@ -305,18 +362,16 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
             style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF122044)),
           ),
           const SizedBox(height: 10),
-          FieldTypeGrid(
-            selectedType: '${f['type']}',
-            allowTable: !widget.column,
-            onSelectType: (typeKey) {
-              set('type', typeKey);
-              if (typeKey == 'Formula') {
-                f.putIfAbsent('output_type', () => 'Integer');
-              } else if (typeKey == 'Table') {
-                f.putIfAbsent('orientation', () => 'horizontal');
-              }
-            },
-          ),
+          if (widget.column)
+            ColumnTypeCards(
+              selectedType: '${f['type']}',
+              onSelectType: _selectType,
+            )
+          else
+            FieldTypeGrid(
+              selectedType: '${f['type']}',
+              onSelectType: _selectType,
+            ),
         ],
       ),
     );
@@ -399,6 +454,12 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
               value: f['required'] == true,
               onChanged: (v) => set('required', v),
             ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('این مشخصه در فرم نمایش داده شود', style: TextStyle(fontSize: 13)),
+            value: f['visible'] != false,
+            onChanged: (v) => set('visible', v),
+          ),
           const Divider(height: 18, color: Color(0xFFE2E8F2)),
           // Specific Settings by Type
           _buildSpecificTypeSettings(type),
@@ -570,13 +631,19 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
             ),
           ],
         ),
-        if (type == 'Decimal')
+        if (type != 'Integer')
           editorFieldText(
-            label: 'تعداد اعشار مجاز',
+            label: 'تعداد اعشار مجاز (۰ تا ۴)',
             value: f['precision'] ?? 2,
             numeric: true,
             onChanged: (v) => set('precision', v),
           ),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('نمایش جداکننده سه‌رقمی', style: TextStyle(fontSize: 13)),
+          value: f['thousands_separator'] != false,
+          onChanged: (v) => set('thousands_separator', v),
+        ),
         editorFieldText(
           label: 'مقدار پیش‌فرض',
           value: f['default'],
@@ -592,6 +659,12 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        formSelect(
+          'نوع تقویم',
+          '${f['calendar'] ?? 'jalali'}',
+          const {'jalali': 'شمسی', 'gregorian': 'میلادی'},
+          (v) => set('calendar', v),
+        ),
         const Text(
           'مقدار پیش‌فرض تاریخ',
           style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF122044)),
@@ -643,6 +716,12 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
             },
           ),
         ],
+        ...buildDateTimeConfig(
+          context: context,
+          f: f,
+          set: set,
+          update: (fn) => setState(fn),
+        ),
       ],
     );
   }
@@ -718,6 +797,13 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
             ),
           ],
         ],
+        Row(
+          children: [
+            Expanded(child: editorFieldText(label: 'حداقل ساعت', value: f['min_time'], onChanged: (v) => set('min_time', v))),
+            const SizedBox(width: 8),
+            Expanded(child: editorFieldText(label: 'حداکثر ساعت', value: f['max_time'], onChanged: (v) => set('max_time', v))),
+          ],
+        ),
       ],
     );
   }
@@ -746,6 +832,16 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
           'تعداد گزینه‌ها: ${toPersianDigits(opts.length)}',
           style: const TextStyle(fontSize: 11, color: Color(0xFF5B6478)),
         ),
+        if (multi) ...[
+          editorFieldText(label: 'حداقل تعداد انتخاب', value: f['min_selected'] ?? 0, numeric: true, onChanged: (v) => set('min_selected', v)),
+          editorFieldText(label: 'حداکثر تعداد انتخاب', value: f['max_selected'], numeric: true, onChanged: (v) => set('max_selected', v)),
+        ] else if (opts.isNotEmpty)
+          formSelect(
+            'گزینه پیش‌فرض',
+            f['default'] as String?,
+            {'': 'بدون پیش‌فرض', for (final option in opts) '${option['id']}': '${option['label']}'},
+            (v) => set('default', v.isEmpty ? null : v),
+          ),
       ],
     );
   }
@@ -881,6 +977,13 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
           value: f['required'] == true,
           onChanged: (v) => set('required', v),
         ),
+        ...buildFileConfig(f, set),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('حذف فایل پیش از ثبت مجاز باشد', style: TextStyle(fontSize: 13)),
+          value: f['allow_delete'] != false,
+          onChanged: (v) => set('allow_delete', v),
+        ),
       ],
     );
   }
@@ -901,14 +1004,16 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
       );
     }
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F2)),
-      ),
-      child: Column(
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE2E8F2)),
+        ),
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text('شناسه پایدار: ${f['key']}', style: const TextStyle(fontSize: 11, color: Color(0xFF5B6478))),
@@ -971,34 +1076,11 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
               (v) => set('native_key', v),
             ),
         ],
+        ),
       ),
     );
   }
 
-  Widget _buildSystemTabContent() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F2)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: const [
-          Text(
-            'تنظیمات سیستمی فیلد',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF122044)),
-          ),
-          SizedBox(height: 10),
-          Text(
-            'تنظیمات تخصصی نظیر محدودسازی پیشرفته رکوردها، مجوزها، فیلترهای پیچیده سازمانی در این تب پیکربندی می‌شوند.',
-            style: TextStyle(fontSize: 12, color: Color(0xFF5B6478), height: 1.6),
-          ),
-        ],
-      ),
-    );
-  }
 
   IconData _getTypeIcon(String type) {
     for (final card in basicFieldCards) {

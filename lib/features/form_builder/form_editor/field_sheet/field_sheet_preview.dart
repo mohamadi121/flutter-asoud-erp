@@ -355,13 +355,46 @@ class _FieldSheetPreviewState extends State<FieldSheetPreview> {
                   'مشخصات جدول هنوز تعریف نشده‌اند؛ ستون‌ها در تب پیشرفته تعریف می‌شوند.',
                   style: TextStyle(fontSize: 11, color: Color(0xFF5B6478)),
                 )
+              else if (isVertical)
+                Table(
+                  border: TableBorder.all(color: const Color(0xFFE2E8F2)),
+                  children: [
+                    for (final column in cols)
+                      TableRow(children: [
+                        Padding(
+                          padding: const EdgeInsets.all(7),
+                          child: Text('${column['label']}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                        ),
+                        const Padding(
+                          padding: EdgeInsets.all(7),
+                          child: Text('—', textAlign: TextAlign.center),
+                        ),
+                      ]),
+                  ],
+                )
               else
-                Wrap(
-                  spacing: 6,
-                  children: cols.map((c) => Chip(
-                    label: Text('${c['label']}', style: const TextStyle(fontSize: 11)),
-                    padding: EdgeInsets.zero,
-                  )).toList(),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Table(
+                    border: TableBorder.all(color: const Color(0xFFE2E8F2)),
+                    defaultColumnWidth: const IntrinsicColumnWidth(),
+                    children: [
+                      TableRow(children: [
+                        for (final column in cols)
+                          Padding(
+                            padding: const EdgeInsets.all(7),
+                            child: Text('${column['label']}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          ),
+                      ]),
+                      TableRow(children: [
+                        for (final _ in cols)
+                          const Padding(
+                            padding: EdgeInsets.all(7),
+                            child: Text('—', textAlign: TextAlign.center),
+                          ),
+                      ]),
+                    ],
+                  ),
                 ),
             ],
           ),

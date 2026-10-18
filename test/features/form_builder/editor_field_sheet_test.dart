@@ -140,6 +140,7 @@ void main() {
     expect(find.text('پیش‌نمایش'), findsOneWidget);
     expect(find.text('انصراف'), findsOneWidget);
 
+    await tester.ensureVisible(find.text('تأیید و افزودن'));
     await tester.tap(find.text('تأیید و افزودن'));
     await tester.tap(find.text('پیش‌نمایش'));
     await tester.tap(find.text('انصراف'));
@@ -250,5 +251,165 @@ void main() {
       expect(find.text('کد کالا'), findsOneWidget);
       expect(find.text('برای پیوست فایل ضربه بزنید یا فایل را بکشید'), findsOneWidget);
     }
+  });
+
+  testWidgets('table properties exclude nested tables and keep system text as text', (tester) async {
+    FormMap? result;
+    final schema = blankSchema('Request');
+    await tester.pumpWidget(_wrapTestWidget(
+      Builder(
+        builder: (context) => ElevatedButton(
+          onPressed: () async {
+            result = await editSchemaField(
+              context,
+              schema,
+              {
+                'key': 'c_item',
+                'label': 'کالا',
+                'type': 'Text',
+                'source_mode': 'asoud',
+                'source': 'Item',
+              },
+              column: true,
+            );
+          },
+          child: const Text('Open column'),
+        ),
+      ),
+      width: 320,
+    ));
+    await tester.tap(find.text('Open column'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('جدول تکرارشونده'), findsNothing);
+    expect(find.text('انتخاب از سیستم آسود'), findsOneWidget);
+
+    await tester.tap(find.text('ذخیره تغییرات'));
+    await tester.pumpAndSettle();
+    expect(result?['type'], 'Text');
+    expect(result?['source'], 'Item');
+  });
+
+  testWidgets('changing a column card clears incompatible settings', (tester) async {
+    FormMap? result;
+    await tester.pumpWidget(_wrapTestWidget(
+      Builder(
+        builder: (context) => ElevatedButton(
+          onPressed: () async {
+            result = await editSchemaField(
+              context,
+              blankSchema('Request'),
+              {
+                'key': 'c_item',
+                'label': 'کالا',
+                'type': 'Text',
+                'source_mode': 'asoud',
+                'source': 'Item',
+                'max_length': 24,
+              },
+              column: true,
+            );
+          },
+          child: const Text('Open type switch'),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('Open type switch'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('مبلغ'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('حداقل مبلغ'), findsOneWidget);
+    expect(find.text('انتخاب از سیستم آسود'), findsNothing);
+    await tester.tap(find.text('ذخیره تغییرات'));
+    await tester.pumpAndSettle();
+
+    expect(result?['type'], 'Money');
+    expect(result!.containsKey('source'), false);
+    expect(result!.containsKey('max_length'), false);
+  });
+
+  testWidgets('each column type opens its dedicated settings at mobile widths', (tester) async {
+    const settings = {
+      'متن کوتاه': 'روش تأمین مقدار فیلد',
+      'متن بلند': 'تعداد سطر اولیه',
+      'عدد': 'حداقل مقدار',
+      'مبلغ': 'حداقل مبلغ',
+      'تاریخ': 'نوع تقویم',
+      'ساعت': 'فاصله دقیقه',
+      'فهرست انتخابی': 'گزینه‌ها (هر خط یک گزینه)',
+      'چک‌لیست': 'حداقل تعداد انتخاب',
+      'فیلد محاسباتی': 'نوع خروجی',
+      'پیوست فایل': 'حداکثر تعداد فایل (تا ۱۰)',
+    };
+    for (final width in [360.0, 320.0]) {
+      for (final entry in settings.entries) {
+        await tester.pumpWidget(_wrapTestWidget(
+          Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () => editSchemaField(context, blankSchema('Request'), {
+                'key': 'c_type', 'label': 'مشخصه', 'type': 'Text',
+              }, column: true),
+              child: const Text('باز کردن ستون'),
+            ),
+          ),
+          width: width,
+        ));
+        await tester.tap(find.text('باز کردن ستون'));
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.text(entry.key));
+        await tester.tap(find.text(entry.key));
+        await tester.pumpAndSettle();
+        expect(find.text(entry.value), findsOneWidget, reason: '${entry.key} در عرض $width');
+        await tester.tap(find.byIcon(Icons.close).first);
+        await tester.pumpAndSettle();
+        if (find.text('تأیید').evaluate().isNotEmpty) {
+          await tester.tap(find.text('تأیید'));
+          await tester.pumpAndSettle();
+        }
+      }
+    }
+  });
+
+  testWidgets('two table definitions keep their own column structures', (tester) async {
+    final first = {
+      'key': 'first', 'type': 'Table', 'columns': [
+        {'key': 'first_name', 'label': 'نام کالا', 'type': 'Text'},
+      ],
+    };
+    final second = {
+      'key': 'second', 'type': 'Table', 'columns': [
+        {'key': 'second_count', 'label': 'تعداد', 'type': 'Integer'},
+      ],
+    };
+    expect(formMaps(first['columns']).single['key'], 'first_name');
+    expect(formMaps(second['columns']).single['key'], 'second_count');
+    (first['columns'] as List).add({'key': 'first_price', 'label': 'مبلغ', 'type': 'Money'});
+    expect(formMaps(first['columns']).map((column) => column['key']), ['first_name', 'first_price']);
+    expect(formMaps(second['columns']).map((column) => column['key']), ['second_count']);
+  });
+
+  testWidgets('table column deletion asks before removing a safe column', (tester) async {
+    await tester.pumpWidget(_wrapTestWidget(
+      Builder(builder: (context) => ElevatedButton(
+        onPressed: () => editSchemaField(context, blankSchema('Request'), {
+          'key': 'items', 'label': 'اقلام', 'type': 'Table', 'columns': [
+            {'key': 'item', 'label': 'کالا', 'type': 'Text'},
+          ],
+        }),
+        child: const Text('باز کردن جدول'),
+      )),
+    ));
+    await tester.tap(find.text('باز کردن جدول'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('پیشرفته'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byTooltip('حذف مشخصه'));
+    await tester.tap(find.byTooltip('حذف مشخصه'));
+    await tester.pumpAndSettle();
+    expect(find.text('مشخصه حذف شود؟'), findsOneWidget);
+    await tester.tap(find.text('تأیید'));
+    await tester.pumpAndSettle();
+    expect(find.text('کالا'), findsNothing);
   });
 }
