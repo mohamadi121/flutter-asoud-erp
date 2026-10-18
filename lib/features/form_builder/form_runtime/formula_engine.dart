@@ -5,55 +5,321 @@ import 'schema_migration.dart';
 
 String calculateForm(FormMap formula, FormMap values) {
   try {
-    final args = (formula['inputs'] as List? ?? [])
-        .map((key) => _FormDecimal.parse(values[key]))
-        .toList();
-    final rows = formMaps(values[formula['table']]);
-    final columns = formula['columns'] as List? ?? [];
-    final numbers = rows.map((row) => columns.isEmpty
-        ? _FormDecimal.zero
-        : _FormDecimal.parse(row[columns.first]) *
-            (formula['op'] == 'sum_product' && columns.length > 1
-                ? _FormDecimal.parse(row[columns[1]])
-                : _FormDecimal.one)).toList();
-    final op = '${formula['op']}';
-    _FormDecimal result;
-    if (op == 'count') {
-      result = _FormDecimal.integer(rows.length);
-    } else if ({'sum', 'average', 'sum_product'}.contains(op)) {
-      result = numbers.fold(_FormDecimal.zero, (sum, number) => sum + number);
-      if (op == 'average' && numbers.isNotEmpty) result = result / _FormDecimal.integer(numbers.length);
-    } else if (op == 'add') {
-      result = args.fold(_FormDecimal.zero, (sum, number) => sum + number);
-    } else if (op == 'chain' || (formula['ops'] is List && (formula['ops'] as List).isNotEmpty)) {
-      if (args.isEmpty) return 'این محاسبه به ورودی نیاز دارد.';
-      final ops = (formula['ops'] as List).map((e) => '$e').toList();
-      if (args.length != ops.length + 1) return 'این محاسبه به دو ورودی نیاز دارد.';
-      result = args[0];
-      for (var i = 0; i < ops.length; i++) {
-        final next = args[i + 1];
-        result = switch (ops[i]) {
-          'add' => result + next,
-          'subtract' => result - next,
-          'multiply' => result * next,
-          'divide' => next.isZero ? throw const _FormulaException('تقسیم بر صفر در فرمول مجاز نیست.') : result / next,
-          'percent' => result * next / _FormDecimal.integer(100),
-          _ => throw const _FormulaException('محاسبه پشتیبانی نمی‌شود.'),
-        };
-      }
-    } else {
-      if (args.length != 2) return 'این محاسبه به دو ورودی نیاز دارد.';
-      result = switch (op) {
-        'subtract' => args[0] - args[1],
-        'multiply' => args[0] * args[1],
-        'percent' => args[0] * args[1] / _FormDecimal.integer(100),
-        'divide' => args[1].isZero ? throw const _FormulaException('تقسیم بر صفر در فرمول مجاز نیست.') : args[0] / args[1],
-        _ => throw const _FormulaException('محاسبه پشتیبانی نمی‌شود.'),
-      };
-    }
+    final result = _calculateFormDecimal(formula, values);
     return result.format(((formula['precision'] as num?)?.toInt() ?? 2).clamp(0, 8));
   } on _FormulaException catch (error) {
     return error.message;
+  }
+}
+
+_FormDecimal _calculateFormDecimal(FormMap formula, FormMap values) {
+  if (formula['expression'] != null && '${formula['expression']}'.trim().isNotEmpty) {
+    return _ExpressionParser('${formula['expression']}', values).parse();
+  }
+
+  final args = (formula['inputs'] as List? ?? [])
+      .map((key) => _FormDecimal.parse(values[key]))
+      .toList();
+  final rows = formMaps(values[formula['table']]);
+  final columns = formula['columns'] as List? ?? [];
+  final numbers = rows.map((row) => columns.isEmpty
+      ? _FormDecimal.zero
+      : _FormDecimal.parse(row[columns.first]) *
+          (formula['op'] == 'sum_product' && columns.length > 1
+              ? _FormDecimal.parse(row[columns[1]])
+              : _FormDecimal.one)).toList();
+  final op = '${formula['op']}';
+
+  if (op == 'count') {
+    return _FormDecimal.integer(rows.length);
+  } else if ({'sum', 'average', 'sum_product', 'min', 'max'}.contains(op) &&
+      (formula['table'] != null || (rows.isNotEmpty && columns.isNotEmpty))) {
+    if (numbers.isEmpty) return _FormDecimal.zero;
+    if (op == 'min') return numbers.reduce((a, b) => a < b ? a : b);
+    if (op == 'max') return numbers.reduce((a, b) => a > b ? a : b);
+    final sum = numbers.fold(_FormDecimal.zero, (s, number) => s + number);
+    if (op == 'average') return sum / _FormDecimal.integer(numbers.length);
+    return sum;
+  } else if (op == 'add') {
+    return args.fold(_FormDecimal.zero, (sum, number) => sum + number);
+  } else if (op == 'min' || op == 'max') {
+    if (args.isEmpty) throw const _FormulaException('این محاسبه به ورودی نیاز دارد.');
+    return args.reduce((a, b) => op == 'min' ? (a < b ? a : b) : (a > b ? a : b));
+  } else if (op == 'round') {
+    if (args.isEmpty) throw const _FormulaException('این محاسبه به ورودی نیاز دارد.');
+    final digits = args.length > 1
+        ? args[1].numerator.toInt()
+        : ((formula['digits'] as num?)?.toInt() ?? (formula['precision'] as num?)?.toInt() ?? 0);
+    return args[0].round(digits);
+  } else if (op == 'if') {
+    final cond = _evalCondition(formula['condition'], values);
+    final branch = cond ? formula['then'] : formula['else'];
+    return _evalBranch(branch, values);
+  } else if (op == 'chain' || (formula['ops'] is List && (formula['ops'] as List).isNotEmpty)) {
+    if (args.isEmpty) throw const _FormulaException('این محاسبه به ورودی نیاز دارد.');
+    final ops = (formula['ops'] as List).map((e) => '$e').toList();
+    if (args.length != ops.length + 1) throw const _FormulaException('این محاسبه به دو ورودی نیاز دارد.');
+
+    final remArgs = <_FormDecimal>[args[0]];
+    final remOps = <String>[];
+    for (var i = 0; i < ops.length; i++) {
+      final operation = ops[i];
+      final nextVal = args[i + 1];
+      if (operation == 'multiply' || operation == 'divide' || operation == 'percent') {
+        final prevVal = remArgs.removeLast();
+        if (operation == 'multiply') {
+          remArgs.add(prevVal * nextVal);
+        } else if (operation == 'divide') {
+          if (nextVal.isZero) {
+            throw const _FormulaException('تقسیم بر صفر در فرمول مجاز نیست.');
+          }
+          remArgs.add(prevVal / nextVal);
+        } else if (operation == 'percent') {
+          remArgs.add(prevVal * nextVal / _FormDecimal.integer(100));
+        }
+      } else if (operation == 'add' || operation == 'subtract') {
+        remOps.add(operation);
+        remArgs.add(nextVal);
+      } else {
+        throw const _FormulaException('محاسبه پشتیبانی نمی‌شود.');
+      }
+    }
+    var value = remArgs[0];
+    for (var i = 0; i < remOps.length; i++) {
+      final operation = remOps[i];
+      final nextVal = remArgs[i + 1];
+      if (operation == 'add') {
+        value = value + nextVal;
+      } else if (operation == 'subtract') {
+        value = value - nextVal;
+      }
+    }
+    return value;
+  } else {
+    if (args.length != 2) throw const _FormulaException('این محاسبه به دو ورودی نیاز دارد.');
+    return switch (op) {
+      'subtract' => args[0] - args[1],
+      'multiply' => args[0] * args[1],
+      'percent' => args[0] * args[1] / _FormDecimal.integer(100),
+      'divide' => args[1].isZero ? throw const _FormulaException('تقسیم بر صفر در فرمول مجاز نیست.') : args[0] / args[1],
+      _ => throw const _FormulaException('محاسبه پشتیبانی نمی‌شود.'),
+    };
+  }
+}
+
+bool _evalCondition(dynamic cond, FormMap values) {
+  if (cond is String) {
+    return !_ExpressionParser(cond, values).parse().isZero;
+  }
+  if (cond is Map) {
+    final op = '${cond['op'] ?? cond['cmp'] ?? 'eq'}';
+    _FormDecimal left, right;
+    if (cond['inputs'] is List && (cond['inputs'] as List).length >= 2) {
+      final inputs = cond['inputs'] as List;
+      left = _evalBranch(inputs[0], values);
+      right = _evalBranch(inputs[1], values);
+    } else {
+      left = _evalBranch(cond['left'], values);
+      right = _evalBranch(cond['right'], values);
+    }
+    return switch (op) {
+      '>' || 'gt' => left > right,
+      '<' || 'lt' => left < right,
+      '=' || '==' || 'eq' => left == right,
+      '>=' || 'ge' => left >= right,
+      '<=' || 'le' => left <= right,
+      '!=' || 'ne' => left != right,
+      _ => false,
+    };
+  }
+  return false;
+}
+
+_FormDecimal _evalBranch(dynamic branch, FormMap values) {
+  if (branch is Map) {
+    return _calculateFormDecimal(formMap(branch), values);
+  }
+  if (branch is num) {
+    return _FormDecimal.parse(branch);
+  }
+  if (branch is String) {
+    if (values.containsKey(branch)) {
+      return _FormDecimal.parse(values[branch]);
+    }
+    try {
+      return _FormDecimal.parse(branch);
+    } catch (_) {
+      return _FormDecimal.parse(values[branch]);
+    }
+  }
+  return _FormDecimal.zero;
+}
+
+class _ExpressionParser {
+  _ExpressionParser(String exprStr, this.values)
+      : tokens = _tokenize(exprStr);
+
+  final FormMap values;
+  final List<String> tokens;
+  int pos = 0;
+
+  static List<String> _tokenize(String s) {
+    final latin = toLatinDigits(s).replaceAll('٫', '.').replaceAll('٬', '').trim();
+    final pattern = RegExp(
+        r'([0-9]+(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?|[A-Za-z_][A-Za-z0-9_]*|<=|>=|!=|==|[<>=+\-*/%(),«»])');
+    final matches = pattern.allMatches(latin);
+    final result = <String>[];
+    for (final m in matches) {
+      final t = m.group(0)!;
+      if (t != '«' && t != '»') {
+        result.add(t);
+      }
+    }
+    return result;
+  }
+
+  String? peek() => pos < tokens.length ? tokens[pos] : null;
+
+  String consume([String? expected]) {
+    final tok = peek();
+    if (expected != null && tok != expected) {
+      throw _FormulaException('فرمول معتبر نیست: انتظار $expected به جای $tok');
+    }
+    pos++;
+    return tok ?? '';
+  }
+
+  _FormDecimal parse() => parseExpr(true);
+
+  _FormDecimal parseExpr(bool execute) => parseComparison(execute);
+
+  _FormDecimal parseComparison(bool execute) {
+    var left = parseAdditive(execute);
+    while (['>', '<', '=', '==', '>=', '<=', '!='].contains(peek())) {
+      final op = consume();
+      final right = parseAdditive(execute);
+      if (execute) {
+        final cond = switch (op) {
+          '>' => left > right,
+          '<' => left < right,
+          '=' || '==' => left == right,
+          '>=' => left >= right,
+          '<=' => left <= right,
+          '!=' => left != right,
+          _ => false,
+        };
+        left = cond ? _FormDecimal.one : _FormDecimal.zero;
+      }
+    }
+    return left;
+  }
+
+  _FormDecimal parseAdditive(bool execute) {
+    var left = parseMultiplicative(execute);
+    while (['+', '-'].contains(peek())) {
+      final op = consume();
+      final right = parseMultiplicative(execute);
+      if (execute) {
+        left = op == '+' ? left + right : left - right;
+      }
+    }
+    return left;
+  }
+
+  _FormDecimal parseMultiplicative(bool execute) {
+    var left = parseUnary(execute);
+    while (['*', '/', '%'].contains(peek())) {
+      final op = consume();
+      final right = parseUnary(execute);
+      if (execute) {
+        if (op == '*') {
+          left = left * right;
+        } else if (op == '/') {
+          if (right.isZero) {
+            throw const _FormulaException('تقسیم بر صفر در فرمول مجاز نیست.');
+          }
+          left = left / right;
+        } else if (op == '%') {
+          left = (left * right) / _FormDecimal.integer(100);
+        }
+      }
+    }
+    return left;
+  }
+
+  _FormDecimal parseUnary(bool execute) {
+    if (peek() == '-') {
+      consume('-');
+      final val = parseUnary(execute);
+      return execute ? -val : _FormDecimal.zero;
+    }
+    if (peek() == '+') {
+      consume('+');
+      return parseUnary(execute);
+    }
+    return parsePrimary(execute);
+  }
+
+  _FormDecimal parsePrimary(bool execute) {
+    final tok = peek();
+    if (tok == null) {
+      throw const _FormulaException('فرمول خالی است.');
+    }
+    if (tok == '(') {
+      consume('(');
+      final val = parseExpr(execute);
+      consume(')');
+      return val;
+    }
+
+    if (RegExp(r'^[0-9]').hasMatch(tok)) {
+      consume();
+      return _FormDecimal.parse(tok);
+    }
+
+    final ident = consume();
+    if (peek() == '(') {
+      consume('(');
+      final fn = ident.toUpperCase();
+      if (fn == 'IF') {
+        final condVal = parseExpr(execute);
+        final condBool = execute && !condVal.isZero;
+        consume(',');
+        final trueVal = parseExpr(execute && condBool);
+        consume(',');
+        final falseVal = parseExpr(execute && !condBool);
+        consume(')');
+        return execute ? (condBool ? trueVal : falseVal) : _FormDecimal.zero;
+      } else if (fn == 'ROUND') {
+        final x = parseExpr(execute);
+        var digits = 0;
+        if (peek() == ',') {
+          consume(',');
+          final dVal = parseExpr(execute);
+          if (execute) digits = dVal.numerator.toInt();
+        }
+        consume(')');
+        return execute ? x.round(digits) : _FormDecimal.zero;
+      } else if (fn == 'MAX' || fn == 'MIN') {
+        final args = <_FormDecimal>[parseExpr(execute)];
+        while (peek() == ',') {
+          consume(',');
+          args.add(parseExpr(execute));
+        }
+        consume(')');
+        if (execute) {
+          return args.reduce((a, b) => fn == 'MAX' ? (a > b ? a : b) : (a < b ? a : b));
+        }
+        return _FormDecimal.zero;
+      } else {
+        throw _FormulaException('تابع ناشناخته: $ident');
+      }
+    } else {
+      if (execute) {
+        return _FormDecimal.parse(values[ident]);
+      }
+      return _FormDecimal.zero;
+    }
   }
 }
 
@@ -90,6 +356,37 @@ class _FormDecimal {
   static final one = _FormDecimal(BigInt.one, BigInt.one);
 
   bool get isZero => numerator == BigInt.zero;
+  bool get isNegative => numerator.isNegative;
+
+  int compareTo(_FormDecimal other) =>
+      (numerator * other.denominator - other.numerator * denominator)
+          .compareTo(BigInt.zero);
+
+  bool operator <(_FormDecimal other) => compareTo(other) < 0;
+  bool operator <=(_FormDecimal other) => compareTo(other) <= 0;
+  bool operator >(_FormDecimal other) => compareTo(other) > 0;
+  bool operator >=(_FormDecimal other) => compareTo(other) >= 0;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) || (other is _FormDecimal && compareTo(other) == 0);
+
+  @override
+  int get hashCode => Object.hash(numerator, denominator);
+
+  _FormDecimal operator -() => _FormDecimal(-numerator, denominator);
+
+  _FormDecimal round(int digits) {
+    if (digits < 0) digits = 0;
+    final factor = _ten(digits);
+    var scaled = numerator * factor;
+    var rounded = scaled ~/ denominator;
+    if ((scaled % denominator).abs() * BigInt.two >= denominator.abs()) {
+      rounded += scaled.isNegative ? -BigInt.one : BigInt.one;
+    }
+    return _FormDecimal(rounded, factor)._reduced();
+  }
+
   _FormDecimal operator +(_FormDecimal other) => _FormDecimal(
         numerator * other.denominator + other.numerator * denominator,
         denominator * other.denominator,

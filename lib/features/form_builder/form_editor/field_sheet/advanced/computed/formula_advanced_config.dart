@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../../../../../../core/utils/jalali_date.dart';
@@ -33,7 +34,8 @@ class _FormulaAdvancedConfigState extends State<FormulaAdvancedConfig> {
   bool _calculatorOpen = false;
   late bool _hasConfirmedFormula;
   bool _availableFieldsExpanded = true;
-  int? _selectedInput;
+  int? _selectedTokenIndex;
+  List<_Token> _tokens = [];
   final Map<String, String> _samples = {};
 
   static const _binaryOperations = <String, String>{
@@ -47,6 +49,8 @@ class _FormulaAdvancedConfigState extends State<FormulaAdvancedConfig> {
     'average': 'میانگین ستون',
     'count': 'تعداد ردیف‌ها',
     'sum_product': 'جمع حاصل‌ضرب ستون‌ها',
+    'min': 'کمترین مقدار ستون',
+    'max': 'بیشترین مقدار ستون',
   };
 
   @override
@@ -55,6 +59,7 @@ class _FormulaAdvancedConfigState extends State<FormulaAdvancedConfig> {
     _currentTargetKey = '${widget.field['key']}';
     _saved = _normalise(formMap(widget.field['formula']));
     _draft = copyForm(_saved);
+    _tokens = _tokensFromDraft(_draft);
     _hasConfirmedFormula = formMap(widget.field['formula'])['op'] != null;
 
     // Initialize sample values with realistic defaults
@@ -80,6 +85,7 @@ class _FormulaAdvancedConfigState extends State<FormulaAdvancedConfig> {
       _currentTargetKey = '${widget.field['key']}';
       _saved = _normalise(formMap(widget.field['formula']));
       _draft = copyForm(_saved);
+      _tokens = _tokensFromDraft(_draft);
       _hasConfirmedFormula = formMap(widget.field['formula'])['op'] != null;
     }
   }
@@ -96,7 +102,76 @@ class _FormulaAdvancedConfigState extends State<FormulaAdvancedConfig> {
             .map((item) => '$item')
             .toList(),
         'precision': formula['precision'] ?? 2,
+        if (formula['tokens'] is List) 'tokens': formula['tokens'],
+        if (formula['expression'] != null) 'expression': formula['expression'],
       };
+
+  List<_Token> _tokensFromDraft(FormMap draft) {
+    if (draft['tokens'] is List && (draft['tokens'] as List).isNotEmpty) {
+      return (draft['tokens'] as List)
+          .map((t) => _Token.fromJson(Map<String, dynamic>.from(t as Map)))
+          .toList();
+    }
+    final inputs = [...(draft['inputs'] as List? ?? [])].map((e) => '$e').toList();
+    if (inputs.isEmpty) return [];
+
+    final ops = [...(draft['ops'] as List? ?? [])].map((e) => '$e').toList();
+    final op = '${draft['op'] ?? 'add'}';
+
+    final tokens = <_Token>[];
+    if (op == 'chain' && ops.length == inputs.length - 1) {
+      for (var i = 0; i < inputs.length; i++) {
+        tokens.add(_Token(
+          type: 'field',
+          value: inputs[i],
+          label: '«${_fieldLabel(inputs[i])}»',
+        ));
+        if (i < ops.length) {
+          final sym = switch (ops[i]) {
+            'add' => '+',
+            'subtract' => '−',
+            'multiply' => '×',
+            'divide' => '÷',
+            _ => ops[i],
+          };
+          final val = switch (ops[i]) {
+            'add' => '+',
+            'subtract' => '-',
+            'multiply' => '*',
+            'divide' => '/',
+            _ => ops[i],
+          };
+          tokens.add(_Token(type: 'operator', value: val, label: sym));
+        }
+      }
+    } else {
+      final sym = switch (op) {
+        'add' => '+',
+        'subtract' => '−',
+        'multiply' => '×',
+        'divide' => '÷',
+        _ => '+',
+      };
+      final val = switch (op) {
+        'add' => '+',
+        'subtract' => '-',
+        'multiply' => '*',
+        'divide' => '/',
+        _ => '+',
+      };
+      for (var i = 0; i < inputs.length; i++) {
+        tokens.add(_Token(
+          type: 'field',
+          value: inputs[i],
+          label: '«${_fieldLabel(inputs[i])}»',
+        ));
+        if (i < inputs.length - 1) {
+          tokens.add(_Token(type: 'operator', value: val, label: sym));
+        }
+      }
+    }
+    return tokens;
+  }
 
   List<FormMap> get _allNumericFields => schemaFields(widget.schema)
       .where((field) =>
@@ -174,6 +249,24 @@ class _FormulaAdvancedConfigState extends State<FormulaAdvancedConfig> {
       if (op != 'count' && (_draft['columns'] as List? ?? []).isEmpty) {
         return 'حداقل یک ستون عددی را انتخاب کنید.';
       }
+    } else if (_tokens.isNotEmpty) {
+      var parenCount = 0;
+      for (final t in _tokens) {
+        if (t.type == 'paren' && t.value == '(') parenCount++;
+        if (t.type == 'func') parenCount++;
+        if (t.type == 'paren' && t.value == ')') parenCount--;
+        if (parenCount < 0) return 'پرانتز بسته بدون پرانتز باز در فرمول وجود دارد.';
+      }
+      if (parenCount > 0) return 'پرانتز باز در فرمول بسته نشده است.';
+
+      if (_tokens.last.type == 'operator') {
+        return 'عملگر بدون عملوند در انتهای فرمول مجاز نیست.';
+      }
+      for (var i = 0; i < _tokens.length - 1; i++) {
+        if (_tokens[i].type == 'operator' && _tokens[i + 1].type == 'operator') {
+          return 'دو عملگر متوالی در فرمول مجاز نیست.';
+        }
+      }
     } else if (op == 'chain' || _ops.isNotEmpty) {
       if (_inputs.isEmpty) return 'فرمول خالی است.';
       if (_inputs.length != _ops.length + 1) {
@@ -248,6 +341,23 @@ class _FormulaAdvancedConfigState extends State<FormulaAdvancedConfig> {
       return '${_tableOperations[op]} ${table?['label'] ?? ''}${columns.isEmpty ? '' : ' · ${columns.join('، ')}'}';
     }
 
+    if (_tokens.isNotEmpty) {
+      final buffer = StringBuffer();
+      for (var i = 0; i < _tokens.length; i++) {
+        final t = _tokens[i];
+        if (t.type == 'field') {
+          buffer.write('«${_fieldLabel(t.value)}»');
+        } else if (t.type == 'operator') {
+          buffer.write(' ${t.label} ');
+        } else if (t.type == 'comma') {
+          buffer.write('، ');
+        } else {
+          buffer.write(t.label);
+        }
+      }
+      return buffer.toString();
+    }
+
     const symbols = {
       'add': '+',
       'subtract': '−',
@@ -274,14 +384,147 @@ class _FormulaAdvancedConfigState extends State<FormulaAdvancedConfig> {
     return _inputs.map((key) => '«${labels[key] ?? key}»').join(' $sym ');
   }
 
-  void _updateDraft(FormMap formula) =>
-      setState(() => _draft = _normalise(formula));
+  bool get _isDraftModified => jsonEncode(_draft) != jsonEncode(_saved);
 
-  void _insertInput(String key) {
-    final values = _inputs;
-    final index = _selectedInput == null ? values.length : _selectedInput! + 1;
-    values.insert(index.clamp(0, values.length), key);
-    _updateDraft({..._draft, 'inputs': values});
+  void _updateDraft(FormMap formula) =>
+      setState(() {
+        _draft = _normalise(formula);
+        _tokens = _tokensFromDraft(_draft);
+      });
+
+  void _insertField(String key) {
+    final tokens = [..._tokens];
+    if (tokens.isNotEmpty &&
+        _selectedTokenIndex == null &&
+        (tokens.last.type == 'field' || tokens.last.type == 'number')) {
+      final defaultOp = switch ('${_draft['op']}') {
+        'subtract' => '-',
+        'multiply' => '*',
+        'divide' => '/',
+        _ => '+',
+      };
+      final defaultSym = switch ('${_draft['op']}') {
+        'subtract' => '−',
+        'multiply' => '×',
+        'divide' => '÷',
+        _ => '+',
+      };
+      tokens.add(_Token(type: 'operator', value: defaultOp, label: defaultSym));
+    }
+    final fieldToken = _Token(
+      type: 'field',
+      value: key,
+      label: '«${_fieldLabel(key)}»',
+    );
+    final idx = _selectedTokenIndex == null ? tokens.length : _selectedTokenIndex! + 1;
+    tokens.insert(idx.clamp(0, tokens.length), fieldToken);
+    _selectedTokenIndex = idx.clamp(0, tokens.length - 1);
+    _updateTokens(tokens);
+  }
+
+  void _insertToken(_Token token) {
+    final tokens = [..._tokens];
+    final idx = _selectedTokenIndex == null ? tokens.length : _selectedTokenIndex! + 1;
+    tokens.insert(idx.clamp(0, tokens.length), token);
+    _selectedTokenIndex = idx.clamp(0, tokens.length - 1);
+    _updateTokens(tokens);
+  }
+
+  void _deleteToken(int index) {
+    if (index >= 0 && index < _tokens.length) {
+      final tokens = [..._tokens]..removeAt(index);
+      if (_selectedTokenIndex == index) {
+        _selectedTokenIndex = null;
+      } else if (_selectedTokenIndex != null && _selectedTokenIndex! > index) {
+        _selectedTokenIndex = _selectedTokenIndex! - 1;
+      }
+      _updateTokens(tokens);
+    }
+  }
+
+  void _clearTokens() {
+    _selectedTokenIndex = null;
+    _updateTokens([]);
+  }
+
+  void _updateTokens(List<_Token> tokens) {
+    setState(() {
+      _tokens = tokens;
+      final inputs = <String>[];
+      for (final t in _tokens) {
+        if (t.type == 'field' && !inputs.contains(t.value)) {
+          inputs.add(t.value);
+        }
+      }
+      final exprBuffer = StringBuffer();
+      for (final t in _tokens) {
+        if (t.type == 'field') {
+          exprBuffer.write(t.value);
+        } else if (t.type == 'operator') {
+          exprBuffer.write(' ${t.value} ');
+        } else if (t.type == 'comma') {
+          exprBuffer.write(', ');
+        } else {
+          exprBuffer.write(t.value);
+        }
+      }
+      final expr = exprBuffer.toString().trim();
+      _draft = {
+        ..._draft,
+        'inputs': inputs,
+        'tokens': _tokens.map((t) => t.toJson()).toList(),
+        if (expr.isNotEmpty) 'expression': expr,
+        if (expr.isEmpty) 'expression': null,
+      };
+    });
+  }
+
+  Future<void> _showConstantNumberDialog() async {
+    final controller = TextEditingController();
+    final value = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('افزودن عدد ثابت'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+          decoration: const InputDecoration(
+            labelText: 'مقدار عددی',
+            hintText: 'مثال: 10 یا 0.05 یا -5',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          OutlinedButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('انصراف'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final text = toLatinDigits(controller.text.trim()).replaceAll('٫', '.');
+              if (text.isNotEmpty) {
+                Navigator.of(ctx).pop(text);
+              }
+            },
+            child: const Text('افزودن'),
+          ),
+        ],
+      ),
+    );
+    if (value != null && value.isNotEmpty) {
+      final tokens = [..._tokens];
+      if (tokens.isNotEmpty &&
+          _selectedTokenIndex == null &&
+          (tokens.last.type == 'field' || tokens.last.type == 'number')) {
+        tokens.add(const _Token(type: 'operator', value: '+', label: '+'));
+      }
+      final numToken = _Token(type: 'number', value: value, label: value);
+      final idx = _selectedTokenIndex == null ? tokens.length : _selectedTokenIndex! + 1;
+      tokens.insert(idx.clamp(0, tokens.length), numToken);
+      _selectedTokenIndex = idx.clamp(0, tokens.length - 1);
+      _updateTokens(tokens);
+    }
   }
 
   void _applyDraft() {
@@ -294,15 +537,16 @@ class _FormulaAdvancedConfigState extends State<FormulaAdvancedConfig> {
       _saved = copyForm(_draft);
       _hasConfirmedFormula = true;
       _calculatorOpen = false;
-      _selectedInput = null;
+      _selectedTokenIndex = null;
     });
     widget.onChanged(copyForm(_saved));
   }
 
   void _cancelDraft() => setState(() {
         _draft = copyForm(_saved);
+        _tokens = _tokensFromDraft(_draft);
         _calculatorOpen = false;
-        _selectedInput = null;
+        _selectedTokenIndex = null;
       });
 
   @override
@@ -518,6 +762,7 @@ class _FormulaAdvancedConfigState extends State<FormulaAdvancedConfig> {
           }).toList();
 
     return DropdownButtonFormField<String>(
+      key: ValueKey(_currentTargetKey),
       initialValue: _currentTargetKey,
       decoration: const InputDecoration(
         labelText: 'فیلد محاسباتی ساخته‌شده در تب پایه',
@@ -525,14 +770,40 @@ class _FormulaAdvancedConfigState extends State<FormulaAdvancedConfig> {
         contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       ),
       items: items,
-      onChanged: (newKey) {
+      onChanged: (newKey) async {
         if (newKey == null || newKey == _currentTargetKey) return;
+        if (_isDraftModified) {
+          final confirm = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('تغییر فیلد محاسباتی مقصد'),
+              content: const Text(
+                'تغییرات ذخیره‌نشده‌ای در فرمول فعلی وجود دارد. آیا می‌خواهید تغییرات را نادیده بگیرید؟',
+              ),
+              actions: [
+                OutlinedButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: const Text('انصراف'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(ctx).pop(true),
+                  child: const Text('نادیده گرفتن و تغییر'),
+                ),
+              ],
+            ),
+          );
+          if (confirm != true) {
+            setState(() {});
+            return;
+          }
+        }
         setState(() {
           _currentTargetKey = newKey;
           for (final f in _formulaFields) {
             if (f['key'] == newKey) {
               _saved = _normalise(formMap(f['formula']));
               _draft = copyForm(_saved);
+              _tokens = _tokensFromDraft(_draft);
               _hasConfirmedFormula = formMap(f['formula'])['op'] != null;
               break;
             }
@@ -785,11 +1056,11 @@ class _FormulaAdvancedConfigState extends State<FormulaAdvancedConfig> {
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: const Color(0xFFE2E8F2)),
               ),
-              constraints: const BoxConstraints(minHeight: 40),
-              child: _inputs.isEmpty
+              constraints: const BoxConstraints(minHeight: 44),
+              child: _tokens.isEmpty
                   ? const Center(
                       child: Text(
-                        'برای افزودن فیلد یا عملگر، دکمه‌های زیر را لمس کنید.',
+                        'برای افزودن فیلد، عملگر یا تابع، دکمه‌های زیر را لمس کنید.',
                         style: TextStyle(fontSize: 11, color: Color(0xFF758698)),
                       ),
                     )
@@ -797,15 +1068,18 @@ class _FormulaAdvancedConfigState extends State<FormulaAdvancedConfig> {
                       spacing: 6,
                       runSpacing: 6,
                       children: [
-                        for (var i = 0; i < _inputs.length; i++)
+                        for (var i = 0; i < _tokens.length; i++)
                           InputChip(
-                            label: Text('«${_fieldLabel(_inputs[i])}»'),
-                            selected: _selectedInput == i,
-                            onSelected: (_) => setState(() => _selectedInput = i),
-                            onDeleted: () {
-                              final inputs = _inputs..removeAt(i);
-                              _updateDraft({..._draft, 'inputs': inputs});
-                            },
+                            label: Text(_tokens[i].label),
+                            selected: _selectedTokenIndex == i,
+                            onSelected: (_) => setState(() => _selectedTokenIndex = i),
+                            onDeleted: () => _deleteToken(i),
+                            backgroundColor: _tokenBgColor(_tokens[i].type),
+                            labelStyle: TextStyle(
+                              color: _tokenTextColor(_tokens[i].type),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
                           ),
                       ],
                     ),
@@ -824,9 +1098,39 @@ class _FormulaAdvancedConfigState extends State<FormulaAdvancedConfig> {
                 return ActionChip(
                   label: Text('${field['label']}'),
                   avatar: _fieldChipIcon('${field['type']}'),
-                  onPressed: () => _insertInput('${field['key']}'),
+                  onPressed: () => _insertField('${field['key']}'),
                 );
               }).toList(),
+            ),
+            const SizedBox(height: 10),
+            // Parentheses & Constant Number
+            const Text(
+              'پرانتزها و مقدار ثابت:',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF5B6478)),
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                ActionChip(
+                  label: const Text('('),
+                  onPressed: () => _insertToken(const _Token(type: 'paren', value: '(', label: '(')),
+                ),
+                ActionChip(
+                  label: const Text(')'),
+                  onPressed: () => _insertToken(const _Token(type: 'paren', value: ')', label: ')')),
+                ),
+                ActionChip(
+                  avatar: const Icon(Icons.pin, size: 14),
+                  label: const Text('عدد ثابت'),
+                  onPressed: _showConstantNumberDialog,
+                ),
+                ActionChip(
+                  label: const Text('ویرگول ،'),
+                  onPressed: () => _insertToken(const _Token(type: 'comma', value: ',', label: '،')),
+                ),
+              ],
             ),
             const SizedBox(height: 10),
             // Operators & Actions
@@ -839,14 +1143,67 @@ class _FormulaAdvancedConfigState extends State<FormulaAdvancedConfig> {
               spacing: 6,
               runSpacing: 6,
               children: [
-                _opChip('جمع +', 'add'),
-                _opChip('تفریق −', 'subtract'),
-                _opChip('ضرب ×', 'multiply'),
-                _opChip('تقسیم ÷', 'divide'),
+                _opChip('جمع +', 'add', '+'),
+                _opChip('تفریق −', 'subtract', '-'),
+                _opChip('ضرب ×', 'multiply', '*'),
+                _opChip('تقسیم ÷', 'divide', '/'),
                 ActionChip(
                   label: const Text('پاک‌کردن'),
                   avatar: const Icon(Icons.delete_outline, size: 16),
-                  onPressed: () => _updateDraft({..._draft, 'inputs': [], 'ops': null}),
+                  onPressed: _clearTokens,
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            // Advanced Functions & Comparisons
+            const Text(
+              'توابع پیشرفته:',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF5B6478)),
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                ActionChip(
+                  label: const Text('IF شرطی'),
+                  onPressed: () => _insertToken(const _Token(type: 'func', value: 'IF(', label: 'IF(')),
+                ),
+                ActionChip(
+                  label: const Text('ROUND گردکردن'),
+                  onPressed: () => _insertToken(const _Token(type: 'func', value: 'ROUND(', label: 'ROUND(')),
+                ),
+                ActionChip(
+                  label: const Text('MAX بیشترین'),
+                  onPressed: () => _insertToken(const _Token(type: 'func', value: 'MAX(', label: 'MAX(')),
+                ),
+                ActionChip(
+                  label: const Text('MIN کمترین'),
+                  onPressed: () => _insertToken(const _Token(type: 'func', value: 'MIN(', label: 'MIN(')),
+                ),
+                ActionChip(
+                  label: const Text('> بزرگتر'),
+                  onPressed: () => _insertToken(const _Token(type: 'operator', value: '>', label: '>')),
+                ),
+                ActionChip(
+                  label: const Text('< کوچکتر'),
+                  onPressed: () => _insertToken(const _Token(type: 'operator', value: '<', label: '<')),
+                ),
+                ActionChip(
+                  label: const Text('= مساوی'),
+                  onPressed: () => _insertToken(const _Token(type: 'operator', value: '=', label: '=')),
+                ),
+                ActionChip(
+                  label: const Text('>= بزرگتر مساوی'),
+                  onPressed: () => _insertToken(const _Token(type: 'operator', value: '>=', label: '>=')),
+                ),
+                ActionChip(
+                  label: const Text('<= کوچکتر مساوی'),
+                  onPressed: () => _insertToken(const _Token(type: 'operator', value: '<=', label: '<=')),
+                ),
+                ActionChip(
+                  label: const Text('!= نامساوی'),
+                  onPressed: () => _insertToken(const _Token(type: 'operator', value: '!=', label: '!=')),
                 ),
               ],
             ),
@@ -874,12 +1231,45 @@ class _FormulaAdvancedConfigState extends State<FormulaAdvancedConfig> {
         ),
       );
 
-  Widget _opChip(String label, String op) => ActionChip(
+  Widget _opChip(String label, String opName, String symbol) => ActionChip(
         label: Text(label),
         onPressed: () {
-          _updateDraft({..._draft, 'op': op});
+          final sym = switch (opName) {
+            'add' => '+',
+            'subtract' => '−',
+            'multiply' => '×',
+            'divide' => '÷',
+            _ => symbol,
+          };
+          if (_tokens.isNotEmpty && _tokens.last.type == 'operator') {
+            final updated = [..._tokens];
+            updated[updated.length - 1] = _Token(type: 'operator', value: symbol, label: sym);
+            _updateTokens(updated);
+          } else {
+            _insertToken(_Token(type: 'operator', value: symbol, label: sym));
+          }
         },
       );
+
+  Color _tokenBgColor(String type) => switch (type) {
+        'field' => const Color(0xFFEFF5FC),
+        'operator' => const Color(0xFFF1F5F9),
+        'paren' => const Color(0xFFF8FAFC),
+        'number' => const Color(0xFFF0FDF4),
+        'func' => const Color(0xFFF2EAFE),
+        'comma' => const Color(0xFFF1F5F9),
+        _ => Colors.white,
+      };
+
+  Color _tokenTextColor(String type) => switch (type) {
+        'field' => const Color(0xFF1876D2),
+        'operator' => const Color(0xFF334155),
+        'paren' => const Color(0xFF475569),
+        'number' => const Color(0xFF166534),
+        'func' => const Color(0xFF8654B5),
+        'comma' => const Color(0xFF334155),
+        _ => const Color(0xFF122044),
+      };
 
   Widget _fieldChipIcon(String type) {
     if (type == 'Money') return const Icon(Icons.attach_money, size: 14);
@@ -1046,4 +1436,24 @@ class _FormulaAdvancedConfigState extends State<FormulaAdvancedConfig> {
           style: TextStyle(fontSize: 13, color: Color(0xFF5B6478)),
         ),
       );
+}
+
+class _Token {
+  const _Token({
+    required this.type,
+    required this.value,
+    required this.label,
+  });
+
+  factory _Token.fromJson(Map<String, dynamic> json) => _Token(
+        type: '${json['type']}',
+        value: '${json['value']}',
+        label: '${json['label']}',
+      );
+
+  final String type;
+  final String value;
+  final String label;
+
+  Map<String, String> toJson() => {'type': type, 'value': value, 'label': label};
 }
