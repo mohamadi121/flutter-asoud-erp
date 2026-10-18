@@ -7,6 +7,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:asoud_erp/core/network/frappe_client.dart';
 import 'package:asoud_erp/core/theme/asoud_theme.dart';
 import 'package:asoud_erp/features/form_builder/create_form_page.dart';
+import 'package:asoud_erp/features/form_builder/form_editor/editor_field_sheet.dart';
+import 'package:asoud_erp/features/form_builder/form_editor/editor_widgets.dart';
 import 'package:asoud_erp/features/form_builder/form_repository.dart';
 import 'package:asoud_erp/features/form_builder/forms_page.dart';
 
@@ -202,6 +204,41 @@ void main() {
     await expectLater(
       find.byType(MaterialApp),
       matchesGoldenFile('goldens/create_form_template_picker_360x800.png'),
+    );
+  }, tags: 'golden');
+
+  testWidgets('editor field sheet basic tab 360x800 golden', (tester) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final client = _GoldenMockClient();
+    final repo = FormRepository(client, 'شرکت نمونه آسود');
+    final schema = blankSchema('Request');
+
+    await tester.pumpWidget(_wrapGolden(
+      Builder(
+        builder: (context) => ElevatedButton(
+          onPressed: () => editSchemaField(
+            context,
+            schema,
+            {'key': 'f_1', 'label': 'مبلغ نهایی', 'type': 'Money', 'required': true},
+            repository: repo,
+          ),
+          child: const Text('Open Sheet'),
+        ),
+      ),
+      client,
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Open Sheet'));
+    await tester.pumpAndSettle();
+
+    await expectLater(
+      find.byType(MaterialApp),
+      matchesGoldenFile('goldens/editor_field_sheet_basic_360x800.png'),
     );
   }, tags: 'golden');
 }
