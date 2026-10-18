@@ -114,8 +114,8 @@ Widget _conditionInput(
       'مقدار مقایسه',
       value?.toString(),
       {
-        for (final option in field?['options'] as List? ?? [])
-          '$option': '${formMap(field?['option_labels'])[option] ?? option}',
+        for (final option in choiceOptions(field ?? {}) )
+          '${option['id']}': '${option['label']}',
       },
       change,
     );

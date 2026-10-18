@@ -18,6 +18,7 @@ const formModules = {
 };
 
 FormMap blankSchema(String kind) => {
+      'schema_version': 2,
       'format': 1,
       'kind': kind,
       'title': '',

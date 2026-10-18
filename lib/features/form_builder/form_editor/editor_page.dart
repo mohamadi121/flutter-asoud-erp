@@ -36,7 +36,7 @@ class FormEditorPage extends StatefulWidget {
 
 class _FormEditorPageState extends State<FormEditorPage> {
   late FormMap record = copyForm(widget.initial);
-  late FormMap schema = formMap(record['schema']);
+  late FormMap schema = migrateFormSchema(formMap(record['schema']));
   FormMap preview = {}, options = {};
   String? error, notice;
   int step = 0;
