@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../core/auth/access_denied.dart';
+import '../../core/auth/capabilities.dart';
 import '../../core/network/frappe_client.dart';
 import '../../core/offline/offline_failure.dart';
 import '../../core/widgets/asoud_ui.dart';
@@ -26,16 +28,44 @@ class VersionedFormsPage extends StatefulWidget {
 }
 
 class _VersionedFormsPageState extends State<VersionedFormsPage> {
+  late final Future<Capabilities> _capabilities = capabilitiesOf(context);
+  String _effectiveCompany = '';
+  String get effectiveCompany =>
+      _effectiveCompany.isNotEmpty ? _effectiveCompany : widget.company;
+
   late final repository = FormRepository(
     context.read<FrappeApiClient>(),
     widget.company,
   );
   late String kind = widget.initialKind;
   String query = '', module = '', status = '';
+  late final TextEditingController _searchController = TextEditingController();
   late Future<List<FormMap>> rows = repository.list(
     kind,
     manage: widget.manage,
   );
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _effectiveCompany = widget.company;
+    if (_effectiveCompany.isEmpty) {
+      try {
+        final client = context.read<FrappeApiClient>();
+        client.getCurrentUser().then((u) {
+          if (mounted && (u.company ?? '').isNotEmpty) {
+            setState(() => _effectiveCompany = u.company!);
+          }
+        }).catchError((_) {});
+      } catch (_) {}
+    }
+  }
   void reload() =>
       setState(() => rows = repository.list(kind, manage: widget.manage));
   Future<void> editor(FormMap initial) async {
@@ -151,6 +181,35 @@ class _VersionedFormsPageState extends State<VersionedFormsPage> {
             ),
           ),
         );
+      } else if (action == 'versions') {
+        final history = formMaps(
+          await repository.call('get_history', {
+            'name': row['name'],
+          }),
+        );
+        if (!mounted) {
+          return;
+        }
+        await formSheet<void>(
+          context,
+          'تاریخچه نسخه‌ها',
+          (sheet, update) => Column(
+            children: [
+              if (history.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text('تاریخچه‌ای برای این فرم ثبت نشده است.'),
+                ),
+              for (final r in history)
+                ListTile(
+                  title: Text('نسخه ${toPersianDigits('${r['version'] ?? 1}')}'),
+                  subtitle: Text(
+                    '${formatJalaliDateTimeIso('${r['published_on']}')} · ${r['published_by'] ?? ''}\n${r['change_note'] ?? ''}',
+                  ),
+                ),
+            ],
+          ),
+        );
       } else if (action == 'disable' || action == 'enable') {
         if (!await formConfirm(
           context,
@@ -249,12 +308,32 @@ class _VersionedFormsPageState extends State<VersionedFormsPage> {
   }
 
   @override
-  Widget build(BuildContext context) => Directionality(
+  Widget build(BuildContext context) {
+    if (!widget.manage) {
+      return _buildContent(context);
+    }
+    return FutureBuilder<Capabilities>(
+      future: _capabilities,
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (!snapshot.data!.canManageForms) {
+          return const AccessDeniedScaffold();
+        }
+        return _buildContent(context);
+      },
+    );
+  }
+
+  Widget _buildContent(BuildContext context) => Directionality(
         textDirection: TextDirection.rtl,
         child: Scaffold(
           appBar: AsoudHeader(
             title: widget.manage ? 'مدیریت فرم‌ها' : 'فرم‌های قابل ثبت',
-            subtitle: widget.company,
+            subtitle: effectiveCompany,
             action: IconButton(
               onPressed: reload,
               icon: const Icon(Icons.refresh),
@@ -278,9 +357,19 @@ class _VersionedFormsPageState extends State<VersionedFormsPage> {
                 ),
               const SizedBox(height: 12),
               TextField(
-                decoration: const InputDecoration(
-                  hintText: 'جست‌وجوی فرم',
-                  prefixIcon: Icon(Icons.search),
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'جست‌وجوی قالب فرم...',
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: query.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear),
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() => query = '');
+                          },
+                        )
+                      : null,
                 ),
                 onChanged: (v) => setState(() => query = v.trim()),
               ),
@@ -369,6 +458,10 @@ class _VersionedFormsPageState extends State<VersionedFormsPage> {
                                         child: Text('ایجاد نسخه مشابه'),
                                       ),
                                       if (row['name'] != null) ...[
+                                        const PopupMenuItem(
+                                          value: 'versions',
+                                          child: Text('نسخه‌ها'),
+                                        ),
                                         const PopupMenuItem(
                                           value: 'preview',
                                           child: Text('پیش‌نمایش'),
