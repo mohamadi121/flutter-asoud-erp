@@ -10,7 +10,7 @@ void main() {
       expect(calculateForm({'op': 'subtract', 'inputs': ['a', 'b']}, {'a': 2, 'b': 3}), '-1.00');
       expect(calculateForm({'op': 'multiply', 'inputs': ['a', 'b']}, {'a': 2, 'b': 3}), '6.00');
       expect(calculateForm({'op': 'percent', 'inputs': ['a', 'b']}, {'a': 20, 'b': 5}), '1.00');
-      expect(calculateForm({'op': 'divide', 'inputs': ['a', 'b']}, {'a': 5, 'b': 0}), 'تقسیم بر صفر یا فرمول نامعتبر');
+      expect(calculateForm({'op': 'divide', 'inputs': ['a', 'b']}, {'a': 5, 'b': 0}), 'تقسیم بر صفر در فرمول مجاز نیست.');
       expect(calculateForm({'op': 'sum', 'table': 'rows', 'columns': ['amount']}, {'rows': [{'amount': 2}, {'amount': 3}]}), '5.00');
       expect(calculateForm({'op': 'average', 'table': 'rows', 'columns': ['amount']}, {'rows': []}), '0.00');
       expect(calculateForm({'op': 'count', 'table': 'rows'}, {'rows': [{}, {}]}), '2.00');
