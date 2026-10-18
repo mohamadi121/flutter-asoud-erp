@@ -11,8 +11,6 @@ import 'package:asoud_erp/features/form_builder/form_repository.dart';
 import 'package:asoud_erp/features/form_builder/form_runtime/form_preview_page.dart';
 import 'package:asoud_erp/features/form_builder/forms_page.dart';
 import 'package:asoud_erp/features/form_builder/form_editor.dart';
-import 'package:asoud_erp/features/form_builder/form_editor/editor_field_sheet.dart';
-import 'package:asoud_erp/features/form_builder/form_editor/editor_widgets.dart';
 
 class _GoldenMockClient extends Fake implements FrappeApiClient {
   @override
