@@ -10,6 +10,7 @@ import 'package:asoud_erp/features/form_builder/create_form_page.dart';
 import 'package:asoud_erp/features/form_builder/form_repository.dart';
 import 'package:asoud_erp/features/form_builder/form_runtime/form_preview_page.dart';
 import 'package:asoud_erp/features/form_builder/forms_page.dart';
+import 'package:asoud_erp/features/form_builder/form_editor.dart';
 
 class _GoldenMockClient extends Fake implements FrappeApiClient {
   @override
@@ -308,6 +309,95 @@ void main() {
     await expectLater(
       find.byType(MaterialApp),
       matchesGoldenFile('goldens/form_preview_360x800.png'),
+    );
+  }, tags: 'golden');
+
+  testWidgets('form designer page 360x800 golden', (tester) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final client = _GoldenMockClient();
+    final repo = FormRepository(client, 'شرکت نمونه آسود');
+
+    final initialForm = {
+      'name': 'FORM-001',
+      'title': 'درخواست معرفی تأمین‌کننده',
+      'status': 'Draft',
+      'schema': {
+        'title': 'درخواست معرفی تأمین‌کننده',
+        'module': 'Purchase',
+        'kind': 'Request',
+        'sections': [
+          {
+            'id': 'sec_main',
+            'title': 'اطلاعات اصلی',
+            'color': '#EFF6FF',
+            'fields': [
+              {
+                'key': 'f_subject',
+                'label': 'موضوع درخواست',
+                'type': 'Text',
+                'required': true,
+              },
+              {
+                'key': 'f_date',
+                'label': 'تاریخ درخواست',
+                'type': 'Date',
+                'required': true,
+              },
+              {
+                'key': 'f_desc',
+                'label': 'شرح درخواست',
+                'type': 'LongText',
+                'required': false,
+              },
+            ],
+          },
+          {
+            'id': 'sec_extra',
+            'title': 'اطلاعات تکمیلی',
+            'color': '#F0FDF4',
+            'fields': [
+              {
+                'key': 'f_supplier',
+                'label': 'نام تأمین‌کننده پیشنهادی',
+                'type': 'Text',
+                'required': false,
+              },
+            ],
+          },
+          {
+            'id': 'sec_end',
+            'title': 'پایان',
+            'color': '#EEF2FF',
+            'fields': [
+              {
+                'key': 'f_note',
+                'label': 'یادداشت پایانی',
+                'type': 'Text',
+                'required': false,
+              },
+            ],
+          },
+        ],
+        'rules': <FormMap>[],
+      },
+    };
+
+    await tester.pumpWidget(_wrapGolden(
+      FormEditorPage(
+        repository: repo,
+        initial: initialForm,
+      ),
+      client,
+    ));
+    await tester.pumpAndSettle();
+
+    await expectLater(
+      find.byType(MaterialApp),
+      matchesGoldenFile('goldens/form_designer_360x800.png'),
     );
   }, tags: 'golden');
 }
