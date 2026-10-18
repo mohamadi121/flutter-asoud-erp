@@ -25,6 +25,22 @@ String calculateForm(FormMap formula, FormMap values) {
       if (op == 'average' && numbers.isNotEmpty) result = result / _FormDecimal.integer(numbers.length);
     } else if (op == 'add') {
       result = args.fold(_FormDecimal.zero, (sum, number) => sum + number);
+    } else if (op == 'chain' || (formula['ops'] is List && (formula['ops'] as List).isNotEmpty)) {
+      if (args.isEmpty) return 'این محاسبه به ورودی نیاز دارد.';
+      final ops = (formula['ops'] as List).map((e) => '$e').toList();
+      if (args.length != ops.length + 1) return 'این محاسبه به دو ورودی نیاز دارد.';
+      result = args[0];
+      for (var i = 0; i < ops.length; i++) {
+        final next = args[i + 1];
+        result = switch (ops[i]) {
+          'add' => result + next,
+          'subtract' => result - next,
+          'multiply' => result * next,
+          'divide' => next.isZero ? throw const _FormulaException('تقسیم بر صفر در فرمول مجاز نیست.') : result / next,
+          'percent' => result * next / _FormDecimal.integer(100),
+          _ => throw const _FormulaException('محاسبه پشتیبانی نمی‌شود.'),
+        };
+      }
     } else {
       if (args.length != 2) return 'این محاسبه به دو ورودی نیاز دارد.';
       result = switch (op) {
