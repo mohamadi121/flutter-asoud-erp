@@ -79,7 +79,9 @@ class SheetBottomButtons extends StatelessWidget {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       elevation: 0,
                     ),
-                    child: Row(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
@@ -97,6 +99,7 @@ class SheetBottomButtons extends StatelessWidget {
                           ),
                         ),
                       ],
+                      ),
                     ),
                   ),
                 ),
@@ -115,7 +118,9 @@ class SheetBottomButtons extends StatelessWidget {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       elevation: 0,
                     ),
-                    child: Row(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         const Icon(Icons.close, size: 18, color: Color(0xFF5B6478)),
@@ -129,6 +134,7 @@ class SheetBottomButtons extends StatelessWidget {
                           ),
                         ),
                       ],
+                      ),
                     ),
                   ),
                 ),

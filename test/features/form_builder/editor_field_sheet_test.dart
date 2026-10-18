@@ -140,6 +140,7 @@ void main() {
     expect(find.text('پیش‌نمایش'), findsOneWidget);
     expect(find.text('انصراف'), findsOneWidget);
 
+    await tester.ensureVisible(find.text('تأیید و افزودن'));
     await tester.tap(find.text('تأیید و افزودن'));
     await tester.tap(find.text('پیش‌نمایش'));
     await tester.tap(find.text('انصراف'));
@@ -250,5 +251,42 @@ void main() {
       expect(find.text('کد کالا'), findsOneWidget);
       expect(find.text('برای پیوست فایل ضربه بزنید یا فایل را بکشید'), findsOneWidget);
     }
+  });
+
+  testWidgets('table properties exclude nested tables and keep system text as text', (tester) async {
+    FormMap? result;
+    final schema = blankSchema('Request');
+    await tester.pumpWidget(_wrapTestWidget(
+      Builder(
+        builder: (context) => ElevatedButton(
+          onPressed: () async {
+            result = await editSchemaField(
+              context,
+              schema,
+              {
+                'key': 'c_item',
+                'label': 'کالا',
+                'type': 'Text',
+                'source_mode': 'asoud',
+                'source': 'Item',
+              },
+              column: true,
+            );
+          },
+          child: const Text('Open column'),
+        ),
+      ),
+      width: 320,
+    ));
+    await tester.tap(find.text('Open column'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('جدول تکرارشونده'), findsNothing);
+    expect(find.text('انتخاب از سیستم آسود'), findsOneWidget);
+
+    await tester.tap(find.text('ذخیره تغییرات'));
+    await tester.pumpAndSettle();
+    expect(result?['type'], 'Text');
+    expect(result?['source'], 'Item');
   });
 }

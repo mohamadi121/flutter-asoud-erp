@@ -16,6 +16,7 @@ import 'field_sheet/field_type_grid.dart';
 import 'field_sheet/live_clock_time_picker.dart';
 import 'field_sheet/sheet_bottom_buttons.dart';
 import 'field_sheet/smart_link_picker.dart';
+import 'field_sheet/advanced/column_type_cards.dart';
 
 export 'field_sheet/field_sheet_preview.dart';
 export 'field_sheet/field_type_grid.dart';
@@ -84,7 +85,7 @@ class _FieldSheetModal extends StatefulWidget {
 
 class _FieldSheetModalState extends State<_FieldSheetModal> {
   late FormMap f;
-  late int selectedTab; // 0: پایه, 1: پیشرفته, 2: سیستمی
+  late int selectedTab; // 0: پایه, 1: پیشرفته
   bool isPreview = false;
   String? labelError;
   bool isClockPickerOpen = false;
@@ -102,6 +103,38 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
       if (key == 'label' && value != null && '$value'.trim().isNotEmpty) {
         labelError = null;
       }
+    });
+  }
+
+  Future<void> _selectType(String type) async {
+    if (type == f['type']) return;
+    final hasDependencies = f['has_data'] == true ||
+        f['dependencies'] is List && (f['dependencies'] as List).isNotEmpty ||
+        f['formula_dependents'] is List &&
+            (f['formula_dependents'] as List).isNotEmpty;
+    if (widget.isEditing && hasDependencies) {
+      final confirmed = await formConfirm(
+        context,
+        'با تغییر نوع، تنظیمات ناسازگار این مشخصه حذف می‌شوند. ادامه می‌دهید؟',
+      );
+      if (!confirmed || !mounted) return;
+    }
+    const typeSpecificKeys = {
+      'source', 'source_mode', 'max_length', 'min_length', 'lines', 'format',
+      'error_message', 'min', 'max', 'precision', 'thousands_separator',
+      'digits', 'default_date_mode', 'default_time_mode', 'minute_step',
+      'min_date', 'max_date', 'min_time', 'max_time', 'options', 'formula',
+      'output_type', 'extensions', 'max_files', 'max_mb', 'allow_delete',
+      'readonly', 'default', 'default_source',
+    };
+    setState(() {
+      for (final key in typeSpecificKeys) {
+        f.remove(key);
+      }
+      f['type'] = type;
+      f['source_mode'] = 'manual';
+      if (type == 'Formula') f['output_type'] = 'Integer';
+      if (type == 'Table') f['orientation'] = 'horizontal';
     });
   }
 
@@ -131,12 +164,6 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
         const SnackBar(content: Text('عنوان فیلد را وارد کنید.')),
       );
       return;
-    }
-
-    // Clean up type specific requirements
-    if (f['type'] == 'Text' && f['source_mode'] == 'asoud') {
-      f['type'] = 'Link';
-      f['source'] ??= 'Employee';
     }
 
     Navigator.pop(context, f);
@@ -169,7 +196,7 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
                       : Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            // 3 Tabs (پایه, پیشرفته, سیستمی)
+                            // دو تب نهایی فرمساز
                             _buildTabs(),
                             const SizedBox(height: 14),
                             if (selectedTab == 0) ...[
@@ -180,8 +207,6 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
                               _buildFieldSettingsCard(type),
                             ] else if (selectedTab == 1) ...[
                               _buildAdvancedTabContent(),
-                            ] else ...[
-                              _buildSystemTabContent(),
                             ],
                           ],
                         ),
@@ -252,7 +277,7 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
   }
 
   Widget _buildTabs() {
-    final tabs = ['پایه', 'پیشرفته', 'سیستمی'];
+    final tabs = ['پایه', 'پیشرفته'];
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFFF1F4F9),
@@ -305,18 +330,16 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
             style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF122044)),
           ),
           const SizedBox(height: 10),
-          FieldTypeGrid(
-            selectedType: '${f['type']}',
-            allowTable: !widget.column,
-            onSelectType: (typeKey) {
-              set('type', typeKey);
-              if (typeKey == 'Formula') {
-                f.putIfAbsent('output_type', () => 'Integer');
-              } else if (typeKey == 'Table') {
-                f.putIfAbsent('orientation', () => 'horizontal');
-              }
-            },
-          ),
+          if (widget.column)
+            ColumnTypeCards(
+              selectedType: '${f['type']}',
+              onSelectType: _selectType,
+            )
+          else
+            FieldTypeGrid(
+              selectedType: '${f['type']}',
+              onSelectType: _selectType,
+            ),
         ],
       ),
     );
@@ -891,14 +914,16 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
         '${field['key']}': '${field['label']}',
     };
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F2)),
-      ),
-      child: Column(
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE2E8F2)),
+        ),
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text('شناسه پایدار: ${f['key']}', style: const TextStyle(fontSize: 11, color: Color(0xFF5B6478))),
@@ -961,34 +986,11 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
               (v) => set('native_key', v),
             ),
         ],
+        ),
       ),
     );
   }
 
-  Widget _buildSystemTabContent() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F2)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: const [
-          Text(
-            'تنظیمات سیستمی فیلد',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF122044)),
-          ),
-          SizedBox(height: 10),
-          Text(
-            'تنظیمات تخصصی نظیر محدودسازی پیشرفته رکوردها، مجوزها، فیلترهای پیچیده سازمانی در این تب پیکربندی می‌شوند.',
-            style: TextStyle(fontSize: 12, color: Color(0xFF5B6478), height: 1.6),
-          ),
-        ],
-      ),
-    );
-  }
 
   IconData _getTypeIcon(String type) {
     for (final card in basicFieldCards) {
