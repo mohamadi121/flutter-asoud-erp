@@ -203,6 +203,17 @@ class _EmployeeHomePageState extends State<EmployeeHomePage> {
                                     onNotifications: () => _push(
                                         const WorkflowNotificationsPage()))),
                             const SizedBox(height: 10),
+                            if (syncServiceOf(context) case final service?) ...[
+                              SyncStatusIndicator(
+                                  service: service,
+                                  onOpen: () =>
+                                      openSyncQueue(context, service)),
+                              const SizedBox(height: 10),
+                            ],
+                            if (widget.statusBanner != null) ...[
+                              widget.statusBanner!,
+                              const SizedBox(height: 10),
+                            ],
                             if (snapshot.connectionState !=
                                 ConnectionState.done)
                               const LinearProgressIndicator()
@@ -235,15 +246,6 @@ class _EmployeeHomePageState extends State<EmployeeHomePage> {
                                 compact: true,
                                 now: widget.now),
                             const SizedBox(height: 10),
-                            if (widget.statusBanner != null) ...[
-                              widget.statusBanner!,
-                              const SizedBox(height: 10),
-                            ],
-                            if (syncServiceOf(context) case final service?)
-                              SyncStatusIndicator(
-                                  service: service,
-                                  onOpen: () =>
-                                      openSyncQueue(context, service)),
                             HomeInboxSummary(
                                 key: ValueKey(
                                     'inbox:${widget.company}:$refreshVersion'),
@@ -357,6 +359,8 @@ class _TopBar extends StatelessWidget {
                     style: const TextStyle(
                         fontSize: 10, color: AsoudColors.muted)),
                 const SizedBox(height: 4),
+                const Text('آسود',
+                    style: TextStyle(fontSize: 11, color: AsoudColors.primary)),
                 const Text('خانه من',
                     style:
                         TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),

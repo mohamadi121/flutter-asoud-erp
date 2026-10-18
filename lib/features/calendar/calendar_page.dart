@@ -243,39 +243,47 @@ class _AsoudCalendarState extends State<AsoudCalendar> {
           onTap: () => _select(date),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  const ['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج'][index],
-                  style: TextStyle(
-                    color: foreground,
-                    fontSize: isToday ? 14.4 : 12,
-                    fontWeight: isToday ? FontWeight.w900 : FontWeight.w500,
-                  ),
-                ),
-                Text(
-                  toPersianDigits(JalaliDate.fromDateTime(date).day),
-                  style: TextStyle(
-                    color: foreground,
-                    fontSize: isToday ? 19.2 : 16,
-                    fontWeight: isToday ? FontWeight.w900 : FontWeight.w500,
-                  ),
-                ),
-                SizedBox(
-                  height: 8,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      if (rows.any((r) => r['kind'] == 'Reminder'))
-                        Icon(Icons.circle, size: 5, color: foreground),
-                      if (rows.any((r) => r['kind'] == 'PersonalDay'))
-                        Icon(Icons.person_outline, size: 8, color: foreground),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+            child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      const ['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج'][index],
+                      maxLines: 1,
+                      softWrap: false,
+                      style: TextStyle(
+                        color: foreground,
+                        fontSize: isToday ? 14.4 : 12,
+                        fontWeight: isToday ? FontWeight.w900 : FontWeight.w500,
+                      ),
+                    ),
+                    Text(
+                      toPersianDigits(JalaliDate.fromDateTime(date).day),
+                      maxLines: 1,
+                      softWrap: false,
+                      style: TextStyle(
+                        color: foreground,
+                        fontSize: isToday ? 19.2 : 16,
+                        fontWeight: isToday ? FontWeight.w900 : FontWeight.w500,
+                      ),
+                    ),
+                    SizedBox(
+                      height: 8,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          if (rows.any((r) => r['kind'] == 'Reminder'))
+                            Icon(Icons.circle, size: 5, color: foreground),
+                          if (rows.any((r) => r['kind'] == 'PersonalDay'))
+                            Icon(Icons.person_outline,
+                                size: 8, color: foreground),
+                        ],
+                      ),
+                    ),
+                  ],
+                )),
           ),
         ),
       ),
