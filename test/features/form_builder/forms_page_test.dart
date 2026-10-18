@@ -162,6 +162,55 @@ void main() {
     expect(find.text('نسخه ۱'), findsOneWidget);
   });
 
+  testWidgets(
+      'بخش ماژول‌ها و کارت‌های قالب فرم و وضعیت‌ها به‌درستی نمایش داده می‌شوند',
+      (tester) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(_wrap(
+        const VersionedFormsPage(company: 'شرکت داده‌پردازی آسود'),
+        _FakeManagerClient()));
+    await tester.pumpAndSettle();
+
+    // Module header and cards
+    expect(find.text('ماژول‌ها'), findsOneWidget);
+    expect(find.text('نمایش همه'), findsOneWidget);
+    expect(find.text('همه'), findsOneWidget);
+    expect(find.text('منابع انسانی'), findsAtLeastNWidgets(1));
+    expect(find.text('مالی'), findsOneWidget);
+    expect(find.text('فروش'), findsOneWidget);
+    expect(find.text('انبار'), findsOneWidget);
+    expect(find.text('اداری'), findsOneWidget);
+
+    // Expand modules
+    await tester.tap(find.text('نمایش همه'));
+    await tester.pumpAndSettle();
+    expect(find.text('نمایش کمتر'), findsOneWidget);
+    expect(find.text('فناوری اطلاعات'), findsOneWidget);
+    expect(find.text('تولید'), findsOneWidget);
+
+    // Template section header & card
+    expect(find.text('قالب فرم‌های درخواست'), findsOneWidget);
+    expect(find.text('۱ مورد'), findsOneWidget);
+    expect(find.text('فرم مرخصی استحقاقی'), findsOneWidget);
+    expect(find.text('فعال'), findsOneWidget);
+
+    // Filter by another module that has no forms
+    await tester.tap(find.text('مالی'));
+    await tester.pumpAndSettle();
+    expect(find.text('۰ مورد'), findsOneWidget);
+    expect(find.text('فرمی با این فیلتر پیدا نشد.'), findsOneWidget);
+
+    // Tap 'همه' to restore
+    await tester.tap(find.text('همه'));
+    await tester.pumpAndSettle();
+    expect(find.text('۱ مورد'), findsOneWidget);
+    expect(find.text('فرم مرخصی استحقاقی'), findsOneWidget);
+  });
+
   testWidgets('صفحه مدیریت فرم‌ها در عرض ۳۲۰ بدون سرریز رندر می‌شود',
       (tester) async {
     tester.view.physicalSize = const Size(320, 640);

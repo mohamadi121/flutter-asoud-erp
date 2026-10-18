@@ -39,6 +39,7 @@ class _VersionedFormsPageState extends State<VersionedFormsPage> {
   );
   late String kind = widget.initialKind;
   String query = '', module = '', status = '';
+  bool expandedModules = false;
   late final TextEditingController _searchController = TextEditingController();
   late Future<List<FormMap>> rows = repository.list(
     kind,
@@ -373,27 +374,127 @@ class _VersionedFormsPageState extends State<VersionedFormsPage> {
                 ),
                 onChanged: (v) => setState(() => query = v.trim()),
               ),
-              const SizedBox(height: 12),
-              formSelect(
-                  'ماژول',
-                  module,
-                  {
-                    '': 'همه ماژول‌ها',
-                    ...formModules,
-                  },
-                  (v) => setState(() => module = v)),
-              if (widget.manage)
-                formSelect(
-                    'وضعیت',
-                    status,
-                    const {
-                      '': 'همه وضعیت‌ها',
-                      'Draft': 'پیش‌نویس',
-                      'Published': 'منتشرشده',
-                      'Pending': 'در انتظار تأیید',
-                      'Inactive': 'غیرفعال',
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'ماژول‌ها',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1E293B),
+                    ),
+                  ),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(6),
+                    onTap: () =>
+                        setState(() => expandedModules = !expandedModules),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 4, vertical: 2),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            expandedModules ? 'نمایش کمتر' : 'نمایش همه',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFF1E88E5),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          Icon(
+                            expandedModules
+                                ? Icons.expand_less
+                                : Icons.expand_more,
+                            size: 18,
+                            color: const Color(0xFF1E88E5),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final moduleItems = [
+                    ('', 'همه'),
+                    ('HR', 'منابع انسانی'),
+                    ('Finance', 'مالی'),
+                    ('Sales', 'فروش'),
+                    ('Stock', 'انبار'),
+                    ('Purchase', 'اداری'),
+                    if (expandedModules) ...[
+                      ('Manufacturing', 'تولید'),
+                      ('Projects', 'پروژه‌ها'),
+                      ('IT', 'فناوری اطلاعات'),
+                      ('General', 'عمومی'),
+                    ],
+                  ];
+                  return GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 3,
+                      crossAxisSpacing: 8,
+                      mainAxisSpacing: 8,
+                      childAspectRatio: 1.25,
+                    ),
+                    itemCount: moduleItems.length,
+                    itemBuilder: (context, index) {
+                      final item = moduleItems[index];
+                      final isSelected = module == item.$1;
+                      final visual = _moduleVisuals[item.$1] ??
+                          (
+                            Icons.category_outlined,
+                            const Color(0xFF1E88E5),
+                            const Color(0xFFF1F5F9)
+                          );
+                      return InkWell(
+                        onTap: () => setState(() => module =
+                            isSelected && item.$1.isNotEmpty ? '' : item.$1),
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: visual.$3,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: isSelected
+                                  ? const Color(0xFF1E88E5)
+                                  : const Color(0xFFE2E8F0),
+                              width: isSelected ? 1.5 : 1,
+                            ),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(visual.$1, size: 22, color: visual.$2),
+                              const SizedBox(height: 6),
+                              Text(
+                                item.$2,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: isSelected
+                                      ? FontWeight.bold
+                                      : FontWeight.w500,
+                                  color: const Color(0xFF1E293B),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
                     },
-                    (v) => setState(() => status = v)),
+                  );
+                },
+              ),
+              const SizedBox(height: 18),
               FutureBuilder<List<FormMap>>(
                 future: rows,
                 builder: (context, snapshot) {
@@ -424,64 +525,43 @@ class _VersionedFormsPageState extends State<VersionedFormsPage> {
                   }).toList();
                   return Column(
                     children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              kind == 'Request'
+                                  ? 'قالب فرم‌های درخواست'
+                                  : 'قالب فرم‌های سند',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF1E293B),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${toPersianDigits('${filtered.length}')} مورد',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
                       if (filtered.isEmpty)
                         const Padding(
                           padding: EdgeInsets.all(20),
                           child: Text('فرمی با این فیلتر پیدا نشد.'),
                         ),
-                      for (final row in filtered)
-                        Card(
-                          child: ListTile(
-                            title: Text(
-                              '${formMap(row['schema'])['title'] ?? row['title'] ?? 'پیش‌نویس'}',
-                            ),
-                            subtitle: Text(
-                              '${row['local'] == true ? 'پیش‌نویس روی دستگاه' : row['cached'] == true ? 'نسخه ذخیره‌شده؛ نیازمند اتصال' : {
-                                    'Draft': 'پیش‌نویس',
-                                    'Published': 'منتشرشده',
-                                    'Pending': 'در انتظار تأیید',
-                                    'Inactive': 'غیرفعال'
-                                  }[row['status']] ?? ''} · نسخه ${row['version'] ?? 0}${row['has_changes'] == true ? '\nدارای ویرایش منتشرنشده' : ''}',
-                            ),
-                            onTap: () =>
-                                action(widget.manage ? 'edit' : 'preview', row),
-                            trailing: widget.manage
-                                ? PopupMenuButton<String>(
-                                    onSelected: (v) => action(v, row),
-                                    itemBuilder: (_) => [
-                                      const PopupMenuItem(
-                                        value: 'edit',
-                                        child: Text('ویرایش / نسخه جدید'),
-                                      ),
-                                      const PopupMenuItem(
-                                        value: 'copy',
-                                        child: Text('ایجاد نسخه مشابه'),
-                                      ),
-                                      if (row['name'] != null) ...[
-                                        const PopupMenuItem(
-                                          value: 'versions',
-                                          child: Text('نسخه‌ها'),
-                                        ),
-                                        const PopupMenuItem(
-                                          value: 'preview',
-                                          child: Text('پیش‌نمایش'),
-                                        ),
-                                        PopupMenuItem(
-                                          value: row['disabled'] == 1
-                                              ? 'enable'
-                                              : 'disable',
-                                          child: Text(
-                                            row['disabled'] == 1
-                                                ? 'فعال‌سازی'
-                                                : 'غیرفعال‌سازی',
-                                          ),
-                                        ),
-                                      ],
-                                    ],
-                                  )
-                                : const Icon(Icons.chevron_left),
-                          ),
-                        ),
+                      for (final row in filtered) ...[
+                        _buildTemplateCard(row),
+                        const SizedBox(height: 10),
+                      ],
                     ],
                   );
                 },
@@ -514,6 +594,185 @@ class _VersionedFormsPageState extends State<VersionedFormsPage> {
               : null,
         ),
       );
+
+  static const _moduleVisuals = <String, (IconData, Color, Color)>{
+    '': (Icons.grid_view_rounded, Color(0xFF1E88E5), Color(0xFFEFF6FF)),
+    'HR': (Icons.people_outline_rounded, Color(0xFF2E7D32), Color(0xFFE8F8F0)),
+    'Finance': (
+      Icons.account_balance_wallet_outlined,
+      Color(0xFFF57F17),
+      Color(0xFFFFF8E1)
+    ),
+    'Sales':
+        (Icons.shopping_bag_outlined, Color(0xFF7B1FA2), Color(0xFFF3E5F5)),
+    'Stock': (Icons.inventory_2_outlined, Color(0xFF00796B), Color(0xFFE0F7FA)),
+    'Purchase': (Icons.business_center_outlined, Color(0xFFC2185B), Color(0xFFFFEBEE)),
+    'Manufacturing': (
+      Icons.precision_manufacturing_outlined,
+      Color(0xFF455A64),
+      Color(0xFFECEFF1)
+    ),
+    'Projects':
+        (Icons.assignment_outlined, Color(0xFF512DA8), Color(0xFFEDE7F6)),
+    'IT': (Icons.computer_outlined, Color(0xFF0288D1), Color(0xFFE1F5FE)),
+    'General': (
+      Icons.dashboard_customize_outlined,
+      Color(0xFF546E7A),
+      Color(0xFFECEFF1)
+    ),
+  };
+
+  Widget _buildTemplateCard(FormMap row) {
+    final s = formMap(row['schema']);
+    final title = '${s['title'] ?? row['title'] ?? 'پیش‌نویس'}';
+    final modKey = '${s['module'] ?? row['module_key'] ?? 'General'}';
+    final visual = _moduleVisuals[modKey] ??
+        (
+          Icons.description_outlined,
+          const Color(0xFF10B981),
+          const Color(0xFFE8F5E9)
+        );
+    final status = '${row['status'] ?? 'Draft'}';
+
+    String statusText;
+    Color statusBg;
+    Color statusColor;
+
+    if (row['local'] == true) {
+      statusText = 'پیش‌نویس دستگاه';
+      statusBg = const Color(0xFFF1F5F9);
+      statusColor = const Color(0xFF64748B);
+    } else if (status == 'Published') {
+      statusText = 'فعال';
+      statusBg = const Color(0xFFE8F8F0);
+      statusColor = const Color(0xFF2E7D32);
+    } else if (status == 'Inactive') {
+      statusText = 'غیرفعال';
+      statusBg = const Color(0xFFFFEBEE);
+      statusColor = const Color(0xFFC62828);
+    } else if (status == 'Pending') {
+      statusText = 'در انتظار';
+      statusBg = const Color(0xFFFFF8E1);
+      statusColor = const Color(0xFFF57F17);
+    } else {
+      statusText = 'پیش‌نویس';
+      statusBg = const Color(0xFFF1F5F9);
+      statusColor = const Color(0xFF475569);
+    }
+
+    return InkWell(
+      onTap: () => action(widget.manage ? 'edit' : 'preview', row),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: visual.$3,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(visual.$1, size: 22, color: visual.$2),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          formModules[modKey] ?? modKey,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 7, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: statusBg,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          statusText,
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: statusColor,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            if (widget.manage)
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert,
+                    color: Color(0xFF64748B), size: 20),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                onSelected: (v) => action(v, row),
+                itemBuilder: (_) => [
+                  const PopupMenuItem(
+                    value: 'edit',
+                    child: Text('ویرایش / نسخه جدید'),
+                  ),
+                  const PopupMenuItem(
+                    value: 'copy',
+                    child: Text('ایجاد نسخه مشابه'),
+                  ),
+                  if (row['name'] != null) ...[
+                    const PopupMenuItem(
+                      value: 'versions',
+                      child: Text('نسخه‌ها'),
+                    ),
+                    const PopupMenuItem(
+                      value: 'preview',
+                      child: Text('پیش‌نمایش'),
+                    ),
+                    PopupMenuItem(
+                      value: row['disabled'] == 1 ? 'enable' : 'disable',
+                      child: Text(
+                        row['disabled'] == 1 ? 'فعال‌سازی' : 'غیرفعال‌سازی',
+                      ),
+                    ),
+                  ],
+                ],
+              )
+            else
+              const Icon(Icons.chevron_left, color: Color(0xFF94A3B8)),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class FormEntryPage extends StatefulWidget {
