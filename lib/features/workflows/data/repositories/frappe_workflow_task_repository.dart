@@ -4,7 +4,8 @@ import '../../domain/entities/workflow_task.dart';
 import '../../domain/entities/workflow_definition.dart';
 import '../../domain/repositories/workflow_task_repository.dart';
 
-class FrappeWorkflowTaskRepository implements WorkflowTaskRepository {
+class FrappeWorkflowTaskRepository
+    implements WorkflowTaskRepository, CompleteWorkflowLists {
   const FrappeWorkflowTaskRepository(this._client);
   final FrappeClient _client;
 
@@ -12,12 +13,35 @@ class FrappeWorkflowTaskRepository implements WorkflowTaskRepository {
   bool get isOfflinePreview => false;
 
   @override
+  bool get listsAreComplete => true;
+
+  Future<List<dynamic>> _allPages(
+      String method, Map<String, dynamic> filters) async {
+    final rows = <dynamic>[];
+    final visited = <String>{};
+    String? cursor = '0';
+    do {
+      if (!visited.add(cursor!)) {
+        throw StateError('صفحه‌بندی کارتابل معتبر نیست.');
+      }
+      final response = await _client.callAsoudMethod(method,
+          data: {...filters, 'start': cursor, 'paged': true});
+      if (response is! Map || response['items'] is! List) {
+        throw StateError(
+            'برای دریافت کامل کارتابل، سرویس گردش کار سرور باید به‌روزرسانی شود.');
+      }
+      rows.addAll(response['items'] as List);
+      cursor = response['next_cursor']?.toString();
+    } while (cursor != null);
+    return rows;
+  }
+
+  @override
   Future<List<WorkflowTask>> getMyTasks({String status = 'Open'}) async {
-    final data = await _client.callAsoudMethod(
+    final data = await _allPages(
       'asoud_erp.api.v1.workflow_runtime.list_my_workflow_tasks',
-      data: {'status': status},
+      {'status': status},
     );
-    if (data is! List) throw StateError('Invalid workflow task response');
     return data.whereType<Map>().map((raw) {
       final item = Map<String, dynamic>.from(raw);
       return WorkflowTask(
@@ -37,11 +61,10 @@ class FrappeWorkflowTaskRepository implements WorkflowTaskRepository {
 
   @override
   Future<List<WorkflowInstanceSummary>> getMyInstances({String? status}) async {
-    final data = await _client.callAsoudMethod(
+    final data = await _allPages(
       'asoud_erp.api.v1.workflow_runtime.list_my_workflow_instances',
-      data: {if (status != null) 'status': status},
+      {if (status != null) 'status': status},
     );
-    if (data is! List) throw StateError('Invalid workflow instance response');
     return data
         .whereType<Map>()
         .map((raw) => _instance(Map<String, dynamic>.from(raw)))

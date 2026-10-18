@@ -12,7 +12,7 @@ abstract interface class DirectiveRepository {
   Future<DirectiveOptions> options(String company);
   Future<DirectiveDetail> getDirective(String company, String id);
   Future<DirectivePage<DirectiveReport>> reports(String company, String id,
-      {String? cursor});
+      {String? cursor, String? author});
   Future<DirectivePage<DirectiveHistory>> history(String company, String id,
       {String? cursor});
   Future<String> saveDraft(String company, DirectiveDraft draft,
@@ -21,6 +21,7 @@ abstract interface class DirectiveRepository {
       {required String requestKey, void Function(String)? onDraftSaved});
   Future<void> report(String company, String id,
       {required DateTime doneDate,
+      bool progress = false,
       required String body,
       required List<DirectiveAttachment> attachments,
       required String requestKey});
@@ -34,6 +35,7 @@ abstract interface class DirectiveRepository {
       required String requestKey,
       String? executorId});
   Future<void> close(String company, String id, {required String requestKey});
+  Future<void> start(String company, String id, {required String requestKey});
   Future<DirectiveAttachment> uploadAttachment(String company,
       {String? directiveId,
       required String filename,
@@ -56,6 +58,7 @@ class DirectiveApiTransport {
     'save_draft',
     'issue',
     'report',
+    'start',
     'review',
     'transfer',
     'close',
@@ -173,6 +176,7 @@ class ApiDirectiveRepository implements DirectiveRepository {
         today: DateTime.parse(r['today'] as String),
         issueDate: DateTime.tryParse(r['issue_date'] as String? ?? ''),
         dueDate: DateTime.tryParse(r['due_date'] as String? ?? ''),
+        reminderAt: DateTime.tryParse(r['reminder_at'] as String? ?? ''),
         allowedActions: _actions(r['allowed_actions']),
         executors: directiveRows(r['executors'])
             .map((e) => DirectiveExecutor(
@@ -191,9 +195,12 @@ class ApiDirectiveRepository implements DirectiveRepository {
 
   @override
   Future<DirectivePage<DirectiveReport>> reports(String company, String id,
-      {String? cursor}) async {
-    final r = await _call(
-        'reports', company, {'directive': id, 'start': cursor ?? '0'});
+      {String? cursor, String? author}) async {
+    final r = await _call('reports', company, {
+      'directive': id,
+      'start': cursor ?? '0',
+      if (author != null) 'author': author
+    });
     return DirectivePage(
         items: directiveRows(r['items'])
             .map((p) => DirectiveReport(
@@ -202,6 +209,8 @@ class ApiDirectiveRepository implements DirectiveRepository {
                 body: p['body'] as String,
                 doneDate: DateTime.parse(p['done_date'] as String),
                 createdAt: p['created_at'] as String,
+                reviewedAt: p['reviewed_at'] as String?,
+                reviewer: p['reviewer'] == null ? null : _person(p['reviewer']),
                 status: directiveLabel(p['status'] as String),
                 allowedActions: _actions(p['allowed_actions']),
                 attachments:
@@ -242,6 +251,7 @@ class ApiDirectiveRepository implements DirectiveRepository {
         'body': draft.body,
         'priority': draft.priority,
         'due_date': draft.dueDate == null ? null : _date(draft.dueDate!),
+        'reminder_at': draft.reminderAt?.toIso8601String(),
         'executor_ids': draft.executorIds,
         'primary_id': draft.primaryId,
         'allow_transfer': draft.allowTransfer,
@@ -269,6 +279,7 @@ class ApiDirectiveRepository implements DirectiveRepository {
   @override
   Future<void> report(String company, String id,
       {required DateTime doneDate,
+      bool progress = false,
       required String body,
       required List<DirectiveAttachment> attachments,
       required String requestKey}) async {
@@ -277,6 +288,7 @@ class ApiDirectiveRepository implements DirectiveRepository {
       'request_key': requestKey,
       'payload': {
         'done_date': _date(doneDate),
+        'report_type': progress ? 'progress' : 'final',
         'body': body,
         'attachment_ids': attachments.map((f) => f.id).toList()
       }
@@ -319,6 +331,12 @@ class ApiDirectiveRepository implements DirectiveRepository {
   }
 
   @override
+  Future<void> start(String company, String id,
+      {required String requestKey}) async {
+    await _call('start', company, {'directive': id, 'request_key': requestKey});
+  }
+
+  @override
   Future<DirectiveAttachment> uploadAttachment(String company,
       {String? directiveId,
       required String filename,
@@ -347,6 +365,8 @@ String directiveLabel(String value) =>
     const {
       'Draft': 'پیش‌نویس',
       'Sent': 'ابلاغ‌شده',
+      'Issued': 'ابلاغ‌شده',
+      'Progress': 'گزارش پیشرفت',
       'Closed': 'مختومه',
       'Archived': 'بایگانی‌شده',
       'Pending': 'در انتظار انجام',

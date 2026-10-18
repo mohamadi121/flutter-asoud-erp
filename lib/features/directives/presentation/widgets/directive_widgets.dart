@@ -26,6 +26,18 @@ String directiveDate(DateTime? date) => date == null
 DateTime directiveDay(DateTime value) =>
     DateTime(value.year, value.month, value.day);
 
+Widget directiveFieldLabel(String label) => Text.rich(TextSpan(children: [
+      TextSpan(text: label.replaceFirst(RegExp(r'\s*\*$'), '')),
+      if (label.endsWith('*'))
+        const TextSpan(text: ' *', style: TextStyle(color: AsoudColors.danger)),
+    ]));
+
+Color directivePriorityColor(String priority) => switch (priority) {
+      'Urgent' => AsoudColors.danger,
+      'High' => AsoudColors.warning,
+      _ => AsoudColors.primary,
+    };
+
 class DirectiveSection extends StatelessWidget {
   const DirectiveSection(
       {super.key,
@@ -101,8 +113,10 @@ class DirectiveDateField extends StatelessWidget {
   @override
   Widget build(BuildContext context) => OutlinedButton.icon(
       icon: const Icon(Icons.calendar_month_outlined),
-      label: Text(
-          '$label: ${value == null ? 'انتخاب تاریخ' : directiveDate(value)}'),
+      label: Column(mainAxisSize: MainAxisSize.min, children: [
+        directiveFieldLabel(label),
+        Text(value == null ? 'انتخاب تاریخ' : directiveDate(value)),
+      ]),
       onPressed: onChanged == null
           ? null
           : () async {

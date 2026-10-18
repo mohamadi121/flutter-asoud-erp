@@ -81,8 +81,10 @@ class _CartablePageState extends State<CartablePage> {
           repository.getMyTasks(status: status),
       ]);
       final sent = await repository.getMyInstances();
-      final capped =
-          groups.any((group) => group.length >= 200) || sent.length >= 200;
+      final complete = repository is CompleteWorkflowLists &&
+          (repository as CompleteWorkflowLists).listsAreComplete;
+      final capped = !complete &&
+          (groups.any((group) => group.length >= 200) || sent.length >= 200);
       var partial = capped;
       var canIssue = false;
       var directives = <Map<String, dynamic>>[];

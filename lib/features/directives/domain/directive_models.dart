@@ -76,6 +76,7 @@ class DirectiveDraft {
       required this.body,
       required this.priority,
       this.dueDate,
+      this.reminderAt,
       required this.executorIds,
       this.primaryId,
       required this.allowTransfer,
@@ -83,6 +84,7 @@ class DirectiveDraft {
   final String? id, primaryId;
   final String subject, body, priority;
   final DateTime? dueDate;
+  final DateTime? reminderAt;
   final List<String> executorIds;
   final bool allowTransfer;
   final List<DirectiveAttachment> attachments;
@@ -110,7 +112,11 @@ class DirectiveReport {
       required this.allowedActions,
       required this.attachments,
       required this.version,
+      this.reviewedAt,
+      this.reviewer,
       this.reviewNote = ''});
+  final String? reviewedAt;
+  final DirectivePerson? reviewer;
   final String id, body, status, createdAt, reviewNote;
   final DirectivePerson author;
   final DateTime doneDate;
@@ -151,6 +157,7 @@ class DirectiveDetail {
       required this.transferChoices,
       this.issueDate,
       this.dueDate,
+      this.reminderAt,
       this.filePolicy});
   final String id,
       company,
@@ -164,7 +171,7 @@ class DirectiveDetail {
   final bool isDraft, allowTransfer, allReportsApproved;
   final DirectivePerson issuer;
   final DateTime today;
-  final DateTime? issueDate, dueDate;
+  final DateTime? issueDate, dueDate, reminderAt;
   final Set<String> allowedActions;
   final List<DirectiveExecutor> executors;
   final List<DirectiveAttachment> attachments;

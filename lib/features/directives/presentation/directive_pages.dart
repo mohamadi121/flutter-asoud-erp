@@ -30,7 +30,7 @@ class _DirectiveCreatePageState extends State<DirectiveCreatePage> {
   final people = <DirectivePerson>[];
   String? id, primary, error;
   String priority = 'Medium';
-  DateTime? due;
+  DateTime? due, reminder;
   bool allowTransfer = false, busy = false, uploading = false, loading = true;
   List<DirectiveAttachment> attachments = [];
   Future<void> Function()? pending;
@@ -67,6 +67,7 @@ class _DirectiveCreatePageState extends State<DirectiveCreatePage> {
           body.text = detail.body;
           priority = detail.priority;
           due = detail.dueDate;
+          reminder = detail.reminderAt;
           people
             ..clear()
             ..addAll(detail.executors.map((e) => e.person));
@@ -92,6 +93,7 @@ class _DirectiveCreatePageState extends State<DirectiveCreatePage> {
       body: body.text.trim(),
       priority: priority,
       dueDate: due,
+      reminderAt: reminder,
       executorIds: people.map((p) => p.id).toList(),
       primaryId: primary,
       allowTransfer: allowTransfer,
@@ -165,6 +167,8 @@ class _DirectiveCreatePageState extends State<DirectiveCreatePage> {
           backgroundColor: AsoudColors.background,
           appBar: const AsoudHeader(
               title: 'صدور دستور',
+              action:
+                  Icon(Icons.assignment_outlined, color: AsoudColors.primary),
               subtitle: 'پیش‌نویس · اطلاعات تا ابلاغ قابل تغییر است'),
           bottomNavigationBar: DirectiveBottomBar(
               company: widget.company,
@@ -194,8 +198,9 @@ class _DirectiveCreatePageState extends State<DirectiveCreatePage> {
                                 controller: subject,
                                 readOnly: locked,
                                 maxLength: 200,
-                                decoration: const InputDecoration(
-                                    labelText: 'موضوع دستور *'),
+                                decoration: InputDecoration(
+                                    label:
+                                        directiveFieldLabel('موضوع دستور *')),
                                 validator: (v) => (v ?? '').trim().isEmpty
                                     ? 'موضوع را وارد کنید.'
                                     : null),
@@ -205,8 +210,8 @@ class _DirectiveCreatePageState extends State<DirectiveCreatePage> {
                                 readOnly: locked,
                                 minLines: 4,
                                 maxLines: 9,
-                                decoration: const InputDecoration(
-                                    labelText: 'شرح دستور *'),
+                                decoration: InputDecoration(
+                                    label: directiveFieldLabel('شرح دستور *')),
                                 validator: (v) => (v ?? '').trim().isEmpty
                                     ? 'شرح را وارد کنید.'
                                     : null),
@@ -218,7 +223,11 @@ class _DirectiveCreatePageState extends State<DirectiveCreatePage> {
                                     const InputDecoration(labelText: 'اولویت'),
                                 items: options!.priorities
                                     .map((p) => DropdownMenuItem(
-                                        value: p.value, child: Text(p.label)))
+                                        value: p.value,
+                                        child: Text(p.label,
+                                            style: TextStyle(
+                                                color: directivePriorityColor(
+                                                    p.value)))))
                                     .toList(),
                                 onChanged: locked
                                     ? null
@@ -231,6 +240,52 @@ class _DirectiveCreatePageState extends State<DirectiveCreatePage> {
                                 onChanged: locked
                                     ? null
                                     : (v) => setState(() => due = v)),
+                            const SizedBox(height: 12),
+                            DirectiveDateField(
+                                label: 'روز یادآوری (اختیاری)',
+                                value: reminder,
+                                firstDate: options!.today,
+                                lastDate: due,
+                                onChanged: locked
+                                    ? null
+                                    : (day) async {
+                                        final time = await showTimePicker(
+                                            context: context,
+                                            initialTime: reminder == null
+                                                ? TimeOfDay.now()
+                                                : TimeOfDay.fromDateTime(
+                                                    reminder!),
+                                            helpText:
+                                                'ساعت یادآوری به وقت سرور سازمان',
+                                            builder: (context, child) =>
+                                                MediaQuery(
+                                                    data: MediaQuery.of(context)
+                                                        .copyWith(
+                                                            alwaysUse24HourFormat:
+                                                                true),
+                                                    child: child!));
+                                        if (time != null && mounted) {
+                                          setState(() => reminder = DateTime(
+                                              day.year,
+                                              day.month,
+                                              day.day,
+                                              time.hour,
+                                              time.minute));
+                                        }
+                                      }),
+                            if (reminder != null)
+                              ListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  title: Text(formatJalaliDateTime(reminder!)),
+                                  subtitle: const Text(
+                                      'به وقت سرور سازمان؛ ارسال پس از ابلاغ دستور'),
+                                  trailing: IconButton(
+                                      tooltip: 'حذف یادآوری',
+                                      onPressed: locked
+                                          ? null
+                                          : () =>
+                                              setState(() => reminder = null),
+                                      icon: const Icon(Icons.close))),
                           ])),
                       DirectiveSection(
                           title: 'مجریان و مسئول اصلی',
@@ -360,6 +415,7 @@ class _DirectiveDetailPageState extends State<DirectiveDetailPage> {
   List<DirectiveReport> reports = [];
   List<DirectiveHistory> history = [];
   String? reportCursor, historyCursor, error;
+  DirectivePerson? reportAuthor;
   bool loading = true, busy = false;
   int tab = 0;
   @override
@@ -371,7 +427,8 @@ class _DirectiveDetailPageState extends State<DirectiveDetailPage> {
   Future<void> _load() async {
     try {
       final d = await repo.getDirective(widget.company, widget.id);
-      final r = await repo.reports(widget.company, widget.id);
+      final r = await repo.reports(widget.company, widget.id,
+          author: reportAuthor?.id);
       final h = await repo.history(widget.company, widget.id);
       if (mounted) {
         setState(() {
@@ -400,8 +457,8 @@ class _DirectiveDetailPageState extends State<DirectiveDetailPage> {
     setState(() => busy = true);
     try {
       if (report) {
-        final page =
-            await repo.reports(widget.company, widget.id, cursor: reportCursor);
+        final page = await repo.reports(widget.company, widget.id,
+            cursor: reportCursor, author: reportAuthor?.id);
         if (mounted) {
           setState(() {
             reports.addAll(page.items);
@@ -435,6 +492,27 @@ class _DirectiveDetailPageState extends State<DirectiveDetailPage> {
             action: action,
             report: report)));
     if (mounted) await _load();
+  }
+
+  Future<void> _filterReports(DirectivePerson? person) async {
+    if (busy) return;
+    setState(() => busy = true);
+    try {
+      final page =
+          await repo.reports(widget.company, widget.id, author: person?.id);
+      if (!mounted) return;
+      setState(() {
+        reportAuthor = person;
+        reports = page.items;
+        reportCursor = page.nextCursor;
+        tab = 1;
+        error = null;
+      });
+    } catch (e) {
+      if (mounted) setState(() => error = directiveError(e));
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
   }
 
   Widget _line(String label, String value) => Padding(
@@ -502,7 +580,26 @@ class _DirectiveDetailPageState extends State<DirectiveDetailPage> {
                                             directiveDate(d.issueDate)),
                                         _line('مهلت انجام',
                                             directiveDate(d.dueDate)),
-                                        _line('اولویت', d.priorityLabel),
+                                        Align(
+                                            alignment: AlignmentDirectional
+                                                .centerStart,
+                                            child: Chip(
+                                                label: Text(d.priorityLabel),
+                                                avatar: Icon(
+                                                    Icons.flag_outlined,
+                                                    color:
+                                                        directivePriorityColor(
+                                                            d.priority)),
+                                                backgroundColor:
+                                                    directivePriorityColor(
+                                                            d.priority)
+                                                        .withValues(
+                                                            alpha: .08))),
+                                        if (d.reminderAt != null)
+                                          _line(
+                                              'یادآوری (به وقت سازمان)',
+                                              formatJalaliDateTime(
+                                                  d.reminderAt!)),
                                       ])),
                               DirectiveSection(
                                   title: 'پیوست‌های دستور',
@@ -524,11 +621,14 @@ class _DirectiveDetailPageState extends State<DirectiveDetailPage> {
                                     for (final e in d.executors)
                                       ListTile(
                                           contentPadding: EdgeInsets.zero,
+                                          onTap: busy
+                                              ? null
+                                              : () => _filterReports(e.person),
                                           title: Text(e.person.name),
                                           subtitle: Text(
                                               '${e.isPrimary ? 'مسئول اصلی' : 'مجری'} · ${e.status}${e.overdue ? ' · معوق' : ''}'),
                                           trailing: const Icon(
-                                              Icons.person_outline,
+                                              Icons.chevron_left,
                                               color: AsoudColors.cyan)),
                                   ])),
                               DirectiveSection(
@@ -555,12 +655,22 @@ class _DirectiveDetailPageState extends State<DirectiveDetailPage> {
                                               },
                                               child:
                                                   const Text('ادامه پیش‌نویس')),
+                                        if (d.can('start'))
+                                          OutlinedButton(
+                                              onPressed: () => _action('start'),
+                                              child: const Text('شروع کار')),
+                                        if (d.can('progress'))
+                                          OutlinedButton(
+                                              onPressed: () =>
+                                                  _action('progress'),
+                                              child:
+                                                  const Text('گزارش پیشرفت')),
                                         if (d.can('report'))
                                           FilledButton(
                                               onPressed: () =>
                                                   _action('report'),
                                               child: const Text(
-                                                  'ثبت و ارسال گزارش')),
+                                                  'ارسال گزارش نهایی')),
                                         if (d.currentUserId == d.issuer.id)
                                           OutlinedButton(
                                               onPressed: () =>
@@ -589,6 +699,15 @@ class _DirectiveDetailPageState extends State<DirectiveDetailPage> {
                                       ])),
                             ],
                             if (tab == 1) ...[
+                              if (reportAuthor != null)
+                                ListTile(
+                                    title:
+                                        Text('گزارش‌های ${reportAuthor!.name}'),
+                                    trailing: TextButton(
+                                        onPressed: busy
+                                            ? null
+                                            : () => _filterReports(null),
+                                        child: const Text('همه گزارش‌ها'))),
                               if (reports.isEmpty)
                                 const Text('گزارشی ثبت نشده است.'),
                               for (final r in reports)
@@ -608,6 +727,14 @@ class _DirectiveDetailPageState extends State<DirectiveDetailPage> {
                                                   r.createdAt)),
                                           _line('شرح اقدامات', r.body),
                                           _line('وضعیت', r.status),
+                                          if (r.reviewer != null)
+                                            _line('بررسی‌کننده',
+                                                r.reviewer!.name),
+                                          if (r.reviewedAt != null)
+                                            _line(
+                                                'زمان تصمیم',
+                                                formatJalaliDateTimeIso(
+                                                    r.reviewedAt!)),
                                           if (r.reviewNote.isNotEmpty)
                                             _line(
                                                 'نظر صادرکننده', r.reviewNote),
@@ -701,7 +828,9 @@ class _DirectiveActionPageState extends State<_DirectiveActionPage> {
   }
 
   String get title => switch (widget.action) {
-        'report' => 'ثبت و ارسال گزارش',
+        'report' => 'ارسال گزارش نهایی',
+        'progress' => 'ارسال گزارش پیشرفت',
+        'start' => 'شروع کار',
         'approve' => 'تأیید گزارش',
         'return' => 'درخواست اصلاح',
         'transfer' => 'انتقال مسئولیت',
@@ -713,9 +842,9 @@ class _DirectiveActionPageState extends State<_DirectiveActionPage> {
       final action = widget.action;
       final reason = text.text.trim();
       final d = widget.detail;
-      if ((['report', 'return', 'transfer'].contains(action) &&
+      if ((['report', 'progress', 'return', 'transfer'].contains(action) &&
               reason.isEmpty) ||
-          (action == 'report' && date == null) ||
+          (['report', 'progress'].contains(action) && date == null) ||
           (action == 'transfer' &&
               (target == null ||
                   (d.currentUserId == d.issuer.id && source == null)))) {
@@ -730,7 +859,9 @@ class _DirectiveActionPageState extends State<_DirectiveActionPage> {
           chosenSource = source,
           files = List<DirectiveAttachment>.of(attachments);
       pending = () => switch (action) {
-            'report' => repo.report(company, d.id,
+            'start' => repo.start(company, d.id, requestKey: key),
+            'report' || 'progress' => repo.report(company, d.id,
+                progress: action == 'progress',
                 doneDate: chosenDate!,
                 body: reason,
                 attachments: files,
@@ -790,7 +921,7 @@ class _DirectiveActionPageState extends State<_DirectiveActionPage> {
                   child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        if (widget.action == 'report')
+                        if (['report', 'progress'].contains(widget.action))
                           DirectiveDateField(
                               label: 'تاریخ انجام *',
                               value: date,
@@ -804,11 +935,13 @@ class _DirectiveActionPageState extends State<_DirectiveActionPage> {
                             DropdownButtonFormField<String>(
                                 initialValue: source,
                                 isExpanded: true,
-                                decoration: const InputDecoration(
-                                    labelText: 'انتقال مسئولیت از *'),
+                                decoration: InputDecoration(
+                                    label: directiveFieldLabel(
+                                        'انتقال مسئولیت از *')),
                                 items: d.executors
                                     .where((e) => [
                                           'در انتظار انجام',
+                                          'در حال انجام',
                                           'نیازمند اصلاح'
                                         ].contains(e.status))
                                     .map((e) => DropdownMenuItem(
@@ -833,23 +966,32 @@ class _DirectiveActionPageState extends State<_DirectiveActionPage> {
                           const Text(
                               'مسئولیت از مجری قبلی به گیرنده جدید منتقل می‌شود؛ سابقه حذف نمی‌شود.'),
                         ],
-                        if (widget.action != 'close')
+                        if (!['close', 'start'].contains(widget.action))
                           TextField(
                               controller: text,
                               readOnly: locked,
                               minLines: 4,
                               maxLines: 8,
                               decoration: InputDecoration(
-                                  labelText: widget.action == 'report'
+                                  label: directiveFieldLabel([
+                                'report',
+                                'progress'
+                              ].contains(widget.action)
                                       ? 'شرح اقدامات انجام‌شده *'
                                       : widget.action == 'approve'
                                           ? 'توضیح (اختیاری)'
-                                          : 'دلیل *')),
+                                          : 'دلیل *'))),
+                        if (widget.action == 'start')
+                          const Text(
+                              'شروع کار ثبت می‌شود؛ گزارش نهایی همچنان برای تأیید مدیر لازم است.'),
+                        if (widget.action == 'progress')
+                          const Text(
+                              'این گزارش برای اطلاع مدیر است و به معنی پایان کار یا درخواست تأیید نهایی نیست.'),
                         if (widget.action == 'close')
                           const Text(
                               'آیا تأیید نهایی و اختتام دستور را ثبت می‌کنید؟ این اقدام آن را خودکار بایگانی نمی‌کند.'),
                       ])),
-              if (widget.action == 'report')
+              if (['report', 'progress'].contains(widget.action))
                 DirectiveSection(
                     title: 'پیوست گزارش',
                     color: AsoudColors.warning,

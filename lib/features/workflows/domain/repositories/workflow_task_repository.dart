@@ -1,5 +1,10 @@
 import '../entities/workflow_task.dart';
 
+/// Optional capability for repositories that fetch every server page.
+abstract interface class CompleteWorkflowLists {
+  bool get listsAreComplete;
+}
+
 abstract interface class WorkflowTaskRepository {
   bool get isOfflinePreview;
   Future<List<WorkflowTask>> getMyTasks({String status = 'Open'});
