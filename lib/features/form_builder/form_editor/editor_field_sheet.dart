@@ -6,6 +6,7 @@ import '../../../core/utils/jalali_date.dart';
 import '../../../core/widgets/asoud_jalali_picker.dart';
 import '../form_repository.dart';
 import '../form_runtime.dart';
+import 'editor_field_types/choice_options.dart';
 import 'editor_field_types/date_time.dart';
 import 'editor_field_types/file.dart';
 import 'editor_field_types/formula.dart';
@@ -193,10 +194,6 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
         }
       }
     }
-    if (f['type'] == 'Table' && formMaps(f['columns']).isEmpty) {
-      setState(() => labelError = 'برای جدول حداقل یک مشخصه تعریف کنید');
-      return;
-    }
 
     Navigator.pop(context, f);
   }
@@ -254,6 +251,7 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
                 child: SheetBottomButtons(
                   isEditing: widget.isEditing,
                   isPreviewing: isPreview,
+                  isColumn: widget.column,
                   onPrimary: _handleSave,
                   onPreviewToggle: () {
                     setState(() => isPreview = !isPreview);
@@ -293,7 +291,7 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
                 ),
                 const SizedBox(height: 2),
                 const Text(
-                  'آسود ERP · تب پایه',
+                  'ASOUD ERP · فرم‌ساز',
                   style: TextStyle(fontSize: 10, color: Color(0xFF5B6478)),
                 ),
               ],
@@ -810,28 +808,15 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
 
   Widget _buildSelectSettings({required bool multi}) {
     final opts = choiceOptions(f);
-    final ctrl = TextEditingController(text: opts.map((o) => o['label']).join('\n'));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        TextFormField(
-          controller: ctrl,
-          maxLines: 4,
-          decoration: const InputDecoration(
-            labelText: 'گزینه‌ها (هر خط یک گزینه)',
-            hintText: 'گزینه ۱\nگزینه ۲',
-            border: OutlineInputBorder(),
-          ),
-          onChanged: (v) {
-            f['options'] = updateChoiceOptions(f, v);
-          },
+        ChoiceOptionsListEditor(
+          field: f,
+          onChanged: () => setState(() {}),
         ),
         const SizedBox(height: 8),
-        Text(
-          'تعداد گزینه‌ها: ${toPersianDigits(opts.length)}',
-          style: const TextStyle(fontSize: 11, color: Color(0xFF5B6478)),
-        ),
         if (multi) ...[
           editorFieldText(label: 'حداقل تعداد انتخاب', value: f['min_selected'] ?? 0, numeric: true, onChanged: (v) => set('min_selected', v)),
           editorFieldText(label: 'حداکثر تعداد انتخاب', value: f['max_selected'], numeric: true, onChanged: (v) => set('max_selected', v)),
@@ -849,6 +834,9 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
   Widget _buildFormulaBasicSettings() {
     final outType = f['output_type'] ?? 'Integer';
     final hasFormula = f['formula'] != null && (formMap(f['formula'])['op'] != null);
+    final existingFormulaFields = schemaFields(widget.schema)
+        .where((field) => field['type'] == 'Formula')
+        .toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -863,32 +851,120 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
           (v) => set('output_type', v),
         ),
         const SizedBox(height: 10),
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF8FAFD),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: const Color(0xFFE2E8F2)),
+        OutlinedButton.icon(
+          onPressed: () {
+            final sections = formMaps(widget.schema['sections']);
+            if (sections.isNotEmpty) {
+              final targetSec = sections.first;
+              final fields = formMaps(targetSec['fields']);
+              final newKey = 'f_${newFormId()}';
+              final sampleField = {
+                'key': newKey,
+                'type': 'Formula',
+                'label': (f['label']?.toString().trim().isNotEmpty == true)
+                    ? f['label']
+                    : 'فیلد محاسباتی نمونه',
+                'output_type': outType,
+              };
+              fields.add(sampleField);
+              targetSec['fields'] = fields;
+              setState(() {});
+            }
+          },
+          icon: const Icon(Icons.add, size: 18, color: Color(0xFF1876D2)),
+          label: const Text(
+            '+ ایجاد فیلد در فرم نمونه',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF1876D2),
+            ),
           ),
-          child: Row(
-            children: [
-              Icon(
-                hasFormula ? Icons.check_circle : Icons.info_outline,
-                color: hasFormula ? const Color(0xFF0B6B3A) : const Color(0xFF7C24E8),
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  hasFormula
-                      ? 'وضعیت: فرمول تعریف‌شده در تب پیشرفته'
-                      : 'وضعیت: بدون فرمول (تنظیم در تب پیشرفته)',
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF5B6478)),
-                ),
-              ),
-            ],
+          style: OutlinedButton.styleFrom(
+            side: const BorderSide(color: Color(0xFFBCD8FF)),
+            backgroundColor: const Color(0xFFF8FAFD),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            padding: const EdgeInsets.symmetric(vertical: 12),
           ),
         ),
+        const SizedBox(height: 10),
+        if (existingFormulaFields.isNotEmpty) ...[
+          const Text(
+            'فیلدهای محاسباتی در این فرم:',
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF5B6478)),
+          ),
+          const SizedBox(height: 6),
+          for (final ff in existingFormulaFields)
+            Container(
+              margin: const EdgeInsets.only(bottom: 6),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFD),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFE2E8F2)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF2EAFE),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.calculate_outlined, color: Color(0xFF7C24E8), size: 18),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${ff['label'] ?? ff['key']}',
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF122044)),
+                        ),
+                        Text(
+                          'خروجی ${ff['output_type'] == 'Money' ? 'مبلغ' : 'عدد'} · ${ff['formula'] != null ? 'فرمول تعریف‌شده' : 'بدون فرمول'}',
+                          style: const TextStyle(fontSize: 11, color: Color(0xFF5B6478)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(
+                    Icons.check_circle_outline,
+                    color: Color(0xFF0B6B3A),
+                    size: 20,
+                  ),
+                ],
+              ),
+            ),
+        ] else ...[
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFD),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFE2E8F2)),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  hasFormula ? Icons.check_circle : Icons.info_outline,
+                  color: hasFormula ? const Color(0xFF0B6B3A) : const Color(0xFF7C24E8),
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    hasFormula
+                        ? 'وضعیت: فرمول تعریف‌شده در تب پیشرفته'
+                        : 'وضعیت: بدون فرمول (تنظیم در تب پیشرفته)',
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF5B6478)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -977,13 +1053,6 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
           value: f['required'] == true,
           onChanged: (v) => set('required', v),
         ),
-        ...buildFileConfig(f, set),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: const Text('حذف فایل پیش از ثبت مجاز باشد', style: TextStyle(fontSize: 13)),
-          value: f['allow_delete'] != false,
-          onChanged: (v) => set('allow_delete', v),
-        ),
       ],
     );
   }
@@ -1066,6 +1135,13 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
             update: (fn) => setState(fn),
           ),
           ...buildFileConfig(f, set),
+          if (f['type'] == 'File')
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('حذف فایل پیش از ثبت مجاز باشد', style: TextStyle(fontSize: 13)),
+              value: f['allow_delete'] != false,
+              onChanged: (v) => set('allow_delete', v),
+            ),
           ...buildTableConfig(
             context: context,
             f: f,

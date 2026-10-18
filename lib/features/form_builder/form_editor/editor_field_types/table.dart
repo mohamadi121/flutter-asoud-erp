@@ -34,6 +34,29 @@ Widget buildTableAdvancedTab({
   final isVertical = f['orientation'] == 'vertical';
   final currentTableKey = '${f['key']}';
 
+  bool hasUnsavedChanges() {
+    final original = schemaFields(schema)
+        .firstWhere((field) => field['key'] == currentTableKey, orElse: () => const {});
+    if (original.isEmpty) {
+      return formMaps(f['columns']).isNotEmpty;
+    }
+    final origCols = formMaps(original['columns']);
+    final curCols = formMaps(f['columns']);
+    if (origCols.length != curCols.length) return true;
+    for (var i = 0; i < origCols.length; i++) {
+      if (origCols[i]['key'] != curCols[i]['key'] ||
+          origCols[i]['label'] != curCols[i]['label'] ||
+          origCols[i]['type'] != curCols[i]['type']) {
+        return true;
+      }
+    }
+    if ((original['orientation'] ?? 'horizontal') != (f['orientation'] ?? 'horizontal')) {
+      return true;
+    }
+    if (original['label'] != f['label']) return true;
+    return false;
+  }
+
   return Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
@@ -140,9 +163,18 @@ Widget buildTableAdvancedTab({
                         ),
                       ),
                   ],
-                  onChanged: (selectedKey) {
+                  onChanged: (selectedKey) async {
                     if (selectedKey == null || selectedKey == currentTableKey) {
                       return;
+                    }
+                    if (hasUnsavedChanges()) {
+                      final confirmed = await formConfirm(
+                        context,
+                        'تغییرات ذخیره‌نشده رها شوند؟',
+                      );
+                      if (!confirmed || !context.mounted) {
+                        return;
+                      }
                     }
                     final target =
                         allTables.firstWhere((t) => t['key'] == selectedKey);
