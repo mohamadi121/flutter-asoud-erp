@@ -17,7 +17,10 @@ Widget? buildReadonlyDisplayInput({
         : ['Boolean', 'Checkbox'].contains(type)
             ? (value == true ? 'بله' : 'خیر')
             : '${value ?? ''}';
-    return ListTile(title: Text(label), subtitle: Text(text));
+    return Material(
+      color: Colors.transparent,
+      child: ListTile(title: Text(label), subtitle: Text(text)),
+    );
   }
   return null;
 }

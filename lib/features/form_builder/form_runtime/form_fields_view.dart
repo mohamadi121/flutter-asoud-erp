@@ -116,22 +116,42 @@ class FormFieldsView extends StatelessWidget {
     final computed = snapshot ? values : evaluatedValues(schema, values);
     final sections = formMaps(schema['sections']);
 
-    Widget sectionView(FormMap section) => Card(
-          child: ExpansionTile(
-            key: ValueKey(section['id']),
-            initiallyExpanded: true,
-            title: Text('${section['title'] ?? ''}'),
-            childrenPadding: const EdgeInsets.all(12),
-            children: [
-              for (final field in formMaps(section['fields']))
-                if (formFlag(field, schema, computed, 'visible'))
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _input(context, field, computed),
+    Widget sectionView(FormMap section) {
+      final title = '${section['title'] ?? ''}'.trim();
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (title.isNotEmpty) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEBF3FF),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    color: Color(0xFF1876D2),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
                   ),
+                ),
+              ),
+              const SizedBox(height: 12),
             ],
-          ),
-        );
+            for (final field in formMaps(section['fields']))
+              if (formFlag(field, schema, computed, 'visible'))
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _input(context, field, computed),
+                ),
+          ],
+        ),
+      );
+    }
 
     if (schema['layout'] == 'tabs' && sections.length > 1) {
       return DefaultTabController(
@@ -193,6 +213,7 @@ class FormFieldsView extends StatelessWidget {
     }
 
     final tableWidget = buildTableField(
+      context: context,
       f: f,
       value: v,
       label: label,

@@ -8,6 +8,7 @@ import 'package:asoud_erp/core/network/frappe_client.dart';
 import 'package:asoud_erp/core/theme/asoud_theme.dart';
 import 'package:asoud_erp/features/form_builder/create_form_page.dart';
 import 'package:asoud_erp/features/form_builder/form_repository.dart';
+import 'package:asoud_erp/features/form_builder/form_runtime/form_preview_page.dart';
 import 'package:asoud_erp/features/form_builder/forms_page.dart';
 
 class _GoldenMockClient extends Fake implements FrappeApiClient {
@@ -202,6 +203,111 @@ void main() {
     await expectLater(
       find.byType(MaterialApp),
       matchesGoldenFile('goldens/create_form_template_picker_360x800.png'),
+    );
+  }, tags: 'golden');
+
+  testWidgets('form preview page 360x800 golden', (tester) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final client = _GoldenMockClient();
+    final repo = FormRepository(client, 'شرکت نمونه آسود');
+
+    final schema = <String, dynamic>{
+      'title': 'درخواست خرید کالا',
+      'module': 'پرسنل',
+      'sections': [
+        {
+          'id': 'sec_main',
+          'title': 'اطلاعات اصلی',
+          'fields': [
+            {
+              'key': 'title',
+              'label': 'موضوع درخواست',
+              'type': 'Text',
+              'required': true,
+              'default': 'موضوع درخواست',
+            },
+            {
+              'key': 'date',
+              'label': 'تاریخ درخواست',
+              'type': 'Date',
+              'required': true,
+            },
+          ],
+        },
+        {
+          'id': 'sec_items',
+          'title': 'اطلاعات اقلام',
+          'fields': [
+            {
+              'key': 'items',
+              'label': 'اقلام درخواست خرید',
+              'type': 'Table',
+              'columns': [
+                {
+                  'key': 'name',
+                  'label': 'نام',
+                  'type': 'Text',
+                },
+                {
+                  'key': 'qty',
+                  'label': 'تعداد',
+                  'type': 'Integer',
+                },
+                {
+                  'key': 'rate',
+                  'label': 'قیمت واحد',
+                  'type': 'Money',
+                },
+                {
+                  'key': 'amount',
+                  'label': 'مبلغ ردیف',
+                  'type': 'Formula',
+                  'formula': {
+                    'op': 'multiply',
+                    'inputs': ['qty', 'rate'],
+                  },
+                },
+              ],
+            },
+            {
+              'key': 'notes',
+              'label': 'توضیحات تکمیلی',
+              'type': 'LongText',
+            },
+          ],
+        },
+      ],
+    };
+
+    final initialValues = <String, dynamic>{
+      'title': 'موضوع درخواست',
+      'items': [
+        {
+          'name': 'نام',
+          'qty': '0',
+          'rate': '0',
+          'amount': '0',
+        },
+      ],
+    };
+
+    await tester.pumpWidget(_wrapGolden(
+      FormPreviewPage(
+        schema: schema,
+        repository: repo,
+        initialValues: initialValues,
+      ),
+      client,
+    ));
+    await tester.pumpAndSettle();
+
+    await expectLater(
+      find.byType(MaterialApp),
+      matchesGoldenFile('goldens/form_preview_360x800.png'),
     );
   }, tags: 'golden');
 }

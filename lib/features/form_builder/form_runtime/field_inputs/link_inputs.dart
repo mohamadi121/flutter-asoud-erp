@@ -17,28 +17,31 @@ Widget? buildLinkInput({
     return null;
   }
 
-  return ListTile(
-    title: Text(label),
-    subtitle: Text('${value ?? 'انتخاب از اطلاعات مجاز'}'),
-    trailing: const Icon(Icons.search),
-    onTap: () async {
-      final result = await showModalBottomSheet<String>(
-        context: context,
-        isScrollControlled: true,
-        showDragHandle: true,
-        useSafeArea: true,
-        builder: (_) => LinkPicker(
-          repository: repository,
-          source: '${f['source']}',
-          formName: formName,
-          filterField: formMap(f['link_filter'])['field'] as String?,
-          filterValue: computed[formMap(f['link_filter'])['value_field']],
-        ),
-      );
-      if (result != null) {
-        onChanged(result);
-      }
-    },
+  return Material(
+    color: Colors.transparent,
+    child: ListTile(
+      title: Text(label),
+      subtitle: Text('${value ?? 'انتخاب از اطلاعات مجاز'}'),
+      trailing: const Icon(Icons.search),
+      onTap: () async {
+        final result = await showModalBottomSheet<String>(
+          context: context,
+          isScrollControlled: true,
+          showDragHandle: true,
+          useSafeArea: true,
+          builder: (_) => LinkPicker(
+            repository: repository,
+            source: '${f['source']}',
+            formName: formName,
+            filterField: formMap(f['link_filter'])['field'] as String?,
+            filterValue: computed[formMap(f['link_filter'])['value_field']],
+          ),
+        );
+        if (result != null) {
+          onChanged(result);
+        }
+      },
+    ),
   );
 }
 
