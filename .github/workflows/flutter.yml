@@ -45,3 +45,27 @@ jobs:
           path: build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 30
+
+  # The form builder screens are locked designs: their 360x800 RTL baselines
+  # (Vazirmatn and Material icons are loaded from the repository) are checked
+  # here. Reported, not blocking, until the baselines have proven stable on the
+  # hosted runner; failures upload the diff images.
+  form-builder-goldens:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter test test/form_builder_golden_test.dart test/form_builder_golden_s7_test.dart test/form_builder_golden_s10_test.dart
+      - name: Upload golden diffs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: form-builder-golden-failures
+          path: test/failures
+          if-no-files-found: ignore
+          retention-days: 7
