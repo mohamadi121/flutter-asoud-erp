@@ -8,6 +8,7 @@ import '../../core/offline/offline_failure.dart';
 import '../../core/widgets/asoud_ui.dart';
 import '../../core/utils/jalali_date.dart';
 import '../request_types/presentation/pages/forms_management_page.dart';
+import 'create_form_page.dart';
 import 'form_editor.dart';
 import 'form_repository.dart';
 import 'form_runtime.dart';
@@ -82,64 +83,105 @@ class _VersionedFormsPageState extends State<VersionedFormsPage> {
     }
   }
 
-  Future<void> create() async {
-    var type = kind, ready = false;
-    final choice = await formSheet<bool>(
-      context,
-      'ایجاد فرم جدید',
-      (sheet, update) => Column(
-        children: [
-          formSelect(
-              'نوع فرم',
-              type,
-              const {
-                'Request': 'درخواست',
-                'Document': 'سند',
-              },
-              (v) => update(() => type = v)),
-          SwitchListTile(
-            title: const Text('استفاده از قالب آماده آسود'),
-            subtitle: Text(
-              ready
-                  ? 'ساختار اولیه قابل ویرایش بارگذاری می‌شود.'
-                  : 'ساخت فرم از صفر',
+  Future<String?> _pickModuleModal() async {
+    String? selected;
+    return await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      useSafeArea: true,
+      builder: (sheetCtx) => StatefulBuilder(
+        builder: (sheetCtx, setSheetState) => Directionality(
+          textDirection: TextDirection.rtl,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'انتخاب ماژول',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1E293B),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'برای ایجاد فرم جدید، ابتدا ماژول مربوطه را مشخص کنید.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF64748B),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                for (final entry in formModules.entries) ...[
+                  InkWell(
+                    onTap: () => setSheetState(() => selected = entry.key),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Row(
+                        children: [
+                          Icon(
+                            selected == entry.key
+                                ? Icons.radio_button_checked
+                                : Icons.radio_button_off,
+                            color: selected == entry.key
+                                ? const Color(0xFF1E88E5)
+                                : Colors.grey,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 10),
+                          Text(entry.value,
+                              style: const TextStyle(fontSize: 13)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 16),
+                SizedBox(
+                  height: 44,
+                  child: FilledButton(
+                    onPressed: selected == null
+                        ? null
+                        : () => Navigator.pop(sheetCtx, selected),
+                    child: const Text('ادامه'),
+                  ),
+                ),
+              ],
             ),
-            value: ready,
-            onChanged: (v) => update(() => ready = v),
           ),
-          FilledButton(
-            onPressed: () => Navigator.pop(sheet, true),
-            child: const Text('ادامه'),
-          ),
-        ],
+        ),
       ),
     );
-    if (choice != true || !mounted) {
-      return;
-    }
-    var schema = blankSchema(type);
-    if (ready) {
-      final templates = formPresets(type);
-      final selected = await formSheet<FormMap>(
-        context,
-        'قالب‌های آماده',
-        (sheet, update) => Column(
-          children: [
-            for (final template in templates)
-              ListTile(
-                title: Text('${template['title']}'),
-                subtitle: Text(formModules[template['module']] ?? ''),
-                onTap: () => Navigator.pop(sheet, template),
-              ),
-          ],
-        ),
-      );
-      if (selected == null || !mounted) {
+  }
+
+  Future<void> create() async {
+    String targetModule = module;
+    if (targetModule.isEmpty) {
+      final chosen = await _pickModuleModal();
+      if (chosen == null || !mounted) {
         return;
       }
-      schema = selected;
+      targetModule = chosen;
     }
-    await editor({'schema': schema, 'client_id': newFormId()});
+
+    if (!mounted) return;
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => CreateFormPage(
+          repository: repository,
+          selectedModule: targetModule,
+          initialKind: kind,
+        ),
+      ),
+    );
+    if (mounted) {
+      reload();
+    }
   }
 
   Future<void> action(String action, FormMap row) async {
