@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/utils/jalali_date.dart';
 import '../../../../core/widgets/asoud_jalali_picker.dart';
+import '../../form_editor/field_sheet/live_clock_time_picker.dart';
 import '../../form_repository.dart';
 import '../rules_engine.dart';
 
@@ -41,25 +42,41 @@ Widget? buildDateTimeInput({
           }
         }
         if (type != 'Date') {
-          final time = await showTimePicker(
+          final timeStr = await showModalBottomSheet<String>(
             context: context,
-            initialTime: TimeOfDay.now(),
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (ctx) => Directionality(
+              textDirection: TextDirection.rtl,
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: LiveClockTimePicker(
+                    initialTime: type == 'Time' && value != null ? '$value' : null,
+                    minuteStep: (f['minute_step'] as int?) ?? 5,
+                    onConfirm: (t) => Navigator.of(ctx).pop(t),
+                    onCancel: () => Navigator.of(ctx).pop(),
+                  ),
+                ),
+              ),
+            ),
           );
-          if (time == null) {
+          if (timeStr == null) {
             return;
           }
           if (type == 'Time') {
-            onChanged(
-              '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}',
-            );
+            onChanged(timeStr);
             return;
           }
+          final parts = timeStr.split(':');
+          final hour = int.tryParse(toLatinDigits(parts[0])) ?? 0;
+          final minute = int.tryParse(toLatinDigits(parts[1])) ?? 0;
           picked = DateTime(
             picked!.year,
             picked.month,
             picked.day,
-            time.hour,
-            time.minute,
+            hour,
+            minute,
           );
         }
         onChanged(
