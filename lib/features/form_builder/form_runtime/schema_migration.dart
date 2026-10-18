@@ -75,7 +75,7 @@ FormMap migrateFormSchema(FormMap source, {FormMap? values}) {
           final value = currentValues[field['key']];
           currentValues[field['key']] = value is List
               ? value.map((item) => labels['$item'] ?? item).toList()
-              : labels['$value'] ?? value;
+              : (value != null ? (labels['$value'] ?? value) : null);
         }
       }
       if (field['type'] == 'Table') {
@@ -83,12 +83,24 @@ FormMap migrateFormSchema(FormMap source, {FormMap? values}) {
         field['columns'] = columns;
         final rows = currentValues?[field['key']];
         if (rows is List) {
-          for (final row in rows.whereType<Map>()) {
-            final migratedRow = formMap(row);
-            migrateFields(columns, fieldPath, migratedRow);
-            row
-              ..clear()
-              ..addAll(migratedRow);
+          if (rows.isEmpty) {
+            migrateFields(columns, fieldPath, null);
+          } else {
+            for (var rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+              final rawRow = rows[rowIndex];
+              if (rawRow is! Map) continue;
+              final migratedRow = formMap(rawRow);
+              migrateFields(columns, fieldPath, migratedRow);
+              try {
+                rows[rowIndex] = migratedRow;
+              } catch (_) {}
+              try {
+                rawRow.clear();
+                for (final entry in migratedRow.entries) {
+                  rawRow[entry.key] = entry.value;
+                }
+              } catch (_) {}
+            }
           }
         } else {
           migrateFields(columns, fieldPath, null);
@@ -113,9 +125,12 @@ FormMap migrateFormSchema(FormMap source, {FormMap? values}) {
       final optionIds = labelsByField['${condition['field']}'];
       if (optionIds != null) {
         final value = condition['value'];
-        condition['value'] = value is List
-            ? value.map((item) => optionIds['$item'] ?? item).toList()
-            : optionIds['$value'] ?? value;
+        if (value is List) {
+          condition['value'] =
+              value.map((item) => optionIds['$item'] ?? item).toList();
+        } else if (value != null) {
+          condition['value'] = optionIds['$value'] ?? value;
+        }
       }
     }
   }
