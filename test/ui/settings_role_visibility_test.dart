@@ -30,7 +30,6 @@ Widget settingsApp(List<String> roles) => RepositoryProvider<FrappeApiClient>.va
 
 const adminTiles = [
   'مدیریت کاربران',
-  'ساختار سازمانی',
   'ماژول‌ها',
   'انواع درخواست',
   'مدیریت نقش‌ها',
@@ -38,7 +37,7 @@ const adminTiles = [
 ];
 
 void main() {
-  testWidgets('hr-manager sees no admin tile and keeps the HR tile at 390 px',
+  testWidgets('hr-manager sees organization and HR but no admin tile at 390 px',
       (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -49,6 +48,7 @@ void main() {
           reason: 'HR Manager must not see the admin tile «$tile»');
     }
     expect(find.text('منابع انسانی'), findsOneWidget);
+    expect(find.text('ساختار سازمانی'), findsOneWidget);
     expect(find.text('ثبت درخواست‌ها'), findsOneWidget);
     expect(find.text('کارتابل'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -70,6 +70,19 @@ void main() {
           reason: 'Administrator must see the admin tile «$tile»');
     }
     expect(find.text('منابع انسانی'), findsOneWidget);
+    expect(find.text('ساختار سازمانی'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('hr-user cannot see organization management or admin tiles',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(settingsApp(const ['HR User', 'Employee']));
+    await tester.pumpAndSettle();
+    for (final tile in [...adminTiles, 'ساختار سازمانی']) {
+      expect(find.text(tile), findsNothing);
+    }
     expect(tester.takeException(), isNull);
   });
 }

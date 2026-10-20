@@ -142,7 +142,7 @@ void main() {
     }
   });
 
-  testWidgets('hr-manager sees no administrative settings tile',
+  testWidgets('hr-manager sees organization but no administrative settings tile',
       (tester) async {
     await tester.binding.setSurfaceSize(const Size(430, 1400));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -150,7 +150,6 @@ void main() {
     await tester.pumpAndSettle();
     for (final tile in [
       'مدیریت کاربران',
-      'ساختار سازمانی',
       'ماژول‌ها',
       'انواع درخواست',
       'مدیریت نقش‌ها',
@@ -160,6 +159,7 @@ void main() {
     }
     for (final tile in [
       'دفترها',
+      'ساختار سازمانی',
       'منابع انسانی',
       'ثبت درخواست‌ها',
       'کارتابل'
