@@ -330,11 +330,11 @@ void main() {
   });
 
   testWidgets(
-      'HR Manager browses the organization chart without create or import',
+      'HR User browses the organization chart without create or import',
       (tester) async {
     final client = _RealBackendShapeClient(
-      userId: 'hr-manager@asoud-demo.local',
-      userRoles: const ['HR Manager', 'Employee'],
+      userId: 'hr-user@asoud-demo.local',
+      userRoles: const ['HR User', 'Employee'],
     );
     final store = FakeLocalRecordStore();
     final repository = OrganizationRepository(client, local: store);

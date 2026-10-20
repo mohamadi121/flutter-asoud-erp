@@ -66,6 +66,13 @@ class _OrganizationChartState extends State<_OrganizationChart> {
                   padding: const EdgeInsets.fromLTRB(16, 10, 16, 30),
                   children: [
                     const _OrganizationStatus(),
+                    OutlinedButton.icon(
+                        onPressed: () => _openOrganizationPage<void>(
+                            context,
+                            _OrganizationVisualReport(
+                                canManage: widget.canManage)),
+                        icon: const Icon(Icons.account_tree_outlined),
+                        label: const Text('گزارش تصویری چارت')),
                     AsoudSegmentedControl<int>(
                       value: _view,
                       options: const [
@@ -136,9 +143,9 @@ class _OrganizationChartState extends State<_OrganizationChart> {
                                   const TextStyle(fontWeight: FontWeight.w800)),
                           subtitle: Text([
                             if (row.department.isNotEmpty) row.department,
-                            row.employee.isEmpty
+                            row.activeEmployees.isEmpty
                                 ? 'جایگاه خالی'
-                                : 'پرسنل: ${row.employee}'
+                                : 'پرسنل: ${row.activeEmployees.length}'
                           ].join(' · ')),
                           trailing: SizedBox(
                               width: 104,
@@ -152,7 +159,7 @@ class _OrganizationChartState extends State<_OrganizationChart> {
                                             fontSize: 16,
                                             fontWeight: FontWeight.w700))),
                                 if (widget.canManage)
-                                      _OrganizationMenu(position: row),
+                                  _OrganizationMenu(position: row),
                               ])),
                           onTap: () => setState(() {
                             _path.add(row.code);
@@ -160,7 +167,8 @@ class _OrganizationChartState extends State<_OrganizationChart> {
                           }),
                         )),
                     ] else
-                      _OrganizationTree(rows: rows,
+                      _OrganizationTree(
+                          rows: rows,
                           query: _query,
                           canManage: widget.canManage,
                           onClearSearch: () => setState(() => _query = '')),
@@ -353,7 +361,7 @@ class _OrganizationMenu extends StatelessWidget {
                 return;
               }
               if (action == 'add' || action == 'edit') {
-                await _openOrganizationPage<bool>(
+                await _orgSheet<bool>(
                     context,
                     _OrganizationPositionForm(
                         item: action == 'edit' ? position : null,
@@ -363,7 +371,8 @@ class _OrganizationMenu extends StatelessWidget {
               final cubit = context.read<OrganizationCubit>();
               if (cubit.state.snapshot.rows
                       .any((row) => row.parent == position.code) ||
-                  position.employee.isNotEmpty) {
+                  position.activeEmployees.isNotEmpty ||
+                  position.history.isNotEmpty) {
                 _orgMessage(context,
                     'ابتدا زیرمجموعه‌ها و انتصاب پرسنل را تغییر دهید.');
                 return;
@@ -386,7 +395,9 @@ class _OrganizationMenu extends StatelessWidget {
                 final rows = cubit.state.snapshot.rows;
                 if (rows.any((row) =>
                     row.parent == position.code ||
-                    (row.code == position.code && row.employee.isNotEmpty))) {
+                    (row.code == position.code &&
+                        (row.activeEmployees.isNotEmpty ||
+                            row.history.isNotEmpty)))) {
                   return;
                 }
                 await cubit.save(
@@ -418,7 +429,7 @@ class _OrganizationMenu extends StatelessWidget {
                 const Padding(
                     padding: EdgeInsets.all(16),
                     child: Text(
-                        'بالادست جدید را انتخاب کنید. مدیر مستقیم پرسنل این جایگاه نیز مطابق انتصاب بالادست تغییر می‌کند.')),
+                        'بالادست جدید را انتخاب کنید. مدیر مستقیم پرسنل تغییر نمی‌کند.')),
                 SimpleDialogOption(
                     onPressed: () => Navigator.pop(context, ''),
                     child: const Text('جایگاه اصلی؛ بدون بالادست')),
@@ -436,14 +447,8 @@ class _OrganizationMenu extends StatelessWidget {
     final current = matches.first;
     if (current.parent == parent) return;
     final candidate = latest
-        .map((row) => row.code != current.code
-            ? row
-            : OrgPosition(
-                code: row.code,
-                title: row.title,
-                parent: parent,
-                department: row.department,
-                employee: row.employee))
+        .map((row) =>
+            row.code != current.code ? row : row.copyWith(parent: parent))
         .toList();
     try {
       validateOrganization(candidate);

@@ -57,6 +57,9 @@ class _OrgClient extends Fake implements FrappeApiClient {
     if (method == 'asoud_erp.api.v1.organization.list_employees') {
       return _envelope({'employees': <dynamic>[]});
     }
+    if (method == 'asoud_erp.api.v1.organization.list_units') {
+      return _envelope({'units': <dynamic>[], 'can_manage': true});
+    }
     throw StateError('Unexpected organization read: $method');
   }
 
@@ -104,6 +107,36 @@ Future<void> _openCreateForm(WidgetTester tester, _OrgClient client) async {
 }
 
 void main() {
+  for (final width in [320.0, 390.0]) {
+    testWidgets('organization management and visual report fit at $width',
+        (tester) async {
+      final client = _OrgClient();
+      await _openCreateForm(tester, client);
+      await tester.tap(find.text('انصراف'));
+      await tester.pumpAndSettle();
+      tester.view.physicalSize = Size(width, 800);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('مشاهده و تکمیل ساختار سازمانی'));
+      await tester.pumpAndSettle();
+      expect(find.text('واحدها'), findsOneWidget);
+      expect(find.text('جایگاه‌ها'), findsOneWidget);
+      await tester.tap(find.text('واحدها'));
+      await tester.pumpAndSettle();
+      expect(find.text('هنوز واحدی تعریف نشده است.'), findsOneWidget);
+      await tester.tap(find.text('جایگاه‌ها'));
+      await tester.pumpAndSettle();
+      expect(find.text('فهرست جایگاه‌های سازمانی'), findsOneWidget);
+      await tester.tap(find.text('چارت سازمانی'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('گزارش تصویری چارت'));
+      await tester.pumpAndSettle();
+      expect(find.text('نمای فهرستی'), findsOneWidget);
+      expect(find.text('ورود از اکسل'), findsOneWidget);
+      expect(find.text('ایجاد دستی'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('the position form uses AppTextField and AppSelectField',
       (tester) async {
     await _openCreateForm(tester, _OrgClient());
@@ -111,8 +144,9 @@ void main() {
     expect(find.text('عنوان جایگاه *'), findsOneWidget);
     expect(find.text('کد جایگاه *'), findsOneWidget);
     expect(find.text('واحد سازمانی'), findsOneWidget);
-    expect(find.byType(AppTextField), findsNWidgets(3));
-    expect(find.byType(AppSelectField), findsOneWidget);
+    expect(find.byType(AppTextField), findsNWidgets(4));
+    expect(find.byType(AppSelectField), findsNWidgets(3));
+    expect(find.text('ظرفیت *'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -131,7 +165,7 @@ void main() {
     await tester.enterText(
         find.widgetWithText(TextFormField, 'کد جایگاه *'), 'FIN');
 
-    await tester.tap(find.byType(AppSelectField));
+    await tester.tap(find.byKey(const ValueKey('org-employee-')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('جایگاه خالی').last);
     await tester.pumpAndSettle();
@@ -143,8 +177,12 @@ void main() {
     final rows = (client.lastSavePayload!['rows'] as List)
         .map((e) => Map<String, dynamic>.from(e as Map))
         .toList();
-    expect(rows.any((row) => row['code'] == 'FIN' && row['title'] == 'مدیر مالی'),
+    expect(
+        rows.any((row) => row['code'] == 'FIN' && row['title'] == 'مدیر مالی'),
         isTrue);
+    final created = rows.singleWhere((r) => r['code'] == 'FIN');
+    expect(created['occupants'], isEmpty);
+    expect(created['capacity'], 1);
     expect(tester.takeException(), isNull);
   });
 }

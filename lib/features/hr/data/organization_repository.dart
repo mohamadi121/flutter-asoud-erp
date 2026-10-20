@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 import '../../../core/network/frappe_client.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/network/asoud_api_response.dart';
@@ -19,8 +20,9 @@ class OrganizationSnapshot {
 }
 
 class OrganizationEmployee {
-  const OrganizationEmployee(this.id, this.displayName);
-  final String id, displayName;
+  const OrganizationEmployee(this.id, this.displayName,
+      {this.personnelCode = ''});
+  final String id, displayName, personnelCode;
 }
 
 class OrganizationRepository {
@@ -30,6 +32,54 @@ class OrganizationRepository {
   }
   final FrappeApiClient client;
   final LocalRecordStore local;
+  Future<Map<String, dynamic>> previewImport(
+      String company, Map<String, dynamic> payload) async {
+    final (_, epoch) = await _scope(company, write: true);
+    final result =
+        await _call('preview_import', {'company': company, 'payload': payload});
+    _check(epoch);
+    return result;
+  }
+
+  Future<void> applyImport(
+      String company, Map<String, dynamic> payload, int revision) async {
+    final (_, epoch) = await _scope(company, write: true);
+    await _call('apply_import',
+        {'company': company, 'payload': payload, 'revision': revision});
+    _check(epoch);
+  }
+
+  Future<Uint8List?> employeePhoto(String company, String employee) async {
+    final (_, epoch) = await _scope(company);
+    final result = await _call(
+        'employee_photo', {'company': company, 'employee': employee});
+    _check(epoch);
+    return result['content'] == null
+        ? null
+        : base64Decode(result['content'] as String);
+  }
+
+  Future<Map<String, dynamic>> units(String company) async {
+    final (_, epoch) = await _scope(company);
+    final result = await _call('list_units', {'company': company});
+    _check(epoch);
+    return result;
+  }
+
+  Future<void> saveUnit(String company, Map<String, dynamic> payload) async {
+    final (_, epoch) = await _scope(company, write: true);
+    // Explicit online writes only: do not report a queued unit as created.
+    await _call('save_unit', {'company': company, 'payload': payload});
+    _check(epoch);
+  }
+
+  Future<void> deleteUnit(String company, String name, String modified) async {
+    final (_, epoch) = await _scope(company, write: true);
+    await _call('delete_unit',
+        {'company': company, 'name': name, 'modified': modified});
+    _check(epoch);
+  }
+
   late final StreamSubscription<bool> _session;
   int _epoch = 0;
   Stream<bool> get authenticationChanges => client.authenticationChanges;
@@ -217,7 +267,8 @@ class OrganizationRepository {
     _check(epoch);
     return (data['employees'] as List)
         .map((e) => OrganizationEmployee(
-            e['id'] as String, e['display_name'] as String))
+            e['id'] as String, e['display_name'] as String,
+            personnelCode: e['personnel_code'] as String? ?? ''))
         .toList();
   }
 

@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:file_picker/file_picker.dart';
@@ -6,6 +8,7 @@ import 'package:excel/excel.dart' as xls;
 import '../../../../core/auth/access_denied.dart';
 import '../../../../core/auth/capabilities.dart';
 import '../../../../core/network/frappe_client.dart';
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/persian_format.dart';
 import '../../../../core/widgets/app_fields.dart';
@@ -18,6 +21,12 @@ import '../cubit/organization_cubit.dart';
 
 part 'organization_chart_view.dart';
 part 'organization_position_form.dart';
+part 'organization_workspace.dart';
+part 'organization_visual_report.dart';
+
+String _assignmentDate(dynamic value) => value == null
+    ? 'نامشخص (سابقه قبلی)'
+    : formatJalaliDateTimeIso(value.toString());
 
 class OrganizationPage extends StatelessWidget {
   const OrganizationPage({required this.company, this.repository, super.key});
@@ -88,7 +97,7 @@ void _orgMessage(BuildContext context, String message) =>
 class _OrganizationSetup extends StatelessWidget {
   const _OrganizationSetup({this.canManage = true});
 
-  /// Read-only roles (HR Manager) keep the chart but no create/import entry.
+  /// Read-only roles (HR User) keep the chart but no create/import entry.
   final bool canManage;
 
   @override
@@ -147,6 +156,13 @@ class _OrganizationSetup extends StatelessWidget {
                 )),
               if (canManage) const SizedBox(height: 12),
               if (canManage)
+                TextButton.icon(
+                    onPressed: state.busy
+                        ? null
+                        : () => _downloadOrganizationTemplate(context),
+                    icon: const Icon(Icons.download_outlined),
+                    label: const Text('دریافت الگوی اکسل')),
+              if (canManage)
                 Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Expanded(
                       child: _OrgChoice(
@@ -191,7 +207,7 @@ class _OrganizationSetup extends StatelessWidget {
           minimum: const EdgeInsets.all(16),
           child: FilledButton(
             onPressed: () => _openOrganizationPage<void>(
-                context, _OrganizationChart(canManage: canManage)),
+                context, _OrganizationWorkspace(canManage: canManage)),
             child: const Text('مشاهده و تکمیل ساختار سازمانی'),
           ),
         ),
@@ -216,6 +232,7 @@ class _OrganizationSetup extends StatelessWidget {
     if (proceed != true || !context.mounted) return;
     final cubit = context.read<OrganizationCubit>();
     List<OrgPosition> imported;
+    List<Map<String, dynamic>> importedUnits = [];
     try {
       final file = await FilePicker.platform.pickFiles(
           type: FileType.custom, allowedExtensions: ['xlsx'], withData: true);
@@ -226,7 +243,32 @@ class _OrganizationSetup extends StatelessWidget {
       final sheets =
           workbook.tables.values.where((sheet) => sheet.rows.isNotEmpty);
       if (sheets.isEmpty) throw const FormatException('فایل خالی است.');
-      final table = sheets.first.rows;
+      final table = (workbook.tables['positions'] ?? sheets.first).rows;
+      final unitTable = workbook.tables['units']?.rows;
+      if (unitTable != null && unitTable.length > 1) {
+        final unitHeaders = unitTable.first
+            .map((e) => e?.value.toString().trim().toLowerCase() ?? '')
+            .toList();
+        if (!unitHeaders.contains('code') ||
+            !unitHeaders.contains('title') ||
+            unitHeaders.where((h) => h.isNotEmpty).toSet().length !=
+                unitHeaders.where((h) => h.isNotEmpty).length) {
+          throw const FormatException(
+              'ستون‌های واحدها باید code و title داشته باشند و تکراری نباشند.');
+        }
+        for (final cells in unitTable.skip(1)) {
+          if (cells.every((c) => c?.value.toString().trim().isEmpty ?? true)) {
+            continue;
+          }
+          importedUnits.add({
+            for (var i = 0; i < unitHeaders.length; i++)
+              if (unitHeaders[i].isNotEmpty)
+                unitHeaders[i]: i < cells.length
+                    ? cells[i]?.value.toString().trim() ?? ''
+                    : ''
+          });
+        }
+      }
       final headers = table.first
           .map((e) => e?.value.toString().trim().toLowerCase() ?? '')
           .toList();
@@ -248,9 +290,20 @@ class _OrganizationSetup extends StatelessWidget {
           record[headers[i]] =
               i < row.length ? row[i]?.value.toString().trim() ?? '' : '';
         }
+        if (record.containsKey('capacity')) {
+          final capacity =
+              int.tryParse(_normalizedOrgCode('${record['capacity']}'));
+          if (capacity == null || capacity < 1) {
+            throw const FormatException('ظرفیت اکسل باید عدد صحیح مثبت باشد.');
+          }
+          record['capacity'] = capacity;
+          record['occupants'] = '${record['employee'] ?? ''}'.isEmpty
+              ? <String>[]
+              : ['${record['employee']}'];
+        }
         imported.add(OrgPosition.fromJson(record));
       }
-      if (imported.isEmpty) {
+      if (imported.isEmpty && importedUnits.isEmpty) {
         throw const FormatException('فایل جایگاهی برای ورود ندارد.');
       }
       validateOrganization([...cubit.state.snapshot.rows, ...imported]);
@@ -262,6 +315,15 @@ class _OrganizationSetup extends StatelessWidget {
       return;
     }
     if (context.mounted) {
+      if (importedUnits.isNotEmpty) {
+        await _openOrganizationPage<bool>(
+            context,
+            _OrganizationImportReview(payload: {
+              'units': importedUnits,
+              'rows': imported.map((r) => r.toJson()).toList()
+            }));
+        return;
+      }
       final saved = await _openOrganizationPage<bool>(
           context,
           _OrganizationPreview(
@@ -270,6 +332,38 @@ class _OrganizationSetup extends StatelessWidget {
         _openOrganizationPage<void>(context, const _OrganizationChart());
       }
     }
+  }
+}
+
+Future<void> _downloadOrganizationTemplate(BuildContext context) async {
+  try {
+    final book = xls.Excel.createExcel();
+    book.rename('Sheet1', 'positions');
+    book['positions'].appendRow([
+      for (final name in [
+        'code',
+        'title',
+        'parent',
+        'department_id',
+        'capacity',
+        'duties',
+        'employee'
+      ])
+        xls.TextCellValue(name),
+    ]);
+    book['units'].appendRow([
+      for (final name in ['code', 'title', 'parent', 'name', 'parent_id'])
+        xls.TextCellValue(name),
+    ]);
+    final bytes = book.encode();
+    if (bytes == null) throw StateError('Excel encode failed');
+    await FilePicker.platform.saveFile(
+        fileName: 'organization-template.xlsx',
+        bytes: Uint8List.fromList(bytes),
+        type: FileType.custom,
+        allowedExtensions: ['xlsx']);
+  } catch (_) {
+    if (context.mounted) _orgMessage(context, 'ذخیره الگوی اکسل انجام نشد.');
   }
 }
 
@@ -327,7 +421,7 @@ class _OrganizationStatus extends StatelessWidget {
     final codes = {...localRows.keys, ...remoteRows.keys}.toList()..sort();
     String describe(OrgPosition? row) => row == null
         ? 'وجود ندارد'
-        : '${row.title} | بالادست: ${row.parent.isEmpty ? 'ریشه' : row.parent} | واحد: ${row.department} | پرسنل: ${row.employee}';
+        : '${row.title} | بالادست: ${row.parent.isEmpty ? 'ریشه' : row.parent} | واحد: ${row.department} (${row.departmentId}) | ظرفیت: ${row.capacity} | پرسنل: ${row.activeEmployees.join('، ')} | وظایف: ${row.duties}';
     final differences = codes
         .where(
             (code) => describe(localRows[code]) != describe(remoteRows[code]))
@@ -453,57 +547,80 @@ class _OrgChoice extends StatelessWidget {
 class _OrganizationTemplates extends StatelessWidget {
   const _OrganizationTemplates();
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => DefaultTabController(
+      length: 2,
+      child: Scaffold(
         appBar: const AsoudHeader(
             title: 'قالب‌های ساختار سازمانی',
             subtitle: 'انتخاب ساختار متناسب با فعالیت شرکت'),
-        body: ListView(padding: const EdgeInsets.all(16), children: [
-          const _OrgNotice(
-              icon: Icons.info_outline,
-              color: AsoudColors.primary,
-              text:
-                  'قالب‌ها نقطه شروع پیشنهادی با جایگاه‌های خالی هستند و پس از ایجاد قابل ویرایش‌اند. برای حفظ اطلاعات، قالب فقط روی ساختار خالی اعمال می‌شود.'),
-          const SizedBox(height: 16),
-          for (final template in organizationTemplates)
-            Card(
-                child: ListTile(
-              contentPadding: const EdgeInsets.all(14),
-              leading: const AsoudIconBox(
-                  icon: Icons.account_tree_outlined,
-                  color: AsoudColors.primary),
-              title: Text(template.title,
-                  style: const TextStyle(fontWeight: FontWeight.w800)),
-              subtitle: Text(
-                  '${template.description}\n${formatCount(template.positions.length, 'جایگاه')} پیشنهادی'),
-              trailing: const Icon(Icons.chevron_left_rounded),
-              onTap: () async {
-                final saved = await _openOrganizationPage<bool>(
-                    context,
-                    _OrganizationPreview(
-                        title: template.title,
-                        additions: template.positions,
-                        template: true));
-                if (saved == true && context.mounted) {
-                  _openOrganizationPage<void>(
-                      context, const _OrganizationChart());
-                }
-              },
-            )),
+        body: Column(children: [
+          const TabBar(
+              tabs: [Tab(text: 'قالب‌های پیشنهادی'), Tab(text: 'ساختار خالی')]),
+          Expanded(
+              child: TabBarView(children: [
+            ListView(padding: const EdgeInsets.all(16), children: [
+              const _OrgNotice(
+                  icon: Icons.info_outline,
+                  color: AsoudColors.primary,
+                  text:
+                      'قالب‌ها نقطه شروع پیشنهادی با جایگاه‌های خالی هستند و پس از ایجاد قابل ویرایش‌اند. برای حفظ اطلاعات، قالب فقط روی ساختار خالی اعمال می‌شود.'),
+              const SizedBox(height: 16),
+              for (final template in organizationTemplates)
+                Card(
+                    child: ListTile(
+                  contentPadding: const EdgeInsets.all(14),
+                  leading: AsoudIconBox(
+                      icon: Icons.account_tree_outlined,
+                      size: 52,
+                      color: const [
+                        AsoudColors.primary,
+                        AsoudColors.warning,
+                        Color(0xff805ad5),
+                        Color(0xffd97770),
+                        AsoudColors.success
+                      ][organizationTemplates.indexOf(template)]),
+                  title: Text(template.title,
+                      style: const TextStyle(fontWeight: FontWeight.w800)),
+                  subtitle: Text(
+                      '${template.description}\n${formatCount(template.positions.length, 'جایگاه')} پیشنهادی'),
+                  trailing: const Icon(Icons.chevron_left_rounded),
+                  onTap: () async {
+                    final saved = await _openOrganizationPage<bool>(
+                        context,
+                        _OrganizationImportReview(
+                            payload: _templateOrganizationPayload(template)));
+                    if (saved == true && context.mounted) {
+                      _openOrganizationPage<void>(context,
+                          const _OrganizationWorkspace(canManage: true));
+                    }
+                  },
+                )),
+            ]),
+            Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(children: [
+                  const Text(
+                      'بدون ایجاد داده نمونه، ساختار شرکت را با واحدها و جایگاه‌های خودتان تعریف کنید. ساختار موجود حذف نمی‌شود.'),
+                  const SizedBox(height: 16),
+                  FilledButton(
+                      onPressed: () => _openOrganizationPage<void>(context,
+                          const _OrganizationWorkspace(canManage: true)),
+                      child: const Text('تأیید و ورود به مدیریت ساختار')),
+                ])),
+          ])),
         ]),
-      );
+      ));
 }
 
 class _OrganizationPreview extends StatelessWidget {
   const _OrganizationPreview(
-      {required this.title, required this.additions, this.template = false});
+      {required this.title, required this.additions});
   final String title;
   final List<OrgPosition> additions;
-  final bool template;
   @override
   Widget build(BuildContext context) =>
       BlocBuilder<OrganizationCubit, OrganizationState>(
         builder: (context, state) {
-          final blocked = template && state.snapshot.rows.isNotEmpty;
           return Scaffold(
             appBar: AsoudHeader(
                 title: title, subtitle: 'پیش‌نمایش ساختار قبل از ثبت'),
@@ -512,9 +629,7 @@ class _OrganizationPreview extends StatelessWidget {
               _OrgNotice(
                   icon: Icons.visibility_outlined,
                   color: AsoudColors.primary,
-                  text: blocked
-                      ? 'ساختار از قبل وجود دارد. برای جلوگیری از تداخل، قالب آماده روی آن اعمال نمی‌شود؛ ساختار موجود را در «مشاهده و تکمیل» ویرایش کنید.'
-                      : 'تا پیش از تأیید، هیچ جایگاهی ثبت نمی‌شود. تمام جایگاه‌ها پس از ذخیره قابل ویرایش هستند.'),
+                  text: 'تا پیش از تأیید، هیچ جایگاهی ثبت نمی‌شود. تمام جایگاه‌ها پس از ذخیره قابل ویرایش هستند.'),
               const SizedBox(height: 16),
               _OrganizationTree(
                   rows: additions,
@@ -524,13 +639,10 @@ class _OrganizationPreview extends StatelessWidget {
             bottomNavigationBar: AsoudBottomActions(
               primaryLabel:
                   state.busy ? 'در حال ذخیره…' : 'تأیید و ایجاد ساختار',
-              onPrimary: blocked || state.busy
+              onPrimary: state.busy
                   ? null
                   : () async {
                       final cubit = context.read<OrganizationCubit>();
-                      if (template && cubit.state.snapshot.rows.isNotEmpty) {
-                        return;
-                      }
                       final saved = await cubit
                           .save([...cubit.state.snapshot.rows, ...additions]);
                       if (saved && context.mounted) {

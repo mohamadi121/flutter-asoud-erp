@@ -36,14 +36,16 @@ void main() {
       expect(capabilities.canReadOrganization, isTrue);
     });
 
-    test('HR Manager demo roles retain no administrative write capability', () {
+    test(
+        'HR Manager manages organization but cannot grant access or edit accounting',
+        () {
       final capabilities =
           Capabilities.fromRoles(const ['HR Manager', 'Employee']);
 
       expect(capabilities.canManageWorkflows, isFalse);
       expect(capabilities.canManageRequestTypes, isFalse);
       expect(capabilities.canManageRoles, isFalse);
-      expect(capabilities.canManageOrganization, isFalse);
+      expect(capabilities.canManageOrganization, isTrue);
       expect(capabilities.canManageDocumentTemplates, isFalse);
       expect(capabilities.canWritePersonnel, isFalse);
       expect(capabilities.canManageUserAccess, isFalse);
@@ -77,8 +79,7 @@ void main() {
     });
 
     test('a non-employee manager cannot write even their own HR records', () {
-      final capabilities =
-          Capabilities.fromRoles(const ['Accounts Manager']);
+      final capabilities = Capabilities.fromRoles(const ['Accounts Manager']);
 
       expect(capabilities.canSeeAccounting, isTrue);
       expect(capabilities.canWriteHrRecords, isFalse);

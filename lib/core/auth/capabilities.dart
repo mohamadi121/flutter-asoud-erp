@@ -46,7 +46,7 @@ class Capabilities {
       canManageRequestTypes: configurationWriter,
       canManageForms: system || accountsManager || purchaseManager || hrManager,
       canManageRoles: system,
-      canManageOrganization: configurationWriter,
+      canManageOrganization: system || hrManager,
       canManageDocumentTemplates: system || accountsManager || purchaseManager,
       canWritePersonnel: system,
       canManageUserAccess: system,
