@@ -11,7 +11,9 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'demo/request_demo_data.dart';
+import '../../request_templates/data/system_templates.dart';
 import 'request_demo_source.dart';
+import 'new_request_catalog.dart';
 
 /// Where [PreviewFallbackWorkflowRepository] keeps the locally designed workflows.
 const previewDesignsKey = 'asoud_workflow_designs_v2';
@@ -63,6 +65,15 @@ Future<List<Map<String, dynamic>>> offlineRequestTypes() async {
   final all = [...designs, if (designs.isEmpty) ...demoDesignMaps()];
   return [
     ...RequestDemoRegistry.requestTypes(),
+    for (final item in purchaseRequestBank)
+      {
+        ...systemRequestType('purchase'),
+        'name': 'PREVIEW-PURCHASE-${purchaseRequestBank.indexOf(item) + 1}',
+        'workflow_title': item.title,
+        'short_title': item.description,
+        'request_subgroup': item.subgroup,
+        'keywords': item.keywords,
+      },
     for (final design in all)
       if ((design['workflow'] as Map?)?['target_doctype'] ==
               'ASOUD Workflow Request' &&

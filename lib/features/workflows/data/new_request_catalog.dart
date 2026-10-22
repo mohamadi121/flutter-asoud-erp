@@ -1,0 +1,194 @@
+import 'package:flutter/material.dart';
+
+/// Presentation metadata for the request picker. Server request types remain
+/// the source of truth; this only adds stable module, subgroup and search
+/// information to types that are available to the current user.
+class NewRequestMetadata {
+  const NewRequestMetadata({
+    required this.title,
+    required this.module,
+    required this.subgroup,
+    required this.keywords,
+    this.description = '',
+  });
+
+  final String title;
+  final String module;
+  final String subgroup;
+  final List<String> keywords;
+  final String description;
+}
+
+const purchaseRequestBank = <NewRequestMetadata>[
+  NewRequestMetadata(
+      title: 'درخواست خرید کالا',
+      module: 'خرید',
+      subgroup: 'تأمین و خرید',
+      keywords: ['کالا', 'خرید']),
+  NewRequestMetadata(
+      title: 'درخواست خرید خدمات',
+      module: 'خرید',
+      subgroup: 'تأمین و خرید',
+      keywords: ['خدمات', 'خرید']),
+  NewRequestMetadata(
+      title: 'درخواست خرید فوری',
+      module: 'خرید',
+      subgroup: 'تأمین و خرید',
+      keywords: ['فوری', 'خرید']),
+  NewRequestMetadata(
+      title: 'درخواست استعلام قیمت',
+      module: 'خرید',
+      subgroup: 'تأمین و خرید',
+      keywords: ['استعلام', 'قیمت']),
+  NewRequestMetadata(
+      title: 'درخواست دریافت پیش‌فاکتور',
+      module: 'خرید',
+      subgroup: 'تأمین و خرید',
+      keywords: ['پیش‌فاکتور', 'قیمت']),
+  NewRequestMetadata(
+      title: 'درخواست ثبت سفارش خرید',
+      module: 'خرید',
+      subgroup: 'سفارش‌ها',
+      keywords: ['ثبت', 'سفارش']),
+  NewRequestMetadata(
+      title: 'درخواست اصلاح سفارش خرید',
+      module: 'خرید',
+      subgroup: 'سفارش‌ها',
+      keywords: ['اصلاح', 'سفارش']),
+  NewRequestMetadata(
+      title: 'درخواست لغو سفارش خرید',
+      module: 'خرید',
+      subgroup: 'سفارش‌ها',
+      keywords: ['لغو', 'سفارش']),
+  NewRequestMetadata(
+      title: 'درخواست معرفی تأمین‌کننده',
+      module: 'خرید',
+      subgroup: 'تأمین‌کنندگان',
+      keywords: ['معرفی', 'تأمین‌کننده']),
+  NewRequestMetadata(
+      title: 'درخواست ارزیابی تأمین‌کننده',
+      module: 'خرید',
+      subgroup: 'تأمین‌کنندگان',
+      keywords: ['ارزیابی', 'تأمین‌کننده']),
+  NewRequestMetadata(
+      title: 'درخواست قرارداد خرید',
+      module: 'خرید',
+      subgroup: 'قراردادها',
+      keywords: ['قرارداد', 'خرید']),
+  NewRequestMetadata(
+      title: 'درخواست مرجوعی خرید',
+      module: 'خرید',
+      subgroup: 'مرجوعی',
+      keywords: ['مرجوعی', 'خرید']),
+];
+
+const _moduleLabels = <String, String>{
+  'HR': 'منابع انسانی',
+  'Human Resources': 'منابع انسانی',
+  'Accounts': 'مالی',
+  'Accounting': 'مالی',
+  'Finance': 'مالی',
+  'Purchase': 'خرید',
+  'Buying': 'خرید',
+  'Stock': 'انبار',
+  'Inventory': 'انبار',
+  'Selling': 'فروش',
+  'Sales': 'فروش',
+  'IT': 'فناوری اطلاعات',
+  'Information Technology': 'فناوری اطلاعات',
+};
+
+String requestModule(Map<String, dynamic> type) {
+  final title = '${type['workflow_title'] ?? ''}';
+  final bank =
+      purchaseRequestBank.where((row) => row.title == title).firstOrNull;
+  if (bank != null) return bank.module;
+  return _moduleLabels[
+          '${type['module'] ?? type['module_key'] ?? type['request_category'] ?? ''}'] ??
+      'سایر';
+}
+
+String requestSubgroup(Map<String, dynamic> type) {
+  final title = '${type['workflow_title'] ?? ''}';
+  final bank =
+      purchaseRequestBank.where((row) => row.title == title).firstOrNull;
+  return bank?.subgroup ?? '${type['request_subgroup'] ?? 'همه درخواست‌ها'}';
+}
+
+List<String> requestKeywords(Map<String, dynamic> type) {
+  final title = '${type['workflow_title'] ?? ''}';
+  final bank =
+      purchaseRequestBank.where((row) => row.title == title).firstOrNull;
+  return [
+    ...bank?.keywords ?? const [],
+    ...((type['keywords'] as List?) ?? const []).map((e) => '$e')
+  ];
+}
+
+bool requestTypeIsVisible(Map<String, dynamic> type) {
+  final active = type['active'] ?? type['is_active'] ?? type['enabled'];
+  final published = type['published'] ?? type['is_published'];
+  final allowed = type['can_submit'] ??
+      type['user_submittable'] ??
+      type['allow_user_submission'];
+  final version = type['template_version'] ?? type['published_version'];
+  return active != false &&
+      published != false &&
+      allowed != false &&
+      (version == null || version is num && version > 0);
+}
+
+List<Map<String, dynamic>> filterNewRequestTypes(
+  Iterable<Map<String, dynamic>> types, {
+  String module = 'همه',
+  String subgroup = 'همه درخواست‌ها',
+  String query = '',
+}) {
+  final needle = query.trim().toLowerCase();
+  return [
+    for (final type in types)
+      if (requestTypeIsVisible(type) &&
+          (module == 'همه' || requestModule(type) == module) &&
+          (subgroup == 'همه درخواست‌ها' || requestSubgroup(type) == subgroup) &&
+          (needle.isEmpty ||
+              ('${type['workflow_title'] ?? ''} ${type['short_title'] ?? ''} ${type['process_description'] ?? ''} ${requestKeywords(type).join(' ')}')
+                  .toLowerCase()
+                  .contains(needle)))
+        type,
+  ];
+}
+
+const newRequestModules = <({String title, IconData icon, Color color})>[
+  (title: 'همه', icon: Icons.apps_rounded, color: Color(0xFF1769F6)),
+  (
+    title: 'منابع انسانی',
+    icon: Icons.people_alt_outlined,
+    color: Color(0xFF2E7D32)
+  ),
+  (
+    title: 'مالی',
+    icon: Icons.account_balance_wallet_outlined,
+    color: Color(0xFFEF8C22)
+  ),
+  (title: 'خرید', icon: Icons.shopping_cart_outlined, color: Color(0xFF2697D5)),
+  (title: 'انبار', icon: Icons.inventory_2_outlined, color: Color(0xFF7E57C2)),
+  (title: 'فروش', icon: Icons.point_of_sale_outlined, color: Color(0xFFD64D86)),
+  (
+    title: 'فناوری اطلاعات',
+    icon: Icons.memory_outlined,
+    color: Color(0xFF009688)
+  ),
+  (title: 'سایر', icon: Icons.more_horiz_rounded, color: Color(0xFF718096)),
+];
+
+List<String> subgroupsForModule(String module) => switch (module) {
+      'خرید' => const [
+          'همه درخواست‌ها',
+          'تأمین و خرید',
+          'سفارش‌ها',
+          'تأمین‌کنندگان',
+          'قراردادها',
+          'مرجوعی'
+        ],
+      _ => const ['همه درخواست‌ها'],
+    };
