@@ -731,6 +731,7 @@ class _UnitDetails extends StatelessWidget {
                 'زیرمجموعه: ${units.where((u) => u['name'] == unit['parent_department']).map((u) => u['department_name']).firstOrNull ?? unit['parent_department'] ?? 'ریشه ساختار'}'),
         if (canManage) ...[
           OutlinedButton.icon(
+              key: const ValueKey('organization-unit-edit'),
               icon: const Icon(Icons.edit_outlined, size: 20),
               onPressed: () async {
                 final saved = await _orgSheet<bool>(
@@ -746,6 +747,7 @@ class _UnitDetails extends StatelessWidget {
         const Divider(color: Color(0xffeeeeF3)),
         _OrgDetailSection(
             title: 'زیرواحدها',
+            addKey: const ValueKey('organization-subunit-add'),
             onAdd: !canManage || unit['is_group'] != 1
                 ? null
                 : () async {

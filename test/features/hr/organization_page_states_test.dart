@@ -55,7 +55,13 @@ void main() {
     await tester.tap(find.text('ایجاد ساختار دستی'));
     await tester.pumpAndSettle();
     expect(find.text('هنوز واحدی تعریف نشده است.'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('افزودن واحد'), 200,
+        scrollable: find
+            .descendant(
+                of: find.byType(TabBarView), matching: find.byType(Scrollable))
+            .last);
     expect(find.text('افزودن واحد'), findsOneWidget);
     expect(find.text('افزودن جایگاه'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }

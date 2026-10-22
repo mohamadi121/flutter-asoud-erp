@@ -138,10 +138,14 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('منابع انسانی'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('ویرایش مشخصات'));
+    final edit = find.byKey(const ValueKey('organization-unit-edit'));
+    await tester.ensureVisible(edit);
+    await tester.tap(edit);
     await tester.pumpAndSettle();
     expect(find.text('All Departments'), findsOneWidget);
-    await tester.tap(find.text('ثبت تغییرات'));
+    final save = find.byKey(const ValueKey('organization-unit-submit'));
+    await tester.ensureVisible(save);
+    await tester.tap(save);
     await tester.pumpAndSettle();
     expect(client.lastUnitPayload!['name'], 'HR-CO');
     expect(client.lastUnitPayload!['parent'], 'All Departments');
@@ -156,7 +160,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('منابع انسانی'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('افزودن زیرواحد'));
+    final add = find.byKey(const ValueKey('organization-subunit-add'));
+    await tester.ensureVisible(add);
+    await tester.tap(add);
     await tester.pumpAndSettle();
     final title = find.widgetWithText(TextFormField, 'عنوان واحد *');
     expect(tester.widget<TextFormField>(title).controller!.text, isEmpty);
@@ -191,7 +197,14 @@ void main() {
       expect(find.text('جایگاه‌های سازمانی'), findsOneWidget);
       await tester.tap(find.text('چارت سازمانی'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('گزارش تصویری چارت'));
+      final report = find.text('گزارش تصویری چارت');
+      await tester.scrollUntilVisible(report, 200,
+          scrollable: find
+              .descendant(
+                  of: find.byType(TabBarView),
+                  matching: find.byType(Scrollable))
+              .last);
+      await tester.tap(report);
       await tester.pumpAndSettle();
       expect(find.text('نمای فهرستی'), findsOneWidget);
       expect(find.text('ورود از اکسل'), findsOneWidget);
@@ -206,7 +219,7 @@ void main() {
 
     expect(find.text('عنوان جایگاه *'), findsOneWidget);
     expect(find.text('کد جایگاه *'), findsOneWidget);
-    expect(find.text('واحد سازمانی'), findsOneWidget);
+    expect(find.widgetWithText(AppSelectField, 'واحد سازمانی'), findsOneWidget);
     expect(find.byType(AppTextField), findsNWidgets(4));
     expect(find.byType(AppSelectField), findsNWidgets(3));
     expect(find.text('ظرفیت *'), findsOneWidget);

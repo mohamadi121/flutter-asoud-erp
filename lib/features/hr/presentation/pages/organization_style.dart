@@ -99,9 +99,10 @@ class _OrgDetailIdentity extends StatelessWidget {
 }
 
 class _OrgDetailSection extends StatelessWidget {
-  const _OrgDetailSection({required this.title, this.onAdd});
+  const _OrgDetailSection({required this.title, this.onAdd, this.addKey});
   final String title;
   final VoidCallback? onAdd;
+  final Key? addKey;
   @override
   Widget build(BuildContext context) => Padding(
       padding: const EdgeInsets.symmetric(vertical: 18),
@@ -112,6 +113,7 @@ class _OrgDetailSection extends StatelessWidget {
                     fontSize: 17, fontWeight: FontWeight.bold))),
         if (onAdd != null)
           OutlinedButton.icon(
+              key: addKey,
               onPressed: onAdd,
               icon: const Icon(Icons.add, size: 20),
               label: const Text('افزودن')),
@@ -312,18 +314,31 @@ class _OrganizationReferenceHeader extends StatelessWidget
                 size: 50),
             const SizedBox(width: 8),
             Expanded(
-                child: Column(mainAxisSize: MainAxisSize.min, children: [
-              Text(title,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      color: _orgInk)),
-              SizedBox(height: 8),
-              Text('مدیریت ساختار | آسود ERP',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 11, color: Color(0xff777d87))),
-            ])),
+                child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                  Flexible(
+                      flex: 2,
+                      child: Text(title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                              fontSize: 20,
+                              height: 1.2,
+                              fontWeight: FontWeight.w800,
+                              color: _orgInk))),
+                  SizedBox(height: 6),
+                  Flexible(
+                      child: Text('مدیریت ساختار | آسود ERP',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                              fontSize: 11,
+                              height: 1.4,
+                              color: Color(0xff777d87)))),
+                ])),
             IconButton(
                 tooltip: 'بازگشت',
                 icon: Icon(
