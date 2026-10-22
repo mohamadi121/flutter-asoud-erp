@@ -205,6 +205,7 @@ class _OrganizationTree extends StatefulWidget {
       {required this.rows,
       this.query = '',
       this.preview = false,
+      this.cardStyle = false,
       this.knownRows,
       this.canManage = true,
       this.onClearSearch});
@@ -212,6 +213,7 @@ class _OrganizationTree extends StatefulWidget {
   final List<OrgPosition>? knownRows;
   final String query;
   final bool preview;
+  final bool cardStyle;
   final bool canManage;
   final VoidCallback? onClearSearch;
   @override
@@ -220,6 +222,7 @@ class _OrganizationTree extends StatefulWidget {
 
 class _OrganizationTreeState extends State<_OrganizationTree> {
   final Set<String> _expanded = {};
+  final Set<String> _collapsed = {};
 
   @override
   Widget build(BuildContext context) {
@@ -251,9 +254,86 @@ class _OrganizationTreeState extends State<_OrganizationTree> {
         final descendants = children[row.code] ?? const <OrgPosition>[];
         final open = widget.preview ||
             widget.query.isNotEmpty ||
-            _expanded.contains(row.code);
+            (widget.cardStyle
+                ? !_collapsed.contains(row.code)
+                : _expanded.contains(row.code));
         final parentNames = (widget.knownRows ?? widget.rows)
             .where((e) => e.code == row.parent);
+        if (widget.cardStyle) {
+          final color =
+              _orgAccents[widget.rows.indexOf(row) % _orgAccents.length];
+          widgets.add(Padding(
+              key: ValueKey('org-tree-${row.code}'),
+              padding: EdgeInsetsDirectional.only(
+                  start: depth.clamp(0, 4) * 8.0, bottom: 12),
+              child: Container(
+                  decoration: _orgWhiteCard(),
+                  child: InkWell(
+                      borderRadius: BorderRadius.circular(22),
+                      onTap: () => _orgSheet<void>(
+                          context,
+                          _PositionDetails(
+                              code: row.code, canManage: widget.canManage)),
+                      child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 18),
+                          child: Row(children: [
+                            AsoudIconBox(
+                                icon: Icons.work_outline,
+                                color: color,
+                                size: 46),
+                            const SizedBox(width: 12),
+                            Expanded(
+                                child: InkWell(
+                                    onTap: () => _orgSheet<void>(
+                                        context,
+                                        _PositionDetails(
+                                            code: row.code,
+                                            canManage: widget.canManage)),
+                                    child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(row.title,
+                                              style: const TextStyle(
+                                                  fontSize: 16,
+                                                  color: _orgInk)),
+                                          if (row.department.isNotEmpty) ...[
+                                            const SizedBox(height: 8),
+                                            Text(row.department,
+                                                style: const TextStyle(
+                                                    fontSize: 12,
+                                                    color: Color(0xff777d87))),
+                                          ],
+                                          const SizedBox(height: 6),
+                                          Text(row.code,
+                                              textDirection: TextDirection.ltr,
+                                              style: const TextStyle(
+                                                  fontSize: 11,
+                                                  color: Color(0xff777d87))),
+                                        ]))),
+                            if (descendants.isNotEmpty)
+                              IconButton(
+                                  tooltip: open
+                                      ? 'بستن زیرمجموعه‌ها'
+                                      : 'نمایش زیرمجموعه‌ها',
+                                  onPressed: () => setState(() {
+                                        if (!_collapsed.add(row.code)) {
+                                          _collapsed.remove(row.code);
+                                        }
+                                      }),
+                                  icon: Icon(
+                                      open
+                                          ? Icons.expand_more
+                                          : Icons.chevron_left,
+                                      size: 20)),
+                            if (widget.canManage)
+                              _OrganizationMenu(
+                                  position: row, compactStyle: true),
+                          ]))))));
+          if (open) addRows(descendants, depth + 1);
+          continue;
+        }
         widgets.add(Padding(
           key: ValueKey('org-tree-${row.code}'),
           padding: EdgeInsetsDirectional.only(
@@ -324,6 +404,7 @@ class _OrganizationTreeState extends State<_OrganizationTree> {
     if (widgets.isEmpty) {
       return _OrgEmpty(query: widget.query, onClear: widget.onClearSearch);
     }
+    if (widget.cardStyle) return Column(children: widgets);
     return Card(
       elevation: 0,
       color: Colors.white,
@@ -337,7 +418,8 @@ class _OrganizationTreeState extends State<_OrganizationTree> {
 }
 
 class _OrganizationMenu extends StatelessWidget {
-  const _OrganizationMenu({required this.position});
+  const _OrganizationMenu({required this.position, this.compactStyle = false});
+  final bool compactStyle;
   final OrgPosition position;
   @override
   Widget build(BuildContext context) =>
@@ -348,7 +430,8 @@ class _OrganizationMenu extends StatelessWidget {
             tooltip: 'عملیات جایگاه',
             padding: EdgeInsets.zero,
             enabled: !state.busy,
-            icon: const Icon(Icons.more_vert, size: 21),
+            icon: Icon(compactStyle ? Icons.edit_outlined : Icons.more_vert,
+                color: compactStyle ? const Color(0xff929da6) : null, size: 21),
             itemBuilder: (_) => const [
               PopupMenuItem(value: 'add', child: Text('افزودن زیرمجموعه')),
               PopupMenuItem(value: 'edit', child: Text('ویرایش جایگاه')),

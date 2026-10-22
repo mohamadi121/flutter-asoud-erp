@@ -113,7 +113,9 @@ Future<void> _openCreateForm(WidgetTester tester, _OrgClient client,
   if (!openForm) return;
   await tester.tap(find.text('جایگاه‌ها'));
   await tester.pumpAndSettle();
-  await tester.tap(find.text('ایجاد دستی جایگاه'));
+  await tester.tap(find.byTooltip('عملیات جایگاه'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('افزودن زیرمجموعه'));
   await tester.pumpAndSettle();
 }
 
@@ -186,7 +188,7 @@ void main() {
       expect(find.text('هنوز واحدی تعریف نشده است.'), findsOneWidget);
       await tester.tap(find.text('جایگاه‌ها'));
       await tester.pumpAndSettle();
-      expect(find.text('فهرست جایگاه‌های سازمانی'), findsOneWidget);
+      expect(find.text('جایگاه‌های سازمانی'), findsOneWidget);
       await tester.tap(find.text('چارت سازمانی'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('گزارش تصویری چارت'));

@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:file_picker/file_picker.dart';
@@ -23,6 +24,8 @@ part 'organization_chart_view.dart';
 part 'organization_position_form.dart';
 part 'organization_workspace.dart';
 part 'organization_visual_report.dart';
+part 'organization_style.dart';
+part 'organization_create.dart';
 
 String _assignmentDate(dynamic value) => value == null
     ? 'نامشخص (سابقه قبلی)'

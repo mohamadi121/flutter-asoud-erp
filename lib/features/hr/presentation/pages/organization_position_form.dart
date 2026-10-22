@@ -131,18 +131,22 @@ class _OrganizationPositionFormState extends State<_OrganizationPositionForm> {
               if (!didPop) _discard();
             },
             child: Scaffold(
-              appBar: AsoudHeader(
+              appBar: _OrganizationReferenceHeader(
+                  form: true,
                   title: widget.item == null
                       ? 'افزودن جایگاه سازمانی'
-                      : 'ویرایش جایگاه سازمانی',
-                  subtitle: _parentCode.isEmpty
-                      ? 'اطلاعات جایگاه اصلی'
-                      : 'زیرمجموعه $parentTitle'),
+                      : 'ویرایش جایگاه سازمانی'),
               body: SafeArea(
                   child: Form(
                 key: _formKey,
                 child: ListView(padding: const EdgeInsets.all(16), children: [
                   const _OrganizationStatus(),
+                  _OrgDetailIdentity(
+                      title: widget.item?.title ?? 'جایگاه جدید',
+                      subtitle: _parentCode.isEmpty
+                          ? 'اطلاعات جایگاه اصلی'
+                          : 'زیرمجموعه $parentTitle',
+                      position: true),
                   if (_error != null) ...[
                     _OrgNotice(
                         icon: Icons.error_outline,
