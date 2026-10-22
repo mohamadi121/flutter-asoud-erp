@@ -198,13 +198,17 @@ void main() {
       await tester.tap(find.text('چارت سازمانی'));
       await tester.pumpAndSettle();
       final report = find.text('گزارش تصویری چارت');
-      await tester.scrollUntilVisible(report, 200,
-          scrollable: find
-              .descendant(
-                  of: find.byType(TabBarView),
-                  matching: find.byType(Scrollable))
-              .last);
-      await tester.tap(report);
+      // A cached child can exist below the viewport in NestedScrollView.
+      // Real gestures scroll both coordinated viewports; wait for a hit target,
+      // not merely for the lazy child to have been built.
+      for (var attempt = 0;
+          attempt < 20 && report.hitTestable().evaluate().isEmpty;
+          attempt++) {
+        await tester.drag(find.byType(TabBarView), const Offset(0, -200));
+        await tester.pumpAndSettle();
+      }
+      expect(report.hitTestable(), findsOneWidget);
+      await tester.tap(report.hitTestable());
       await tester.pumpAndSettle();
       expect(find.text('نمای فهرستی'), findsOneWidget);
       expect(find.text('ورود از اکسل'), findsOneWidget);
