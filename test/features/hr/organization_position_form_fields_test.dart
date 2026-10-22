@@ -12,6 +12,9 @@ import '../../helpers/fake_local_record_store.dart';
 /// Administrator client with the real backend envelope shapes; the write goes
 /// through [callAsoudMethod], exactly as [OrganizationRepository.save] calls it.
 class _OrgClient extends Fake implements FrappeApiClient {
+  _OrgClient({this.units = const []});
+  final List<Map<String, dynamic>> units;
+  Map<String, dynamic>? lastUnitPayload;
   final writes = <String>[];
   Map<String, dynamic>? lastSavePayload;
 
@@ -58,7 +61,11 @@ class _OrgClient extends Fake implements FrappeApiClient {
       return _envelope({'employees': <dynamic>[]});
     }
     if (method == 'asoud_erp.api.v1.organization.list_units') {
-      return _envelope({'units': <dynamic>[], 'can_manage': true});
+      return _envelope({'units': units, 'can_manage': true});
+    }
+    if (method == 'asoud_erp.api.v1.organization.save_unit') {
+      lastUnitPayload = Map<String, dynamic>.from(data!['payload'] as Map);
+      return _envelope({'name': lastUnitPayload!['name'] ?? 'NEW-UNIT'});
     }
     throw StateError('Unexpected organization read: $method');
   }
@@ -80,7 +87,8 @@ class _OrgClient extends Fake implements FrappeApiClient {
   }
 }
 
-Future<void> _openCreateForm(WidgetTester tester, _OrgClient client) async {
+Future<void> _openCreateForm(WidgetTester tester, _OrgClient client,
+    {bool openForm = true}) async {
   tester.view.physicalSize = const Size(390, 1600);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
@@ -102,11 +110,63 @@ Future<void> _openCreateForm(WidgetTester tester, _OrgClient client) async {
   ));
   await tester.pumpAndSettle();
 
-  await tester.tap(find.text('ایجاد ساختار دستی'));
+  if (!openForm) return;
+  await tester.tap(find.text('جایگاه‌ها'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('ایجاد دستی جایگاه'));
   await tester.pumpAndSettle();
 }
 
 void main() {
+  const unit = {
+    'name': 'HR-CO',
+    'department_name': 'منابع انسانی',
+    'parent_department': 'All Departments',
+    'is_group': 1,
+    'disabled': 0,
+    'modified': '2026-10-22 10:00:00'
+  };
+
+  testWidgets(
+      'editing a unit preserves its native root outside the company list',
+      (tester) async {
+    final client = _OrgClient(units: [unit]);
+    await _openCreateForm(tester, client, openForm: false);
+    await tester.tap(find.text('واحدها'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('منابع انسانی'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ویرایش مشخصات'));
+    await tester.pumpAndSettle();
+    expect(find.text('All Departments'), findsOneWidget);
+    await tester.tap(find.text('ثبت تغییرات'));
+    await tester.pumpAndSettle();
+    expect(client.lastUnitPayload!['name'], 'HR-CO');
+    expect(client.lastUnitPayload!['parent'], 'All Departments');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('adding a subunit starts blank and does not edit its parent',
+      (tester) async {
+    final client = _OrgClient(units: [unit]);
+    await _openCreateForm(tester, client, openForm: false);
+    await tester.tap(find.text('واحدها'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('منابع انسانی'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('افزودن زیرواحد'));
+    await tester.pumpAndSettle();
+    final title = find.widgetWithText(TextFormField, 'عنوان واحد *');
+    expect(tester.widget<TextFormField>(title).controller!.text, isEmpty);
+    await tester.enterText(title, 'آموزش');
+    await tester.tap(find.text('افزودن واحد'));
+    await tester.pumpAndSettle();
+    expect(client.lastUnitPayload!.containsKey('name'), isFalse);
+    expect(client.lastUnitPayload!['parent'], 'HR-CO');
+    expect(client.lastUnitPayload!['title'], 'آموزش');
+    expect(tester.takeException(), isNull);
+  });
+
   for (final width in [320.0, 390.0]) {
     testWidgets('organization management and visual report fit at $width',
         (tester) async {
@@ -115,8 +175,6 @@ void main() {
       await tester.tap(find.text('انصراف'));
       await tester.pumpAndSettle();
       tester.view.physicalSize = Size(width, 800);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('مشاهده و تکمیل ساختار سازمانی'));
       await tester.pumpAndSettle();
       expect(find.text('واحدها'), findsOneWidget);
       expect(find.text('جایگاه‌ها'), findsOneWidget);

@@ -54,7 +54,7 @@ class OrganizationPage extends StatelessWidget {
             child: Directionality(
                 textDirection: TextDirection.rtl,
                 child: _OrganizationSessionGuard(
-                    child: _OrganizationSetup(
+                    child: _OrganizationEntry(
                         canManage: capabilities.canManageOrganization))),
           );
         },
@@ -94,6 +94,67 @@ void _orgMessage(BuildContext context, String message) =>
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message)));
 
+class _OrganizationEntry extends StatefulWidget {
+  const _OrganizationEntry({required this.canManage});
+  final bool canManage;
+  @override
+  State<_OrganizationEntry> createState() => _OrganizationEntryState();
+}
+
+class _OrganizationEntryState extends State<_OrganizationEntry> {
+  late Future<Map<String, dynamic>> units;
+  @override
+  void initState() {
+    super.initState();
+    final c = context.read<OrganizationCubit>();
+    units = c.repository.units(c.company);
+  }
+
+  @override
+  Widget build(BuildContext context) => BlocConsumer<OrganizationCubit,
+          OrganizationState>(
+      listenWhen: (before, after) =>
+          before.busy && !after.busy && after.error == null,
+      listener: (context, state) {
+        final c = context.read<OrganizationCubit>();
+        setState(() => units = c.repository.units(c.company));
+      },
+      builder: (context, state) => FutureBuilder<Map<String, dynamic>>(
+          future: units,
+          builder: (context, snapshot) {
+            if (state.snapshot.rows.isNotEmpty ||
+                (snapshot.data?['units'] as List? ?? []).isNotEmpty ||
+                !widget.canManage) {
+              return _OrganizationWorkspace(canManage: widget.canManage);
+            }
+            if (state.busy ||
+                snapshot.connectionState != ConnectionState.done) {
+              return const Scaffold(
+                  body: Center(child: CircularProgressIndicator()));
+            }
+            if (snapshot.hasError || state.error != null) {
+              if (state.error != null) {
+                return const Scaffold(
+                    appBar: AsoudHeader(title: 'ساختار سازمانی'),
+                    body: SingleChildScrollView(child: _OrganizationStatus()));
+              }
+              return Scaffold(
+                  appBar: const AsoudHeader(title: 'ساختار سازمانی'),
+                  body: Center(
+                      child: TextButton(
+                          onPressed: () {
+                            final c = context.read<OrganizationCubit>();
+                            setState(
+                                () => units = c.repository.units(c.company));
+                            c.load();
+                          },
+                          child: const Text(
+                              'دریافت ساختار ناموفق بود؛ تلاش دوباره'))));
+            }
+            return _OrganizationSetup(canManage: widget.canManage);
+          }));
+}
+
 class _OrganizationSetup extends StatelessWidget {
   const _OrganizationSetup({this.canManage = true});
 
@@ -103,21 +164,14 @@ class _OrganizationSetup extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: const AsoudHeader(
-            title: 'مدیریت ساختار سازمانی',
-            subtitle: 'ساختار شرکت را انتخاب یا ایجاد کنید'),
+            title: 'ایجاد ساختار سازمانی',
+            subtitle: 'روش ایجاد ساختار سازمانی را انتخاب کنید'),
         body: SafeArea(
             child: BlocBuilder<OrganizationCubit, OrganizationState>(
           builder: (context, state) => ListView(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
             children: [
               const _OrganizationStatus(),
-              const _OrgNotice(
-                icon: Icons.priority_high_rounded,
-                color: AsoudColors.warning,
-                title: 'مدیریت ساختار سازمانی دفتر',
-                text:
-                    'جایگاه‌های موجود را مدیریت کنید یا روش ایجاد را انتخاب کنید.',
-              ),
               if (canManage) const SizedBox(height: 18),
               if (canManage)
                 Card(
@@ -131,7 +185,7 @@ class _OrganizationSetup extends StatelessWidget {
                     padding: EdgeInsets.all(14),
                     child: Row(children: [
                       AsoudIconBox(
-                          icon: Icons.check_rounded,
+                          icon: Icons.account_tree_outlined,
                           color: AsoudColors.primary,
                           size: 38),
                       SizedBox(width: 10),
@@ -145,7 +199,7 @@ class _OrganizationSetup extends StatelessWidget {
                           Text(
                               'قالب‌های بازرگانی، تولیدی، خدماتی، پیمانکاری و فناوری',
                               style: TextStyle(
-                                  fontSize: 10, color: AsoudColors.muted)),
+                                  fontSize: 10, color: Color(0xff526079))),
                         ],
                       )),
                       SizedBox(width: 6),
@@ -156,31 +210,18 @@ class _OrganizationSetup extends StatelessWidget {
                 )),
               if (canManage) const SizedBox(height: 12),
               if (canManage)
-                TextButton.icon(
-                    onPressed: state.busy
-                        ? null
-                        : () => _downloadOrganizationTemplate(context),
-                    icon: const Icon(Icons.download_outlined),
-                    label: const Text('دریافت الگوی اکسل')),
-              if (canManage)
                 Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Expanded(
                       child: _OrgChoice(
                     icon: Icons.add_rounded,
                     color: AsoudColors.success,
                     title: 'ایجاد ساختار دستی',
-                    subtitle: 'تعریف جایگاه اصلی و تکمیل زیرمجموعه‌ها',
-                    action: 'افزودن جایگاه اصلی',
+                    subtitle: 'تعریف واحدها، زیرواحدها و جایگاه‌های شغلی',
+                    action: 'شروع ایجاد ساختار',
                     onTap: state.busy
                         ? null
-                        : () async {
-                            final saved = await _openOrganizationPage<bool>(
-                                context, const _OrganizationPositionForm());
-                            if (saved == true && context.mounted) {
-                              _openOrganizationPage<void>(
-                                  context, const _OrganizationChart());
-                            }
-                          },
+                        : () => _openOrganizationPage<void>(context,
+                            const _OrganizationWorkspace(canManage: true)),
                   )),
                   const SizedBox(width: 10),
                   Expanded(
@@ -190,27 +231,27 @@ class _OrganizationSetup extends StatelessWidget {
                     title: 'ورود از اکسل',
                     subtitle: 'ساختار سازمانی را از فایل اکسل وارد کنید',
                     action: 'انتخاب فایل اکسل',
+                    secondary: TextButton.icon(
+                        onPressed: state.busy
+                            ? null
+                            : () => _downloadOrganizationTemplate(context),
+                        icon: const Icon(Icons.download_outlined, size: 18),
+                        label: const Text('دریافت الگوی اکسل',
+                            style: TextStyle(fontSize: 10))),
                     onTap: state.busy ? null : () => _importExcel(context),
                   )),
                 ]),
               const SizedBox(height: 28),
               const _OrgNotice(
                 icon: Icons.visibility_outlined,
+                title: 'پیش از ایجاد ساختار',
                 color: AsoudColors.primary,
                 text:
-                    'قالب و فایل اکسل قبل از ذخیره پیش‌نمایش دارند. جایگاه‌ها می‌توانند خالی باشند؛ ساختار سازمانی به‌تنهایی دسترسی کاربری ایجاد نمی‌کند.',
+                    'قبل از ثبت نهایی، اطلاعات ساختار بررسی می‌شوند.\nجایگاه‌های شغلی می‌توانند بدون انتساب پرسنل ایجاد شوند. ایجاد ساختار به‌تنهایی دسترسی کاربری ایجاد نمی‌کند.',
               ),
             ],
           ),
         )),
-        bottomNavigationBar: SafeArea(
-          minimum: const EdgeInsets.all(16),
-          child: FilledButton(
-            onPressed: () => _openOrganizationPage<void>(
-                context, _OrganizationWorkspace(canManage: canManage)),
-            child: const Text('مشاهده و تکمیل ساختار سازمانی'),
-          ),
-        ),
       );
 
   Future<void> _importExcel(BuildContext context) async {
@@ -316,12 +357,16 @@ class _OrganizationSetup extends StatelessWidget {
     }
     if (context.mounted) {
       if (importedUnits.isNotEmpty) {
-        await _openOrganizationPage<bool>(
+        final saved = await _openOrganizationPage<bool>(
             context,
             _OrganizationImportReview(payload: {
               'units': importedUnits,
               'rows': imported.map((r) => r.toJson()).toList()
             }));
+        if (saved == true && context.mounted) {
+          _openOrganizationPage<void>(
+              context, const _OrganizationWorkspace(canManage: true));
+        }
         return;
       }
       final saved = await _openOrganizationPage<bool>(
@@ -329,7 +374,8 @@ class _OrganizationSetup extends StatelessWidget {
           _OrganizationPreview(
               title: 'پیش‌نمایش ورود اکسل', additions: imported));
       if (saved == true && context.mounted) {
-        _openOrganizationPage<void>(context, const _OrganizationChart());
+        _openOrganizationPage<void>(
+            context, const _OrganizationWorkspace(canManage: true));
       }
     }
   }
@@ -513,7 +559,9 @@ class _OrgChoice extends StatelessWidget {
       required this.title,
       required this.subtitle,
       required this.action,
+      this.secondary,
       this.onTap});
+  final Widget? secondary;
   final IconData icon;
   final Color color;
   final String title, subtitle, action;
@@ -535,86 +583,83 @@ class _OrgChoice extends StatelessWidget {
               Text(subtitle,
                   textAlign: TextAlign.center,
                   style:
-                      const TextStyle(fontSize: 10, color: AsoudColors.muted)),
+                      const TextStyle(fontSize: 10, color: Color(0xff526079))),
               const SizedBox(height: 9),
               Text(action,
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 10, color: color)),
+              if (secondary != null) secondary!,
             ])),
       ));
 }
 
-class _OrganizationTemplates extends StatelessWidget {
+class _OrganizationTemplates extends StatefulWidget {
   const _OrganizationTemplates();
   @override
-  Widget build(BuildContext context) => DefaultTabController(
-      length: 2,
-      child: Scaffold(
+  State<_OrganizationTemplates> createState() => _OrganizationTemplatesState();
+}
+
+class _OrganizationTemplatesState extends State<_OrganizationTemplates> {
+  String query = '';
+  @override
+  Widget build(BuildContext context) => Scaffold(
         appBar: const AsoudHeader(
             title: 'قالب‌های ساختار سازمانی',
             subtitle: 'انتخاب ساختار متناسب با فعالیت شرکت'),
         body: Column(children: [
-          const TabBar(
-              tabs: [Tab(text: 'قالب‌های پیشنهادی'), Tab(text: 'ساختار خالی')]),
+          Padding(
+              padding: const EdgeInsets.all(16),
+              child: TextField(
+                  onChanged: (value) => setState(() => query = value.trim()),
+                  decoration: const InputDecoration(
+                      hintText: 'جست‌وجوی قالب سازمانی',
+                      prefixIcon: Icon(Icons.search)))),
           Expanded(
-              child: TabBarView(children: [
-            ListView(padding: const EdgeInsets.all(16), children: [
-              const _OrgNotice(
-                  icon: Icons.info_outline,
-                  color: AsoudColors.primary,
-                  text:
-                      'قالب‌ها نقطه شروع پیشنهادی با جایگاه‌های خالی هستند و پس از ایجاد قابل ویرایش‌اند. برای حفظ اطلاعات، قالب فقط روی ساختار خالی اعمال می‌شود.'),
-              const SizedBox(height: 16),
-              for (final template in organizationTemplates)
-                Card(
-                    child: ListTile(
-                  contentPadding: const EdgeInsets.all(14),
-                  leading: AsoudIconBox(
-                      icon: Icons.account_tree_outlined,
-                      size: 52,
-                      color: const [
-                        AsoudColors.primary,
-                        AsoudColors.warning,
-                        Color(0xff805ad5),
-                        Color(0xffd97770),
-                        AsoudColors.success
-                      ][organizationTemplates.indexOf(template)]),
-                  title: Text(template.title,
-                      style: const TextStyle(fontWeight: FontWeight.w800)),
-                  subtitle: Text(
-                      '${template.description}\n${formatCount(template.positions.length, 'جایگاه')} پیشنهادی'),
-                  trailing: const Icon(Icons.chevron_left_rounded),
-                  onTap: () async {
-                    final saved = await _openOrganizationPage<bool>(
-                        context,
-                        _OrganizationImportReview(
-                            payload: _templateOrganizationPayload(template)));
-                    if (saved == true && context.mounted) {
-                      _openOrganizationPage<void>(context,
-                          const _OrganizationWorkspace(canManage: true));
-                    }
-                  },
-                )),
-            ]),
-            Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(children: [
-                  const Text(
-                      'بدون ایجاد داده نمونه، ساختار شرکت را با واحدها و جایگاه‌های خودتان تعریف کنید. ساختار موجود حذف نمی‌شود.'),
-                  const SizedBox(height: 16),
-                  FilledButton(
-                      onPressed: () => _openOrganizationPage<void>(context,
-                          const _OrganizationWorkspace(canManage: true)),
-                      child: const Text('تأیید و ورود به مدیریت ساختار')),
-                ])),
+              child: ListView(padding: const EdgeInsets.all(16), children: [
+            const _OrgNotice(
+                icon: Icons.info_outline,
+                color: AsoudColors.primary,
+                text:
+                    'قالب‌ها نقطه شروع پیشنهادی با جایگاه‌های خالی هستند و پس از ایجاد قابل ویرایش‌اند. برای حفظ اطلاعات، قالب فقط روی ساختار خالی اعمال می‌شود.'),
+            const SizedBox(height: 16),
+            for (final template in organizationTemplates
+                .where((t) => '${t.title} ${t.description}'.contains(query)))
+              Card(
+                  child: ListTile(
+                contentPadding: const EdgeInsets.all(14),
+                leading: AsoudIconBox(
+                    icon: Icons.account_tree_outlined,
+                    size: 52,
+                    color: const [
+                      AsoudColors.primary,
+                      AsoudColors.warning,
+                      Color(0xff805ad5),
+                      Color(0xffd97770),
+                      AsoudColors.success
+                    ][organizationTemplates.indexOf(template)]),
+                title: Text(template.title,
+                    style: const TextStyle(fontWeight: FontWeight.w800)),
+                subtitle: Text(
+                    '${template.description}\n${formatCount(template.positions.length, 'جایگاه')} پیشنهادی'),
+                trailing: const Icon(Icons.chevron_left_rounded),
+                onTap: () async {
+                  final saved = await _openOrganizationPage<bool>(
+                      context,
+                      _OrganizationImportReview(
+                          payload: _templateOrganizationPayload(template)));
+                  if (saved == true && context.mounted) {
+                    _openOrganizationPage<void>(
+                        context, const _OrganizationWorkspace(canManage: true));
+                  }
+                },
+              )),
           ])),
         ]),
-      ));
+      );
 }
 
 class _OrganizationPreview extends StatelessWidget {
-  const _OrganizationPreview(
-      {required this.title, required this.additions});
+  const _OrganizationPreview({required this.title, required this.additions});
   final String title;
   final List<OrgPosition> additions;
   @override
@@ -629,7 +674,8 @@ class _OrganizationPreview extends StatelessWidget {
               _OrgNotice(
                   icon: Icons.visibility_outlined,
                   color: AsoudColors.primary,
-                  text: 'تا پیش از تأیید، هیچ جایگاهی ثبت نمی‌شود. تمام جایگاه‌ها پس از ذخیره قابل ویرایش هستند.'),
+                  text:
+                      'تا پیش از تأیید، هیچ جایگاهی ثبت نمی‌شود. تمام جایگاه‌ها پس از ذخیره قابل ویرایش هستند.'),
               const SizedBox(height: 16),
               _OrganizationTree(
                   rows: additions,

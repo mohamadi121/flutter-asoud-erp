@@ -73,6 +73,15 @@ class OrganizationRepository {
     _check(epoch);
   }
 
+  Future<Map<String, dynamic>> previewDeleteUnit(
+      String company, String name, String modified) async {
+    final (_, epoch) = await _scope(company, write: true);
+    final result = await _call('preview_delete_unit',
+        {'company': company, 'name': name, 'modified': modified});
+    _check(epoch);
+    return result;
+  }
+
   Future<void> deleteUnit(String company, String name, String modified) async {
     final (_, epoch) = await _scope(company, write: true);
     await _call('delete_unit',

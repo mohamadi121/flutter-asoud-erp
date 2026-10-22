@@ -12,6 +12,7 @@ Map<String, dynamic> _templateOrganizationPayload(
   };
   return {
     'template': true,
+    'template_title': template.title,
     'units': [
       for (final title in departments)
         {'code': ids[title], 'title': title, 'parent': ''}
@@ -36,6 +37,7 @@ class _OrganizationImportReviewState extends State<_OrganizationImportReview> {
   Map<String, dynamic>? preview;
   String? error;
   bool busy = false;
+  bool expandedUnits = false;
   @override
   void initState() {
     super.initState();
@@ -92,7 +94,7 @@ class _OrganizationImportReviewState extends State<_OrganizationImportReview> {
   Widget build(BuildContext context) => PopScope(
       canPop: !busy,
       child: Scaffold(
-          appBar: const AsoudHeader(title: 'پیش‌نمایش ورود واحدها و جایگاه‌ها'),
+          appBar: const AsoudHeader(title: 'پیش‌نمایش ساختار سازمانی'),
           body: ListView(padding: const EdgeInsets.all(16), children: [
             if (busy) const LinearProgressIndicator(),
             if (error != null)
@@ -100,6 +102,47 @@ class _OrganizationImportReviewState extends State<_OrganizationImportReview> {
             const Text(
                 'واحد موجود فقط با شناسه صریح تطبیق می‌یابد؛ اطلاعات قبلی بازنویسی نمی‌شود. ثبت همه ردیف‌ها یک تراکنش است.'),
             if (preview != null) ...[
+              if (widget.payload['template'] == true) ...[
+                Text('${widget.payload['template_title']}',
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.bold)),
+                Text(formatCount(
+                    (preview!['additions'] as List).length, 'جایگاه پیشنهادی')),
+                const SizedBox(height: 16),
+                const Center(
+                    child: AsoudIconBox(
+                        icon: Icons.person_outline,
+                        color: AsoudColors.primary,
+                        size: 52)),
+                const Center(child: Text('مدیرعامل')),
+                const Center(
+                    child: Text('│\nواحدهای سازمانی\n│',
+                        textAlign: TextAlign.center)),
+                GridView.count(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    crossAxisCount: 2,
+                    childAspectRatio: 1.8,
+                    children: [
+                      for (final unit in (preview!['units'] as List)
+                          .take(expandedUnits ? 500 : 4))
+                        Card(
+                            color: _unitColor('${unit['name']}')
+                                .withValues(alpha: .1),
+                            child: Center(
+                                child: Padding(
+                                    padding: const EdgeInsets.all(8),
+                                    child: Text('${unit['title']}',
+                                        textAlign: TextAlign.center)))),
+                    ]),
+                TextButton(
+                    onPressed: () =>
+                        setState(() => expandedUnits = !expandedUnits),
+                    child: Text(
+                        expandedUnits ? 'نمایش کمتر' : 'نمایش همه واحدها')),
+                const Text(
+                    'این نمایش خلاصه واحدهاست؛ فهرست کامل جایگاه‌ها در پایین آمده است.'),
+              ],
               for (final unit in preview!['units'] as List)
                 ListTile(
                     title: Text('${unit['title']}'),
@@ -109,7 +152,8 @@ class _OrganizationImportReviewState extends State<_OrganizationImportReview> {
               for (final row in preview!['additions'] as List)
                 ListTile(
                     title: Text('${row['title']}'),
-                    subtitle: Text('ایجاد جایگاه ${row['code']}')),
+                    subtitle: Text(
+                        'کد: ${row['code']} · بالادست: ${row['parent']}\nواحد: ${row['department'] ?? ''}')),
             ],
             TextButton(
                 onPressed: busy ? null : _preview,
@@ -117,7 +161,7 @@ class _OrganizationImportReviewState extends State<_OrganizationImportReview> {
             FilledButton(
                 onPressed:
                     busy || preview == null || error != null ? null : _apply,
-                child: const Text('تأیید و ثبت یکپارچه')),
+                child: const Text('تأیید و ایجاد ساختار')),
             TextButton(
                 onPressed: busy ? null : () => Navigator.pop(context),
                 child: const Text('انصراف')),
@@ -185,9 +229,14 @@ Future<T?> _orgSheet<T>(BuildContext context, Widget child) {
               child: Padding(
                   padding: EdgeInsets.only(
                       bottom: MediaQuery.viewInsetsOf(c).bottom),
-                  child: SizedBox(
-                      height: MediaQuery.sizeOf(c).height * .85,
-                      child: child)))));
+                  child: child is _UnitDetails
+                      ? ConstrainedBox(
+                          constraints: BoxConstraints(
+                              maxHeight: MediaQuery.sizeOf(c).height * .85),
+                          child: child)
+                      : SizedBox(
+                          height: MediaQuery.sizeOf(c).height * .85,
+                          child: child)))));
 }
 
 Future<bool> _confirmOrgDiscard(BuildContext context) async =>
@@ -233,7 +282,7 @@ class _OrganizationWorkspace extends StatelessWidget {
             ]),
             Expanded(
                 child: TabBarView(children: [
-              _OrganizationChart(canManage: canManage),
+              _OrganizationUnits(canManage: canManage, hierarchy: true),
               _OrganizationUnits(canManage: canManage),
               _PositionList(canManage: canManage),
             ])),
@@ -409,14 +458,16 @@ class _OccupantsState extends State<_Occupants> {
 }
 
 class _OrganizationUnits extends StatefulWidget {
-  const _OrganizationUnits({required this.canManage});
+  const _OrganizationUnits({required this.canManage, this.hierarchy = false});
   final bool canManage;
+  final bool hierarchy;
   @override
   State<_OrganizationUnits> createState() => _OrganizationUnitsState();
 }
 
 class _OrganizationUnitsState extends State<_OrganizationUnits> {
   late Future<Map<String, dynamic>> data;
+  String query = '';
   @override
   void initState() {
     super.initState();
@@ -436,76 +487,168 @@ class _OrganizationUnitsState extends State<_OrganizationUnits> {
   }
 
   @override
-  Widget build(BuildContext context) => FutureBuilder<Map<String, dynamic>>(
-      future: data,
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return Center(
-              child: TextButton(
-                  onPressed: () => setState(_reload),
-                  child: const Text('دریافت واحدها ناموفق بود؛ تلاش دوباره')));
-        }
-        if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        final units = (snapshot.data!['units'] as List)
-            .map((e) => Map<String, dynamic>.from(e as Map))
-            .toList();
-        final manage = widget.canManage && snapshot.data!['can_manage'] == true;
-        return ListView(padding: const EdgeInsets.all(16), children: [
-          if (manage)
-            FilledButton.icon(
-                onPressed: () => _edit(units),
-                icon: const Icon(Icons.add),
-                label: const Text('افزودن واحد')),
-          if (units.isEmpty)
-            const Padding(
-                padding: EdgeInsets.all(24),
-                child: Text('هنوز واحدی تعریف نشده است.')),
-          GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              mainAxisSpacing: 8,
-              crossAxisSpacing: 8,
-              childAspectRatio: 1.1,
-              children: [
-                for (final unit in units)
-                  Card(
-                      color:
-                          _unitColor('${unit['name']}').withValues(alpha: .12),
-                      child: InkWell(
-                          onTap: () async {
-                            await _orgSheet<void>(
-                                context,
-                                _UnitDetails(
-                                    unit: unit,
-                                    units: units,
-                                    canManage: manage));
-                            if (mounted) setState(_reload);
-                          },
-                          child: Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(Icons.business_outlined,
-                                        color: _unitColor('${unit['name']}'),
-                                        size: 32),
-                                    const SizedBox(height: 10),
-                                    Text('${unit['department_name']}',
-                                        maxLines: 3,
-                                        overflow: TextOverflow.ellipsis),
-                                    if (unit['disabled'] == 1)
-                                      const Text('غیرفعال'),
-                                  ]))))
-              ]),
-        ]);
-      });
+  Widget build(BuildContext context) => BlocListener<OrganizationCubit,
+          OrganizationState>(
+      listenWhen: (before, after) =>
+          before.busy && !after.busy && after.error == null,
+      listener: (context, state) => setState(_reload),
+      child: FutureBuilder<Map<String, dynamic>>(
+          future: data,
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return Center(
+                  child: TextButton(
+                      onPressed: () => setState(_reload),
+                      child:
+                          const Text('دریافت واحدها ناموفق بود؛ تلاش دوباره')));
+            }
+            if (!snapshot.hasData) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            final units = (snapshot.data!['units'] as List)
+                .map((e) => Map<String, dynamic>.from(e as Map))
+                .toList();
+            final manage =
+                widget.canManage && snapshot.data!['can_manage'] == true;
+            final ids = units.map((u) => u['name']).toSet();
+            final visibleUnits = units.where((u) =>
+                '${u['department_name']}'.contains(query) &&
+                (!widget.hierarchy ||
+                    query.isNotEmpty ||
+                    !ids.contains(u['parent_department'])));
+            return ListView(padding: const EdgeInsets.all(16), children: [
+              if (widget.hierarchy) ...[
+                Text(context.read<OrganizationCubit>().company,
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.bold)),
+                BlocBuilder<OrganizationCubit, OrganizationState>(
+                    builder: (context, state) => Column(children: [
+                          const _OrganizationStatus(),
+                          Row(children: [
+                            Expanded(
+                                child: Card(
+                                    color: AsoudColors.primary
+                                        .withValues(alpha: .1),
+                                    child: Padding(
+                                        padding: const EdgeInsets.all(12),
+                                        child: Text(formatCount(
+                                            units.length, 'واحد سازمانی'))))),
+                            Expanded(
+                                child: Card(
+                                    color: const Color(0xfff0eafb),
+                                    child: Padding(
+                                        padding: const EdgeInsets.all(12),
+                                        child: Text(formatCount(
+                                            state.snapshot.rows.length,
+                                            'جایگاه شغلی'))))),
+                          ]),
+                          for (final root in state.snapshot.rows
+                              .where((r) => r.parent.isEmpty))
+                            Card(
+                                child: ListTile(
+                                    leading: const Icon(Icons.person_outline),
+                                    title: Text(root.title),
+                                    subtitle: const Text('جایگاه اصلی ساختار'),
+                                    onTap: () => _orgSheet<void>(
+                                        context,
+                                        _PositionDetails(
+                                            code: root.code,
+                                            canManage: manage)))),
+                        ])),
+                const Text(
+                    'واحدهای سطح اول؛ برای مشاهده زیرمجموعه، واحد را انتخاب کنید.'),
+                Wrap(spacing: 8, children: [
+                  TextButton(
+                      onPressed: () => _openOrganizationPage<void>(context,
+                          _OrganizationChart(canManage: widget.canManage)),
+                      child: const Text('نمای روابط جایگاه‌ها')),
+                  TextButton(
+                      onPressed: () => _openOrganizationPage<void>(
+                          context,
+                          _OrganizationVisualReport(
+                              canManage: widget.canManage)),
+                      child: const Text('گزارش تصویری چارت')),
+                ]),
+              ],
+              TextField(
+                  onChanged: (value) => setState(() => query = value.trim()),
+                  decoration: const InputDecoration(
+                      hintText: 'جست‌وجو در واحدها...',
+                      prefixIcon: Icon(Icons.search))),
+              if (manage)
+                FilledButton.icon(
+                    onPressed: () => _edit(units),
+                    icon: const Icon(Icons.add),
+                    label: const Text('افزودن واحد')),
+              if (units.isEmpty)
+                const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Text('هنوز واحدی تعریف نشده است.')),
+              GridView.count(
+                  crossAxisCount: 2,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  mainAxisSpacing: 8,
+                  crossAxisSpacing: 8,
+                  childAspectRatio: 1.1,
+                  children: [
+                    for (final unit in visibleUnits)
+                      Card(
+                          color: _unitColor('${unit['name']}')
+                              .withValues(alpha: .12),
+                          child: InkWell(
+                              onTap: () async {
+                                await _orgSheet<void>(
+                                    context,
+                                    _UnitDetails(
+                                        unit: unit,
+                                        units: units,
+                                        canManage: manage));
+                                if (mounted) setState(_reload);
+                              },
+                              child: Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.business_outlined,
+                                            color:
+                                                _unitColor('${unit['name']}'),
+                                            size: 32),
+                                        const SizedBox(height: 10),
+                                        Text('${unit['department_name']}',
+                                            maxLines: 3,
+                                            overflow: TextOverflow.ellipsis),
+                                        if (widget.hierarchy)
+                                          Text(formatCount(
+                                              units
+                                                  .where((u) =>
+                                                      u['parent_department'] ==
+                                                      unit['name'])
+                                                  .length,
+                                              'زیرواحد')),
+                                        if (unit['disabled'] == 1)
+                                          const Text('غیرفعال'),
+                                      ]))))
+                  ]),
+              if (widget.hierarchy && manage)
+                OutlinedButton.icon(
+                    onPressed: () => _orgSheet<bool>(
+                        context, const _OrganizationPositionForm()),
+                    icon: const Icon(Icons.add),
+                    label: const Text('افزودن جایگاه')),
+            ]);
+          }));
 }
 
 class _UnitForm extends StatefulWidget {
-  const _UnitForm({required this.units, this.unit, this.parent = ''});
+  const _UnitForm(
+      {required this.units,
+      this.unit,
+      this.parent = '',
+      this.moveOnly = false});
+  final bool moveOnly;
   final List<Map<String, dynamic>> units;
   final Map<String, dynamic>? unit;
   final String parent;
@@ -521,6 +664,19 @@ class _UnitFormState extends State<_UnitForm> {
   bool allowClose = false;
   late String initialParent;
   late bool initialGroup;
+  Set<String> get _excludedParents {
+    final ids = <String>{if (widget.unit != null) '${widget.unit!['name']}'};
+    var changed = true;
+    while (changed) {
+      final before = ids.length;
+      for (final u in widget.units) {
+        if (ids.contains(u['parent_department'])) ids.add('${u['name']}');
+      }
+      changed = before != ids.length;
+    }
+    return ids;
+  }
+
   String? error;
   bool get dirty =>
       title.text != (widget.unit?['department_name'] ?? '') ||
@@ -540,7 +696,6 @@ class _UnitFormState extends State<_UnitForm> {
     title = TextEditingController(
         text: widget.unit?['department_name'] as String? ?? '');
     parent = widget.unit?['parent_department'] as String? ?? widget.parent;
-    if (!widget.units.any((u) => u['name'] == parent)) parent = '';
     group = widget.unit == null || widget.unit!['is_group'] == 1;
     initialParent = parent;
     initialGroup = group;
@@ -595,47 +750,74 @@ class _UnitFormState extends State<_UnitForm> {
       },
       child: Scaffold(
           appBar: AsoudHeader(
-              title:
-                  widget.unit == null ? 'افزودن واحد' : 'ویرایش مشخصات واحد'),
+              title: widget.moveOnly
+                  ? 'جابه‌جایی واحد'
+                  : widget.unit == null
+                      ? (widget.parent.isEmpty
+                          ? 'ایجاد واحد سازمانی'
+                          : 'افزودن زیرواحد')
+                      : 'ویرایش مشخصات واحد'),
           body: ListView(padding: const EdgeInsets.all(16), children: [
             if (error != null)
               Text(error!, style: const TextStyle(color: AsoudColors.danger)),
-            AppTextField(
-                controller: title,
-                label: 'عنوان واحد',
-                required: true,
-                enabled: !busy),
+            if (!widget.moveOnly)
+              AppTextField(
+                  controller: title,
+                  label: 'عنوان واحد',
+                  required: true,
+                  enabled: !busy),
             const SizedBox(height: 16),
             AppSelectField(
-                value: parent,
+                value: parent.isEmpty ? '__root__' : parent,
                 label: 'واحد بالادستی',
-                enabled: !busy,
+                enabled: !busy && (widget.unit == null || widget.moveOnly),
                 displayValue: widget.units
                         .where((u) => u['name'] == parent)
                         .map((u) => '${u['department_name']}')
                         .firstOrNull ??
-                    'بدون بالادست',
+                    (parent.isEmpty
+                        ? 'ریشه ساختار / بدون واحد بالادستی'
+                        : parent),
                 onPick: () => showAppOptionSheet(context,
                         title: 'واحد بالادستی',
                         current: parent,
                         options: [
-                          const AppOption('', 'بدون بالادست'),
+                          const AppOption(
+                              '', 'ریشه ساختار / بدون واحد بالادستی'),
                           ...widget.units
                               .where((u) =>
-                                  u['name'] != widget.unit?['name'] &&
+                                  !_excludedParents.contains(u['name']) &&
                                   u['disabled'] != 1 &&
                                   u['is_group'] == 1)
                               .map((u) => AppOption(
                                   '${u['name']}', '${u['department_name']}'))
                         ]),
                 onChanged: (v) => setState(() => parent = v)),
-            SwitchListTile(
-                title: const Text('پذیرش زیرواحد'),
-                value: group,
-                onChanged: busy ? null : (v) => setState(() => group = v)),
+            if (!widget.moveOnly)
+              SwitchListTile(
+                  title: const Text('امکان ایجاد زیرواحد'),
+                  subtitle: const Text(
+                      'واحد گروهی در ERPNext؛ برای واحد دارای زیرواحد قابل غیرفعال‌کردن نیست.'),
+                  value: group,
+                  onChanged: busy ||
+                          widget.units.any((u) =>
+                              u['parent_department'] == widget.unit?['name'])
+                      ? null
+                      : (v) => setState(() => group = v)),
+            if (widget.unit != null && !widget.moveOnly)
+              const Text(
+                  'برای تغییر واحد بالادستی از مدیریت واحد ← جابه‌جایی استفاده کنید.'),
             FilledButton(
-                onPressed: busy ? null : _save,
-                child: Text(busy ? 'در حال ثبت…' : 'ذخیره')),
+                onPressed: busy || (widget.moveOnly && parent == initialParent)
+                    ? null
+                    : _save,
+                child: Text(busy
+                    ? 'در حال ثبت…'
+                    : widget.moveOnly
+                        ? 'ثبت جابه‌جایی'
+                        : widget.unit == null
+                            ? 'افزودن واحد'
+                            : 'ثبت تغییرات')),
             TextButton(
                 onPressed: busy ? null : discard, child: const Text('انصراف')),
           ])));
@@ -648,71 +830,91 @@ class _UnitDetails extends StatelessWidget {
   final List<Map<String, dynamic>> units;
   final bool canManage;
   @override
-  Widget build(BuildContext context) => Scaffold(
-      appBar: AsoudHeader(title: '${unit['department_name']}'),
-      body: ListView(padding: const EdgeInsets.all(16), children: [
-        Text(
-            'بالادست: ${units.where((u) => u['name'] == unit['parent_department']).map((u) => u['department_name']).firstOrNull ?? 'ریشه'}'),
-        if (canManage)
-          Row(children: [
-            Expanded(
-                child: OutlinedButton(
+  Widget build(BuildContext context) =>
+      Column(mainAxisSize: MainAxisSize.min, children: [
+        const AsoudHeader(title: 'جزئیات واحد سازمانی'),
+        Flexible(
+            child: ListView(
+                shrinkWrap: true,
+                padding: const EdgeInsets.all(16),
+                children: [
+              Text('${unit['department_name']}',
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.bold)),
+              Text(
+                  'بالادست: ${units.where((u) => u['name'] == unit['parent_department']).map((u) => u['department_name']).firstOrNull ?? 'ریشه'}'),
+              if (canManage)
+                Row(children: [
+                  Expanded(
+                      child: OutlinedButton(
+                          onPressed: () async {
+                            final saved = await _orgSheet<bool>(
+                                context, _UnitForm(unit: unit, units: units));
+                            if (saved == true && context.mounted) {
+                              Navigator.pop(context);
+                            }
+                          },
+                          child: const Text('ویرایش مشخصات'))),
+                  const SizedBox(width: 8),
+                  Expanded(
+                      child: OutlinedButton(
+                          onPressed: () => _manage(context),
+                          child: const Text('مدیریت واحد'))),
+                ]),
+              const Text('زیرواحدها'),
+              if (!units.any((u) => u['parent_department'] == unit['name']))
+                const _OrgNotice(
+                    icon: Icons.account_tree_outlined,
+                    color: Color(0xff805ad5),
+                    text: 'برای این واحد هنوز زیرواحدی تعریف نشده است.'),
+              for (final child
+                  in units.where((u) => u['parent_department'] == unit['name']))
+                ListTile(
+                    title: Text('${child['department_name']}'),
+                    onTap: () => _orgSheet<void>(
+                        context,
+                        _UnitDetails(
+                            unit: child, units: units, canManage: canManage))),
+              if (canManage)
+                TextButton(
                     onPressed: () async {
-                      final saved = await _orgSheet<bool>(
-                          context, _UnitForm(unit: unit, units: units));
+                      final saved = await _orgSheet<bool>(context,
+                          _UnitForm(units: units, parent: '${unit['name']}'));
                       if (saved == true && context.mounted) {
                         Navigator.pop(context);
                       }
                     },
-                    child: const Text('ویرایش مشخصات'))),
-            const SizedBox(width: 8),
-            Expanded(
-                child: OutlinedButton(
-                    onPressed: () => _manage(context),
-                    child: const Text('مدیریت واحد'))),
-          ]),
-        const Text('زیرواحدها'),
-        if (!units.any((u) => u['parent_department'] == unit['name']))
-          const Text('هنوز زیرواحدی تعریف نشده است.'),
-        for (final child
-            in units.where((u) => u['parent_department'] == unit['name']))
-          ListTile(
-              title: Text('${child['department_name']}'),
-              onTap: () => _orgSheet<void>(
-                  context,
-                  _UnitDetails(
-                      unit: child, units: units, canManage: canManage))),
-        if (canManage)
-          TextButton(
-              onPressed: () async {
-                final saved = await _orgSheet<bool>(context,
-                    _UnitForm(units: units, parent: '${unit['name']}'));
-                if (saved == true && context.mounted) Navigator.pop(context);
-              },
-              child: const Text('افزودن زیرواحد')),
-        const Text('جایگاه‌های شغلی این واحد'),
-        BlocBuilder<OrganizationCubit, OrganizationState>(
-            builder: (context, state) {
-          final rows =
-              state.snapshot.rows.where((r) => r.departmentId == unit['name']);
-          return Column(children: [
-            if (rows.isEmpty) const Text('هنوز جایگاه شغلی تعریف نشده است.'),
-            for (final r in rows)
-              ListTile(
-                  title: Text(r.title),
-                  onTap: () => _orgSheet<void>(context,
-                      _PositionDetails(code: r.code, canManage: canManage))),
-          ]);
-        }),
-        if (canManage)
-          TextButton(
-              onPressed: () => _orgSheet<bool>(
-                  context,
-                  _OrganizationPositionForm(
-                      unitId: '${unit['name']}',
-                      unitTitle: '${unit['department_name']}')),
-              child: const Text('افزودن جایگاه')),
-      ]));
+                    child: const Text('افزودن زیرواحد')),
+              const Text('جایگاه‌های شغلی این واحد'),
+              BlocBuilder<OrganizationCubit, OrganizationState>(
+                  builder: (context, state) {
+                final rows = state.snapshot.rows
+                    .where((r) => r.departmentId == unit['name']);
+                return Column(children: [
+                  if (rows.isEmpty)
+                    const _OrgNotice(
+                        icon: Icons.work_outline,
+                        color: AsoudColors.success,
+                        text: 'هنوز جایگاه شغلی تعریف نشده است.'),
+                  for (final r in rows)
+                    ListTile(
+                        title: Text(r.title),
+                        onTap: () => _orgSheet<void>(
+                            context,
+                            _PositionDetails(
+                                code: r.code, canManage: canManage))),
+                ]);
+              }),
+              if (canManage)
+                TextButton(
+                    onPressed: () => _orgSheet<bool>(
+                        context,
+                        _OrganizationPositionForm(
+                            unitId: '${unit['name']}',
+                            unitTitle: '${unit['department_name']}')),
+                    child: const Text('افزودن جایگاه')),
+            ]))
+      ]);
   Future<void> _manage(BuildContext context) async {
     final action = await showModalBottomSheet<String>(
         context: context,
@@ -720,22 +922,24 @@ class _UnitDetails extends StatelessWidget {
                 child: Column(mainAxisSize: MainAxisSize.min, children: [
               ListTile(
                   title: const Text('جابه‌جایی واحد'),
+                  subtitle: const Text('تغییر واحد بالادستی بدون حذف اطلاعات'),
                   onTap: () => Navigator.pop(c, 'move')),
               ListTile(
                   title: const Text('حذف ایمن واحد'),
+                  subtitle: const Text('بررسی وابستگی‌ها پیش از حذف'),
                   onTap: () => Navigator.pop(c, 'delete')),
             ])));
     if (!context.mounted || action == null) return;
     if (action == 'move') {
-      final saved =
-          await _orgSheet<bool>(context, _UnitForm(unit: unit, units: units));
+      final saved = await _orgSheet<bool>(
+          context, _UnitForm(unit: unit, units: units, moveOnly: true));
       if (saved == true && context.mounted) Navigator.pop(context);
       return;
     }
     final yes = await showDialog<bool>(
         context: context,
         builder: (c) => AlertDialog(
-                title: const Text('حذف واحد بدون وابستگی؟'),
+                title: const Text('بررسی امکان حذف واحد'),
                 content: const Text(
                     'در صورت وجود زیرواحد، جایگاه یا سوابق مرتبط، سرور حذف را رد می‌کند.'),
                 actions: [
@@ -744,13 +948,38 @@ class _UnitDetails extends StatelessWidget {
                       child: const Text('انصراف')),
                   FilledButton(
                       onPressed: () => Navigator.pop(c, true),
-                      child: const Text('بررسی و حذف'))
+                      child: const Text('بررسی وابستگی‌ها'))
                 ]));
     if (yes != true || !context.mounted) return;
     try {
       final c = context.read<OrganizationCubit>();
+      final preview = await c.repository.previewDeleteUnit(
+          c.company, '${unit['name']}', '${unit['modified']}');
+      if (!context.mounted) return;
+      if (preview['can_delete'] != true) {
+        _orgMessage(context, (preview['blockers'] as List).join('\n'));
+        return;
+      }
+      final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (dialog) => AlertDialog(
+                  title: const Text('تأیید حذف واحد'),
+                  content: Text(
+                      'واحد «${unit['department_name']}» حذف شود؟ وابستگی‌ها هنگام حذف دوباره بررسی می‌شوند.'),
+                  actions: [
+                    TextButton(
+                        onPressed: () => Navigator.pop(dialog, false),
+                        child: const Text('انصراف')),
+                    FilledButton(
+                        style: FilledButton.styleFrom(
+                            backgroundColor: AsoudColors.danger),
+                        onPressed: () => Navigator.pop(dialog, true),
+                        child: const Text('تأیید حذف واحد')),
+                  ]));
+      if (confirmed != true || !context.mounted) return;
       await c.repository
           .deleteUnit(c.company, '${unit['name']}', '${unit['modified']}');
+      await c.load();
       if (context.mounted) Navigator.pop(context);
     } catch (e) {
       if (context.mounted) {

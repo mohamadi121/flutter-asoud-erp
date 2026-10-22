@@ -112,6 +112,15 @@ class _RealBackendShapeClient extends Fake implements FrappeApiClient {
       };
     }
 
+    if (method == 'asoud_erp.api.v1.organization.list_units') {
+      return {
+        'message': {
+          'ok': true,
+          'meta': {'api_version': 'v1'},
+          'data': {'units': <dynamic>[], 'can_manage': false}
+        }
+      };
+    }
     if (method == 'asoud_erp.api.v1.organization.get_chart') {
       return {
         'message': {
@@ -247,15 +256,13 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('مشاهده و تکمیل ساختار سازمانی'));
-    await tester.pumpAndSettle();
-
     expect(find.text('مدیرعامل'), findsOneWidget);
     expect(find.text('جایگاهی برای نمایش وجود ندارد.'), findsNothing);
   });
 
   for (final width in [320.0, 390.0]) {
-    testWidgets('HR Manager roles page stays read-only at $width without overflow',
+    testWidgets(
+        'HR Manager roles page stays read-only at $width without overflow',
         (tester) async {
       tester.view.physicalSize = Size(width, 844);
       tester.view.devicePixelRatio = 1;
@@ -329,8 +336,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets(
-      'HR User browses the organization chart without create or import',
+  testWidgets('HR User browses the organization chart without create or import',
       (tester) async {
     final client = _RealBackendShapeClient(
       userId: 'hr-user@asoud-demo.local',
@@ -358,9 +364,6 @@ void main() {
     expect(find.text('استفاده از قالب آماده'), findsNothing);
     expect(find.text('ایجاد ساختار دستی'), findsNothing);
     expect(find.text('ورود از اکسل'), findsNothing);
-
-    await tester.tap(find.text('مشاهده و تکمیل ساختار سازمانی'));
-    await tester.pumpAndSettle();
 
     expect(find.text('مدیرعامل'), findsOneWidget);
     expect(find.text('جایگاهی برای نمایش وجود ندارد.'), findsNothing);

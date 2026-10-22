@@ -22,7 +22,7 @@ class AsoudHeader extends StatelessWidget implements PreferredSizeWidget {
             if (Navigator.of(context).canPop())
               _HeaderButton(
                   icon: Icons.chevron_right_rounded,
-                  onTap: () => Navigator.of(context).pop())
+                  onTap: () => Navigator.of(context).maybePop())
             else
               const SizedBox(width: 40),
             const SizedBox(width: 10),

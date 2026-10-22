@@ -12,7 +12,8 @@ void main() {
     registerFallbackValue(const OrganizationSnapshot([], 0, false));
   });
 
-  Future<void> pump(WidgetTester tester, OrganizationRepository repository) async {
+  Future<void> pump(
+      WidgetTester tester, OrganizationRepository repository) async {
     tester.view.physicalSize = const Size(390, 780);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -20,6 +21,8 @@ void main() {
     when(() => repository.authenticationChanges)
         .thenAnswer((_) => const Stream.empty());
     when(() => repository.dispose()).thenAnswer((_) async {});
+    when(() => repository.units(any()))
+        .thenAnswer((_) async => {'units': <dynamic>[], 'can_manage': true});
     await tester.pumpWidget(MaterialApp(
         home: OrganizationPage(company: 'شرکت', repository: repository)));
     await tester.pumpAndSettle();
@@ -47,12 +50,12 @@ void main() {
     when(() => repository.load(any()))
         .thenAnswer((_) async => const OrganizationSnapshot([], 0, false));
     await pump(tester, repository);
-    await tester.tap(find.text('مشاهده و تکمیل ساختار سازمانی'));
+    expect(find.text('ایجاد ساختار سازمانی'), findsOneWidget);
+    expect(find.text('مشاهده و تکمیل ساختار سازمانی'), findsNothing);
+    await tester.tap(find.text('ایجاد ساختار دستی'));
     await tester.pumpAndSettle();
-    expect(find.text('جایگاهی برای نمایش وجود ندارد'), findsOneWidget);
-    expect(
-        find.text(
-            'برای جایگاه اصلی از صفحه مدیریت و برای زیرمجموعه از منوی جایگاه استفاده کنید.'),
-        findsOneWidget);
+    expect(find.text('هنوز واحدی تعریف نشده است.'), findsOneWidget);
+    expect(find.text('افزودن واحد'), findsOneWidget);
+    expect(find.text('افزودن جایگاه'), findsOneWidget);
   });
 }
