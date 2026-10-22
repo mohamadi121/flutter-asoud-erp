@@ -126,8 +126,7 @@ FormMap hrSalaryAdvancePreset() => {
                 'label': 'مبلغ تقریبی هر قسط',
                 'type': 'Formula',
                 'span': 1,
-                'precision': 0,
-                'formula': {'expression': 'requested_amount / $count'},
+                'formula': {'expression': 'requested_amount / $count', 'precision': 0},
               },
             {
               'key': 'installment_estimate_notice',
