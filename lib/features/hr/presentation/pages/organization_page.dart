@@ -117,7 +117,10 @@ class _OrganizationEntryState extends State<_OrganizationEntry> {
           before.busy && !after.busy && after.error == null,
       listener: (context, state) {
         final c = context.read<OrganizationCubit>();
-        setState(() => units = c.repository.units(c.company));
+        final pendingUnits = c.repository.units(c.company);
+        setState(() {
+          units = pendingUnits;
+        });
       },
       builder: (context, state) => FutureBuilder<Map<String, dynamic>>(
           future: units,
@@ -144,8 +147,10 @@ class _OrganizationEntryState extends State<_OrganizationEntry> {
                       child: TextButton(
                           onPressed: () {
                             final c = context.read<OrganizationCubit>();
-                            setState(
-                                () => units = c.repository.units(c.company));
+                            final pendingUnits = c.repository.units(c.company);
+                            setState(() {
+                              units = pendingUnits;
+                            });
                             c.load();
                           },
                           child: const Text(

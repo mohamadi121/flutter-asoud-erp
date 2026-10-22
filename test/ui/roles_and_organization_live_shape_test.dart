@@ -14,9 +14,11 @@ class _RealBackendShapeClient extends Fake implements FrappeApiClient {
   _RealBackendShapeClient({
     this.userId = 'Administrator',
     this.userRoles = const ['Administrator'],
+    this.emptyOrganization = false,
   });
 
   final String userId;
+  final bool emptyOrganization;
   final List<String> userRoles;
   final calls = <String>[];
 
@@ -122,6 +124,15 @@ class _RealBackendShapeClient extends Fake implements FrappeApiClient {
       };
     }
     if (method == 'asoud_erp.api.v1.organization.get_chart') {
+      if (emptyOrganization) {
+        return {
+          'message': {
+            'ok': true,
+            'meta': {'api_version': 'v1'},
+            'data': {'rows': <dynamic>[], 'revision': 0}
+          }
+        };
+      }
       return {
         'message': {
           'ok': true,
@@ -441,6 +452,7 @@ void main() {
       final client = _RealBackendShapeClient(
         userId: 'Administrator',
         userRoles: const ['Administrator'],
+        emptyOrganization: true,
       );
       final store = FakeLocalRecordStore();
       final repository = OrganizationRepository(client, local: store);
@@ -462,7 +474,7 @@ void main() {
       await tester.pumpAndSettle();
 
       const notice =
-          'قالب و فایل اکسل قبل از ذخیره پیش‌نمایش دارند. جایگاه‌ها می‌توانند خالی باشند؛ ساختار سازمانی به‌تنهایی دسترسی کاربری ایجاد نمی‌کند.';
+          'قبل از ثبت نهایی، اطلاعات ساختار بررسی می‌شوند.\nجایگاه‌های شغلی می‌توانند بدون انتساب پرسنل ایجاد شوند. ایجاد ساختار به‌تنهایی دسترسی کاربری ایجاد نمی‌کند.';
       final finder = find.text(notice);
       expect(finder, findsOneWidget);
       final widget = tester.widget<Text>(finder);

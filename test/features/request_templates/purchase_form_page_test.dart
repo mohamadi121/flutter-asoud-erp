@@ -8,6 +8,12 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'test_support.dart';
 
+// Valid submission dates must not expire as the calendar advances.
+final _neededDate = DateTime.now()
+    .add(const Duration(days: 7))
+    .toIso8601String()
+    .substring(0, 10);
+
 RequestFormController _controller(WidgetTester tester) => tester
     .widget<RequestFieldWidget>(find.byType(RequestFieldWidget).first)
     .controller;
@@ -109,7 +115,7 @@ void main() {
     controller
       ..setValue('cost_center', 'MED - DEMO', label: 'تجهیزات پزشکی')
       ..setValue('project', 'PRJ-ICU-1404', label: 'توسعه بخش ICU')
-      ..setValue('needed_date', '2026-10-20')
+      ..setValue('needed_date', _neededDate)
       ..setValue('priority', 'High')
       ..setValue('reason', 'تأمین تجهیزات مانیتورینگ')
       ..setValue('items', [
@@ -130,7 +136,7 @@ void main() {
         'org_unit': 'ICU - DEMO',
         'cost_center': 'MED - DEMO',
         'project': 'PRJ-ICU-1404',
-        'needed_date': '2026-10-20',
+        'needed_date': _neededDate,
         'priority': 'High',
         'reason': 'تأمین تجهیزات مانیتورینگ',
         'items': [
@@ -173,7 +179,7 @@ void main() {
         tester, find.byKey(const ValueKey('template-subject')), 'خرید');
     _controller(tester)
       ..setValue('cost_center', 'MED - DEMO')
-      ..setValue('needed_date', '2026-10-20')
+      ..setValue('needed_date', _neededDate)
       ..setValue('reason', 'دلیل')
       ..setValue('items', [
         {'item_code': 'MON-XS', 'qty': 1, 'uom': 'Nos'}
