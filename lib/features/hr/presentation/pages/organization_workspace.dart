@@ -808,6 +808,7 @@ class _UnitFormState extends State<_UnitForm> {
               const Text(
                   'برای تغییر واحد بالادستی از مدیریت واحد ← جابه‌جایی استفاده کنید.'),
             FilledButton(
+                key: const ValueKey('organization-unit-submit'),
                 onPressed: busy || (widget.moveOnly && parent == initialParent)
                     ? null
                     : _save,

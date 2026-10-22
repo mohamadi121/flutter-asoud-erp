@@ -159,7 +159,10 @@ void main() {
     final title = find.widgetWithText(TextFormField, 'عنوان واحد *');
     expect(tester.widget<TextFormField>(title).controller!.text, isEmpty);
     await tester.enterText(title, 'آموزش');
-    await tester.tap(find.text('افزودن واحد'));
+    final submit = find.byKey(const ValueKey('organization-unit-submit'));
+    expect(submit, findsOneWidget);
+    await tester.ensureVisible(submit);
+    await tester.tap(submit);
     await tester.pumpAndSettle();
     expect(client.lastUnitPayload!.containsKey('name'), isFalse);
     expect(client.lastUnitPayload!['parent'], 'HR-CO');
