@@ -12,6 +12,7 @@ import 'create_form_page.dart';
 import 'form_editor.dart';
 import 'form_repository.dart';
 import 'form_runtime.dart';
+import 'presets/hr_equipment.dart';
 
 class VersionedFormsPage extends StatefulWidget {
   const VersionedFormsPage({
@@ -1080,6 +1081,7 @@ List<FormMap> formPresets(String kind) {
       {'key': key, 'label': label, 'type': type, ...extra};
   if (kind == 'Request') {
     return [
+      hrEquipmentPreset(),
       for (final item in [
         (
           'درخواست عمومی',
