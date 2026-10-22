@@ -53,8 +53,16 @@ void main() {
     expect(keys.toSet().length, keys.length);
     expect(keys, containsAll(['applicant_name', 'recipient', 'purpose', 'purpose_details', 'certificate_language', 'include_compensation', 'delivery_method']));
     expect(keys.any((key) => '$key'.contains('office')), isFalse);
+    expect({for (final field in fields) field['key']: field['label']}, containsPair('applicant_name', 'نام و نام خانوادگی'));
+    expect({for (final field in fields) field['key']: field['label']}, containsPair('applicant_department', 'واحد سازمانی'));
+    expect({for (final field in fields) field['key']: field['label']}, containsPair('applicant_position', 'سمت سازمانی'));
     expect(fields.firstWhere((field) => field['key'] == 'recipient')['required'], isTrue);
     expect(fields.firstWhere((field) => field['key'] == 'purpose')['label'], 'هدف از دریافت گواهی');
+    expect({for (final field in fields) field['key']: field['label']}, containsPair('purpose_details', 'شرح هدف'));
+    expect({for (final field in fields) field['key']: field['label']}, containsPair('certificate_language', 'زبان گواهی'));
+    expect({for (final field in fields) field['key']: field['label']}, containsPair('include_compensation', 'درج حقوق و مزایا در گواهی'));
+    expect({for (final field in fields) field['key']: field['label']}, containsPair('delivery_method', 'روش دریافت پیشنهادی'));
+    expect({for (final field in fields) field['key']: field['label']}, containsPair('additional_notes', 'توضیحات تکمیلی'));
     expect(fields.firstWhere((field) => field['key'] == 'purpose')['options'], [
       {'id': 'bank', 'label': 'ارائه به بانک'},
       {'id': 'embassy', 'label': 'ارائه به سفارت'},
