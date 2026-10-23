@@ -69,6 +69,7 @@ void main() {
       ),
     );
     expect(key.currentState!.validate(), isFalse);
+    await tester.pump();
     expect(find.text('حداقل ۲ ردیف لازم است.'), findsOneWidget);
   });
 
@@ -79,7 +80,10 @@ void main() {
     ]}]};
     await tester.pumpWidget(_form(schema, {}));
     expect(find.text('دریافت خودکار'), findsNWidgets(7));
-    expect(find.text('انتخاب'), findsOneWidget);
+    final select = tester.widget<DropdownButtonFormField<String>>(
+      find.byType(DropdownButtonFormField<String>),
+    );
+    expect(select.initialValue, isNull, reason: 'placeholder must not become a stored selection');
   });
 
   testWidgets('فرم در ۳۹۰ و ۴۳۰ پیکسل راست‌به‌چپ سرریز ندارد', (tester) async {

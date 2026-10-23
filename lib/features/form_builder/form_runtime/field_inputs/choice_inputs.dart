@@ -48,10 +48,13 @@ Widget? buildChoiceInput({
               },
               child: Column(children: [
                 for (final option in options)
-                  RadioListTile<String>(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text('${option['label']}'),
-                    value: '${option['id']}',
+                  Material(
+                    type: MaterialType.transparency,
+                    child: RadioListTile<String>(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text('${option['label']}'),
+                      value: '${option['id']}',
+                    ),
                   ),
               ]),
             ),

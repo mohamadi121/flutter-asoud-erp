@@ -128,10 +128,12 @@ class FormFieldsView extends StatelessWidget {
         padding: const EdgeInsets.only(bottom: 16),
         child: StatefulBuilder(builder: (context, setSectionState) {
           var collapsed = section['collapsible'] == true && section['collapsed'] == true;
-          return Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(10)),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          return Material(
+            type: MaterialType.transparency,
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(10)),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             if (title.isNotEmpty) ...[
               InkWell(
                 onTap: section['collapsible'] == true ? () => setSectionState(() {
@@ -171,7 +173,8 @@ class FormFieldsView extends StatelessWidget {
                 );
               },
             ),
-          ]),
+              ]),
+            ),
           );
         }),
       );
