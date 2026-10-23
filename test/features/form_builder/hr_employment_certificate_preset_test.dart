@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:asoud_erp/core/network/frappe_client.dart';
-import 'package:asoud_erp/features/form_builder/execution_contract.dart';
 import 'package:asoud_erp/features/form_builder/form_repository.dart';
 import 'package:asoud_erp/features/form_builder/form_runtime/form_fields_view.dart';
 import 'package:asoud_erp/features/form_builder/form_runtime/formula_engine.dart';
@@ -84,38 +83,6 @@ void main() {
       {'id': 'other', 'label': 'سایر موارد'},
     ]);
     expect(fields.firstWhere((field) => field['key'] == 'delivery_method')['style'], 'radio');
-  });
-
-  test('the preset maps its fields to the backend certificate_issue executor', () {
-    // Catalog entry as `forms.execution_kinds` returns it for `certificate_issue`
-    // (backend `services/form_execution/certificate_issue.py` PARAMETERS).
-    final catalog = [
-      {
-        'kind': 'certificate_issue',
-        'label': 'صدور گواهی اشتغال به کار',
-        'parameters': {
-          'recipient': {'label': 'مرجع دریافت‌کننده گواهی', 'types': ['Text', 'LongText'], 'required': true},
-          'purpose': {'label': 'هدف از دریافت گواهی', 'types': ['Select', 'Text'], 'required': true},
-          'purpose_details': {'label': 'شرح هدف', 'types': ['Text', 'LongText'], 'required': false},
-          'language': {'label': 'زبان گواهی', 'types': ['Select', 'Text'], 'required': false},
-          'include_compensation': {'label': 'درج حقوق و مزایا', 'types': ['Select', 'Boolean', 'Checkbox'], 'required': false},
-        },
-      },
-    ];
-    final schema = employmentCertificatePreset();
-    expect(schema['execution'], {'kind': 'certificate_issue'});
-    expect(executionProblems(schema, catalog), isEmpty);
-    final mapped = {
-      for (final field in schemaFields(schema))
-        if (field.containsKey('execution_key')) field['key']: field['execution_key']
-    };
-    expect(mapped, {
-      'recipient': 'recipient',
-      'purpose': 'purpose',
-      'purpose_details': 'purpose_details',
-      'certificate_language': 'language',
-      'include_compensation': 'include_compensation',
-    });
   });
 
   test('داده ساختار گواهی برای اعتبارسنجی سرور ذخیره می‌شود', () {

@@ -10,8 +10,6 @@ FormMap employmentCertificatePreset() => {
       'color': '#6D5BD0',
       'description': 'ثبت درخواست گواهی اشتغال به کار',
       'layout': 'sections',
-      // Issued automatically after the final approval (backend `certificate_issue`).
-      'execution': {'kind': 'certificate_issue'},
       'access': {'mode': 'all', 'roles': [], 'departments': []},
       'sections': [
         {
@@ -55,7 +53,6 @@ FormMap employmentCertificatePreset() => {
           'fields': [
             {
               'key': 'recipient',
-              'execution_key': 'recipient',
               'label': 'مرجع دریافت‌کننده گواهی',
               'type': 'Text',
               'required': true,
@@ -64,7 +61,6 @@ FormMap employmentCertificatePreset() => {
             },
             {
               'key': 'purpose',
-              'execution_key': 'purpose',
               'label': 'هدف از دریافت گواهی',
               'type': 'Select',
               'required': true,
@@ -77,14 +73,12 @@ FormMap employmentCertificatePreset() => {
             },
             {
               'key': 'purpose_details',
-              'execution_key': 'purpose_details',
               'label': 'شرح هدف',
               'type': 'LongText',
               'max_length': 1000,
             },
             {
               'key': 'certificate_language',
-              'execution_key': 'language',
               'label': 'زبان گواهی',
               'type': 'Select',
               'required': true,
@@ -97,7 +91,6 @@ FormMap employmentCertificatePreset() => {
             },
             {
               'key': 'include_compensation',
-              'execution_key': 'include_compensation',
               'label': 'درج حقوق و مزایا در گواهی',
               'type': 'Select',
               'required': true,
