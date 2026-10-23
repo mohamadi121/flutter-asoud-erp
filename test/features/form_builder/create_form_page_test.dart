@@ -287,7 +287,7 @@ void main() {
     expect(find.text('کپی درخواست مرخصی'), findsOneWidget);
 
     // Description populated
-    expect(find.text('قالب آماده برای ثبت انواع مرخصی استحقاقی، استعلاجی و ساعتی'), findsOneWidget);
+    expect(find.text('قالب خام درخواست مرخصی روزانه یا نیم‌روز با نوع مرخصی واقعی'), findsOneWidget);
 
     // Compact picker now shows the template icon (calendar)
     expect(find.byIcon(Icons.calendar_today_outlined), findsWidgets);

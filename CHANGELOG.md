@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Presets: new raw forms «درخواست مرخصی» (real Leave Type source, daily or half-day, sensitive description and attachments), «درخواست مأموریت» (destination, purpose, optional shift, no holiday option) and «درخواست اضافه‌کار» (date, start and end time with «روز بعد»). They replace the two generic leave and mission cards and carry no execution mapping; the administrator maps «اجرای پس از تأیید» in the editor. The runtime and editor gain the `Leave Type` link source and the additive keys `before_or_equal` (half day inside the range) and `time_after` (end after start, next-day aware); the switch field keeps its ink visible inside coloured sections. Needs the backend executors `leave_application`, `mission`, `overtime` and the `Leave Type` source.
+
 - Presets: the advance form (reason, description, notes, attachments), the settlement form (reason, description, notes) and the shift-change form (description, notes) mark those fields «اطلاعات حساس»; the server shows them only to the requester, workflow participants and HR/System managers, and never copies them into notification text, created documents or execution comments. The editor shows and keeps the flag. Needs the backend confidential-field change.
 
 - Request detail: a request returned for correction shows a «برای اصلاح بازگردانده شد» banner with the reviewer's reason; the owner can tap «اصلاح درخواست» (only when the server allows it) to edit and resubmit, and the history shows «اصلاح و ارسال مجدد» with the old and new values.
