@@ -110,7 +110,7 @@ class _OrganizationEntryState extends State<_OrganizationEntry> {
   void initState() {
     super.initState();
     final c = context.read<OrganizationCubit>();
-    units = c.repository.units(c.company);
+    units = c.repository.units(c.company)..ignore();
   }
 
   @override
@@ -120,7 +120,7 @@ class _OrganizationEntryState extends State<_OrganizationEntry> {
           before.busy && !after.busy && after.error == null,
       listener: (context, state) {
         final c = context.read<OrganizationCubit>();
-        final pendingUnits = c.repository.units(c.company);
+        final pendingUnits = c.repository.units(c.company)..ignore();
         setState(() {
           units = pendingUnits;
         });
@@ -150,7 +150,7 @@ class _OrganizationEntryState extends State<_OrganizationEntry> {
                       child: TextButton(
                           onPressed: () {
                             final c = context.read<OrganizationCubit>();
-                            final pendingUnits = c.repository.units(c.company);
+                            final pendingUnits = c.repository.units(c.company)..ignore();
                             setState(() {
                               units = pendingUnits;
                             });
