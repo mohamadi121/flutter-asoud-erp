@@ -138,6 +138,7 @@ class _RequestFieldEditorPageState extends State<RequestFieldEditorPage> {
           : technicalKey.text.trim(),
       label: label.text.trim(),
       type: selectedType,
+      executionKey: selectedType == widget.initial?.type ? widget.initial?.executionKey : null,
       required: required,
       options: isChoice ? optionValues : const [],
       defaultValue: hasDefault ? defaultValue.text.trim() : '',

@@ -7,6 +7,7 @@ import '../../core/config/app_config.dart';
 import '../../core/network/frappe_client.dart';
 import '../../core/network/api_exception.dart';
 import 'form_runtime/schema_migration.dart';
+import 'execution_contract.dart';
 
 typedef FormMap = Map<String, dynamic>;
 FormMap formMap(Object? value) =>
@@ -106,6 +107,11 @@ class FormRepository {
           (error.kind == ApiFailureKind.server &&
               const [502, 503, 504].contains(error.statusCode)));
 
+  Future<List<FormMap>> executionKinds() async {
+    if (!client.isAuthenticated) return [];
+    return formMaps(await call('execution_kinds'));
+  }
+
   Future<List<FormMap>> drafts() async {
     final key = await scope();
     final raw = (await SharedPreferences.getInstance()).getString(
@@ -169,6 +175,13 @@ class FormRepository {
       return {...prepared, 'local': true};
     }
     try {
+      final form = formMap(prepared['schema']);
+      final catalog = form['execution'] == null ? <FormMap>[] : await executionKinds();
+      final problems = executionProblems(form, catalog);
+      if (problems.isNotEmpty) {
+        throw ApiException(kind: ApiFailureKind.validation,
+            message: problems.join('\n'), statusCode: 417);
+      }
       final result = formMap(
         await call('save_form', {
           'company': company,

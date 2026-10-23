@@ -24,3 +24,32 @@ All keys are optional and additive; `schema_version` stays 2 and old forms rende
 - `not_equal` / `not_equal_message`: checked in `FormState.validate` when both fields are visible and non-empty.
 - Table column `unique: true`: message «ردیف تکراری: {label}» from the table's validator.
 - `default_source` `employee_number` and `default_shift` show «دریافت خودکار» until the server fills them.
+
+## Approval execution metadata
+
+Request schemas may contain optional `execution: {kind}` and top-level fields
+may contain `execution_key`. The editor reads the designer-only
+`asoud_erp.api.v1.forms.execution_kinds` catalog (`success([{kind, label, parameters}])`).
+Parameters are keyed objects with Persian `label`, allowed `types`, and `required`.
+The endpoint is classified as a read and is never queued as an offline write.
+No executor data is fabricated for preview; an unauthenticated catalog is empty.
+
+The form-info sheet provides «اجرای پس از تأیید», its kind picker and parameter
+mappings. Individual field settings provide the same mapping control. Workflow
+step forms retain `execution_key` in their field model and offer the same picker
+for compatible field types. Step mappings are partial overrides of the request
+parameters; the last completed step wins on the server. Changing a form to
+Document clears request execution metadata. The form runtime only collects
+values as before; native writes occur on the backend after final approval.
+
+Execution validation uses the catalog: unknown kinds and parameters, duplicate
+mappings, incompatible types and missing required parameters have the same
+Persian reasons as the backend. A catalog failure ends in an error and retry
+control; a successful empty catalog explains that no execution kind is available.
+Existing schemas and presets are unchanged.
+
+The repository keeps the draft before loading the execution catalog. When an
+authenticated catalog load fails because the network is unavailable, saving
+returns the existing local-draft result, just like other form saves. Catalog
+validation runs before the server write; permission and validation failures are
+not treated as offline success.

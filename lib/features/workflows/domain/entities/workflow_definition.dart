@@ -373,6 +373,7 @@ class WorkflowFormFieldDefinition extends Equatable {
     this.rowsFromRequest,
     this.maxFromRow,
     this.readonly = false,
+    this.executionKey,
   });
 
   factory WorkflowFormFieldDefinition.fromMap(Map<dynamic, dynamic> map) =>
@@ -424,6 +425,7 @@ class WorkflowFormFieldDefinition extends Equatable {
         rowsFromRequest: _text(map['rows_from_request']),
         maxFromRow: _text(map['max_from_row']),
         readonly: map['readonly'] == true || map['readonly'] == 1,
+        executionKey: _text(map['execution_key']),
       );
 
   static String? _text(Object? value) {
@@ -469,6 +471,7 @@ class WorkflowFormFieldDefinition extends Equatable {
   final String? rowsFromRequest, maxFromRow;
   final num? minValueExclusive;
   final bool readonly;
+  final String? executionKey;
 
   /// Persian label of a `Choice` value, falling back to the value itself.
   String optionLabel(String value) => optionLabels[value] ?? value;
@@ -505,6 +508,7 @@ class WorkflowFormFieldDefinition extends Equatable {
         if (defaultSource != null) 'default_source': defaultSource,
         if (requiredBySetting != null) 'required_by_setting': requiredBySetting,
         if (sensitive) 'sensitive': true,
+        if (executionKey != null) 'execution_key': executionKey,
       };
 
   WorkflowFormFieldDefinition copyWith({
@@ -550,6 +554,7 @@ class WorkflowFormFieldDefinition extends Equatable {
         rowsFromRequest: rowsFromRequest,
         maxFromRow: maxFromRow ?? this.maxFromRow,
         readonly: readonly ?? this.readonly,
+        executionKey: executionKey,
       );
 
   @override
@@ -583,5 +588,6 @@ class WorkflowFormFieldDefinition extends Equatable {
         rowsFromRequest,
         maxFromRow,
         readonly,
+        executionKey,
       ];
 }
