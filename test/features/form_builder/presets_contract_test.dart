@@ -14,7 +14,7 @@ const _checkedPresetTitles = <String>{
 
 const _schemaKeys = <String>{
   'schema_version', 'format', 'kind', 'title', 'module', 'icon', 'color',
-  'description', 'sections', 'rules', 'access', 'layout',
+  'description', 'sections', 'rules', 'access', 'layout', 'execution',
 };
 const _sectionKeys = <String>{
   'id', 'title', 'description', 'icon', 'color', 'background_color',
@@ -27,7 +27,7 @@ const _fieldKeys = <String>{
   'formula', 'min_length', 'max_length', 'extensions', 'max_files', 'max_mb',
   'error_message', 'format', 'minute_step', 'fetch_from', 'not_equal',
   'not_equal_message', 'exclude_self', 'unique', 'schedule_of', 'from_field',
-  'to_field', 'compare', 'next_day_allowed',
+  'to_field', 'compare', 'next_day_allowed', 'execution_key',
 };
 const _ruleKeys = <String>{'target', 'action', 'join', 'conditions', 'enabled'};
 const _conditionKeys = <String>{'field', 'op', 'value'};
