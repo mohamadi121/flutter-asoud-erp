@@ -446,7 +446,8 @@ FormMap evaluatedValues(FormMap schema, FormMap raw) {
       values[key] = formMaps(values[key]).map((row) => evaluatedValues({'sections': [{'fields': field['columns']}], 'rules': []}, row)).toList();
     } else if (field['type'] == 'Formula') {
       values[key] = calculateForm(formula, values);
-    } else if (formFlag(field, schema, values, 'readonly') || field['type'] == 'Display') {
+    } else if (field['fetch_from'] == null &&
+        (formFlag(field, schema, values, 'readonly') || field['type'] == 'Display')) {
       values[key] = field['default'];
     }
     visiting.remove(key); done.add(key);

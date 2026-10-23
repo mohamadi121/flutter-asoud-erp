@@ -5,9 +5,6 @@ import 'package:flutter_test/flutter_test.dart';
 const _checkedPresetTitles = <String>{
   'درخواست اصلاح تردد',
   'درخواست مساعده',
-};
-
-const _skippedPresetTitles = <String>{
   'درخواست گواهی اشتغال به کار',
   'درخواست تغییر شیفت',
   'درخواست آموزش کارکنان',
@@ -48,7 +45,6 @@ void main() {
     final presets = formPresets('Request');
     final titles = presets.map((preset) => '${preset['title']}').toSet();
     expect(titles.containsAll(_checkedPresetTitles), isTrue);
-    expect(titles.containsAll(_skippedPresetTitles), isTrue);
 
     for (final preset in presets.where(
       (item) => _checkedPresetTitles.contains('${item['title']}'),
