@@ -14,6 +14,7 @@ FormMap hrSalaryAdvancePreset() => {
         {
           'id': 'applicant',
           'title': 'مشخصات متقاضی',
+          'icon': 'person',
           'color': '#E8F2FF',
           'fields': [
             {
@@ -47,6 +48,7 @@ FormMap hrSalaryAdvancePreset() => {
         {
           'id': 'advance_details',
           'title': 'مشخصات مساعده',
+          'icon': 'payments',
           'color': '#F2EAFE',
           'fields': [
             {
@@ -88,6 +90,7 @@ FormMap hrSalaryAdvancePreset() => {
         {
           'id': 'repayment_proposal',
           'title': 'پیشنهاد نحوه تسویه',
+          'icon': 'event_repeat',
           'color': '#FFF0DD',
           'collapsible': true,
           'fields': [
@@ -140,6 +143,7 @@ FormMap hrSalaryAdvancePreset() => {
         {
           'id': 'attachments',
           'title': 'پیوست‌ها',
+          'icon': 'attach_file',
           'color': '#E6F6F7',
           'fields': [
             {
@@ -148,6 +152,29 @@ FormMap hrSalaryAdvancePreset() => {
               'type': 'File',
               'span': 2,
               'help': 'در صورت نیاز، فایل را مطابق محدودیت‌های سامانه اضافه کنید.',
+            },
+          ],
+        },
+        {
+          'id': 'approval_flow',
+          'title': 'گردش تأیید',
+          'icon': 'account_tree',
+          'color': '#FCE9EE',
+          'fields': [
+            {
+              'key': 'approval_flow_notice',
+              'label': 'مسیر بررسی',
+              'type': 'Display',
+              'span': 2,
+              'default': 'مسیر بررسی از گردش کار تعریف‌شده تعیین می‌شود.',
+            },
+            {
+              'key': 'final_notice',
+              'label': 'توضیح نهایی',
+              'type': 'Display',
+              'span': 2,
+              'default':
+                  'روش بازپرداخت، مبلغ مصوب و پرداخت واقعی پس از رسیدگی توسط مسئولان مجاز تعیین می‌شود.',
             },
           ],
         },

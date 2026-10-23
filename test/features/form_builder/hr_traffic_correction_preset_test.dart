@@ -34,6 +34,17 @@ void main() {
       );
     });
 
+    test('کارت گردش تأیید خنثی است و بدون کلید ناشناخته', () {
+      final fields = [
+        for (final s in formMaps(hrTrafficCorrectionPreset()['sections']))
+          ...formMaps(s['fields'])
+      ];
+      final notice = fields.singleWhere((f) => f['key'] == 'approval_flow_notice');
+      expect(notice['type'], 'Display');
+      expect(notice['default'], 'مسیر بررسی از گردش کار تعریف‌شده تعیین می‌شود.');
+      expect(fields.where((f) => f['type'] == 'Time').every((f) => f['help'] != null), isTrue);
+    });
+
     testWidgets('شرط‌ها و اعتبارسنجی فقط برای فیلدهای نمایان در پیش‌نمایش اجرا می‌شوند',
         (tester) async {
       tester.view.physicalSize = const Size(360, 800);

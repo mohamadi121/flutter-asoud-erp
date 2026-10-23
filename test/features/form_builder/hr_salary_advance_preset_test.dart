@@ -70,6 +70,17 @@ void main() {
     expect(schema['sections'].firstWhere((section) => section['id'] == 'repayment_proposal')['collapsible'], isTrue);
   });
 
+  test('کارت گردش تأیید و هشدار نهایی مساعده با متن دقیق مشخصات', () {
+    final fields = [
+      for (final s in formMaps(hrSalaryAdvancePreset()['sections']))
+        ...formMaps(s['fields'])
+    ];
+    expect(fields.singleWhere((f) => f['key'] == 'approval_flow_notice')['default'],
+        'مسیر بررسی از گردش کار تعریف‌شده تعیین می‌شود.');
+    expect(fields.singleWhere((f) => f['key'] == 'final_notice')['default'],
+        'روش بازپرداخت، مبلغ مصوب و پرداخت واقعی پس از رسیدگی توسط مسئولان مجاز تعیین می‌شود.');
+  });
+
   testWidgets('پیش‌نمایش مساعده در ۳۶۰×۸۰۰ شرط‌ها و اعتبارسنجی فیلدهای قابل نمایش را اجرا می‌کند',
       (tester) async {
     tester.view.physicalSize = const Size(360, 800);

@@ -72,11 +72,13 @@ FormMap hrTrafficCorrectionPreset() => {
               'key': 'proposed_check_in_time',
               'label': 'ساعت ورود پیشنهادی',
               'type': 'Time',
+              'help': 'ساعت ورود را از ساعت‌گزین انتخاب کنید.',
             },
             {
               'key': 'proposed_check_out_time',
               'label': 'ساعت خروج پیشنهادی',
               'type': 'Time',
+              'help': 'ساعت خروج را از ساعت‌گزین انتخاب کنید.',
             },
             {
               'key': 'attendance_record_details',
@@ -88,6 +90,7 @@ FormMap hrTrafficCorrectionPreset() => {
               'key': 'proposed_correct_time',
               'label': 'ساعت صحیح پیشنهادی',
               'type': 'Time',
+              'help': 'ساعت صحیح را از ساعت‌گزین انتخاب کنید.',
             },
             {
               'key': 'other_correction_description',
@@ -119,6 +122,20 @@ FormMap hrTrafficCorrectionPreset() => {
           'color': '#E6F6F7',
           'fields': [
             {'key': 'attachments', 'label': 'پیوست‌ها', 'type': 'File'},
+          ],
+        },
+        {
+          'id': 'approval_flow',
+          'title': 'گردش تأیید',
+          'icon': 'account_tree',
+          'color': '#FCE9EE',
+          'fields': [
+            {
+              'key': 'approval_flow_notice',
+              'label': 'مسیر بررسی',
+              'type': 'Display',
+              'default': 'مسیر بررسی از گردش کار تعریف‌شده تعیین می‌شود.',
+            },
           ],
         },
       ],
