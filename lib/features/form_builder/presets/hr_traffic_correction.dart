@@ -18,26 +18,28 @@ FormMap hrTrafficCorrectionPreset() => {
           'color': '#E8F2FF',
           'fields': [
             {
-              'key': 'applicant_name',
+              'key': 'applicant_employee',
               'label': 'نام و نام خانوادگی',
-              'type': 'Display',
+              'type': 'Link',
+              'source': 'Employee',
+              'default_source': 'employee',
               'readonly': true,
-              'default': 'دریافت خودکار',
             },
             {
               'key': 'applicant_department',
               'label': 'واحد سازمانی',
-              'type': 'Display',
+              'type': 'Link',
+              'source': 'Department',
+              'default_source': 'department',
               'readonly': true,
-              'default': 'دریافت خودکار',
               'span': 1,
             },
             {
               'key': 'applicant_position',
               'label': 'سمت سازمانی',
-              'type': 'Display',
+              'type': 'Text',
+              'default_source': 'designation',
               'readonly': true,
-              'default': 'دریافت خودکار',
               'span': 1,
             },
           ],
@@ -70,28 +72,25 @@ FormMap hrTrafficCorrectionPreset() => {
               'key': 'proposed_check_in_time',
               'label': 'ساعت ورود پیشنهادی',
               'type': 'Time',
+              'help': 'ساعت ورود را از ساعت‌گزین انتخاب کنید.',
             },
             {
               'key': 'proposed_check_out_time',
               'label': 'ساعت خروج پیشنهادی',
               'type': 'Time',
+              'help': 'ساعت خروج را از ساعت‌گزین انتخاب کنید.',
             },
             {
-              'key': 'attendance_record',
-              'label': 'رکورد تردد',
-              'type': 'Link',
-              'source': 'Attendance',
-            },
-            {
-              'key': 'current_recorded_time',
-              'label': 'ساعت ثبت‌شده فعلی',
-              'type': 'Display',
-              'readonly': true,
+              'key': 'attendance_record_details',
+              'label': 'مشخصات رکورد تردد',
+              'type': 'LongText',
+              'help': 'شناسه یکتا و ساعت ثبت‌شده رکورد تردد را وارد کنید.',
             },
             {
               'key': 'proposed_correct_time',
               'label': 'ساعت صحیح پیشنهادی',
               'type': 'Time',
+              'help': 'ساعت صحیح را از ساعت‌گزین انتخاب کنید.',
             },
             {
               'key': 'other_correction_description',
@@ -130,14 +129,14 @@ FormMap hrTrafficCorrectionPreset() => {
           'title': 'گردش تأیید',
           'icon': 'account_tree',
           'color': '#FCE9EE',
-          'fields': <FormMap>[],
-        },
-        {
-          'id': 'review_submit',
-          'title': 'بررسی نهایی و ارسال',
-          'icon': 'fact_check',
-          'color': '#E5F7EF',
-          'fields': <FormMap>[],
+          'fields': [
+            {
+              'key': 'approval_flow_notice',
+              'label': 'مسیر بررسی',
+              'type': 'Display',
+              'default': 'مسیر بررسی از گردش کار تعریف‌شده تعیین می‌شود.',
+            },
+          ],
         },
       ],
       'rules': [
@@ -174,7 +173,7 @@ FormMap hrTrafficCorrectionPreset() => {
           ],
         },
         {
-          'target': 'attendance_record',
+          'target': 'attendance_record_details',
           'action': 'visible',
           'join': 'and',
           'conditions': [
@@ -182,16 +181,8 @@ FormMap hrTrafficCorrectionPreset() => {
           ],
         },
         {
-          'target': 'attendance_record',
+          'target': 'attendance_record_details',
           'action': 'required',
-          'join': 'and',
-          'conditions': [
-            {'field': 'correction_type', 'op': 'eq', 'value': 'correct_recorded_time'},
-          ],
-        },
-        {
-          'target': 'current_recorded_time',
-          'action': 'visible',
           'join': 'and',
           'conditions': [
             {'field': 'correction_type', 'op': 'eq', 'value': 'correct_recorded_time'},
@@ -230,5 +221,4 @@ FormMap hrTrafficCorrectionPreset() => {
           ],
         },
       ],
-      'access': {'mode': 'all', 'roles': [], 'departments': []},
     };

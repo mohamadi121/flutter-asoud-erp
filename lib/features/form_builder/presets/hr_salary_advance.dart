@@ -1,9 +1,10 @@
-import '../form_editor/editor_widgets.dart';
 import '../form_repository.dart';
 
 /// الگوی خام و قابل استفادهٔ مجدد درخواست مساعده منابع انسانی.
 FormMap hrSalaryAdvancePreset() => {
-      ...blankSchema('Request'),
+      'schema_version': 2,
+      'format': 1,
+      'kind': 'Request',
       'title': 'درخواست مساعده',
       'module': 'HR',
       'icon': 'wallet',
@@ -13,35 +14,33 @@ FormMap hrSalaryAdvancePreset() => {
         {
           'id': 'applicant',
           'title': 'مشخصات متقاضی',
+          'icon': 'person',
           'color': '#E8F2FF',
           'fields': [
             {
-              'key': 'applicant_full_name',
+              'key': 'applicant_employee',
               'label': 'نام و نام خانوادگی',
-              'type': 'Text',
-              'source_mode': 'asoud',
+              'type': 'Link',
               'source': 'Employee',
+              'default_source': 'employee',
               'readonly': true,
-              'default': 'دریافت خودکار',
               'span': 2,
             },
             {
               'key': 'applicant_department',
               'label': 'واحد سازمانی',
-              'type': 'Text',
-              'source_mode': 'asoud',
+              'type': 'Link',
               'source': 'Department',
+              'default_source': 'department',
               'readonly': true,
-              'default': 'دریافت خودکار',
               'span': 1,
             },
             {
               'key': 'applicant_position',
               'label': 'سمت سازمانی',
               'type': 'Text',
-              'source_mode': 'asoud',
+              'default_source': 'designation',
               'readonly': true,
-              'default': 'دریافت خودکار',
               'span': 1,
             },
           ],
@@ -49,6 +48,7 @@ FormMap hrSalaryAdvancePreset() => {
         {
           'id': 'advance_details',
           'title': 'مشخصات مساعده',
+          'icon': 'payments',
           'color': '#F2EAFE',
           'fields': [
             {
@@ -90,7 +90,9 @@ FormMap hrSalaryAdvancePreset() => {
         {
           'id': 'repayment_proposal',
           'title': 'پیشنهاد نحوه تسویه',
+          'icon': 'event_repeat',
           'color': '#FFF0DD',
+          'collapsible': true,
           'fields': [
             {
               'key': 'repayment_method',
@@ -109,6 +111,7 @@ FormMap hrSalaryAdvancePreset() => {
               'label': 'تعداد اقساط پیشنهادی',
               'type': 'Select',
               'span': 1,
+              'style': 'radio',
               'options': [
                 {'id': 'installments_1', 'label': '۱ قسط'},
                 {'id': 'installments_2', 'label': '۲ قسط'},
@@ -140,6 +143,7 @@ FormMap hrSalaryAdvancePreset() => {
         {
           'id': 'attachments',
           'title': 'پیوست‌ها',
+          'icon': 'attach_file',
           'color': '#E6F6F7',
           'fields': [
             {
@@ -154,28 +158,23 @@ FormMap hrSalaryAdvancePreset() => {
         {
           'id': 'approval_flow',
           'title': 'گردش تأیید',
+          'icon': 'account_tree',
           'color': '#FCE9EE',
           'fields': [
             {
               'key': 'approval_flow_notice',
-              'label': 'گردش تأیید',
+              'label': 'مسیر بررسی',
               'type': 'Display',
               'span': 2,
-              'default': 'مراحل و مسئولان رسیدگی از گردش کار پیکربندی‌شده سازمان تعیین می‌شوند.',
+              'default': 'مسیر بررسی از گردش کار تعریف‌شده تعیین می‌شود.',
             },
-          ],
-        },
-        {
-          'id': 'review_and_submit',
-          'title': 'بررسی نهایی و ارسال',
-          'color': '#E8F2FF',
-          'fields': [
             {
-              'key': 'review_notice',
-              'label': 'بررسی و ادامه',
+              'key': 'final_notice',
+              'label': 'توضیح نهایی',
               'type': 'Display',
               'span': 2,
-              'default': 'روش بازپرداخت، مبلغ مصوب و پرداخت واقعی پس از رسیدگی توسط مسئولان مجاز تعیین می‌شود.',
+              'default':
+                  'روش بازپرداخت، مبلغ مصوب و پرداخت واقعی پس از رسیدگی توسط مسئولان مجاز تعیین می‌شود.',
             },
           ],
         },

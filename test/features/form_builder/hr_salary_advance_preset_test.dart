@@ -61,7 +61,24 @@ void main() {
     expect(fields.map((field) => field['key']), isNot(contains('approved_amount')));
     expect(fields.map((field) => field['key']), isNot(contains('paid_amount')));
     expect(schema['sections'].map((section) => section['title']),
-        containsAll(['مشخصات متقاضی', 'مشخصات مساعده', 'پیشنهاد نحوه تسویه', 'پیوست‌ها', 'گردش تأیید', 'بررسی نهایی و ارسال']));
+        containsAll(['مشخصات متقاضی', 'مشخصات مساعده', 'پیشنهاد نحوه تسویه', 'پیوست‌ها']));
+    final applicant = fields.where((field) => '${field['key']}'.startsWith('applicant_')).toList();
+    expect(applicant.map((field) => field['default_source']), containsAll(['employee', 'department', 'designation']));
+    expect(applicant.any((field) => field.containsKey('default')), isFalse);
+    expect(fields.firstWhere((field) => field['key'] == 'requested_amount')['min'], greaterThan(0));
+    expect(fields.firstWhere((field) => field['key'] == 'installment_count')['style'], 'radio');
+    expect(schema['sections'].firstWhere((section) => section['id'] == 'repayment_proposal')['collapsible'], isTrue);
+  });
+
+  test('کارت گردش تأیید و هشدار نهایی مساعده با متن دقیق مشخصات', () {
+    final fields = [
+      for (final s in formMaps(hrSalaryAdvancePreset()['sections']))
+        ...formMaps(s['fields'])
+    ];
+    expect(fields.singleWhere((f) => f['key'] == 'approval_flow_notice')['default'],
+        'مسیر بررسی از گردش کار تعریف‌شده تعیین می‌شود.');
+    expect(fields.singleWhere((f) => f['key'] == 'final_notice')['default'],
+        'روش بازپرداخت، مبلغ مصوب و پرداخت واقعی پس از رسیدگی توسط مسئولان مجاز تعیین می‌شود.');
   });
 
   testWidgets('پیش‌نمایش مساعده در ۳۶۰×۸۰۰ شرط‌ها و اعتبارسنجی فیلدهای قابل نمایش را اجرا می‌کند',
@@ -108,5 +125,26 @@ void main() {
     await tester.pumpAndSettle();
     drainFormNotifications(tester);
     expect(state.key.currentState!.validate(), isTrue);
+  });
+
+  testWidgets('پیش‌نمایش مساعده در اندازه‌های RTL بدون خطا نمایش داده می‌شود', (tester) async {
+    for (final size in [const Size(320, 640), const Size(390, 844), const Size(430, 932)]) {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      await tester.pumpWidget(MaterialApp(
+        home: Directionality(
+          textDirection: TextDirection.rtl,
+          child: Scaffold(
+            body: SingleChildScrollView(
+              child: _PreviewHarness(schema: schema, values: const {'requested_amount': '12000000'}),
+            ),
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull, reason: '${size.width}×${size.height}');
+    }
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
   });
 }
