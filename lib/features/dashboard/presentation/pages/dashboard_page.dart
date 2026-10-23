@@ -213,6 +213,7 @@ class DashboardPage extends StatefulWidget {
       this.loadError = false,
       this.onOfficeCreated,
       this.operationsOnly = false,
+      this.now,
       super.key});
 
   final String? officeName;
@@ -221,6 +222,9 @@ class DashboardPage extends StatefulWidget {
   final bool loadError;
   final VoidCallback? onOfficeCreated;
   final bool operationsOnly;
+
+  /// Replaces the wall clock on the home calendar and date cards (tests).
+  final DateTime? now;
 
   @override
   State<DashboardPage> createState() => _DashboardPageState();
@@ -302,6 +306,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   key: ValueKey(officeName),
                   company: officeName!,
                   demoPreview: offlinePreview,
+                  now: widget.now,
                   statusBanner: Column(children: [
                     if (offlinePreview) const OrganizationLoginBanner(),
                     if (office != null && office!.setupComplete != true)

@@ -51,8 +51,10 @@ void main() {
   testWidgets('داشبورد اجزای اصلی متناظر با طرح را نمایش می‌دهد',
       (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
-    await tester
-        .pumpWidget(_app(const DashboardPage(officeName: 'شرکت نمونه')));
+    // A fixed clock: the home calendar changes height with the weekday and
+    // holidays, which decides whether the quick-access grid is built yet.
+    await tester.pumpWidget(_app(DashboardPage(
+        officeName: 'شرکت نمونه', now: DateTime(2026, 10, 5))));
     await tester.pumpAndSettle();
 
     expect(find.text('آسود'), findsOneWidget);
@@ -60,7 +62,12 @@ void main() {
     expect(find.text('خانه'), findsOneWidget);
     await tester.dragUntilVisible(find.text('دسترسی سریع'),
         find.byType(Scrollable).first, const Offset(0, -200));
-    expect(find.text('عملیات'), findsOneWidget);
+    // One «عملیات» in the bottom bar and one quick-access tile.
+    expect(find.text('عملیات'), findsNWidgets(2));
+    expect(
+        find.descendant(
+            of: find.byType(NavigationBar), matching: find.text('عملیات')),
+        findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.binding.setSurfaceSize(null);
   });
