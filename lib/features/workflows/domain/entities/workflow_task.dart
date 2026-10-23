@@ -91,7 +91,10 @@ class WorkflowTaskDetail extends Equatable {
     this.referenceDoctype = '',
     this.referenceName = '',
     this.documentValues = const [],
+    this.requestName = '',
+    this.requestCompany = '',
   });
+  final String requestName, requestCompany;
   final WorkflowTask task;
   final String stageType;
   final List<WorkflowFormFieldDefinition> fields;
@@ -118,6 +121,8 @@ class WorkflowTaskDetail extends Equatable {
         referenceDoctype,
         referenceName,
         documentValues,
+        requestName,
+        requestCompany,
       ];
 }
 

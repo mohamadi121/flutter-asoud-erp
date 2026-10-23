@@ -92,6 +92,7 @@ class RequestDetailScaffold extends StatefulWidget {
     required this.name,
     this.title = 'جزئیات درخواست',
     this.tasks,
+    this.readOnly = false,
     this.infoBuilder,
     this.itemsBuilder,
     this.extraSections,
@@ -102,6 +103,9 @@ class RequestDetailScaffold extends StatefulWidget {
   final String name;
   final String title;
   final WorkflowTaskRepository? tasks;
+
+  /// Opened from a task: no edit, cancel or decision controls.
+  final bool readOnly;
 
   /// Replaces the main-info card.
   final RequestDetailSlot? infoBuilder;
@@ -136,13 +140,13 @@ class _RequestDetailScaffoldState extends State<RequestDetailScaffold> {
       !const {'approved', 'rejected', 'cancelled'}
           .contains(data!['status_key']);
 
-  bool get canEdit => data == null || data!['pending_sync'] == true
+  bool get canEdit => widget.readOnly || data == null || data!['pending_sync'] == true
       ? false
       : data!.containsKey('can_edit')
           ? detail!.canEdit
           : running;
 
-  bool get canCancel => data == null || data!['pending_sync'] == true
+  bool get canCancel => widget.readOnly || data == null || data!['pending_sync'] == true
       ? false
       : data!.containsKey('can_cancel')
           ? detail!.canCancel
@@ -629,8 +633,9 @@ class _RequestDetailScaffoldState extends State<RequestDetailScaffold> {
                     const TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
           ]),
           // WP2 insertion point: viewer-aware status and decision cards.
-          RequestViewerCards(
-              data: value, tasks: _tasks(), onDecided: load),
+          if (!widget.readOnly)
+            RequestViewerCards(
+                data: value, tasks: _tasks(), onDecided: load),
           if (detail.statusKey == RequestStatusKey.rejected &&
               detail.rejectionReason.isNotEmpty)
             Container(

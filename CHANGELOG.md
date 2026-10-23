@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Cartable task: «مشاهده درخواست» opens the full request read-only (no edit, cancel or decision controls).
 - Request detail: a «وضعیت درخواست من» card for the requester and an «اقدام» card (approve, return, reject by the stage settings) for the user holding the open task.
 
 - Form builder: section presentation, collapsible sections, radio choices, date ordering and repeatable-table validation are supported at runtime.
