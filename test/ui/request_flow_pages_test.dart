@@ -185,8 +185,10 @@ void main() {
     expect(find.text('دسته‌بندی'), findsOneWidget); // label from the type
     expect(find.text('لپ‌تاپ Dell'), findsOneWidget);
     expect(find.text('پیش فاکتور.pdf'), findsOneWidget);
+    await _tap(tester, find.text('سوابق'));
     expect(find.text('ثبت درخواست'), findsOneWidget);
     expect(find.text('تأیید مدیر مستقیم'), findsOneWidget);
+    await _tap(tester, find.text('گردش کار'));
     expect(find.text('در انتظار اقدام'), findsOneWidget);
 
     await _tap(tester, find.byTooltip('عملیات'));

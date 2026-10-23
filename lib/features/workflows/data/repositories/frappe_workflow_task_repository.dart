@@ -92,6 +92,7 @@ class FrappeWorkflowTaskRepository
                 createdOn:
                     DateTime.tryParse(activity['created_on']?.toString() ?? ''),
                 stageTitle: activity['stage_title']?.toString() ?? '',
+                actorName: activity['actor_name']?.toString() ?? '',
               );
             }).toList(growable: false)
           : const [],

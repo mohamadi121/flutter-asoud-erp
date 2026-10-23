@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Request detail: summary card plus three tabs «جزئیات | گردش کار | سوابق». The workflow tab lists every real step with its responsible person, referral and decision time; the history tab shows actors by full name. Empty attachments now read «پیوستی ثبت نشده است.». Needs the backend `stages` and `actor_name` fields (until then the old current-stage row is shown).
 - Form builder: section presentation, collapsible sections, radio choices, date ordering and repeatable-table validation are supported at runtime.
 - Ready HR request templates (settings → forms → create from template): traffic correction, salary advance, employment certificate, shift change, settlement, training, equipment delivery or return. Raw reusable forms only: applicant data comes from the signed-in user's Employee (`default_source`), no fixed approvers or workflow.
 - New request: a bottom sheet with module, subgroup, search and row descriptions; offline rows without a real form show a message instead of opening a wrong form.
