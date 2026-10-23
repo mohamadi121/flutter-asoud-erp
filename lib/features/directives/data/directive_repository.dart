@@ -251,7 +251,7 @@ class ApiDirectiveRepository implements DirectiveRepository {
         'body': draft.body,
         'priority': draft.priority,
         'due_date': draft.dueDate == null ? null : _date(draft.dueDate!),
-        'reminder_at': draft.reminderAt?.toIso8601String(),
+        'reminder_at': draft.reminderAt?.toUtc().toIso8601String(),
         'executor_ids': draft.executorIds,
         'primary_id': draft.primaryId,
         'allow_transfer': draft.allowTransfer,

@@ -151,7 +151,7 @@ void main() {
     expect(find.text('ساعت شروع'), findsNothing);
     expect(find.text('تاریخ مرخصی'), findsNothing);
     // No files: the empty hint of the mockup.
-    expect(find.text('فایلی وجود ندارد.'), findsOneWidget);
+    expect(find.text('پیوستی ثبت نشده است.'), findsOneWidget);
   });
 
   testWidgets('hourly leave detail shows the date, the times and the file',
