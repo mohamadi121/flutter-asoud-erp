@@ -27,14 +27,15 @@ const _fieldKeys = <String>{
   'formula', 'min_length', 'max_length', 'extensions', 'max_files', 'max_mb',
   'error_message', 'format', 'minute_step', 'fetch_from', 'not_equal',
   'not_equal_message', 'exclude_self', 'unique', 'schedule_of', 'from_field',
-  'to_field', 'compare', 'next_day_allowed', 'sensitive',
+  'to_field', 'compare', 'next_day_allowed', 'sensitive', 'before_or_equal',
+  'before_or_equal_message', 'time_after', 'time_after_message',
 };
 const _ruleKeys = <String>{'target', 'action', 'join', 'conditions', 'enabled'};
 const _conditionKeys = <String>{'field', 'op', 'value'};
 const _sources = <String>{
   'Employee', 'Customer', 'Supplier', 'Item', 'Warehouse', 'Account',
   'Cost Center', 'Project', 'Department', 'Attendance', 'Shift Type',
-  'Training Event', 'Asset',
+  'Leave Type', 'Training Event', 'Asset',
 };
 const _defaultSources = <String>{
   'user', 'company', 'today', 'employee', 'department', 'designation',

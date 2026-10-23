@@ -96,6 +96,27 @@ List<Widget> buildNotEqualConfig({
   ];
 }
 
+List<Widget> buildTimeAfterConfig({
+  required FormMap f,
+  required List<FormMap> fields,
+  required void Function(String key, dynamic value) set,
+}) {
+  if (f['type'] != 'Time') return const [];
+  return [
+    formSelect(
+      'باید بعد از فیلد:',
+      '${f['time_after'] ?? ''}',
+      {
+        '': 'بدون محدودیت',
+        for (final field in fields)
+          if (field['key'] != f['key'] && field['type'] == 'Time')
+            '${field['key']}': '${field['label']}',
+      },
+      (v) => set('time_after', v.isEmpty ? null : v),
+    ),
+  ];
+}
+
 Widget uniqueColumnSwitch(
   FormMap f,
   void Function(String key, dynamic value) set,
