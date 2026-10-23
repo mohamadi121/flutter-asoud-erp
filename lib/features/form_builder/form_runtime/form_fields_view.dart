@@ -136,7 +136,7 @@ class FormFieldsView extends StatelessWidget {
         );
       }
       final description = '${section['description'] ?? ''}'.trim();
-      final colors = sectionColors(section)!;
+      final colors = sectionColors(section) ?? const SectionColors(Color(0xFFEBF3FF), Color(0xFF1876D2));
       final bg = colors.background;
       final accent = colors.accent;
       final icon = sectionIconForName('${section['icon'] ?? ''}');

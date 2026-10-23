@@ -116,6 +116,15 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
   });
 
+  testWidgets('بخش جمع‌شونده بسته فیلدها را پنهان می‌کند و با لمس سرتیتر نشان می‌دهد', (tester) async {
+    final schema = <String, dynamic>{'sections': [{'title': 'بخش جمع', 'collapsible': true, 'collapsed': true, 'fields': [{'key': 'v', 'type': 'Text', 'label': 'مقدار پنهان'}]}]};
+    await tester.pumpWidget(_form(schema, {}));
+    expect(find.text('مقدار پنهان'), findsNothing);
+    await tester.tap(find.text('بخش جمع'));
+    await tester.pump();
+    expect(find.text('مقدار پنهان'), findsOneWidget);
+  });
+
   test('نام‌های آیکن بخش‌های پیش‌تنظیم به آیکن مشخص نگاشت می‌شوند', () {
     const names = ['person', 'swap_horiz', 'inventory_2', 'event', 'notes', 'badge', 'assignment', 'school', 'calendar', 'payments', 'clock', 'schedule', 'edit_note', 'attach_file', 'account_tree', 'fact_check', 'box', 'wallet', 'assignment_turned_in', 'download'];
     for (final name in names) {
