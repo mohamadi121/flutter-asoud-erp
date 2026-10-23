@@ -86,7 +86,7 @@ void main() {
         tester, find.byKey(const ValueKey('template-subject')), 'انتقال کالا');
     final controller = _controller(tester)
       ..setValue('delivery_location', 'branch:Tehran', label: 'تهران')
-      ..setValue('needed_date', '2026-10-20')
+      ..setValue('needed_date', futureNeededDate())
       ..setValue('items', [
         {'item_code': 'MON-XS', 'qty': 1, 'uom': 'Nos'}
       ])
@@ -156,7 +156,7 @@ void main() {
     _controller(tester)
       ..setValue('delivery_location', 'warehouse:Stores - DEMO',
           label: 'انبار مرکزی')
-      ..setValue('needed_date', '2026-10-20')
+      ..setValue('needed_date', futureNeededDate())
       ..setValue('items', [
         {
           'item_code': 'SVC-INSTALL',
@@ -175,7 +175,7 @@ void main() {
         'requester': 'ali@asoud.test',
         'org_unit': 'ICU - DEMO',
         'delivery_location': 'warehouse:Stores - DEMO',
-        'needed_date': '2026-10-20',
+        'needed_date': futureNeededDate(),
         'supply_method': 'Unspecified',
         'priority': 'Normal',
         'items': [
