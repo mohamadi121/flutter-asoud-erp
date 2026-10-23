@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../core/utils/jalali_date.dart';
 import '../../../core/widgets/asoud_jalali_picker.dart';
 import '../form_repository.dart';
+import '../execution_settings.dart';
 import '../form_runtime.dart';
 import 'editor_field_types/choice_options.dart';
 import 'editor_field_types/date_time.dart';
@@ -128,7 +129,7 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
       'digits', 'default_date_mode', 'default_time_mode', 'minute_step',
       'min_date', 'max_date', 'min_time', 'max_time', 'options', 'formula',
       'output_type', 'extensions', 'max_files', 'max_mb', 'allow_delete',
-      'readonly', 'default', 'default_source',
+      'readonly', 'default', 'default_source', 'execution_key',
     };
     setState(() {
       for (final key in typeSpecificKeys) {
@@ -1216,6 +1217,9 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
             fieldOptions: fieldOptions,
             set: set,
           ),
+          if (widget.schema['execution'] != null && widget.repository != null && !widget.column)
+            ExecutionSettings(repository: widget.repository!, schema: widget.schema,
+              fields: [f], showKind: false, onChanged: () => setState(() {})),
           if (widget.schema['kind'] == 'Document' || widget.parentNative != null)
             formSelect(
               'فیلد مقصد سند',

@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Form editor: «اجرای پس از تأیید» loads execution kinds from the server and maps each field to a parameter. Workflow step forms use the same parameter picker; schema version and presets are unchanged. Requires the matching backend execution registry endpoint.
 - Cartable task: «مشاهده درخواست» opens the full request read-only (no edit, cancel or decision controls).
 - Request detail: a «وضعیت درخواست من» card for the requester and an «اقدام» card (approve, return, reject by the stage settings) for the user holding the open task.
 

@@ -196,6 +196,7 @@ class _FormEditorPageState extends State<FormEditorPage> {
       context,
       'مشخصات فرم',
       (sheetCtx, _) => EditorInfoStep(
+        repository: widget.repository,
         schema: schema,
         options: options,
         change: change,

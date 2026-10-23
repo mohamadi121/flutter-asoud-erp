@@ -297,6 +297,7 @@ class _FieldEditorState extends State<_FieldEditor> {
             label: label.text.trim(),
             type: type,
             required: requiredField,
+            executionKey: type == widget.initial?.type ? widget.initial?.executionKey : null,
             options: type == 'Choice' ? choices : const []));
   }
 }
