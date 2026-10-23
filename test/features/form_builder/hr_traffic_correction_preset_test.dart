@@ -42,7 +42,7 @@ void main() {
       final notice = fields.singleWhere((f) => f['key'] == 'approval_flow_notice');
       expect(notice['type'], 'Display');
       expect(notice['default'], 'مسیر بررسی از گردش کار تعریف‌شده تعیین می‌شود.');
-      expect(fields.where((f) => f['type'] == 'Time').every((f) => f['help'] != null), isTrue);
+      expect(fields.where((f) => f['type'] == 'Time' && f['readonly'] != true).every((f) => f['help'] != null), isTrue);
     });
 
     testWidgets('شرط‌ها و اعتبارسنجی فقط برای فیلدهای نمایان در پیش‌نمایش اجرا می‌شوند',
@@ -87,6 +87,7 @@ void main() {
       expect(find.text('ساعت ورود پیشنهادی *'), findsOneWidget);
       expect(find.text('ساعت خروج پیشنهادی'), findsNothing);
       expect(find.text('رکورد تردد'), findsNothing);
+      expect(find.text('ساعت ورود ثبت‌شده فعلی'), findsNothing);
       expect(formKey.currentState!.validate(), isFalse);
       await tester.pump();
       expect(find.text('انتخاب الزامی است.'), findsOneWidget);
@@ -94,7 +95,7 @@ void main() {
       final inTime = schemaFields(schema)
           .firstWhere((field) => field['key'] == 'proposed_check_in_time');
       final record = schemaFields(schema)
-          .firstWhere((field) => field['key'] == 'attendance_record_details');
+          .firstWhere((field) => field['key'] == 'attendance_record');
       expect(formFlag(inTime, schema, values, 'required'), isTrue);
       expect(formFlag(record, schema, values, 'required'), isFalse);
 
@@ -127,8 +128,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('ساعت ورود پیشنهادی'), findsNothing);
-      expect(find.text('مشخصات رکورد تردد *'), findsOneWidget);
-      expect(find.text('ساعت صحیح پیشنهادی *'), findsOneWidget);
+      expect(find.text('رکورد تردد *'), findsOneWidget);
+      expect(find.text('کدام ساعت اصلاح شود؟ *'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 

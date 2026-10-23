@@ -1,5 +1,6 @@
 import '../form_repository.dart';
 import '../../../core/utils/jalali_date.dart';
+import 'record_links.dart';
 import 'rules_engine.dart';
 import 'schema_migration.dart';
 
@@ -445,7 +446,8 @@ FormMap evaluatedValues(FormMap schema, FormMap raw) {
       values[key] = formMaps(values[key]).map((row) => evaluatedValues({'sections': [{'fields': field['columns']}], 'rules': []}, row)).toList();
     } else if (field['type'] == 'Formula') {
       values[key] = calculateForm(formula, values);
-    } else if (formFlag(field, schema, values, 'readonly') || field['type'] == 'Display') {
+    } else if (field['fetch_from'] == null &&
+        (formFlag(field, schema, values, 'readonly') || field['type'] == 'Display')) {
       values[key] = field['default'];
     }
     visiting.remove(key); done.add(key);
@@ -483,6 +485,17 @@ List<String> schemaProblems(FormMap schema) {
       }
     }
     if (field['type'] == 'Table' && formMaps(field['columns']).isEmpty) problems.add('${field['label']}: ستون جدول را اضافه کنید.');
+    if (field['fetch_from'] != null) {
+      final parsed = parseFetchFrom(field['fetch_from']);
+      final link = fields.where((f) => f['key'] == parsed?.link && f['type'] == 'Link');
+      final allowed = link.isEmpty ? null : formFetchAttributes['${link.first['source'] ?? 'Employee'}'];
+      if (parsed == null || allowed == null || !allowed.containsKey(parsed.attribute)) {
+        problems.add('${field['label']}: مقدار از فیلد معتبر نیست.');
+      }
+    }
+    if ('${field['not_equal'] ?? ''}'.isNotEmpty && !fields.any((f) => f['key'] == field['not_equal'])) {
+      problems.add('${field['label']}: فیلد مقایسه حذف شده است.');
+    }
   }
   final graph = {for (final key in keys) key: <String>{}};
   for (final field in fields) {

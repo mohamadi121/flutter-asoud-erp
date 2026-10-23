@@ -65,9 +65,34 @@ FormMap hrTrainingPreset() => {
             {
               'key': 'training_course',
               'label': 'دوره آموزشی',
-              'type': 'Text',
+              'type': 'Link',
+              'source': 'Training Event',
               'span': 2,
-              'help': 'نام یا شناسه دوره آموزشی موردنظر را وارد کنید؛ فهرست دوره‌های آموزشی در دسترس نیست.',
+              'help': 'یکی از دوره‌های برنامه‌ریزی‌شده را انتخاب کنید.',
+            },
+            {
+              'key': 'course_type',
+              'label': 'نوع دوره',
+              'type': 'Text',
+              'readonly': true,
+              'fetch_from': 'training_course.type',
+              'span': 2,
+            },
+            {
+              'key': 'course_start_time',
+              'label': 'ساعت شروع دوره',
+              'type': 'Time',
+              'readonly': true,
+              'fetch_from': 'training_course.start_time',
+              'span': 1,
+            },
+            {
+              'key': 'course_end_time',
+              'label': 'ساعت پایان دوره',
+              'type': 'Time',
+              'readonly': true,
+              'fetch_from': 'training_course.end_time',
+              'span': 1,
             },
             {
               'key': 'proposed_training_title',
@@ -201,6 +226,30 @@ FormMap hrTrainingPreset() => {
         },
       ],
       'rules': <FormMap>[
+        {
+          'target': 'course_type',
+          'action': 'visible',
+          'join': 'and',
+          'conditions': <FormMap>[
+            {'field': 'request_type', 'op': 'eq', 'value': 'existing_course'},
+          ],
+        },
+        {
+          'target': 'course_start_time',
+          'action': 'visible',
+          'join': 'and',
+          'conditions': <FormMap>[
+            {'field': 'request_type', 'op': 'eq', 'value': 'existing_course'},
+          ],
+        },
+        {
+          'target': 'course_end_time',
+          'action': 'visible',
+          'join': 'and',
+          'conditions': <FormMap>[
+            {'field': 'request_type', 'op': 'eq', 'value': 'existing_course'},
+          ],
+        },
         {
           'target': 'training_course',
           'action': 'visible',

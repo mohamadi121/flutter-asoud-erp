@@ -8,6 +8,7 @@ import '../form_repository.dart';
 import '../form_runtime.dart';
 import 'editor_field_types/choice_options.dart';
 import 'editor_field_types/date_time.dart';
+import 'editor_field_types/derived_fields.dart';
 import 'editor_field_types/file.dart';
 import 'editor_field_types/formula.dart';
 import 'editor_field_types/link.dart';
@@ -128,7 +129,8 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
       'digits', 'default_date_mode', 'default_time_mode', 'minute_step',
       'min_date', 'max_date', 'min_time', 'max_time', 'options', 'formula',
       'output_type', 'extensions', 'max_files', 'max_mb', 'allow_delete',
-      'readonly', 'default', 'default_source',
+      'readonly', 'default', 'default_source', 'exclude_self', 'fetch_from',
+      'not_equal', 'not_equal_message',
     };
     setState(() {
       for (final key in typeSpecificKeys) {
@@ -1173,6 +1175,9 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
                 'employee': 'پرسنل مرتبط با کاربر',
               if (f['type'] == 'Link' && f['source'] == 'Department')
                 'department': 'واحد پرسنل ثبت‌کننده',
+              if (f['type'] == 'Text') 'employee_number': 'کد پرسنلی',
+              if (f['type'] == 'Link' && f['source'] == 'Shift Type')
+                'default_shift': 'شیفت پیش‌فرض',
             },
             (v) => set('default_source', v),
           ),
@@ -1182,6 +1187,18 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
             set: set,
             update: (fn) => setState(fn),
           ),
+          ...buildFetchFromConfig(
+            f: f,
+            fields: schemaFields(widget.schema),
+            set: set,
+            update: (fn) => setState(fn),
+          ),
+          ...buildNotEqualConfig(
+            f: f,
+            fields: schemaFields(widget.schema),
+            set: set,
+          ),
+          if (widget.column) uniqueColumnSwitch(f, set),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('فقط‌خواندنی', style: TextStyle(fontSize: 13)),
