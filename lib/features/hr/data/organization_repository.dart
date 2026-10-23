@@ -54,7 +54,7 @@ class OrganizationRepository {
 
   /// Session-scoped photo cache. Each employee is requested at most once: the
   /// future itself is cached, so concurrent reads share it, and a null (no
-  /// photo) answer is kept too. Failed requests are dropped so they can retry.
+  /// photo) answer or a failure is kept too until the session changes.
   Future<Uint8List?> employeePhoto(String company, String employee) {
     if (_photoCompany != company) {
       _photos.clear();
@@ -69,10 +69,6 @@ class OrganizationRepository {
     }
     final photo = _fetchPhoto(company, employee);
     _photos[key] = photo;
-    if (_photos.length > _photoCacheLimit) _photos.remove(_photos.keys.first);
-    photo.then<void>((_) {}, onError: (Object _) {
-      if (identical(_photos[key], photo)) _photos.remove(key);
-    });
     return photo;
   }
 
@@ -118,7 +114,6 @@ class OrganizationRepository {
 
   late final StreamSubscription<bool> _session;
   int _epoch = 0;
-  static const _photoCacheLimit = 200;
   final _photos = <String, Future<Uint8List?>>{};
   String? _photoCompany;
   Stream<bool> get authenticationChanges => client.authenticationChanges;

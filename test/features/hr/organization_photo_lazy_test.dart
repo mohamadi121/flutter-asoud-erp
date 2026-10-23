@@ -45,8 +45,9 @@ void main() {
     await tester.pumpWidget(MaterialApp(
         home: OrganizationPage(company: 'شرکت', repository: repository)));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('مشاهده و تکمیل ساختار سازمانی'));
+    await tester.tap(find.text('جایگاه‌ها'));
     await tester.pumpAndSettle();
+    expect(visualReport, findsOneWidget);
     return repository;
   }
 

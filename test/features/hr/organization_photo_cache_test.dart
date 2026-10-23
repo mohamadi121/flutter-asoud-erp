@@ -147,7 +147,7 @@ void main() {
     expect(client.photoRequests, ['employee:EMP-2']);
   });
 
-  test('a failed request is not cached so a later read retries it', () async {
+  test('a failed request is cached for the rest of the session', () async {
     client.failing.add('employee:EMP-1');
     await expectLater(
         repository.employeePhoto('شرکت', 'employee:EMP-1'),
@@ -155,26 +155,26 @@ void main() {
             .having((e) => e.kind, 'kind', ApiFailureKind.network)));
     client.failing.clear();
 
-    final retried = await repository.employeePhoto('شرکت', 'employee:EMP-1');
+    await expectLater(
+        repository.employeePhoto('شرکت', 'employee:EMP-1'),
+        throwsA(isA<ApiException>()
+            .having((e) => e.kind, 'kind', ApiFailureKind.network)));
 
-    expect(retried, _pngBytes);
-    expect(client.photoRequests, ['employee:EMP-1', 'employee:EMP-1']);
+    expect(client.photoRequests, ['employee:EMP-1']);
   });
 
-  test('the cache holds 200 photos and evicts the least recently used one',
+  test('the cache keeps every employee photo for the current session',
       () async {
     for (var i = 0; i < 200; i++) {
       await repository.employeePhoto('شرکت', 'employee:P-$i');
     }
-    // Touch the oldest entry so it becomes the most recently used one.
-    await repository.employeePhoto('شرکت', 'employee:P-0');
     await repository.employeePhoto('شرکت', 'employee:P-200');
     client.photoRequests.clear();
 
     await repository.employeePhoto('شرکت', 'employee:P-0');
     await repository.employeePhoto('شرکت', 'employee:P-1');
 
-    expect(client.photoRequests, ['employee:P-1']);
+    expect(client.photoRequests, isEmpty);
   });
 
   test('sign-out clears the cache so the next read asks the server again',

@@ -38,18 +38,17 @@ class _OrganizationVisualReportState extends State<_OrganizationVisualReport> {
         context, _PositionDetails(code: row.code, canManage: widget.canManage));
   }
 
-  Widget _row(String key, List<Widget> children) =>
+  Widget _row<T>(String key, List<T> items, Widget Function(T) itemBuilder) =>
       LayoutBuilder(builder: (context, constraints) {
         final width = (constraints.maxWidth / 3).clamp(110.0, 180.0);
         return SizedBox(
             height: 174,
-            child: ListView(
+            child: ListView.builder(
                 key: PageStorageKey(key),
                 scrollDirection: Axis.horizontal,
-                children: [
-                  for (final child in children)
-                    SizedBox(width: width, child: child)
-                ]));
+                itemCount: items.length,
+                itemBuilder: (context, index) =>
+                    SizedBox(width: width, child: itemBuilder(items[index]))));
       });
   Widget _card(String title, String subtitle, String key, VoidCallback onTap,
           {Widget? menu, String? employee}) =>
@@ -197,21 +196,23 @@ class _OrganizationVisualReportState extends State<_OrganizationVisualReport> {
                                     'هنوز ساختار سازمانی تعریف نشده است.'),
                               if (rows.any((p) => p.parent.isEmpty)) ...[
                                 const Text('جایگاه‌های ریشه'),
-                                _row('position-roots', [
-                                  for (final p
-                                      in rows.where((p) => p.parent.isEmpty))
-                                    _positionCard(p, employees)
-                                ]),
+                                _row(
+                                    'position-roots',
+                                    rows
+                                        .where((p) => p.parent.isEmpty)
+                                        .toList(),
+                                    (p) => _positionCard(p, employees)),
                               ],
                               for (final parent in validPositionPath) ...[
                                 const Center(
                                     child: Icon(Icons.south,
                                         color: AsoudColors.muted)),
-                                _row('positions-$parent', [
-                                  for (final p
-                                      in rows.where((p) => p.parent == parent))
-                                    _positionCard(p, employees)
-                                ]),
+                                _row(
+                                    'positions-$parent',
+                                    rows
+                                        .where((p) => p.parent == parent)
+                                        .toList(),
+                                    (p) => _positionCard(p, employees)),
                                 if (!rows.any((p) => p.parent == parent))
                                   const Text('این جایگاه زیرمجموعه ندارد.'),
                               ],
@@ -222,13 +223,15 @@ class _OrganizationVisualReportState extends State<_OrganizationVisualReport> {
                                   const Center(
                                       child: Icon(Icons.south,
                                           color: AsoudColors.muted)),
-                                _row('units-$parent', [
-                                  for (final d in departments.where((d) =>
-                                      parent.isEmpty
-                                          ? !ids
-                                              .contains(d['parent_department'])
-                                          : d['parent_department'] == parent))
-                                    _card(
+                                _row(
+                                    'units-$parent',
+                                    departments
+                                        .where((d) => parent.isEmpty
+                                            ? !ids.contains(
+                                                d['parent_department'])
+                                            : d['parent_department'] == parent)
+                                        .toList(),
+                                    (d) => _card(
                                         '${d['department_name']}',
                                         'واحد سازمانی',
                                         '${d['name']}', () async {
@@ -264,14 +267,15 @@ class _OrganizationVisualReportState extends State<_OrganizationVisualReport> {
                                                     setState(_reload);
                                                   }
                                                 })
-                                            : null),
-                                ]),
+                                            : null)),
                                 if (parent.isNotEmpty)
-                                  _row('unit-positions-$parent', [
-                                    for (final p in rows
-                                        .where((p) => p.departmentId == parent))
-                                      _positionCard(p, employees),
-                                  ]),
+                                  _row(
+                                      'unit-positions-$parent',
+                                      rows
+                                          .where((p) =>
+                                              p.departmentId == parent)
+                                          .toList(),
+                                      (p) => _positionCard(p, employees)),
                               ],
                             ],
                           ]);
