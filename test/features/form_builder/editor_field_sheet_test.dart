@@ -22,7 +22,7 @@ Widget _wrapTestWidget(Widget child, {double width = 360, double height = 800}) 
 
 void main() {
   testWidgets('basic field cards count and labels', (tester) async {
-    expect(basicFieldCards.length, 11);
+    expect(basicFieldCards.length, 12);
     expect(basicFieldCards[0].label, 'متن کوتاه');
     expect(basicFieldCards[1].label, 'متن بلند');
     expect(basicFieldCards[2].label, 'عدد');
@@ -34,6 +34,7 @@ void main() {
     expect(basicFieldCards[8].label, 'فیلد محاسباتی');
     expect(basicFieldCards[9].label, 'جدول تکرارشونده');
     expect(basicFieldCards[10].label, 'پیوست فایل');
+    expect(basicFieldCards[11].label, 'برنامه شیفت');
   });
 
   testWidgets('FieldTypeGrid renders in 360 and 320 px without overflow', (tester) async {

@@ -13,6 +13,27 @@ import 'package:asoud_erp/features/form_builder/presets/hr_shift_change.dart';
 
 class _ShiftChangeClient extends Fake implements FrappeApiClient {}
 
+class _ScheduleClient extends Fake implements FrappeApiClient {
+  @override
+  bool get isAuthenticated => true;
+
+  @override
+  Future<FrappeUserContext> getCurrentUser() async => const FrappeUserContext(
+    userId: 'employee@example.com', fullName: 'کارمند', roles: ['Employee']);
+
+  @override
+  Future<Map<String, dynamic>> callMethod(String method, {Map<String, dynamic>? data}) async => {
+    'message': {
+      'ok': true,
+      'data': [
+        {'date': '2026-10-23', 'date_label': '۱۴۰۵/۰۸/۰۱', 'shift_type': 'شیفت صبح',
+         'start_time': '08:00:00', 'end_time': '16:00:00', 'source': 'default', 'source_label': 'شیفت پیش‌فرض'}
+      ],
+      'meta': {'api_version': 'v1'},
+    }
+  };
+}
+
 Widget _fieldsPreview(FormMap schema, FormMap values, Size size) => MaterialApp(
       home: Directionality(
         textDirection: TextDirection.rtl,
@@ -51,7 +72,7 @@ void main() {
         'applicant_employee',
         'change_type',
         'duration_mode',
-        'requested_shift',
+        'requested_shifts',
         'reason',
       ]),
     );
@@ -66,8 +87,11 @@ void main() {
     expect(fields.firstWhere((field) => field['key'] == 'duration_mode')['style'], 'radio');
     expect(fields.firstWhere((field) => field['key'] == 'end_date')['after_or_equal'], 'start_date');
     expect(fields.firstWhere((field) => field['key'] == 'end_date')['after_or_equal_message'], 'تاریخ پایان نباید قبل از تاریخ شروع باشد.');
-    expect(fields.firstWhere((field) => field['key'] == 'requested_shift')['source'], 'Shift Type');
-    expect(fields.firstWhere((field) => field['key'] == 'current_shift')['default_source'], 'default_shift');
+    final requested = fields.firstWhere((field) => field['key'] == 'requested_shifts');
+    expect(requested['type'], 'Table');
+    expect((requested['columns'] as List).last['source'], 'Shift Type');
+    expect(fields.firstWhere((field) => field['key'] == 'current_schedule_day')['type'], 'Schedule');
+    expect(fields.firstWhere((field) => field['key'] == 'colleague_schedule_range')['schedule_of'], 'exchange_colleague');
     expect(fields.firstWhere((field) => field['key'] == 'exchange_colleague')['exclude_self'], isTrue);
     expect(fields.firstWhere((field) => field['key'] == 'applicant_position')['default_source'], 'designation');
     expect(
@@ -93,6 +117,25 @@ void main() {
     File('/tmp/claude-1000/preset-shift-change.json')
         .writeAsStringSync(jsonEncode(hrShiftChangePreset()));
   });
+
+  for (final width in [320.0, 390.0, 430.0]) {
+    testWidgets('برنامه روزانه تغییر شیفت در عرض ${width.toInt()} بدون سرریز نمایش داده می‌شود', (tester) async {
+      await tester.binding.setSurfaceSize(Size(width, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(MaterialApp(
+        builder: (context, child) => Directionality(textDirection: TextDirection.rtl, child: child!),
+        home: Scaffold(body: SingleChildScrollView(child: FormFieldsView(
+          schema: schema,
+          values: const {'duration_mode': 'single_day', 'change_type': 'self_change', 'change_date': '2026-10-23'},
+          onChanged: (_) {},
+          repository: FormRepository(_ScheduleClient(), 'شرکت آزمون'),
+        ))),
+      ));
+      await tester.pumpAndSettle();
+      expect(find.text('شیفت صبح'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   test('قوانین تغییر شیفت فیلدهای مرتبط را نمایش و الزام می‌کنند', () {
     final fields = schemaFields(schema);
@@ -142,7 +185,7 @@ void main() {
       'duration_mode': 'date_range',
       'start_date': '2026-10-25',
       'end_date': '2026-10-24',
-      'requested_shift': 'شیفت عصر',
+      'requested_shifts': [{'date': '2026-10-23', 'shift_type': 'SHIFT-001'}],
       'reason': 'personal',
     };
     for (final size in const [Size(320, 640), Size(390, 844), Size(430, 932)]) {
@@ -174,7 +217,7 @@ void main() {
           'change_type': 'self_change',
           'duration_mode': 'single_day',
           'change_date': '2026-10-23',
-          'requested_shift': 'SHIFT-001',
+          'requested_shifts': [{'date': '2026-10-23', 'shift_type': 'SHIFT-001'}],
           'reason': 'other',
         },
       ),
@@ -201,7 +244,7 @@ void main() {
           'change_type': 'self_change',
           'duration_mode': 'single_day',
           'change_date': '2026-10-23',
-          'requested_shift': 'SHIFT-001',
+          'requested_shifts': [{'date': '2026-10-23', 'shift_type': 'SHIFT-001'}],
           'reason': 'personal',
         },
       ),
@@ -224,7 +267,7 @@ void main() {
       'duration_mode': 'date_range',
       'start_date': '2026-10-24',
       'end_date': '2026-10-26',
-      'requested_shift': 'شیفت عصر',
+      'requested_shifts': [{'date': '2026-10-23', 'shift_type': 'SHIFT-001'}],
       'reason': 'personal',
     };
     await tester.pumpWidget(_fieldsPreview(schema, values, const Size(390, 844)));

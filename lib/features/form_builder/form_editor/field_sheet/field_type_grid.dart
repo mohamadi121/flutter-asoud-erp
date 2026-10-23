@@ -98,6 +98,13 @@ const basicFieldCards = <FieldTypeCardData>[
     bgColor: Color(0xFFE5F7EF),
     iconColor: Color(0xFF0B6B3A),
   ),
+  FieldTypeCardData(
+    typeKey: 'Schedule',
+    label: 'برنامه شیفت',
+    icon: Icons.calendar_view_week_outlined,
+    bgColor: Color(0xFFE8F2FF),
+    iconColor: Color(0xFF1876D2),
+  ),
 ];
 
 class FieldTypeGrid extends StatelessWidget {

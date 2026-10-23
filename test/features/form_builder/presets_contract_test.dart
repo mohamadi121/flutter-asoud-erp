@@ -26,7 +26,8 @@ const _fieldKeys = <String>{
   'after_or_equal', 'after_or_equal_message', 'columns', 'min_rows', 'max_rows',
   'formula', 'min_length', 'max_length', 'extensions', 'max_files', 'max_mb',
   'error_message', 'format', 'minute_step', 'fetch_from', 'not_equal',
-  'not_equal_message', 'exclude_self', 'unique',
+  'not_equal_message', 'exclude_self', 'unique', 'schedule_of', 'from_field',
+  'to_field',
 };
 const _ruleKeys = <String>{'target', 'action', 'join', 'conditions', 'enabled'};
 const _conditionKeys = <String>{'field', 'op', 'value'};
