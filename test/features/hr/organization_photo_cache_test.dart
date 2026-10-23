@@ -39,7 +39,7 @@ class PhotoClient implements FrappeApiClient {
   Future<Map<String, dynamic>> callMethod(String method,
       {Map<String, dynamic>? data}) async {
     final endpoint = method.split('.').last;
-    final Object? body = switch (endpoint) {
+    final body = switch (endpoint) {
       'employee_photo' => await _photo('${data?['employee']}'),
       'get_chart' => {'revision': 1, 'rows': positions, 'warnings': []},
       'list_units' => {'units': [], 'can_manage': false},

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:collection';
 import 'dart:convert';
 import 'dart:typed_data';
 import '../../../core/network/frappe_client.dart';
@@ -111,7 +110,7 @@ class OrganizationRepository {
   late final StreamSubscription<bool> _session;
   int _epoch = 0;
   static const _photoCacheLimit = 200;
-  final _photos = LinkedHashMap<String, Future<Uint8List?>>();
+  final _photos = <String, Future<Uint8List?>>{};
   String? _photoCompany;
   Stream<bool> get authenticationChanges => client.authenticationChanges;
   Future<void> dispose() async {
