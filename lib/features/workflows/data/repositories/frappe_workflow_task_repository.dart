@@ -196,6 +196,8 @@ class FrappeWorkflowTaskRepository
           : const [],
       referenceDoctype: document['doctype']?.toString() ?? '',
       referenceName: document['name']?.toString() ?? '',
+      requestName: item['request_name']?.toString() ?? '',
+      requestCompany: item['request_company']?.toString() ?? '',
       documentValues: documentValues is List
           ? documentValues.whereType<Map>().map((raw) {
               final value = Map<String, dynamic>.from(raw);

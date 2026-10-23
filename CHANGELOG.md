@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- Cartable task: «مشاهده درخواست» opens the full request read-only (no edit, cancel or decision controls).
+- Request detail: a «وضعیت درخواست من» card for the requester and an «اقدام» card (approve, return, reject by the stage settings) for the user holding the open task.
 
 - Request print/PDF: values are printed as the screen shows them (Jalali dates, choice labels), with the rejection or return reason, decision comments and actor full names.
 - Request detail: summary card plus three tabs «جزئیات | گردش کار | سوابق». The workflow tab lists every real step with its responsible person, referral and decision time; the history tab shows actors by full name. Empty attachments now read «پیوستی ثبت نشده است.». Needs the backend `stages` and `actor_name` fields (until then the old current-stage row is shown).
