@@ -4,6 +4,7 @@ import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/persian_format.dart';
 import '../../../../core/utils/persian_server_values.dart';
 import '../../domain/entities/workflow_task.dart';
+import 'request_returned_banner.dart' show requestActivityComment;
 
 /// The meaning of a workflow action, used to colour and icon the timeline.
 enum WorkflowActivityOutcome { approved, rejected, returned, neutral, pending }
@@ -38,6 +39,7 @@ String workflowActivityLabel(String action) => switch (action.trim()) {
       'System Action Failed' => 'خطای اقدام خودکار',
       'Cancelled' => 'لغو شد',
       'Edited' => 'ویرایش شد',
+      'Resubmitted' => 'اصلاح و ارسال مجدد',
       _ => persianWorkflowStageTitle(action),
     };
 
@@ -83,7 +85,7 @@ class WorkflowActivityTimeline extends StatelessWidget {
             label: workflowActivityLabel(activities[i].action),
             actor: activities[i].actor,
             createdOn: activities[i].createdOn,
-            comment: activities[i].comment,
+            comment: requestActivityComment(activities[i]),
             last: i == count - 1,
           ),
         if (pending)

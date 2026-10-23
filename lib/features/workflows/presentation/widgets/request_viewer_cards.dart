@@ -3,11 +3,17 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/failure_message.dart';
+import '../../domain/entities/request_models.dart';
 import '../../domain/repositories/workflow_task_repository.dart';
 import '../pages/workflow_task_detail_page.dart';
 
 /// Persian sentence for the requester's own view, from the request status key.
-String requesterStatusMessage(String statusKey) => switch (statusKey) {
+String requesterStatusMessage(String statusKey,
+        {RequestExecution execution = const RequestExecution()}) =>
+    _requesterSentence(statusKey) +
+    (execution.applicable ? ' ${execution.sentence}.' : '');
+
+String _requesterSentence(String statusKey) => switch (statusKey) {
       'returned' => 'درخواست برای اصلاح به شما بازگردانده شده است.',
       'approved' => 'درخواست شما تأیید شده است.',
       'rejected' => 'درخواست شما رد شده است.',
@@ -44,7 +50,8 @@ class RequestViewerCards extends StatelessWidget {
             'وضعیت درخواست من',
             viewer['self_approval_blocked'] == true
                 ? 'تأیید درخواست خودتان مجاز نیست.'
-                : requesterStatusMessage('${data['status_key'] ?? ''}'),
+                : requesterStatusMessage('${data['status_key'] ?? ''}',
+                    execution: RequestExecution.fromMap(data['execution'])),
             AsoudColors.primary),
       if (task != null && tasks != null)
         _ActionCard(task: task, tasks: tasks!, onDecided: onDecided),
