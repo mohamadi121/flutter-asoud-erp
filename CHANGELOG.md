@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+
+- فیلدهای فرم اکنون می‌توانند به‌عنوان «اطلاعات حساس» علامت‌گذاری شوند؛ دلیل رد یا بازگشت همیشه الزامی است و اقدام تأیید درخواست برای مالک نمایش داده نمی‌شود.
 - Request detail: a «وضعیت درخواست من» card for the requester and an «اقدام» card (approve, return, reject by the stage settings) for the user holding the open task.
 
 - Form builder: section presentation, collapsible sections, radio choices, date ordering and repeatable-table validation are supported at runtime.
