@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -18,12 +20,12 @@ class _Repository extends FormRepository {
 }
 
 Widget _preview(Map<String, dynamic> schema, Map<String, dynamic> values,
-    void Function(Map<String, dynamic>) changed) {
+    void Function(Map<String, dynamic>) changed, Size size) {
   return MaterialApp(
     home: Directionality(
       textDirection: TextDirection.rtl,
       child: MediaQuery(
-        data: const MediaQueryData(size: Size(360, 800)),
+        data: MediaQueryData(size: size),
         child: Scaffold(
           body: SingleChildScrollView(
             child: Form(
@@ -51,9 +53,20 @@ void main() {
     expect(schema['title'], 'درخواست گواهی اشتغال به کار');
     expect(schema['short_title'], 'درخواست گواهی اشتغال');
     expect(keys.toSet().length, keys.length);
-    expect(keys, containsAll(['applicant_name', 'recipient', 'purpose', 'purpose_details', 'certificate_language', 'include_compensation', 'delivery_method']));
+    expect(keys, containsAll(['applicant_employee', 'recipient', 'purpose', 'purpose_details', 'certificate_language', 'include_compensation', 'delivery_method']));
     expect(keys.any((key) => '$key'.contains('office')), isFalse);
-    expect({for (final field in fields) field['key']: field['label']}, containsPair('applicant_name', 'نام و نام خانوادگی'));
+    final employee = fields.firstWhere((field) => field['key'] == 'applicant_employee');
+    final department = fields.firstWhere((field) => field['key'] == 'applicant_department');
+    final position = fields.firstWhere((field) => field['key'] == 'applicant_position');
+    expect(employee, containsPair('type', 'Link'));
+    expect(employee, containsPair('source', 'Employee'));
+    expect(employee, containsPair('default_source', 'employee'));
+    expect(employee.containsKey('default'), isFalse);
+    expect(department, containsPair('type', 'Link'));
+    expect(department, containsPair('source', 'Department'));
+    expect(department, containsPair('default_source', 'department'));
+    expect(position, containsPair('default_source', 'designation'));
+    expect(position.containsKey('default'), isFalse);
     expect({for (final field in fields) field['key']: field['label']}, containsPair('applicant_department', 'واحد سازمانی'));
     expect({for (final field in fields) field['key']: field['label']}, containsPair('applicant_position', 'سمت سازمانی'));
     expect(fields.firstWhere((field) => field['key'] == 'recipient')['required'], isTrue);
@@ -69,9 +82,16 @@ void main() {
       {'id': 'organization', 'label': 'ارائه به سازمان یا شرکت'},
       {'id': 'other', 'label': 'سایر موارد'},
     ]);
+    expect(fields.firstWhere((field) => field['key'] == 'delivery_method')['style'], 'radio');
   });
 
-  testWidgets('renders at 360 by 800 with the conditional purpose detail hidden', (tester) async {
+  test('داده ساختار گواهی برای اعتبارسنجی سرور ذخیره می‌شود', () {
+    Directory('/tmp/claude-1000').createSync(recursive: true);
+    File('/tmp/claude-1000/preset-employment-certificate.json')
+        .writeAsStringSync(jsonEncode(employmentCertificatePreset()));
+  });
+
+  testWidgets('renders at required RTL mobile sizes with the conditional purpose detail hidden', (tester) async {
     final schema = employmentCertificatePreset();
     final values = <String, dynamic>{
       'recipient': 'بانک ملی',
@@ -80,14 +100,17 @@ void main() {
       'include_compensation': 'no',
       'delivery_method': 'electronic',
     };
-    await tester.pumpWidget(_preview(schema, values, (_) {}));
-    await tester.pump();
+    for (final size in const [Size(320, 640), Size(390, 844), Size(430, 932)]) {
+      await tester.pumpWidget(_preview(schema, values, (_) {}, size));
+      await tester.pump();
 
-    expect(find.text('شرح هدف'), findsNothing);
-    expect(tester.takeException(), isNull);
-    expect(find.byType(OverflowBar), findsNothing);
-    expect((tester.state<FormState>(find.byType(Form)).validate()), isTrue);
-    await tester.pump();
+      expect(find.text('شرح هدف'), findsNothing);
+      expect(find.text('دریافت خودکار'), findsNWidgets(3));
+      expect(tester.takeException(), isNull);
+      expect(find.byType(OverflowBar), findsNothing);
+      expect((tester.state<FormState>(find.byType(Form)).validate()), isTrue);
+      await tester.pump();
+    }
   });
 
   testWidgets('shows and requires purpose detail only for other purpose', (tester) async {
@@ -99,11 +122,13 @@ void main() {
       'include_compensation': 'no',
       'delivery_method': 'electronic',
     };
-    await tester.pumpWidget(_preview(schema, values, (_) {}));
+    await tester.pumpWidget(_preview(schema, values, (_) {}, const Size(390, 844)));
     await tester.pump();
     expect(find.text('شرح هدف *'), findsOneWidget);
     expect((tester.state<FormState>(find.byType(Form)).validate()), isFalse);
     await tester.pump();
     expect(formFlag(schemaFields(schema).firstWhere((field) => field['key'] == 'purpose_details'), schema, values, 'required'), isTrue);
+    expect(evaluatedValues(schema, {...values, 'purpose_details': 'مانده'}).containsKey('purpose_details'), isTrue);
+    expect(evaluatedValues(schema, {...values, 'purpose': 'bank', 'purpose_details': 'مانده'}).containsKey('purpose_details'), isFalse);
   });
 }
