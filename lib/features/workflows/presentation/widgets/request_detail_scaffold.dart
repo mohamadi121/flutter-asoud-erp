@@ -4,11 +4,14 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:printing/printing.dart';
 
 import '../../../../core/offline/queued_offline_exception.dart';
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/failure_message.dart';
 import '../../../../core/utils/persian_format.dart';
 import '../../../../core/utils/persian_server_values.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../data/generic_request_repository.dart';
+import '../../data/request_void_repository.dart';
 import '../../domain/entities/request_models.dart';
 import '../../domain/entities/workflow_definition.dart';
 import '../../domain/entities/workflow_task.dart';
@@ -100,6 +103,7 @@ class RequestDetailScaffold extends StatefulWidget {
     this.itemsBuilder,
     this.extraSections,
     this.fileSaver = saveRequestFile,
+    this.voidRepository,
     super.key,
   });
   final GenericRequestRepository repository;
@@ -123,6 +127,9 @@ class RequestDetailScaffold extends StatefulWidget {
   final List<Widget> Function(BuildContext context, RequestDetailView view)?
       extraSections;
   final RequestFileSaver fileSaver;
+
+  /// HR Manager void/reissue calls; built from the repository's client when null.
+  final RequestVoidRepository? voidRepository;
 
   @override
   State<RequestDetailScaffold> createState() => _RequestDetailScaffoldState();
@@ -306,6 +313,60 @@ class _RequestDetailScaffoldState extends State<RequestDetailScaffold> {
                     instance: '${data!['workflow_instance']}')));
       case 'cancel':
         await cancel();
+      case 'void':
+        await voidDocument();
+      case 'reissue':
+        await reissueDocument();
+    }
+  }
+
+  RequestVoidRepository get _voids =>
+      widget.voidRepository ?? RequestVoidRepository(widget.repository.client);
+
+  /// The server's Persian sentence for a refused action (417), else the
+  /// shared per-kind failure message (permission, timeout, no connection).
+  String _voidFailure(Object e) =>
+      e is ApiException &&
+              e.kind == ApiFailureKind.validation &&
+              e.message.trim().isNotEmpty
+          ? e.message
+          : failureMessage(e);
+
+  bool _busy = false;
+
+  Future<void> voidDocument() async {
+    if (_busy) return;
+    final reason = await showDialog<String>(
+        context: context, builder: (_) => const _VoidDialog());
+    if (reason == null) return;
+    _busy = true;
+    try {
+      await _voids.voidDocument(widget.name, reason);
+      _message('سند ابطال شد.');
+      await load();
+    } catch (e) {
+      if (e is QueuedOfflineException) return _message(e.message);
+      _message(_voidFailure(e));
+    } finally {
+      _busy = false;
+    }
+  }
+
+  Future<void> reissueDocument() async {
+    if (_busy) return;
+    final ok = await showDialog<bool>(
+        context: context, builder: (_) => const _ReissueDialog());
+    if (ok != true) return;
+    _busy = true;
+    try {
+      await _voids.reissue(widget.name);
+      _message('سند مجدداً صادر شد.');
+      await load();
+    } catch (e) {
+      if (e is QueuedOfflineException) return _message(e.message);
+      _message(_voidFailure(e));
+    } finally {
+      _busy = false;
     }
   }
 
@@ -373,6 +434,21 @@ class _RequestDetailScaffoldState extends State<RequestDetailScaffold> {
                         child: ListTile(
                             leading: Icon(Icons.account_tree_outlined),
                             title: Text('مشاهده گردش کار'))),
+                  if (!widget.readOnly && (detail?.execution.canVoid ?? false))
+                    const PopupMenuItem(
+                        value: 'void',
+                        child: ListTile(
+                            leading: Icon(Icons.block_rounded,
+                                color: AsoudColors.danger),
+                            title: Text('ابطال سند',
+                                style: TextStyle(color: AsoudColors.danger)))),
+                  if (!widget.readOnly &&
+                      (detail?.execution.canReissue ?? false))
+                    const PopupMenuItem(
+                        value: 'reissue',
+                        child: ListTile(
+                            leading: Icon(Icons.replay_rounded),
+                            title: Text('صدور مجدد'))),
                   if (canCancel)
                     const PopupMenuItem(
                         value: 'cancel',
@@ -920,6 +996,86 @@ class _CancelDialogState extends State<_CancelDialog> {
                   FilledButton.styleFrom(backgroundColor: AsoudColors.danger),
               onPressed: () => Navigator.pop(context, reason.text.trim()),
               child: const Text('لغو درخواست')),
+        ],
+      );
+}
+
+/// Asks for the required reason of a void; pops with it, or null when dismissed.
+class _VoidDialog extends StatefulWidget {
+  const _VoidDialog();
+  @override
+  State<_VoidDialog> createState() => _VoidDialogState();
+}
+
+class _VoidDialogState extends State<_VoidDialog> {
+  final reason = TextEditingController();
+  String? error;
+
+  @override
+  void dispose() {
+    reason.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        title: const Text('ابطال سند'),
+        content: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const Text(
+                'سند اجراشدهٔ این درخواست ابطال می‌شود و حذف نمی‌شود. بعد از ابطال می‌توانید آن را دوباره صادر کنید.',
+                style: TextStyle(fontSize: 13, height: 1.7)),
+            const SizedBox(height: 8),
+            TextField(
+                key: const ValueKey('void-reason-field'),
+                controller: reason,
+                maxLines: 3,
+                maxLength: 500,
+                decoration: InputDecoration(
+                    labelText: 'دلیل ابطال', errorText: error)),
+          ]),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('انصراف')),
+          FilledButton(
+              key: const ValueKey('void-confirm-button'),
+              style:
+                  FilledButton.styleFrom(backgroundColor: AsoudColors.danger),
+              onPressed: () {
+                final text = reason.text.trim();
+                if (text.isEmpty) {
+                  setState(() => error = 'دلیل ابطال را بنویسید.');
+                  return;
+                }
+                Navigator.pop(context, text);
+              },
+              child: const Text('ابطال سند')),
+        ],
+      );
+}
+
+/// Confirms a reissue; pops true.
+class _ReissueDialog extends StatelessWidget {
+  const _ReissueDialog();
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        title: const Text('صدور مجدد'),
+        content: const SingleChildScrollView(
+          child: Text(
+              'سند جدیدی از روی اطلاعات تأییدشدهٔ همین درخواست صادر می‌شود. سند ابطال‌شده در سوابق می‌ماند.',
+              style: TextStyle(fontSize: 13, height: 1.7)),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('انصراف')),
+          FilledButton(
+              key: const ValueKey('reissue-confirm-button'),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('صدور مجدد')),
         ],
       );
 }

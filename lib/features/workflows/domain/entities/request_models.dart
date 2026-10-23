@@ -342,6 +342,11 @@ class RequestExecution extends Equatable {
     this.executedOn = '',
     this.executedByName = '',
     this.reference = '',
+    this.canVoid = false,
+    this.canReissue = false,
+    this.voidReason = '',
+    this.voidByName = '',
+    this.voidOn = '',
   });
 
   factory RequestExecution.fromMap(Object? source) {
@@ -355,13 +360,25 @@ class RequestExecution extends Equatable {
       executedOn: _text(map['executed_on']),
       executedByName: _text(map['executed_by_name']),
       reference: _text(map['reference']),
+      canVoid: map['can_void'] == true,
+      canReissue: map['can_reissue'] == true,
+      voidReason: _text(_map(map['void'])['reason']),
+      voidByName: _text(_map(map['void'])['by_name']),
+      voidOn: _text(_map(map['void'])['on']),
     );
   }
 
   /// `not_applicable`, `not_started`, `pending`, `succeeded`, `failed`,
-  /// `needs_review` or `not_connected`.
+  /// `needs_review`, `not_connected` or `voided`.
   final String state;
   final String label, error, executedOn, executedByName, reference;
+
+  /// HR Manager actions the server allows now (`can_void`, `can_reissue`).
+  final bool canVoid, canReissue;
+
+  /// The last void (reason, who, when); only sent to System/HR Managers.
+  final String voidReason, voidByName, voidOn;
+  bool get voided => state == 'voided';
 
   bool get applicable => state != 'not_applicable';
   bool get succeeded => state == 'succeeded';
@@ -376,12 +393,25 @@ class RequestExecution extends Equatable {
           'failed' => 'اجرا ناموفق بود؛ درخواست تأیید شده است',
           'needs_review' => 'نیازمند بررسی',
           'not_connected' => 'اجرای خودکار برای این نوع درخواست متصل نیست',
+          'voided' => 'سند ابطال شد',
           _ => '',
         };
 
   @override
   List<Object?> get props =>
-      [state, label, error, executedOn, executedByName, reference];
+      [
+        state,
+        label,
+        error,
+        executedOn,
+        executedByName,
+        reference,
+        canVoid,
+        canReissue,
+        voidReason,
+        voidByName,
+        voidOn,
+      ];
 }
 
 /// `get_request` (§4.7).

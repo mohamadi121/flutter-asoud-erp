@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- ابطال و صدور مجدد سند اجراشده: در منوی ⋮ جزئیات درخواست، مدیر منابع انسانی «ابطال سند» (با دلیل اجباری) و «صدور مجدد» (با تأیید) را می‌بیند؛ برای بقیهٔ کاربران پنهان است. نوار اجرا «سند ابطال شد» را با دلیل، ابطال‌کننده و زمان نشان می‌دهد و سوابق «ابطال سند» و «صدور مجدد سند» دارد. نیازمند بک‌اند با `void_native_document` و `reissue_native_document`.
+
 - Presets: the advance form (reason, description, notes, attachments), the settlement form (reason, description, notes) and the shift-change form (description, notes) mark those fields «اطلاعات حساس»; the server shows them only to the requester, workflow participants and HR/System managers, and never copies them into notification text, created documents or execution comments. The editor shows and keeps the flag. Needs the backend confidential-field change.
 
 - Request detail: a request returned for correction shows a «برای اصلاح بازگردانده شد» banner with the reviewer's reason; the owner can tap «اصلاح درخواست» (only when the server allows it) to edit and resubmit, and the history shows «اصلاح و ارسال مجدد» with the old and new values.
