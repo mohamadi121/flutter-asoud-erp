@@ -106,7 +106,7 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
       config['allow_reject'] ?? (type == WorkflowStageType.approval);
   late bool allowReturn =
       config['allow_return'] ?? (type == WorkflowStageType.approval);
-  late bool rejectComment = config['reject_comment_required'] == true;
+  final bool rejectComment = true;
   late bool commentRequired = config['comment_required'] == true;
   late bool allowDraft = config['allow_draft'] != false;
   late bool requireAll = config['require_all_fields'] == true;
@@ -1237,10 +1237,9 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
             ]),
           _switch(
               'الزام توضیح هنگام رد',
-              rejectComment,
-              allowReject
-                  ? (value) => setState(() => rejectComment = value)
-                  : null),
+              true,
+              null,
+              subtitle: 'طبق قواعد سامانه، دلیل رد همواره الزامی است.'),
           _switch('الزام توضیح هنگام برگشت برای اصلاح', true, null,
               subtitle:
                   'طبق قواعد فعلی سامانه، دلیل بازگشت همواره الزامی است.'),

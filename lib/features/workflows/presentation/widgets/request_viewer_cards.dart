@@ -42,7 +42,9 @@ class RequestViewerCards extends StatelessWidget {
       if (viewer['is_requester'] == true)
         _card(
             'وضعیت درخواست من',
-            requesterStatusMessage('${data['status_key'] ?? ''}'),
+            viewer['self_approval_blocked'] == true
+                ? 'تأیید درخواست خودتان مجاز نیست.'
+                : requesterStatusMessage('${data['status_key'] ?? ''}'),
             AsoudColors.primary),
       if (task != null && tasks != null)
         _ActionCard(task: task, tasks: tasks!, onDecided: onDecided),
@@ -86,9 +88,7 @@ class _ActionCardState extends State<_ActionCard> {
 
   Future<void> _decide(String action, String label) async {
     if (_busy) return;
-    final required = action == 'Return' ||
-        (action == 'Reject' &&
-            widget.task['reject_comment_required'] == true) ||
+    final required = action == 'Return' || action == 'Reject' ||
         widget.task['comment_required'] == true;
     final comment = await showModalBottomSheet<String>(
       context: context,

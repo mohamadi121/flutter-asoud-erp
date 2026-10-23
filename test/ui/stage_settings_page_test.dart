@@ -206,7 +206,7 @@ void main() {
       expect(find.text('مدیر مستقیم'), findsOneWidget);
       expect(find.text('امکان تأیید'), findsOneWidget);
       await _tap(tester, find.text('تنظیمات اضافی (اختیاری)'));
-      await _tap(tester, find.text('الزام توضیح هنگام رد'));
+      expect(find.text('طبق قواعد سامانه، دلیل رد همواره الزامی است.'), findsOneWidget);
       await _tap(tester, find.text('تنظیمات اضافی (اختیاری)'));
       await _tap(tester, find.text('پایان فرایند (رد درخواست)'));
       // The route sheet selects the stage type before the concrete stage.
