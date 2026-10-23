@@ -1,8 +1,12 @@
 # Changelog
 
 ## Unreleased
+- Cartable task: «مشاهده درخواست» opens the full request read-only (no edit, cancel or decision controls).
+- Request detail: a «وضعیت درخواست من» card for the requester and an «اقدام» card (approve, return, reject by the stage settings) for the user holding the open task.
 
 - Form builder: record sources. New Link sources (attendance record, shift type, training event, assigned asset), «خود کاربر قابل انتخاب نباشد» on Employee links, read-only fields filled from the chosen record (`fetch_from`, picked in the editor as «مقدار از فیلد»), dependent links that reset when their filter field changes, `not_equal` («نباید برابر با فیلد») and unique table columns («تکراری مجاز نیست»), default sources «کد پرسنلی» and «شیفت پیش‌فرض». Needs the matching backend change (`forms.get_link_options` rows `{name, label, extra}` and `meta.reason`); the new lists are server-only and say so in the offline preview.
+- Request print/PDF: values are printed as the screen shows them (Jalali dates, choice labels), with the rejection or return reason, decision comments and actor full names.
+- Request detail: summary card plus three tabs «جزئیات | گردش کار | سوابق». The workflow tab lists every real step with its responsible person, referral and decision time; the history tab shows actors by full name. Empty attachments now read «پیوستی ثبت نشده است.». Needs the backend `stages` and `actor_name` fields (until then the old current-stage row is shown).
 - Cartable: an older server that answers with the plain list no longer breaks the cartable (the partial-list notice is shown); the offline-preview wrapper now forwards the complete-list capability so the notice disappears when every page was fetched.
 - Directive reminder: the time is sent with the device offset and converted to the organization time on the server; reminders are sent only while the server scheduler is running.
 - Form builder: section presentation, collapsible sections, radio choices, date ordering and repeatable-table validation are supported at runtime.

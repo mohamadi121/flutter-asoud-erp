@@ -97,6 +97,7 @@ class FrappeWorkflowTaskRepository
                 createdOn:
                     DateTime.tryParse(activity['created_on']?.toString() ?? ''),
                 stageTitle: activity['stage_title']?.toString() ?? '',
+                actorName: activity['actor_name']?.toString() ?? '',
               );
             }).toList(growable: false)
           : const [],
@@ -195,6 +196,8 @@ class FrappeWorkflowTaskRepository
           : const [],
       referenceDoctype: document['doctype']?.toString() ?? '',
       referenceName: document['name']?.toString() ?? '',
+      requestName: item['request_name']?.toString() ?? '',
+      requestCompany: item['request_company']?.toString() ?? '',
       documentValues: documentValues is List
           ? documentValues.whereType<Map>().map((raw) {
               final value = Map<String, dynamic>.from(raw);

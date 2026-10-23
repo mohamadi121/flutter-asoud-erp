@@ -46,11 +46,13 @@ class WorkflowTaskActivity extends Equatable {
     this.comment = '',
     this.createdOn,
     this.stageTitle = '',
+    this.actorName = '',
   });
-  final String actor, action, comment, stageTitle;
+  final String actor, action, comment, stageTitle, actorName;
   final DateTime? createdOn;
   @override
-  List<Object?> get props => [actor, action, comment, createdOn, stageTitle];
+  List<Object?> get props =>
+      [actor, action, comment, createdOn, stageTitle, actorName];
 }
 
 class WorkflowTaskDataValue extends Equatable {
@@ -91,7 +93,10 @@ class WorkflowTaskDetail extends Equatable {
     this.referenceDoctype = '',
     this.referenceName = '',
     this.documentValues = const [],
+    this.requestName = '',
+    this.requestCompany = '',
   });
+  final String requestName, requestCompany;
   final WorkflowTask task;
   final String stageType;
   final List<WorkflowFormFieldDefinition> fields;
@@ -118,6 +123,8 @@ class WorkflowTaskDetail extends Equatable {
         referenceDoctype,
         referenceName,
         documentValues,
+        requestName,
+        requestCompany,
       ];
 }
 

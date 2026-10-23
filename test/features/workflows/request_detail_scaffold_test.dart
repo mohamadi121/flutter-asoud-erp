@@ -6,6 +6,8 @@ import 'package:asoud_erp/core/theme/asoud_theme.dart';
 import 'package:asoud_erp/core/utils/jalali_date.dart';
 import 'package:asoud_erp/features/workflows/data/generic_request_repository.dart';
 import 'package:asoud_erp/features/workflows/domain/entities/request_models.dart';
+import 'package:asoud_erp/features/workflows/domain/entities/workflow_task.dart';
+import 'package:asoud_erp/features/workflows/domain/repositories/workflow_task_repository.dart';
 import 'package:asoud_erp/features/workflows/presentation/request_screen_registry.dart';
 import 'package:asoud_erp/features/workflows/presentation/widgets/request_detail_scaffold.dart';
 import 'package:flutter/material.dart';
@@ -405,7 +407,7 @@ void main() {
       (tester) async {
     final repo = _Repo(_fixture('get_request_leave_daily'));
     await _open(tester, repo);
-    expect(find.text('فایلی وجود ندارد.'), findsOneWidget);
+    expect(find.text('پیوستی ثبت نشده است.'), findsOneWidget);
   });
 
   testWidgets('leave detail formats dates, times and labels', (tester) async {
@@ -625,4 +627,104 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('لغو درخواست انجام نشد.'), findsOneWidget);
   });
+
+  group('tabs', () {
+    // The `stages` and `actor_name` shapes are those of get_request and
+    // get_workflow_instance (services/request_timeline.py).
+    final stages = [
+      {
+        'name': 'S1', 'title': 'ثبت درخواست', 'status': 'done',
+        'assignee_names': ['سارا محمدی'], 'assigned_on': '2026-10-06 09:00:00',
+        'completed_on': '2026-10-06 09:01:00', 'result': 'Complete', 'comment': ''
+      },
+      {
+        'name': 'S2', 'title': 'تأیید مدیر مستقیم', 'status': 'active',
+        'assignee_names': ['علی رضایی'], 'assigned_on': '2026-10-06 09:01:00',
+        'completed_on': '', 'result': '', 'comment': ''
+      },
+      {
+        'name': 'S3', 'title': 'تأیید مدیر مالی', 'status': 'pending',
+        'assignee_names': <String>[], 'assigned_on': '', 'completed_on': '',
+        'result': '', 'comment': ''
+      },
+    ];
+
+    Future<void> openTabs(WidgetTester tester, double width) async {
+      final repo = _Repo({..._fixture('get_request_purchase'), 'stages': stages});
+      await tester.binding.setSurfaceSize(Size(width, 1800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(MaterialApp(
+        theme: AsoudTheme.light,
+        home: Directionality(
+          textDirection: TextDirection.rtl,
+          child: RequestDetailScaffold(
+              repository: repo,
+              name: 'PR-1405-0023',
+              subtitle: 'منابع انسانی · کارتابل من',
+              tasks: _InstanceTasks()),
+        ),
+      ));
+      await tester.pumpAndSettle();
+    }
+
+    for (final width in [320.0, 390.0, 430.0]) {
+      testWidgets('three tabs show data, steps and history at $width',
+          (tester) async {
+        await openTabs(tester, width);
+        expect(find.text('منابع انسانی · کارتابل من'), findsOneWidget);
+        expect(find.text('جزئیات'), findsOneWidget);
+        expect(find.text('گردش کار'), findsOneWidget);
+        expect(find.text('سوابق'), findsOneWidget);
+        // summary card: requester, type and the creation date as Jalali
+        expect(find.textContaining('درخواست‌کننده: سارا محمدی'), findsOneWidget);
+        expect(find.text('اقلام درخواست (۱ قلم)'), findsOneWidget);
+        expect(find.text('تأیید مدیر مالی'), findsNothing);
+
+        await tester.tap(find.text('گردش کار'));
+        await tester.pumpAndSettle();
+        expect(find.text('اقلام درخواست (۱ قلم)'), findsNothing);
+        final order = ['ثبت درخواست', 'تأیید مدیر مستقیم', 'تأیید مدیر مالی']
+            .map((title) => tester.getTopLeft(find.text(title)).dy)
+            .toList();
+        expect(order, [...order]..sort());
+        expect(find.textContaining('مسئول: علی رضایی'), findsOneWidget);
+        expect(find.textContaining('ارجاع: ۱۴۰۵/۰۷/۱۴'), findsWidgets);
+        expect(find.text('در انتظار اقدام · مسئول: علی رضایی · ارجاع: ${formatJalaliDateTimeIso('2026-10-06 09:01:00')}'),
+            findsOneWidget);
+        expect(find.text('هنوز به این مرحله نرسیده'), findsOneWidget);
+
+        await tester.tap(find.text('سوابق'));
+        await tester.pumpAndSettle();
+        expect(find.textContaining('علی رضایی'), findsOneWidget);
+        expect(find.textContaining('manager@example.com'), findsNothing);
+        expect(find.text('«کامل است.»'), findsOneWidget);
+
+        await tester.tap(find.text('جزئیات'));
+        await tester.pumpAndSettle();
+        expect(find.text('اقلام درخواست (۱ قلم)'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      });
+    }
+  });
+}
+
+class _InstanceTasks extends Fake implements WorkflowTaskRepository {
+  @override
+  Future<WorkflowInstanceDetail> getInstance(String id) async =>
+      WorkflowInstanceDetail(
+        summary: WorkflowInstanceSummary(
+            id: id,
+            subject: 'خرید',
+            status: 'Running',
+            currentStageTitle: 'تأیید مدیر مستقیم'),
+        activities: [
+          WorkflowTaskActivity(
+              actor: 'manager@example.com',
+              actorName: 'علی رضایی',
+              action: 'Approve',
+              comment: 'کامل است.',
+              createdOn: DateTime(2026, 10, 6, 10),
+              stageTitle: 'تأیید مدیر مستقیم'),
+        ],
+      );
 }
