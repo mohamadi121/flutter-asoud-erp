@@ -22,7 +22,12 @@ class _OrganizationVisualReportState extends State<_OrganizationVisualReport> {
 
   void _reload() {
     final c = context.read<OrganizationCubit>();
-    units = c.repository.units(c.company);
+    units = c.repository.units(c.company).catchError(
+        (Object _) => <String, dynamic>{
+              'units': <dynamic>[],
+              'can_manage': false,
+              'unavailable': true
+            });
     people = c.repository.employees(c.company);
   }
 
@@ -133,6 +138,13 @@ class _OrganizationVisualReportState extends State<_OrganizationVisualReport> {
                           key: const PageStorageKey('visual-chart'),
                           padding: const EdgeInsets.all(12),
                           children: [
+                            if (snapshot.data!['unavailable'] == true)
+                              const Padding(
+                                  padding: EdgeInsets.only(bottom: 8),
+                                  child: Text(
+                                      'فهرست واحدها در دسترس نیست؛ جایگاه‌ها از آخرین اطلاعات ذخیره‌شده نمایش داده می‌شوند.',
+                                      key: ValueKey('visual-units-unavailable'),
+                                      style: TextStyle(fontSize: 11))),
                             const _OrganizationStatus(),
                             AsoudSegmentedControl<int>(
                                 value: tab,

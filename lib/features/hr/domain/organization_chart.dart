@@ -87,10 +87,10 @@ void validateOrganization(List<OrgPosition> rows) {
       throw const FormatException(
           'ظرفیت باید مثبت و حداقل برابر تعداد انتساب‌های فعال باشد؛ انتساب تکراری مجاز نیست.');
     }
-    if (row.occupants == null &&
-        row.employee.isNotEmpty &&
-        !employees.add(row.employee)) {
-      throw const FormatException('هر پرسنل در این چارت فقط یک جایگاه دارد.');
+    for (final employee in row.activeEmployees) {
+      if (!employees.add(employee)) {
+        throw const FormatException('هر پرسنل در این چارت فقط یک جایگاه دارد.');
+      }
     }
   }
   for (final row in rows) {
