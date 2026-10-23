@@ -328,6 +328,12 @@ class _PositionListState extends State<_PositionList> {
                   ? null
                   : () => _openOrganizationPage<bool>(
                       context, const _OrganizationCreateForm(position: true))),
+          OutlinedButton.icon(
+              onPressed: () => _openOrganizationPage<void>(
+                  context,
+                  _OrganizationVisualReport(canManage: widget.canManage)),
+              icon: const Icon(Icons.account_tree_outlined),
+              label: const Text('گزارش تصویری چارت')),
           const SizedBox(height: 16),
           Container(
               padding: const EdgeInsets.all(16),

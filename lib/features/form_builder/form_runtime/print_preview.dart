@@ -4,6 +4,7 @@ import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/persian_format.dart';
 import '../form_repository.dart';
 import 'formula_engine.dart';
+import 'section_colors.dart';
 import 'rules_engine.dart';
 
 class FormPrintPreviewPage extends StatefulWidget {
@@ -349,6 +350,7 @@ class _FormPrintPreviewPageState extends State<FormPrintPreviewPage> {
     required bool isLandscape,
   }) {
     final fields = formMaps(section['fields']);
+    final sectionColor = sectionColors(section)?.background ?? const Color(0xFFF3F4F6);
     final nonTableFields = fields.where((f) => f['type'] != 'Table').toList();
     final tableFields = fields.where((f) => f['type'] == 'Table').toList();
 
@@ -359,18 +361,15 @@ class _FormPrintPreviewPageState extends State<FormPrintPreviewPage> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
-            color: const Color(0xFFF3F4F6),
+            color: sectionColor,
             borderRadius: BorderRadius.circular(4),
             border: Border.all(color: const Color(0xFFE5E7EB)),
           ),
-          child: Text(
-            '${section['title'] ?? ''}',
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF1F2937),
-            ),
-          ),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('${section['title'] ?? ''}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1F2937))),
+            if ('${section['description'] ?? ''}'.trim().isNotEmpty)
+              Text('${section['description']}', style: const TextStyle(fontSize: 10, color: Color(0xFF4B5563))),
+          ]),
         ),
         const SizedBox(height: 8),
 
@@ -419,6 +418,7 @@ class _FormPrintPreviewPageState extends State<FormPrintPreviewPage> {
       ],
     );
   }
+
 
   Widget _buildPrintTable(FormMap table, dynamic value) {
     final columns = formMaps(table['columns']);

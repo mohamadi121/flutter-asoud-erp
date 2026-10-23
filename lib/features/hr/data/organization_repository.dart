@@ -28,7 +28,10 @@ class OrganizationEmployee {
 class OrganizationRepository {
   OrganizationRepository(this.client, {LocalRecordStore? local})
       : local = local ?? LocalDatabaseStore.instance {
-    _session = client.authenticationChanges.listen((_) => _epoch++);
+    _session = client.authenticationChanges.listen((_) {
+      _epoch++;
+      _photos.clear();
+    });
   }
   final FrappeApiClient client;
   final LocalRecordStore local;
@@ -49,7 +52,27 @@ class OrganizationRepository {
     _check(epoch);
   }
 
-  Future<Uint8List?> employeePhoto(String company, String employee) async {
+  /// Session-scoped photo cache. Each employee is requested at most once: the
+  /// future itself is cached, so concurrent reads share it, and a null (no
+  /// photo) answer or a failure is kept too until the session changes.
+  Future<Uint8List?> employeePhoto(String company, String employee) {
+    if (_photoCompany != company) {
+      _photos.clear();
+      _photoCompany = company;
+    }
+    final key = '$company\n$employee';
+    final cached = _photos.remove(key);
+    if (cached != null) {
+      // Re-insert so this entry becomes the most recently used one.
+      _photos[key] = cached;
+      return cached;
+    }
+    final photo = _fetchPhoto(company, employee);
+    _photos[key] = photo;
+    return photo;
+  }
+
+  Future<Uint8List?> _fetchPhoto(String company, String employee) async {
     final (_, epoch) = await _scope(company);
     final result = await _call(
         'employee_photo', {'company': company, 'employee': employee});
@@ -91,9 +114,12 @@ class OrganizationRepository {
 
   late final StreamSubscription<bool> _session;
   int _epoch = 0;
+  final _photos = <String, Future<Uint8List?>>{};
+  String? _photoCompany;
   Stream<bool> get authenticationChanges => client.authenticationChanges;
   Future<void> dispose() async {
     _epoch++;
+    _photos.clear();
     await _session.cancel();
   }
 
