@@ -57,6 +57,8 @@ void main() {
         'needed_date': 'تاریخ موردنیاز',
         'suggested_return_date': 'تاریخ پیشنهادی عودت',
         'general_notes': 'توضیحات تکمیلی',
+        'review_flow_notice': 'گردش بررسی و انجام عملیات',
+        'final_warning': 'هشدار',
       },
     );
     expect(
@@ -185,6 +187,35 @@ void main() {
     expect(returned.containsKey('returnable_equipment'), isTrue);
     expect(returned.containsKey('needed_date'), isFalse);
     expect(returned.containsKey('suggested_return_date'), isTrue);
+  });
+
+  test('فیلدهای الزامی پنهان اعتبارسنجی را در حالت عودت مسدود نمی‌کنند', () {
+    final schema = hrEquipmentPreset();
+    final values = evaluatedValues(schema, {
+      'equipment_request_type': 'return_equipment',
+      'returnable_equipment': [
+        {'equipment_reference': 'ITEM-1', 'quantity': 1, 'reported_condition': 'healthy'},
+      ],
+    });
+    expect(values.containsKey('receive_reason'), isFalse);
+    expect(values.containsKey('requested_equipment'), isFalse);
+    expect(values['returnable_equipment'], isNotEmpty);
+  });
+
+  test('کارت‌های گردش و هشدار نهایی متن خنثی و دقیق دارند', () {
+    final fields = [
+      for (final s in hrEquipmentPreset()['sections'] as List)
+        for (final f in (s as Map)['fields'] as List) f as Map,
+    ];
+    expect(
+        fields.firstWhere((f) => f['key'] == 'review_flow_notice')['default'],
+        'مسیر بررسی از گردش کار تعریف‌شده تعیین می‌شود.');
+    expect(
+        fields.firstWhere((f) => f['key'] == 'final_warning')['default'],
+        'ثبت درخواست به‌معنای ثبت ورود یا خروج کالا، تحویل قطعی تجهیز، عودت واقعی یا تسویه مسئولیت اموال نیست.');
+    expect(fields.firstWhere((f) => f['key'] == 'receive_reason')['default'],
+        'work_need');
+    expect(fields.any((f) => f.containsKey('placeholder')), isFalse);
   });
 
   testWidgets(

@@ -188,6 +188,7 @@ FormMap hrEquipmentPreset() => {
               'label': 'دلیل درخواست',
               'type': 'Select',
               'required': true,
+              'default': 'work_need',
               'options': [
                 {'id': 'work_need', 'label': 'نیاز کاری'},
                 {'id': 'replacement', 'label': 'جایگزینی تجهیز'},
@@ -232,8 +233,40 @@ FormMap hrEquipmentPreset() => {
               'key': 'general_notes',
               'label': 'توضیحات تکمیلی',
               'type': 'LongText',
-              'placeholder':
-                  'مشخصات فنی موردنیاز، علت آسیب یا توضیحات بیشتر...',
+              'help': 'مشخصات فنی موردنیاز، علت آسیب یا توضیحات بیشتر…',
+            },
+          ],
+        },
+        {
+          'id': 'review_flow',
+          'title': 'گردش بررسی و انجام عملیات',
+          'icon': 'account_tree',
+          'color': '#00838F',
+          'background_color': '#E6F6F7',
+          'fields': [
+            {
+              'key': 'review_flow_notice',
+              'label': 'گردش بررسی و انجام عملیات',
+              'type': 'Display',
+              'readonly': true,
+              'default': 'مسیر بررسی از گردش کار تعریف‌شده تعیین می‌شود.',
+            },
+          ],
+        },
+        {
+          'id': 'final_notice',
+          'title': 'بررسی نهایی',
+          'icon': 'info',
+          'color': '#F57F17',
+          'background_color': '#FFF0DD',
+          'fields': [
+            {
+              'key': 'final_warning',
+              'label': 'هشدار',
+              'type': 'Display',
+              'readonly': true,
+              'default':
+                  'ثبت درخواست به‌معنای ثبت ورود یا خروج کالا، تحویل قطعی تجهیز، عودت واقعی یا تسویه مسئولیت اموال نیست.',
             },
           ],
         },
