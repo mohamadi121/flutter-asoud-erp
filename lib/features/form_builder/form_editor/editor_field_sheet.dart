@@ -751,6 +751,18 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
             },
           ),
         ],
+        formSelect(
+          'نباید قبل از فیلد:',
+          '${f['after_or_equal'] ?? ''}',
+          {
+            '': 'بدون محدودیت',
+            for (final field in formMaps(widget.schema['sections'])
+                .expand((section) => formMaps(section['fields']))
+                .where((field) => field['type'] == 'Date' && field['key'] != f['key']))
+              '${field['key']}': '${field['label']}',
+          },
+          (v) => set('after_or_equal', v.isEmpty ? null : v),
+        ),
         ...buildDateTimeConfig(
           context: context,
           f: f,
@@ -854,6 +866,18 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
           onChanged: () => setState(() {}),
         ),
         const SizedBox(height: 8),
+        if (!multi) ...[
+          const Text('نمایش', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+          SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(value: 'dropdown', label: Text('لیست کشویی')),
+              ButtonSegment(value: 'radio', label: Text('دکمه رادیویی')),
+            ],
+            selected: {'${f['style'] ?? 'dropdown'}'},
+            onSelectionChanged: (value) => set('style', value.first),
+          ),
+          const SizedBox(height: 8),
+        ],
         if (multi) ...[
           editorFieldText(label: 'حداقل تعداد انتخاب', value: f['min_selected'] ?? 0, numeric: true, onChanged: (v) => set('min_selected', v)),
           editorFieldText(label: 'حداکثر تعداد انتخاب', value: f['max_selected'], numeric: true, onChanged: (v) => set('max_selected', v)),

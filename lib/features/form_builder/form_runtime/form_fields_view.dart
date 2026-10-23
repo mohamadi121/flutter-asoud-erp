@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/utils/jalali_date.dart';
+
 import '../form_repository.dart';
 import 'field_inputs/choice_inputs.dart';
 import 'field_inputs/date_time_inputs.dart';
@@ -118,31 +120,34 @@ class FormFieldsView extends StatelessWidget {
 
     Widget sectionView(FormMap section) {
       final title = '${section['title'] ?? ''}'.trim();
+      final description = '${section['description'] ?? ''}'.trim();
+      final bg = _sectionColor('${section['background_color'] ?? section['color'] ?? ''}');
+      final accent = _sectionAccent(bg);
+      final icon = _sectionIcon('${section['icon'] ?? ''}');
       return Padding(
         padding: const EdgeInsets.only(bottom: 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+        child: StatefulBuilder(builder: (context, setSectionState) {
+          var collapsed = section['collapsible'] == true && section['collapsed'] == true;
+          return Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(10)),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             if (title.isNotEmpty) ...[
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEBF3FF),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    color: Color(0xFF1876D2),
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                  ),
-                ),
+              InkWell(
+                onTap: section['collapsible'] == true ? () => setSectionState(() {
+                  section['collapsed'] = !collapsed;
+                  collapsed = !collapsed;
+                }) : null,
+                child: Row(children: [
+                  Icon(icon, color: accent, size: 20), const SizedBox(width: 8),
+                  Expanded(child: Text(title, style: TextStyle(color: accent, fontWeight: FontWeight.bold, fontSize: 13))),
+                  if (section['collapsible'] == true) Icon(collapsed ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_up, color: accent),
+                ]),
               ),
+              if (description.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 4), child: Text(description, style: const TextStyle(fontSize: 12, color: Color(0xFF475569)))),
               const SizedBox(height: 12),
             ],
-            LayoutBuilder(
+            if (!collapsed) LayoutBuilder(
               builder: (context, constraints) {
                 final totalWidth = constraints.maxWidth;
                 const spacing = 12.0;
@@ -160,14 +165,15 @@ class FormFieldsView extends StatelessWidget {
                         width: (field['span'] as num?)?.toInt() == 1
                             ? halfWidth
                             : totalWidth,
-                        child: _input(context, field, computed),
+                        child: _withHelp(field, _input(context, field, computed)),
                       ),
                   ],
                 );
               },
             ),
-          ],
-        ),
+          ]),
+          );
+        }),
       );
     }
 
@@ -242,7 +248,20 @@ class FormFieldsView extends StatelessWidget {
       onChanged: set,
     );
     if (tableWidget != null) {
-      return tableWidget;
+      final minRows = (f['min_rows'] as num?)?.toInt() ?? 0;
+      return FormField<dynamic>(
+        validator: (_) {
+          final count = formMaps(v).length;
+          if ((required || minRows > 0) && count < minRows) {
+            return 'حداقل ${toPersianDigits(minRows == 0 ? 1 : minRows)} ردیف لازم است.';
+          }
+          return null;
+        },
+        builder: (state) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          tableWidget,
+          if (state.hasError) Padding(padding: const EdgeInsets.only(top: 4), child: Text(state.errorText!, style: TextStyle(color: Theme.of(context).colorScheme.error))),
+        ]),
+      );
     }
 
     final dateTimeWidget = buildDateTimeInput(
@@ -251,6 +270,7 @@ class FormFieldsView extends StatelessWidget {
       value: v,
       label: label,
       required: required,
+      values: computed,
       onChanged: set,
     );
     if (dateTimeWidget != null) {
@@ -284,12 +304,37 @@ class FormFieldsView extends StatelessWidget {
       return fileWidget;
     }
 
-    return buildTextNumberInput(
+    final input = buildTextNumberInput(
       f: f,
       value: v,
       label: label,
       required: required,
       onChanged: set,
     )!;
+    if (v == null && '${f['default_source'] ?? ''}'.isNotEmpty) {
+      return Stack(children: [input, const Positioned(left: 8, bottom: 8, child: Text('دریافت خودکار', style: TextStyle(fontSize: 10, color: Color(0xFF64748B))))]);
+    }
+    return input;
+  }
+
+  Widget _withHelp(FormMap field, Widget input) {
+    final help = '${field['help'] ?? ''}'.trim();
+    if (help.isEmpty || ['Text', 'LongText', 'Integer', 'Decimal', 'Money', 'Rating'].contains(field['type'])) return input;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [input, const SizedBox(height: 4), Text(help, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)))]);
   }
 }
+
+Color _sectionColor(String value) {
+  final number = int.tryParse(value.replaceAll('#', '').replaceAll('0X', ''), radix: 16);
+  return number == null ? const Color(0xFFEBF3FF) : Color(0xFF000000 | number);
+}
+Color _sectionAccent(Color color) => Color.lerp(color, Colors.black, .65) ?? const Color(0xFF1876D2);
+IconData _sectionIcon(String icon) => switch (icon) {
+  'person' || 'employee' => Icons.person_outline,
+  'event' || 'calendar' => Icons.event_outlined,
+  'description' || 'document' => Icons.description_outlined,
+  'payments' || 'money' => Icons.payments_outlined,
+  'school' || 'training' => Icons.school_outlined,
+  'inventory' || 'equipment' => Icons.inventory_2_outlined,
+  _ => Icons.folder_outlined,
+};

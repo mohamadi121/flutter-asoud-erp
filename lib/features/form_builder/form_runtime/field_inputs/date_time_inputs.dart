@@ -12,6 +12,7 @@ Widget? buildDateTimeInput({
   required dynamic value,
   required String label,
   required bool required,
+  FormMap? values,
   required ValueChanged<dynamic> onChanged,
 }) {
   final type = '${f['type']}';
@@ -25,8 +26,19 @@ Widget? buildDateTimeInput({
       : '${JalaliDate.fromDateTime(date).format()}${type == 'DateTime' ? ' ${date.hour}:${date.minute.toString().padLeft(2, '0')}' : ''}';
 
   return FormField<dynamic>(
-    validator: (_) =>
-        required && isEmptyValue(value) ? 'انتخاب الزامی است.' : null,
+    validator: (_) {
+      if (required && isEmptyValue(value)) return 'انتخاب الزامی است.';
+      final otherKey = '${f['after_or_equal'] ?? ''}';
+      final other = values?[otherKey];
+      if (type != 'Time' && otherKey.isNotEmpty && !isEmptyValue(value) && !isEmptyValue(other)) {
+        final current = DateTime.tryParse('$value') ?? parseJalaliDate('$value');
+        final minimum = DateTime.tryParse('$other') ?? parseJalaliDate('$other');
+        if (current != null && minimum != null && current.isBefore(minimum)) {
+          return '${f['after_or_equal_message'] ?? 'تاریخ پایان نباید قبل از تاریخ شروع باشد.'}';
+        }
+      }
+      return null;
+    },
     builder: (state) => Material(
       color: Colors.transparent,
       child: ListTile(

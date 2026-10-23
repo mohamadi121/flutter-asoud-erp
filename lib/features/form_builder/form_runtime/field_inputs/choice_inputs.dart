@@ -32,6 +32,31 @@ Widget? buildChoiceInput({
     final options = choiceOptions(f);
     final selectedId = choiceOptionId(f, value) ?? '$value';
     final selectedExists = options.any((option) => option['id'] == selectedId);
+    if (f['style'] == 'radio') {
+      return FormField<String>(
+        initialValue: value is String ? selectedId : null,
+        validator: (v) => required && v == null ? 'انتخاب الزامی است.' : null,
+        builder: (state) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label),
+            for (final option in options)
+              RadioListTile<String>(
+                contentPadding: EdgeInsets.zero,
+                title: Text('${option['label']}'),
+                value: '${option['id']}',
+                groupValue: selectedId,
+                onChanged: (id) {
+                  state.didChange(id);
+                  onChanged(id);
+                },
+              ),
+            if (state.hasError)
+              Text(state.errorText!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+          ],
+        ),
+      );
+    }
     return DropdownButtonFormField<String>(
       key: ValueKey('$key:$value'),
       initialValue: value is String ? selectedId : null,
