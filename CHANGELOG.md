@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Request detail: a «وضعیت درخواست من» card for the requester and an «اقدام» card (approve, return, reject by the stage settings) for the user holding the open task.
 
 - Form builder: section presentation, collapsible sections, radio choices, date ordering and repeatable-table validation are supported at runtime.
 - Ready HR request templates (settings → forms → create from template): traffic correction, salary advance, employment certificate, shift change, settlement, training, equipment delivery or return. Raw reusable forms only: applicant data comes from the signed-in user's Employee (`default_source`), no fixed approvers or workflow.

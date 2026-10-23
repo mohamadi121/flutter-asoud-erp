@@ -22,6 +22,7 @@ import 'request_link_fields.dart';
 import 'request_list_view.dart' show requestPriorityLabels;
 import 'request_print.dart';
 import 'request_status.dart';
+import 'request_viewer_cards.dart';
 
 /// What the slot builders of [RequestDetailScaffold] receive.
 class RequestDetailView {
@@ -627,6 +628,9 @@ class _RequestDetailScaffoldState extends State<RequestDetailScaffold> {
                 style:
                     const TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
           ]),
+          // WP2 insertion point: viewer-aware status and decision cards.
+          RequestViewerCards(
+              data: value, tasks: _tasks(), onDecided: load),
           if (detail.statusKey == RequestStatusKey.rejected &&
               detail.rejectionReason.isNotEmpty)
             Container(
