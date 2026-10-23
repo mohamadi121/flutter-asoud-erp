@@ -45,6 +45,8 @@ class RequestExecutionCard extends StatelessWidget {
         'ابطال‌کننده: ${execution.voidByName}',
       if (execution.voided && execution.voidOn.isNotEmpty)
         'زمان ابطال: ${formatJalaliDateTimeIso(execution.voidOn)}',
+      if (execution.voided && execution.voidBlocked.isNotEmpty)
+        'صدور مجدد ممکن نیست: ${execution.voidBlocked}',
     ];
     return Container(
       width: double.infinity,

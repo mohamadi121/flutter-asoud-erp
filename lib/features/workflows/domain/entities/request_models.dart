@@ -347,6 +347,7 @@ class RequestExecution extends Equatable {
     this.voidReason = '',
     this.voidByName = '',
     this.voidOn = '',
+    this.voidBlocked = '',
   });
 
   factory RequestExecution.fromMap(Object? source) {
@@ -365,6 +366,7 @@ class RequestExecution extends Equatable {
       voidReason: _text(_map(map['void'])['reason']),
       voidByName: _text(_map(map['void'])['by_name']),
       voidOn: _text(_map(map['void'])['on']),
+      voidBlocked: _text(_map(map['void'])['reissue_blocked']),
     );
   }
 
@@ -378,6 +380,9 @@ class RequestExecution extends Equatable {
 
   /// The last void (reason, who, when); only sent to System/HR Managers.
   final String voidReason, voidByName, voidOn;
+
+  /// Why a reissue is impossible after this void (Persian); empty when it is possible.
+  final String voidBlocked;
   bool get voided => state == 'voided';
 
   bool get applicable => state != 'not_applicable';
@@ -411,6 +416,7 @@ class RequestExecution extends Equatable {
         voidReason,
         voidByName,
         voidOn,
+        voidBlocked,
       ];
 }
 

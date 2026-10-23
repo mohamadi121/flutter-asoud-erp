@@ -153,6 +153,21 @@ void main() {
 
   for (final width in [320.0, 390.0, 430.0]) {
     group('at $width', () {
+      testWidgets('a blocked reissue shows the server reason and no action',
+          (tester) async {
+        const why = 'تردد ثبت‌شده حذف نمی‌شود و ثبت دوبارهٔ همان تردد ممکن نیست.';
+        await _open(
+            tester,
+            _request(_execution('voided', 'سند ابطال شد',
+                canReissue: false,
+                voided: {'reason': _reason, 'reissue_blocked': why})),
+            width: width);
+        expect(find.textContaining(why), findsOneWidget);
+        await _menu(tester);
+        expect(find.text('صدور مجدد'), findsNothing);
+        expect(tester.takeException(), isNull);
+      });
+
       testWidgets('a user who cannot void sees neither action', (tester) async {
         await _open(tester,
             _request(_execution('succeeded', 'اجرا انجام شد')), width: width);
