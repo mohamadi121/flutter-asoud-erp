@@ -38,8 +38,8 @@ FormMap hrShiftChangePreset() => {
             {
               'key': 'applicant_position',
               'label': 'سمت سازمانی',
-              'type': 'Display',
-              'default': 'اطلاعات پرسنلی در دسترس نیست',
+              'type': 'Text',
+              'default_source': 'designation',
               'readonly': true,
               'span': 1,
             },
@@ -57,6 +57,7 @@ FormMap hrShiftChangePreset() => {
               'type': 'Select',
               'default': 'self_change',
               'required': true,
+              'style': 'radio',
               'options': <FormMap>[
                 {'id': 'self_change', 'label': 'تغییر شیفت خودم'},
                 {'id': 'swap_with_colleague', 'label': 'جابه‌جایی شیفت با همکار'},
@@ -68,6 +69,7 @@ FormMap hrShiftChangePreset() => {
               'type': 'Select',
               'default': 'single_day',
               'required': true,
+              'style': 'radio',
               'options': <FormMap>[
                 {'id': 'single_day', 'label': 'یک روز'},
                 {'id': 'date_range', 'label': 'بازه زمانی'},
@@ -90,6 +92,8 @@ FormMap hrShiftChangePreset() => {
               'key': 'end_date',
               'label': 'تاریخ پایان',
               'type': 'Date',
+              'after_or_equal': 'start_date',
+              'after_or_equal_message': 'تاریخ پایان نباید قبل از تاریخ شروع باشد.',
               'span': 1,
             },
             {
@@ -104,10 +108,9 @@ FormMap hrShiftChangePreset() => {
               'key': 'requested_shift',
               'label': 'شیفت جایگزین درخواستی',
               'type': 'Text',
-              'source_mode': 'asoud',
-              'source': 'Shift',
               'required': true,
               'span': 2,
+              'help': 'نام یا شناسه شیفت درخواستی را وارد کنید؛ اعتبارسنجی و اعمال تغییر به اتصال برنامه‌ریزی شیفت نیاز دارد.',
             },
             {
               'key': 'exchange_colleague',
@@ -154,22 +157,6 @@ FormMap hrShiftChangePreset() => {
               'key': 'additional_notes',
               'label': 'توضیحات تکمیلی',
               'type': 'LongText',
-              'span': 2,
-            },
-          ],
-        },
-        {
-          'id': 'workflow_guidance',
-          'title': 'گردش تأیید',
-          'icon': 'account_tree',
-          'color': '#E5F7EF',
-          'fields': <FormMap>[
-            {
-              'key': 'workflow_note',
-              'label': 'راهنمای مسیر درخواست',
-              'type': 'Display',
-              'default': 'مسیر و مسئولان رسیدگی از گردش کار پیکربندی‌شده تعیین می‌شوند.',
-              'readonly': true,
               'span': 2,
             },
           ],
