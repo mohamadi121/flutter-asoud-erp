@@ -72,7 +72,38 @@ class OrganizationRepository {
     return photo;
   }
 
+  static const maxPhotoRequests = 4;
+  int _activePhotos = 0;
+  final _photoQueue = <Completer<void>>[];
+
+  Future<void> _acquirePhotoSlot() async {
+    if (_activePhotos < maxPhotoRequests) {
+      _activePhotos++;
+      return;
+    }
+    final turn = Completer<void>();
+    _photoQueue.add(turn);
+    await turn.future;
+  }
+
+  void _releasePhotoSlot() {
+    if (_photoQueue.isEmpty) {
+      _activePhotos--;
+    } else {
+      _photoQueue.removeAt(0).complete();
+    }
+  }
+
   Future<Uint8List?> _fetchPhoto(String company, String employee) async {
+    await _acquirePhotoSlot();
+    try {
+      return await _fetchPhotoNow(company, employee);
+    } finally {
+      _releasePhotoSlot();
+    }
+  }
+
+  Future<Uint8List?> _fetchPhotoNow(String company, String employee) async {
     final (_, epoch) = await _scope(company);
     final result = await _call(
         'employee_photo', {'company': company, 'employee': employee});
@@ -83,10 +114,25 @@ class OrganizationRepository {
   }
 
   Future<Map<String, dynamic>> units(String company) async {
-    final (_, epoch) = await _scope(company);
-    final result = await _call('list_units', {'company': company});
+    final (key, epoch) = await _scope(company);
+    Map<String, dynamic> data;
+    try {
+      data = await _call('list_units', {'company': company});
+      _check(epoch);
+      await local.save(
+          id: '$key:units',
+          entityType: 'organization_units',
+          payload: data,
+          status: LocalSyncStatus.synced);
+    } catch (e) {
+      _check(epoch);
+      if (e is! TimeoutException && !isRetryableOfflineFailure(e)) rethrow;
+      final cached = await local.get('$key:units');
+      if (cached == null) rethrow;
+      data = cached.payload;
+    }
     _check(epoch);
-    return result;
+    return data;
   }
 
   Future<void> saveUnit(String company, Map<String, dynamic> payload) async {

@@ -54,4 +54,26 @@ void main() {
     expect(snapshot.rows.first.title, 'مدیرعامل');
     expect(snapshot.pending, isFalse);
   });
+
+  test('one employee cannot be seated in two positions of the v2 model', () {
+    expect(
+        () => validateOrganization(const [
+              OrgPosition(code: 'A', title: 'الف', occupants: ['HR-EMP-1']),
+              OrgPosition(code: 'B', title: 'ب', occupants: ['HR-EMP-1']),
+            ]),
+        throwsA(isA<FormatException>().having((e) => e.message, 'message',
+            'هر پرسنل در این چارت فقط یک جایگاه دارد.')));
+    expect(
+        () => validateOrganization(const [
+              OrgPosition(code: 'A', title: 'الف', occupants: ['HR-EMP-1']),
+              OrgPosition(code: 'B', title: 'ب', employee: 'HR-EMP-1'),
+            ]),
+        throwsA(isA<FormatException>()));
+    expect(
+        () => validateOrganization(const [
+              OrgPosition(code: 'A', title: 'الف', occupants: ['HR-EMP-1']),
+              OrgPosition(code: 'B', title: 'ب', occupants: ['HR-EMP-2']),
+            ]),
+        returnsNormally);
+  });
 }
