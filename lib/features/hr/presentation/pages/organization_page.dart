@@ -11,6 +11,7 @@ import '../../../../core/auth/capabilities.dart';
 import '../../../../core/network/frappe_client.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/failure_message.dart';
 import '../../../../core/utils/persian_format.dart';
 import '../../../../core/widgets/app_fields.dart';
 import '../../../../core/widgets/asoud_ui.dart';
@@ -651,10 +652,22 @@ class _OrganizationTemplatesState extends State<_OrganizationTemplates> {
                     '${template.description}\n${formatCount(template.positions.length, 'جایگاه')} پیشنهادی'),
                 trailing: const Icon(Icons.chevron_left_rounded),
                 onTap: () async {
+                  final c = context.read<OrganizationCubit>();
+                  var existing = <Map<String, dynamic>>[];
+                  try {
+                    existing = ((await c.repository.units(c.company))['units']
+                            as List)
+                        .map((e) => Map<String, dynamic>.from(e as Map))
+                        .toList();
+                  } catch (_) {
+                    // The server still reports a clash in the review step.
+                  }
+                  if (!context.mounted) return;
                   final saved = await _openOrganizationPage<bool>(
                       context,
                       _OrganizationImportReview(
-                          payload: _templateOrganizationPayload(template)));
+                          payload: templateOrganizationPayload(template,
+                              existingUnits: existing)));
                   if (saved == true && context.mounted) {
                     _openOrganizationPage<void>(
                         context, const _OrganizationWorkspace(canManage: true));

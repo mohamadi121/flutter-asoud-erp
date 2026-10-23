@@ -397,7 +397,11 @@ class _OrganizationPositionFormState extends State<_OrganizationPositionForm> {
                                 const Text('سوابق انتساب'),
                                 for (final h in widget.item!.history)
                                   ListTile(
-                                      title: Text('${h['employee']}'),
+                                      title: Text(_people
+                                              .where((p) => p.id == h['employee'])
+                                              .map((p) => p.displayName)
+                                              .firstOrNull ??
+                                          'پرسنل منتسب'),
                                       subtitle: Text(
                                           'شروع: ${_assignmentDate(h['started_at'])}\nپایان: ${h['ended_at'] == null ? 'فعال' : _assignmentDate(h['ended_at'])}')),
                               ],
