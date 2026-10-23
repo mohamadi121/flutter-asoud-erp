@@ -63,7 +63,7 @@ List<Map<String, dynamic>>? _formFields(Map<String, dynamic> design) {
 Future<List<Map<String, dynamic>>> offlineRequestTypes() async {
   final designs = await _designs();
   final all = [...designs, if (designs.isEmpty) ...demoDesignMaps()];
-  return [
+  final base = [
     ...RequestDemoRegistry.requestTypes(),
     for (final design in all)
       if ((design['workflow'] as Map?)?['target_doctype'] ==
@@ -78,6 +78,14 @@ Future<List<Map<String, dynamic>>> offlineRequestTypes() async {
           'fields': _formFields(design),
           if (design['is_sample'] == true) 'is_sample': true,
         },
+  ];
+  // Leave has its own system template and chooser, so it is not repeated.
+  final taken = {
+    for (final type in base) '${type['workflow_title']}',
+    'درخواست مرخصی'
+  };
+  return [
+    ...base,
     for (final item in purchaseRequestBank)
       {
         ...systemRequestType('purchase'),
@@ -86,7 +94,19 @@ Future<List<Map<String, dynamic>>> offlineRequestTypes() async {
         'short_title': item.description,
         'request_subgroup': item.subgroup,
         'keywords': item.keywords,
+        if (!item.offlineForm) 'offline_unavailable': true,
       },
+    for (final item in hrRequestBank)
+      if (!taken.contains(item.title))
+        {
+          ...systemRequestType('purchase'),
+          'name': 'PREVIEW-HR-${hrRequestBank.indexOf(item) + 1}',
+          'workflow_title': item.title,
+          'short_title': item.description,
+          'request_subgroup': item.subgroup,
+          'keywords': item.keywords,
+          'offline_unavailable': true,
+        },
   ];
 }
 
