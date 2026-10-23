@@ -9,12 +9,14 @@ class ScheduleField extends StatefulWidget {
     required this.field,
     required this.values,
     required this.repository,
+    this.formName,
     super.key,
   });
 
   final FormMap field;
   final FormMap values;
   final FormRepository repository;
+  final String? formName;
 
   @override
   State<ScheduleField> createState() => _ScheduleFieldState();
@@ -51,7 +53,13 @@ class _ScheduleFieldState extends State<ScheduleField> {
       setState(() {});
       return;
     }
-    widget.repository.employeeSchedule(fromDate: from, toDate: to, employee: employee).then((value) {
+    widget.repository.employeeSchedule(
+      fromDate: from,
+      toDate: to,
+      employee: employee,
+      form: widget.formName,
+      field: employeeKey == 'self' ? null : employeeKey,
+    ).then((value) {
       if (!mounted || signature != next) return;
       setState(() => rows = value);
     }).catchError((Object value) {

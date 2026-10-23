@@ -85,6 +85,8 @@ class FormRepository {
     required String fromDate,
     required String toDate,
     String? employee,
+    String? form,
+    String? field,
   }) async {
     if (!client.isAuthenticated) return const [];
     return formMaps(await call('employee_schedule', {
@@ -92,6 +94,8 @@ class FormRepository {
       'from_date': fromDate,
       'to_date': toDate,
       if (employee != null && employee.isNotEmpty) 'employee': employee,
+      if (employee != null && employee.isNotEmpty && form != null && form.isNotEmpty) 'form': form,
+      if (employee != null && employee.isNotEmpty && field != null && field.isNotEmpty) 'field': field,
     }));
   }
 

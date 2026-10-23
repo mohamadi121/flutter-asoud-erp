@@ -294,6 +294,7 @@ class FormFieldsView extends StatelessWidget {
         field: f,
         values: computed,
         repository: repository,
+        formName: formName,
       );
     }
 
