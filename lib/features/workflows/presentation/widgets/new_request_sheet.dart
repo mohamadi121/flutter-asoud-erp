@@ -48,7 +48,11 @@ class _NewRequestSheetState extends State<NewRequestSheet> {
         minChildSize: .5,
         maxChildSize: .95,
         expand: false,
-        builder: (context, controller) => Material(
+        builder: (context, controller) => ScaffoldMessenger(
+            child: Scaffold(
+          backgroundColor: Colors.transparent,
+          resizeToAvoidBottomInset: false,
+          body: Material(
           color: Colors.white,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           child: SafeArea(
@@ -185,7 +189,7 @@ class _NewRequestSheetState extends State<NewRequestSheet> {
                       ]);
                 },
               )),
-        ),
+        ))),
       ),
     );
   }
@@ -242,7 +246,15 @@ class _NewRequestSheetState extends State<NewRequestSheet> {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(color: AsoudColors.muted)),
               trailing: const Icon(Icons.chevron_left_rounded),
-              onTap: () => Navigator.pop(context, type)),
+              onTap: () {
+                if (type['offline_unavailable'] == true) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content:
+                          Text('این فرم فقط با اتصال به سرور در دسترس است.')));
+                  return;
+                }
+                Navigator.pop(context, type);
+              }),
         ));
   }
 }

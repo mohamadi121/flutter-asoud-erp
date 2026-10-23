@@ -10,6 +10,7 @@ class NewRequestMetadata {
     required this.subgroup,
     required this.keywords,
     this.description = '',
+    this.offlineForm = false,
   });
 
   final String title;
@@ -17,6 +18,9 @@ class NewRequestMetadata {
   final String subgroup;
   final List<String> keywords;
   final String description;
+
+  /// True when the purchase system template is the right form for this row.
+  final bool offlineForm;
 }
 
 const purchaseRequestBank = <NewRequestMetadata>[
@@ -25,19 +29,22 @@ const purchaseRequestBank = <NewRequestMetadata>[
       module: 'خرید',
       subgroup: 'تأمین و خرید',
       keywords: ['کالا', 'خرید'],
-      description: 'تأمین کالای مورد نیاز واحد از طریق خرید'),
+      description: 'تأمین کالای مورد نیاز واحد از طریق خرید',
+      offlineForm: true),
   NewRequestMetadata(
       title: 'درخواست خرید خدمات',
       module: 'خرید',
       subgroup: 'تأمین و خرید',
       keywords: ['خدمات', 'خرید'],
-      description: 'تأمین خدمات مورد نیاز از بیرون سازمان'),
+      description: 'تأمین خدمات مورد نیاز از بیرون سازمان',
+      offlineForm: true),
   NewRequestMetadata(
       title: 'درخواست خرید فوری',
       module: 'خرید',
       subgroup: 'تأمین و خرید',
       keywords: ['فوری', 'خرید'],
-      description: 'خرید کالا یا خدمات با نیاز زمانی نزدیک'),
+      description: 'خرید کالا یا خدمات با نیاز زمانی نزدیک',
+      offlineForm: true),
   NewRequestMetadata(
       title: 'درخواست استعلام قیمت',
       module: 'خرید',

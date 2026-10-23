@@ -159,6 +159,55 @@ void main() {
     expect(find.text('انتخاب درخواست جدید'), findsNothing);
   });
 
+  testWidgets('offline HR row shows a message and keeps the sheet open',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(360, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    Object? picked;
+    final types = <Map<String, dynamic>>[
+      {
+        'workflow_title': 'درخواست اصلاح تردد',
+        'short_title': 'اصلاح ورود یا خروج',
+        'offline_unavailable': true,
+      },
+      {'workflow_title': 'درخواست خرید کالا', 'short_title': 'تهیه کالا'},
+    ];
+    await tester.pumpWidget(MaterialApp(
+        theme: AsoudTheme.light,
+        builder: (context, child) =>
+            Directionality(textDirection: TextDirection.rtl, child: child!),
+        home: Builder(
+            builder: (context) => Scaffold(
+                body: Center(
+                    child: FilledButton(
+                        onPressed: () async => picked = await showNewRequestSheet(
+                            context,
+                            loadTypes: () async => types),
+                        child: const Text('باز کردن')))))));
+    await tester.tap(find.text('باز کردن'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('درخواست اصلاح تردد'));
+    await tester.pumpAndSettle();
+    expect(find.text('این فرم فقط با اتصال به سرور در دسترس است.'),
+        findsOneWidget);
+    expect(find.text('انتخاب درخواست جدید'), findsOneWidget);
+    expect(picked, isNull);
+    await tester.tap(find.text('درخواست خرید کالا'));
+    await tester.pumpAndSettle();
+    expect(find.text('انتخاب درخواست جدید'), findsNothing);
+    expect((picked as Map)['workflow_title'], 'درخواست خرید کالا');
+  });
+
+  test('only purchase-family bank rows open a form offline', () {
+    expect(
+        [for (final r in purchaseRequestBank) if (r.offlineForm) r.title], [
+      'درخواست خرید کالا',
+      'درخواست خرید خدمات',
+      'درخواست خرید فوری',
+    ]);
+    expect(hrRequestBank.any((r) => r.offlineForm), isFalse);
+  });
+
   testWidgets('close and retry error state work', (tester) async {
     var attempts = 0;
     await tester.binding.setSurfaceSize(const Size(320, 800));

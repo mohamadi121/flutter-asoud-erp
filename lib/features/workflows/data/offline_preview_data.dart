@@ -94,6 +94,7 @@ Future<List<Map<String, dynamic>>> offlineRequestTypes() async {
         'short_title': item.description,
         'request_subgroup': item.subgroup,
         'keywords': item.keywords,
+        if (!item.offlineForm) 'offline_unavailable': true,
       },
     for (final item in hrRequestBank)
       if (!taken.contains(item.title))
@@ -104,6 +105,7 @@ Future<List<Map<String, dynamic>>> offlineRequestTypes() async {
           'short_title': item.description,
           'request_subgroup': item.subgroup,
           'keywords': item.keywords,
+          'offline_unavailable': true,
         },
   ];
 }
