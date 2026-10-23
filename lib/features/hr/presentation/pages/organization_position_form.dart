@@ -122,8 +122,14 @@ class _OrganizationPositionFormState extends State<_OrganizationPositionForm> {
               : parents.isEmpty
                   ? _parentCode
                   : parents.first.title;
+          final seatedElsewhere = {
+            for (final row in state.snapshot.rows)
+              if (row.code != _editingCode) ...row.activeEmployees
+          };
           final available = _people
-              .where((person) => !_occupants.contains(person.id))
+              .where((person) =>
+                  !_occupants.contains(person.id) &&
+                  !seatedElsewhere.contains(person.id))
               .toList();
           return PopScope(
             canPop: !_saving && (_allowClose || !_dirty),
