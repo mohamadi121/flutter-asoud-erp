@@ -40,10 +40,10 @@ FormMap hrEquipmentPreset() => {
             {
               'key': 'applicant_position',
               'label': 'سمت سازمانی',
-              'type': 'Display',
+              'type': 'Text',
+              'default_source': 'designation',
               'readonly': true,
               'span': 1,
-              'system_source': 'employee_designation',
             },
           ],
         },
@@ -59,6 +59,7 @@ FormMap hrEquipmentPreset() => {
               'label': 'نوع درخواست',
               'type': 'Select',
               'required': true,
+              'style': 'radio',
               'default': 'receive_equipment',
               'options': [
                 {'id': 'receive_equipment', 'label': 'دریافت تجهیزات'},
@@ -131,7 +132,7 @@ FormMap hrEquipmentPreset() => {
                   'type': 'Link',
                   'source': 'Item',
                   'required': true,
-                  'system_source': 'employee_equipment_assignment',
+                  'help': 'کالای تجهیز تحویل‌گرفته‌شده را وارد کنید.',
                 },
                 {
                   'key': 'quantity',
@@ -176,11 +177,11 @@ FormMap hrEquipmentPreset() => {
           ],
         },
         {
-          'id': 'reason_schedule',
-          'title': 'دلیل و زمان‌بندی پیشنهادی',
-          'icon': 'event',
-          'color': '#2E7D32',
-          'background_color': '#E5F7EF',
+          'id': 'reason',
+          'title': 'دلیل درخواست',
+          'icon': 'description',
+          'color': '#7B1FA2',
+          'background_color': '#F2EAFE',
           'fields': [
             {
               'key': 'receive_reason',
@@ -199,6 +200,15 @@ FormMap hrEquipmentPreset() => {
               'label': 'شرح دلیل',
               'type': 'LongText',
             },
+          ],
+        },
+        {
+          'id': 'schedule',
+          'title': 'زمان‌بندی پیشنهادی',
+          'icon': 'event',
+          'color': '#2E7D32',
+          'background_color': '#E5F7EF',
+          'fields': [
             {
               'key': 'needed_date',
               'label': 'تاریخ موردنیاز',
