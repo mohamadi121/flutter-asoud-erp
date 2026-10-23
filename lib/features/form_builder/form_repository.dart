@@ -52,7 +52,11 @@ class FormRepository {
     return key;
   }
 
-  Future<dynamic> call(String method, [FormMap data = const {}]) async {
+  Future<dynamic> call(String method, [FormMap data = const {}]) async =>
+      (await callEnvelope(method, data))['data'];
+
+  /// The whole `success(data, meta)` envelope, for callers that need `meta`.
+  Future<FormMap> callEnvelope(String method, [FormMap data = const {}]) async {
     await scope();
     // Publication is deliberately not placed in the generic automatic retry queue.
     final response = await client.callMethod(
@@ -63,7 +67,18 @@ class FormRepository {
     if (envelope['ok'] != true) {
       throw const ApiException.protocol();
     }
-    return envelope['data'];
+    return envelope;
+  }
+
+  /// Rows `{name, label, extra}` of `forms.get_link_options` and `meta.reason`.
+  Future<({List<FormMap> rows, String? reason})> linkOptions(
+    FormMap args,
+  ) async {
+    final envelope = await callEnvelope('get_link_options', args);
+    return (
+      rows: formMaps(envelope['data']),
+      reason: formMap(envelope['meta'])['reason'] as String?,
+    );
   }
 
   bool unavailable(Object error) =>

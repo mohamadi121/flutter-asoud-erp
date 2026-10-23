@@ -1,5 +1,6 @@
 import '../form_repository.dart';
 import '../../../core/utils/jalali_date.dart';
+import 'record_links.dart';
 import 'rules_engine.dart';
 import 'schema_migration.dart';
 
@@ -483,6 +484,17 @@ List<String> schemaProblems(FormMap schema) {
       }
     }
     if (field['type'] == 'Table' && formMaps(field['columns']).isEmpty) problems.add('${field['label']}: ستون جدول را اضافه کنید.');
+    if (field['fetch_from'] != null) {
+      final parsed = parseFetchFrom(field['fetch_from']);
+      final link = fields.where((f) => f['key'] == parsed?.link && f['type'] == 'Link');
+      final allowed = link.isEmpty ? null : formFetchAttributes['${link.first['source'] ?? 'Employee'}'];
+      if (parsed == null || allowed == null || !allowed.containsKey(parsed.attribute)) {
+        problems.add('${field['label']}: مقدار از فیلد معتبر نیست.');
+      }
+    }
+    if ('${field['not_equal'] ?? ''}'.isNotEmpty && !fields.any((f) => f['key'] == field['not_equal'])) {
+      problems.add('${field['label']}: فیلد مقایسه حذف شده است.');
+    }
   }
   final graph = {for (final key in keys) key: <String>{}};
   for (final field in fields) {

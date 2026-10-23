@@ -10,6 +10,7 @@ import 'field_inputs/link_inputs.dart';
 import 'field_inputs/readonly_display_inputs.dart';
 import 'field_inputs/text_number_inputs.dart';
 import 'formula_engine.dart';
+import 'record_links.dart';
 import 'rules_engine.dart';
 import 'section_colors.dart';
 import 'table_field.dart';
@@ -56,6 +57,10 @@ const formSources = <String, String>{
   'Warehouse': 'انبارها',
   'Cost Center': 'مراکز هزینه',
   'Project': 'پروژه‌ها',
+  'Attendance': 'رکورد حضور و غیاب',
+  'Shift Type': 'نوع شیفت',
+  'Training Event': 'دوره آموزشی',
+  'Asset': 'دارایی تحویل‌شده به من',
 };
 
 const formOps = <String, String>{
@@ -83,6 +88,9 @@ const formulaOps = <String, String>{
 };
 
 const formLinkFilters = <String, Map<String, String>>{
+  'Attendance': {
+    'attendance_date': 'تاریخ حضور',
+  },
   'Employee': {
     'department': 'واحد سازمانی',
     'company': 'دفتر / شرکت',
@@ -221,7 +229,63 @@ class FormFieldsView extends StatelessWidget {
     final required = formFlag(f, schema, computed, 'required');
     final label = '${f['label']}${required ? ' *' : ''}';
     final editable = enabled && !formFlag(f, schema, computed, 'readonly');
-    void set(dynamic value) => onChanged({...computed, key: value});
+    void set(dynamic value) =>
+        onChanged(applyFieldChange(schema, computed, key, value));
+
+    if (parseFetchFrom(f['fetch_from']) != null) {
+      return _withAutomaticPlaceholder(f, v, _fetchedInput(f, v, label));
+    }
+    return _withNotEqual(f, computed, _typedInput(context, f, computed, v, required, label, editable, set));
+  }
+
+  Widget _withNotEqual(FormMap f, FormMap computed, Widget input) {
+    if ('${f['not_equal'] ?? ''}'.isEmpty) return input;
+    return FormField<dynamic>(
+      validator: (_) => notEqualProblem(
+        f,
+        computed,
+        schema: schema,
+        otherVisible: (other) => formFlag(other, schema, computed, 'visible'),
+      ),
+      builder: (state) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          input,
+          if (state.hasError)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                state.errorText!,
+                style: TextStyle(color: Theme.of(state.context).colorScheme.error, fontSize: 12),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _fetchedInput(FormMap f, dynamic value, String label) {
+    final text = isEmptyValue(value)
+        ? '—'
+        : switch ('${f['type']}') {
+            'Date' => formatJalaliIso('$value'),
+            'Time' => toPersianDigits('$value'),
+            'DateTime' => () {
+                final d = DateTime.tryParse('$value');
+                return d == null
+                    ? '$value'
+                    : '${formatJalaliIso('$value')} ${toPersianDigits('${d.hour}:${d.minute.toString().padLeft(2, '0')}')}';
+              }(),
+            _ => '$value',
+          };
+    return InputDecorator(
+      decoration: InputDecoration(labelText: label, enabled: false),
+      child: Text(text),
+    );
+  }
+
+  Widget _typedInput(BuildContext context, FormMap f, FormMap computed, dynamic v, bool required, String label, bool editable, ValueChanged<dynamic> set) {
+    final key = '${f['key']}';
 
     final readonlyWidget = buildReadonlyDisplayInput(
       f: f,
@@ -265,7 +329,7 @@ class FormFieldsView extends StatelessWidget {
           if (count < needed) {
             return 'حداقل ${toPersianDigits(needed)} ردیف لازم است.';
           }
-          return null;
+          return uniqueColumnProblem(f, v);
         },
         builder: (state) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           tableWidget,
@@ -296,6 +360,8 @@ class FormFieldsView extends StatelessWidget {
       repository: repository,
       formName: formName,
       onChanged: set,
+      onPicked: (name, extra) =>
+          onChanged(applyFieldChange(schema, computed, key, name, extra: extra)),
     );
     if (linkWidget != null) {
       return _withAutomaticPlaceholder(f, v, linkWidget);
