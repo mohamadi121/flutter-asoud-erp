@@ -65,6 +65,17 @@ void main() {
     });
   }
 
+  testWidgets('self approval explanation replaces the action card', (tester) async {
+    final data = _data(task: {}, requester: true);
+    final viewer = data['viewer'] as Map<String, dynamic>;
+    viewer['self_approval_blocked'] = true;
+    viewer['open_task'] = null;
+    await _pump(tester, 320, data, _Tasks(), () {});
+    expect(find.text('تأیید درخواست خودتان مجاز نیست.'), findsOneWidget);
+    expect(find.text('اقدام'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('handler sees only the allowed buttons; reject needs a reason and sends once',
       (tester) async {
     final tasks = _Tasks();
@@ -87,6 +98,17 @@ void main() {
       {'task': 'TASK-1', 'action': 'Reject', 'comment': 'مقدور نیست'}
     ]);
     expect(decided, 1);
+  });
+
+  testWidgets('reject needs a reason even when an old stage flag is false', (tester) async {
+    await _pump(tester, 320,
+        _data(task: {'reject_comment_required': false}), _Tasks(), () {});
+    await tester.tap(find.text('رد'));
+    await tester.pumpAndSettle();
+    final submit = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'رد').last);
+    expect(submit.onPressed, isNull);
+    expect(find.text('دلیل (الزامی)'), findsOneWidget);
   });
 
   testWidgets('approve is sent without a reason when none is required', (tester) async {

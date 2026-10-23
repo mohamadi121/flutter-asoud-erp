@@ -1188,6 +1188,13 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
             value: f['readonly'] == true,
             onChanged: (v) => set('readonly', v),
           ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('اطلاعات حساس', style: TextStyle(fontSize: 13)),
+            subtitle: const Text('مقدار فقط برای مالک درخواست و افراد مجاز نمایش داده می‌شود.'),
+            value: f['sensitive'] == true,
+            onChanged: (v) => set('sensitive', v),
+          ),
           ...buildTextNumberConfig(f, set),
           ...buildDateTimeConfig(
             context: context,

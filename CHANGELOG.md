@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+
+- فیلدهای فرم اکنون می‌توانند به‌عنوان «اطلاعات حساس» علامت‌گذاری شوند؛ دلیل رد یا بازگشت همیشه الزامی است و اقدام تأیید درخواست برای مالک نمایش داده نمی‌شود.
 - Cartable task: «مشاهده درخواست» opens the full request read-only (no edit, cancel or decision controls).
 - Request detail: a «وضعیت درخواست من» card for the requester and an «اقدام» card (approve, return, reject by the stage settings) for the user holding the open task.
 

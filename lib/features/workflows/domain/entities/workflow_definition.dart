@@ -365,6 +365,7 @@ class WorkflowFormFieldDefinition extends Equatable {
     this.rowOptions,
     this.defaultSource,
     this.requiredBySetting,
+    this.sensitive = false,
   });
 
   factory WorkflowFormFieldDefinition.fromMap(Map<dynamic, dynamic> map) =>
@@ -408,6 +409,7 @@ class WorkflowFormFieldDefinition extends Equatable {
             : null,
         defaultSource: _text(map['default_source']),
         requiredBySetting: _text(map['required_by_setting']),
+        sensitive: map['sensitive'] == true || map['sensitive'] == 1,
       );
 
   static String? _text(Object? value) {
@@ -448,6 +450,7 @@ class WorkflowFormFieldDefinition extends Equatable {
   /// `request_options` responses, kept so definitions round-trip.
   final String? defaultSource;
   final String? requiredBySetting;
+  final bool sensitive;
 
   /// Persian label of a `Choice` value, falling back to the value itself.
   String optionLabel(String value) => optionLabels[value] ?? value;
@@ -475,6 +478,7 @@ class WorkflowFormFieldDefinition extends Equatable {
         if (rowOptions != null) 'row_options': rowOptions!.toMap(),
         if (defaultSource != null) 'default_source': defaultSource,
         if (requiredBySetting != null) 'required_by_setting': requiredBySetting,
+        if (sensitive) 'sensitive': true,
       };
 
   WorkflowFormFieldDefinition copyWith({
@@ -510,6 +514,7 @@ class WorkflowFormFieldDefinition extends Equatable {
         rowOptions: rowOptions,
         defaultSource: defaultSource,
         requiredBySetting: requiredBySetting,
+        sensitive: sensitive,
       );
 
   @override
@@ -535,5 +540,6 @@ class WorkflowFormFieldDefinition extends Equatable {
         rowOptions,
         defaultSource,
         requiredBySetting,
+        sensitive,
       ];
 }
