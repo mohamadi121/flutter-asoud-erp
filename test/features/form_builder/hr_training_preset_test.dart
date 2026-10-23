@@ -180,9 +180,23 @@ void main() {
     await tester.pump();
     expect(find.text('تاریخ پایان نباید قبل از تاریخ شروع باشد.'), findsOneWidget);
   });
+  reviewFlowTests();
 }
 
 class _PreviewClient extends Fake implements FrappeApiClient {
   @override
   bool get isAuthenticated => false;
+}
+
+void reviewFlowTests() {
+  test('کارت گردش بررسی آموزش یک متن خنثی است و مقدار نهایی را نمی‌سازد', () {
+    final fields = [
+      for (final s in hrTrainingPreset()['sections'] as List)
+        ...(((s as Map)['fields']) as List).cast<Map>(),
+    ];
+    final info = fields.singleWhere((f) => f['key'] == 'review_flow_info');
+    expect(info['type'], 'Display');
+    expect(info['default'], contains('گردش کار تعریف‌شده'));
+    expect(fields.where((f) => f['type'] == 'Display'), hasLength(1));
+  });
 }

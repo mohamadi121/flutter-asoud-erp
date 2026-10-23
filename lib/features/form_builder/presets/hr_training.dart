@@ -185,6 +185,21 @@ FormMap hrTrainingPreset() => {
             },
           ],
         },
+        {
+          'id': 'review_flow',
+          'title': 'گردش بررسی و آموزش',
+          'icon': 'route',
+          'color': '#FDE8F1',
+          'fields': <FormMap>[
+            {
+              'key': 'review_flow_info',
+              'label': 'گردش بررسی و آموزش',
+              'type': 'Display',
+              'readonly': true,
+              'default': 'مسیر بررسی از گردش کار تعریف‌شده تعیین می‌شود. این درخواست به‌معنای ثبت‌نام قطعی، پرداخت هزینه یا گذراندن دوره نیست.',
+            },
+          ],
+        },
       ],
       'rules': <FormMap>[
         {
