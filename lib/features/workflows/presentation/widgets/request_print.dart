@@ -31,6 +31,46 @@ List<Map<String, dynamic>> requestItemRows(Map<String, dynamic> values) => [
               Map<String, dynamic>.from(row),
     ];
 
+/// Field rows of the printed «اطلاعات درخواست» table: the label and the text
+/// the screen shows ([formatted], from `RequestDetailView.format`); a value
+/// without a formatted text falls back to the generic formatting.
+List<List<String>> requestPrintFields(
+  Map<String, dynamic> values, {
+  Map<String, String> labels = const {},
+  Map<String, String> formatted = const {},
+}) =>
+    [
+      for (final entry in values.entries)
+        if (entry.value is! List ||
+            (entry.value as List).isEmpty ||
+            (entry.value as List).first is! Map)
+          [
+            persianDocumentFieldLabel(labels[entry.key] ?? entry.key),
+            formatted[entry.key] ??
+                (entry.value is List
+                    ? (entry.value as List).join('، ')
+                    : entry.value is bool
+                        ? (entry.value == true ? 'بله' : 'خیر')
+                        : isDurationMap(entry.value)
+                            ? formatPersianDuration(entry.value)
+                            : formatNumber(entry.value)),
+          ],
+    ];
+
+/// «علت رد» / «علت بازگشت» rows of a request: the rejection reason and the
+/// comment of a step that sent the request back for correction.
+List<List<String>> requestPrintReasons(Map<String, dynamic> request) {
+  final rejected = '${request['rejection_reason'] ?? ''}'.trim();
+  return [
+    if (rejected.isNotEmpty) ['علت رد', rejected],
+    for (final stage in request['stages'] as List? ?? const [])
+      if (stage is Map &&
+          stage['status'] == 'returned' &&
+          '${stage['comment'] ?? ''}'.trim().isNotEmpty)
+        ['علت بازگشت', '${stage['comment']}'.trim()],
+  ];
+}
+
 /// The PDF fonts have no glyph for the zero-width non-joiner (نیم‌فاصله).
 String _p(Object? value) => '${value ?? ''}'.replaceAll('\u200c', ' ');
 
@@ -48,6 +88,7 @@ Future<Uint8List> buildRequestPdf({
   required List<WorkflowTaskActivity> activities,
   Map<String, String> labels = const {},
   String statusLabel = '',
+  Map<String, String> formatted = const {},
 }) async {
   final regular =
       pw.Font.ttf(await rootBundle.load('assets/fonts/Vazirmatn-Regular.ttf'));
@@ -92,22 +133,9 @@ Future<Uint8List> buildRequestPdf({
             style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 12)),
       );
 
-  final fields = [
-    for (final entry in values.entries)
-      if (entry.value is! List ||
-          (entry.value as List).isEmpty ||
-          (entry.value as List).first is! Map)
-        [
-          persianDocumentFieldLabel(labels[entry.key] ?? entry.key),
-          entry.value is List
-              ? (entry.value as List).join('، ')
-              : entry.value is bool
-                  ? (entry.value == true ? 'بله' : 'خیر')
-                  : isDurationMap(entry.value)
-                      ? formatPersianDuration(entry.value)
-                      : formatNumber(entry.value),
-        ],
-  ];
+  final fields =
+      requestPrintFields(values, labels: labels, formatted: formatted);
+  final reasons = requestPrintReasons(request);
 
   doc.addPage(pw.MultiPage(
     pageFormat: PdfPageFormat.a4,
@@ -158,6 +186,10 @@ Future<Uint8List> buildRequestPdf({
         title('اطلاعات درخواست'),
         table(['عنوان', 'مقدار'], fields),
       ],
+      if (reasons.isNotEmpty) ...[
+        title('علت رد یا بازگشت'),
+        table(['عنوان', 'توضیح'], reasons),
+      ],
       if (items.isNotEmpty) ...[
         title('اقلام درخواست'),
         table([
@@ -188,13 +220,19 @@ Future<Uint8List> buildRequestPdf({
           'مرحله',
           'اقدام‌کننده',
           'اقدام',
+          'توضیح',
           'تاریخ'
         ], [
           for (final activity in activities)
             [
               activity.stageTitle.isEmpty ? '—' : activity.stageTitle,
-              activity.actor,
+              activity.actorName.isNotEmpty
+                  ? activity.actorName
+                  : activity.actor.contains('@')
+                      ? activity.actor
+                      : persianRoleLabel(activity.actor),
               requestActionLabel(activity.action),
+              activity.comment.trim().isEmpty ? '—' : activity.comment.trim(),
               activity.createdOn == null
                   ? '—'
                   : formatJalaliIso(activity.createdOn!.toIso8601String()),
