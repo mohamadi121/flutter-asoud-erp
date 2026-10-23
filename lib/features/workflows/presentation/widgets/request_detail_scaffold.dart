@@ -258,6 +258,10 @@ class _RequestDetailScaffoldState extends State<RequestDetailScaffold> {
           },
           activities: activities,
           labels: labels,
+          formatted: {
+            for (final entry in detail!.values.entries)
+              entry.key: view.format(entry.key, entry.value),
+          },
           statusLabel: requestStatus(data!).$1);
 
   Future<void> edit() async {
