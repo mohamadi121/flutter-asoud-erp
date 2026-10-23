@@ -256,7 +256,7 @@ class _DirectiveCreatePageState extends State<DirectiveCreatePage> {
                                                 : TimeOfDay.fromDateTime(
                                                     reminder!),
                                             helpText:
-                                                'ساعت یادآوری به وقت سرور سازمان',
+                                                'ساعت یادآوری به وقت دستگاه شما',
                                             builder: (context, child) =>
                                                 MediaQuery(
                                                     data: MediaQuery.of(context)
@@ -278,7 +278,7 @@ class _DirectiveCreatePageState extends State<DirectiveCreatePage> {
                                   contentPadding: EdgeInsets.zero,
                                   title: Text(formatJalaliDateTime(reminder!)),
                                   subtitle: const Text(
-                                      'به وقت سرور سازمان؛ ارسال پس از ابلاغ دستور'),
+                                      'به وقت دستگاه شما، تبدیل‌شده به ساعت سازمان؛ ارسال پس از ابلاغ دستور و فقط با فعال بودن زمان‌بند سرور'),
                                   trailing: IconButton(
                                       tooltip: 'حذف یادآوری',
                                       onPressed: locked

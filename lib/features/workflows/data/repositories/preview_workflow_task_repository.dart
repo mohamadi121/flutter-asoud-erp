@@ -11,7 +11,8 @@ import '../../domain/repositories/workflow_task_repository.dart';
 import '../demo/request_demo_data.dart';
 import '../demo/task_notification_demo_data.dart';
 
-class PreviewWorkflowTaskRepository implements WorkflowTaskRepository {
+class PreviewWorkflowTaskRepository
+    implements WorkflowTaskRepository, CompleteWorkflowLists {
   PreviewWorkflowTaskRepository(this._remote);
   static const _storageKey = 'asoud_workflow_offline_tasks_v1';
   static const _demoDoneKey = 'asoud_workflow_demo_done_v1';
@@ -33,6 +34,12 @@ class PreviewWorkflowTaskRepository implements WorkflowTaskRepository {
 
   @override
   bool get isOfflinePreview => _offline;
+
+  @override
+  bool get listsAreComplete =>
+      !_offline &&
+      _remote is CompleteWorkflowLists &&
+      (_remote as CompleteWorkflowLists).listsAreComplete;
 
   bool _networkFailure(Object error) =>
       error is ApiException &&

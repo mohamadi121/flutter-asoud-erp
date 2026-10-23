@@ -91,6 +91,7 @@ class RequestDetailScaffold extends StatefulWidget {
     required this.repository,
     required this.name,
     this.title = 'جزئیات درخواست',
+    this.subtitle,
     this.tasks,
     this.readOnly = false,
     this.infoBuilder,
@@ -102,6 +103,9 @@ class RequestDetailScaffold extends StatefulWidget {
   final GenericRequestRepository repository;
   final String name;
   final String title;
+
+  /// Optional line under the header title.
+  final String? subtitle;
   final WorkflowTaskRepository? tasks;
 
   /// Opened from a task: no edit, cancel or decision controls.
@@ -259,6 +263,10 @@ class _RequestDetailScaffoldState extends State<RequestDetailScaffold> {
           },
           activities: activities,
           labels: labels,
+          formatted: {
+            for (final entry in detail!.values.entries)
+              entry.key: view.format(entry.key, entry.value),
+          },
           statusLabel: requestStatus(data!).$1);
 
   Future<void> edit() async {
@@ -332,6 +340,7 @@ class _RequestDetailScaffoldState extends State<RequestDetailScaffold> {
     return Scaffold(
       appBar: AsoudHeader(
         title: widget.title,
+        subtitle: widget.subtitle,
         action: value == null
             ? null
             : PopupMenuButton<String>(
@@ -464,14 +473,14 @@ class _RequestDetailScaffoldState extends State<RequestDetailScaffold> {
         ]),
       );
 
-  Widget _info(RequestDetailView view) {
+  Map<String, String> _plainValues(RequestDetailView view) {
     final detail = view.detail;
     final values = detail.values;
     final tableKeys = {
       for (final field in view.fields)
         if (field.type == 'Table' || field.type == 'Item Table') field.key
     };
-    final plain = {
+    return {
       for (final entry in values.entries)
         if (!tableKeys.contains(entry.key) &&
             !(entry.value is List &&
@@ -480,6 +489,11 @@ class _RequestDetailScaffoldState extends State<RequestDetailScaffold> {
             view.field(entry.key)?.type != 'Auto')
           labels[entry.key] ?? entry.key: view.format(entry.key, entry.value),
     };
+  }
+
+  Widget _info(RequestDetailView view) {
+    final detail = view.detail;
+    final plain = _plainValues(view);
     return _card([
       RequestInfoRow(
           'درخواست‌کننده',
@@ -576,6 +590,98 @@ class _RequestDetailScaffoldState extends State<RequestDetailScaffold> {
     ]);
   }
 
+  List<String> _summaryLines(RequestDetailView view) {
+    final detail = view.detail;
+    final plain = _plainValues(view)
+        .entries
+        .where((entry) => entry.value.trim().isNotEmpty && entry.value != '—')
+        .take(3);
+    return [
+      if (detail.requesterName.isNotEmpty)
+        'درخواست‌کننده: ${detail.requesterName}',
+      'نوع درخواست: ${view.typeTitle}',
+      if (detail.creation.isNotEmpty)
+        'تاریخ ثبت: ${formatJalaliDateTimeIso(detail.creation)}',
+      for (final entry in plain) '${entry.key}: ${entry.value}',
+    ];
+  }
+
+  String _stageLine(RequestStage stage) => [
+        switch (stage.status) {
+          'active' => 'در انتظار اقدام',
+          'done' => stage.result.isEmpty
+              ? 'انجام‌شده'
+              : requestActionLabel(stage.result),
+          'rejected' => 'رد شده',
+          'returned' => 'برای اصلاح بازگردانده شد',
+          _ => 'هنوز به این مرحله نرسیده',
+        },
+        if (stage.assigneeNames.isNotEmpty)
+          'مسئول: ${stage.assigneeNames.join('، ')}',
+        if (stage.assignedOn.isNotEmpty)
+          'ارجاع: ${formatJalaliDateTimeIso(stage.assignedOn)}',
+        if (stage.completedOn.isNotEmpty)
+          'تصمیم: ${formatJalaliDateTimeIso(stage.completedOn)}',
+      ].join(' · ');
+
+  List<Widget> _workflowTab(RequestDetail detail) {
+    final current = summary != null &&
+        running &&
+        summary!.currentStageTitle.isNotEmpty;
+    return [
+      _card([
+        _section('مراحل گردش کار'),
+        if (detail.stages.isEmpty && !current)
+          const Text('مرحله‌ای برای این درخواست ثبت نشده است.',
+              style: TextStyle(fontSize: 12, color: AsoudColors.muted)),
+        for (final stage in detail.stages)
+          _Step(
+              title: persianWorkflowStageTitle(stage.title),
+              subtitle: _stageLine(stage),
+              comment: stage.comment,
+              done: stage.status == 'done',
+              current: stage.status == 'active',
+              pending: stage.status == 'pending',
+              returned: stage.status == 'returned'),
+        if (detail.stages.isEmpty && current)
+          _Step(
+              title: persianWorkflowStageTitle(summary!.currentStageTitle),
+              subtitle: 'در انتظار اقدام',
+              done: false,
+              current: true),
+      ]),
+    ];
+  }
+
+  List<Widget> _historyTab() => [
+        _card([
+          _section('سوابق'),
+          if (activities.isEmpty)
+            const Text('هنوز رویدادی ثبت نشده است.',
+                style: TextStyle(fontSize: 12, color: AsoudColors.muted)),
+          for (final activity in activities)
+            _Step(
+                title: activity.stageTitle.isEmpty
+                    ? requestActionLabel(activity.action)
+                    : persianWorkflowStageTitle(activity.stageTitle),
+                subtitle: [
+                  requestActionLabel(activity.action),
+                  if (activity.actorName.isNotEmpty)
+                    activity.actorName
+                  else if (activity.actor.contains('@'))
+                    '${String.fromCharCode(0x2066)}${activity.actor}${String.fromCharCode(0x2069)}'
+                  else
+                    persianRoleLabel(activity.actor),
+                  if (activity.createdOn != null)
+                    formatJalaliDateTimeIso(
+                        activity.createdOn!.toIso8601String()),
+                ].join(' · '),
+                comment: activity.comment,
+                done: !activity.action.contains('Failed') &&
+                    activity.action != 'Reject'),
+        ]),
+      ];
+
   Widget _body() {
     final value = data!;
     final detail = this.detail!;
@@ -631,6 +737,13 @@ class _RequestDetailScaffoldState extends State<RequestDetailScaffold> {
             Text(detail.subject,
                 style:
                     const TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
+            for (final line in _summaryLines(view))
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(line,
+                    style: const TextStyle(
+                        fontSize: 12, color: AsoudColors.muted, height: 1.6)),
+              ),
           ]),
           // WP2 insertion point: viewer-aware status and decision cards.
           if (!widget.readOnly)
@@ -659,7 +772,9 @@ class _RequestDetailScaffoldState extends State<RequestDetailScaffold> {
                   style: const TextStyle(
                       fontSize: 12, color: AsoudColors.danger, height: 1.7)),
             ),
-          widget.infoBuilder?.call(context, view) ?? _info(view),
+          _DetailTabs(
+            details: [
+              widget.infoBuilder?.call(context, view) ?? _info(view),
           if (detail.items.isNotEmpty)
             widget.itemsBuilder?.call(context, view) ?? _items(view),
           for (final field in tables)
@@ -694,7 +809,7 @@ class _RequestDetailScaffoldState extends State<RequestDetailScaffold> {
           else if (detail.templateKey.isNotEmpty)
             _card([
               _section('پیوست‌ها', icon: Icons.attach_file_rounded),
-              const Text('فایلی وجود ندارد.',
+              const Text('پیوستی ثبت نشده است.',
                   style: TextStyle(fontSize: 12, color: AsoudColors.muted)),
             ]),
           _card([
@@ -704,35 +819,10 @@ class _RequestDetailScaffoldState extends State<RequestDetailScaffold> {
                 requestName: detail.name,
                 enabled: onServer),
           ]),
-          if (activities.isNotEmpty || summary != null)
-            _card([
-              _section('گردش فرایند'),
-              for (final activity in activities)
-                _Step(
-                    title: activity.stageTitle.isEmpty
-                        ? requestActionLabel(activity.action)
-                        : persianWorkflowStageTitle(activity.stageTitle),
-                    subtitle: [
-                      requestActionLabel(activity.action),
-                      activity.actor.contains('@')
-                          ? '${String.fromCharCode(0x2066)}${activity.actor}${String.fromCharCode(0x2069)}'
-                          : persianRoleLabel(activity.actor),
-                      if (activity.createdOn != null)
-                        formatJalaliDateTimeIso(
-                            activity.createdOn!.toIso8601String()),
-                    ].join(' · '),
-                    comment: activity.comment,
-                    done: !activity.action.contains('Failed') &&
-                        activity.action != 'Reject'),
-              if (summary != null &&
-                  running &&
-                  summary!.currentStageTitle.isNotEmpty)
-                _Step(
-                    title: persianWorkflowStageTitle(summary!.currentStageTitle),
-                    subtitle: 'در انتظار اقدام',
-                    done: false,
-                    current: true),
-            ]),
+            ],
+            workflow: _workflowTab(detail),
+            history: _historyTab(),
+          ),
         ]));
   }
 }
@@ -821,16 +911,62 @@ class _CancelDialogState extends State<_CancelDialog> {
       );
 }
 
+/// «جزئیات | گردش کار | سوابق» inside the page; switching only changes what is shown.
+class _DetailTabs extends StatefulWidget {
+  const _DetailTabs(
+      {required this.details, required this.workflow, required this.history});
+  final List<Widget> details, workflow, history;
+
+  @override
+  State<_DetailTabs> createState() => _DetailTabsState();
+}
+
+class _DetailTabsState extends State<_DetailTabs>
+    with SingleTickerProviderStateMixin {
+  late final TabController controller = TabController(length: 3, vsync: this)
+    ..addListener(() {
+      if (!controller.indexIsChanging) setState(() {});
+    });
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TabBar(
+              controller: controller,
+              onTap: (_) => setState(() {}),
+              labelStyle:
+                  const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+              tabs: const [
+                Tab(text: 'جزئیات'),
+                Tab(text: 'گردش کار'),
+                Tab(text: 'سوابق'),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ...[widget.details, widget.workflow, widget.history][
+                controller.index],
+          ]);
+}
+
 class _Step extends StatelessWidget {
   const _Step(
       {required this.title,
       required this.subtitle,
       required this.done,
       this.comment = '',
-      this.current = false});
+      this.current = false,
+      this.pending = false,
+      this.returned = false});
   final String title, subtitle;
   final String comment;
-  final bool done, current;
+  final bool done, current, pending, returned;
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(bottom: 10),
@@ -840,12 +976,18 @@ class _Step extends StatelessWidget {
                   ? Icons.check_circle_rounded
                   : current
                       ? Icons.radio_button_checked_rounded
-                      : Icons.cancel_rounded,
+                      : pending
+                          ? Icons.radio_button_unchecked_rounded
+                          : returned
+                              ? Icons.undo_rounded
+                              : Icons.cancel_rounded,
               color: done
                   ? AsoudColors.success
-                  : current
+                  : current || returned
                       ? AsoudColors.warning
-                      : AsoudColors.danger),
+                      : pending
+                          ? AsoudColors.muted
+                          : AsoudColors.danger),
           const SizedBox(width: 10),
           Expanded(
             child:
