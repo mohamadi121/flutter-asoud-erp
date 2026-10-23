@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Form builder: section presentation, collapsible sections, radio choices, date ordering and repeatable-table validation are supported at runtime.
+
 ## 0.28.0+49
 
 Form builder (settings → forms): a complete rewrite of the form designer, plus the gaps found in a line-by-line audit against the spec.
