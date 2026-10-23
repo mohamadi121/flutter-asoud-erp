@@ -333,6 +333,40 @@ class RequestNative extends Equatable {
 }
 
 /// `get_request` (§4.7).
+/// One workflow step of a request, as returned in `get_request.stages`.
+class RequestStage extends Equatable {
+  const RequestStage({
+    required this.title,
+    required this.status,
+    this.assigneeNames = const [],
+    this.assignedOn = '',
+    this.completedOn = '',
+    this.result = '',
+    this.comment = '',
+  });
+
+  factory RequestStage.fromMap(Map<dynamic, dynamic> map) => RequestStage(
+        title: _text(map['title']),
+        status: _text(map['status']),
+        assigneeNames: [
+          for (final name in map['assignee_names'] as List? ?? const [])
+            _text(name)
+        ],
+        assignedOn: _text(map['assigned_on']),
+        completedOn: _text(map['completed_on']),
+        result: _text(map['result']),
+        comment: _text(map['comment']),
+      );
+
+  /// pending, active, done, rejected or returned.
+  final String title, status, assignedOn, completedOn, result, comment;
+  final List<String> assigneeNames;
+
+  @override
+  List<Object?> get props =>
+      [title, status, assigneeNames, assignedOn, completedOn, result, comment];
+}
+
 class RequestDetail extends Equatable {
   const RequestDetail({
     required this.name,
@@ -368,6 +402,7 @@ class RequestDetail extends Equatable {
     this.attachments = const [],
     this.fields = const [],
     this.native = const RequestNative(),
+    this.stages = const [],
     this.pendingSync = false,
     this.localPreview = false,
     this.isSample = false,
@@ -428,6 +463,10 @@ class RequestDetail extends Equatable {
           if (row is Map) WorkflowFormFieldDefinition.fromMap(row)
       ],
       native: RequestNative.fromMap(map['native']),
+      stages: [
+        for (final row in map['stages'] as List? ?? const [])
+          if (row is Map) RequestStage.fromMap(row)
+      ],
       pendingSync: pendingSync,
       localPreview: _flag(map['local_preview']),
       isSample: _flag(map['is_sample']),
@@ -447,6 +486,7 @@ class RequestDetail extends Equatable {
   final List<RequestAttachment> attachments;
   final List<WorkflowFormFieldDefinition> fields;
   final RequestNative native;
+  final List<RequestStage> stages;
   final Map<String, dynamic> raw;
 
   /// The rows of the request's «Item Table» field(s).
@@ -499,6 +539,7 @@ class RequestDetail extends Equatable {
         statusGroup,
         requestId,
         rejectionReason,
+        stages,
         canEdit,
         canCancel,
         itemCount,
