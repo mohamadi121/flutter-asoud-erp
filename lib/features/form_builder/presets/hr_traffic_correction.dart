@@ -81,15 +81,51 @@ FormMap hrTrafficCorrectionPreset() => {
               'help': 'ساعت خروج را از ساعت‌گزین انتخاب کنید.',
             },
             {
-              'key': 'attendance_record_details',
-              'label': 'مشخصات رکورد تردد',
-              'type': 'LongText',
-              'help': 'شناسه یکتا و ساعت ثبت‌شده رکورد تردد را وارد کنید.',
+              'key': 'attendance_record',
+              'label': 'رکورد تردد',
+              'type': 'Link',
+              'source': 'Attendance',
+              'link_filter': {'field': 'attendance_date', 'value_field': 'attendance_date'},
+              'help': 'پس از انتخاب تاریخ تردد، رکورد ثبت‌شده همان روز را انتخاب کنید.',
             },
             {
-              'key': 'proposed_correct_time',
-              'label': 'ساعت صحیح پیشنهادی',
+              'key': 'recorded_event',
+              'label': 'کدام ساعت اصلاح شود؟',
+              'type': 'Select',
+              'style': 'radio',
+              'options': [
+                {'id': 'check_in', 'label': 'ساعت ورود'},
+                {'id': 'check_out', 'label': 'ساعت خروج'},
+              ],
+            },
+            {
+              'key': 'current_in_time',
+              'label': 'ساعت ورود ثبت‌شده فعلی',
               'type': 'Time',
+              'readonly': true,
+              'fetch_from': 'attendance_record.in_time',
+            },
+            {
+              'key': 'proposed_correct_in_time',
+              'label': 'ساعت ورود صحیح پیشنهادی',
+              'type': 'Time',
+              'not_equal': 'current_in_time',
+              'not_equal_message': 'ساعت پیشنهادی با ساعت ثبت‌شده فعلی یکسان است.',
+              'help': 'ساعت صحیح را از ساعت‌گزین انتخاب کنید.',
+            },
+            {
+              'key': 'current_out_time',
+              'label': 'ساعت خروج ثبت‌شده فعلی',
+              'type': 'Time',
+              'readonly': true,
+              'fetch_from': 'attendance_record.out_time',
+            },
+            {
+              'key': 'proposed_correct_out_time',
+              'label': 'ساعت خروج صحیح پیشنهادی',
+              'type': 'Time',
+              'not_equal': 'current_out_time',
+              'not_equal_message': 'ساعت پیشنهادی با ساعت ثبت‌شده فعلی یکسان است.',
               'help': 'ساعت صحیح را از ساعت‌گزین انتخاب کنید.',
             },
             {
@@ -173,7 +209,7 @@ FormMap hrTrafficCorrectionPreset() => {
           ],
         },
         {
-          'target': 'attendance_record_details',
+          'target': 'attendance_record',
           'action': 'visible',
           'join': 'and',
           'conditions': [
@@ -181,7 +217,7 @@ FormMap hrTrafficCorrectionPreset() => {
           ],
         },
         {
-          'target': 'attendance_record_details',
+          'target': 'attendance_record',
           'action': 'required',
           'join': 'and',
           'conditions': [
@@ -189,7 +225,7 @@ FormMap hrTrafficCorrectionPreset() => {
           ],
         },
         {
-          'target': 'proposed_correct_time',
+          'target': 'recorded_event',
           'action': 'visible',
           'join': 'and',
           'conditions': [
@@ -197,11 +233,65 @@ FormMap hrTrafficCorrectionPreset() => {
           ],
         },
         {
-          'target': 'proposed_correct_time',
+          'target': 'recorded_event',
           'action': 'required',
           'join': 'and',
           'conditions': [
             {'field': 'correction_type', 'op': 'eq', 'value': 'correct_recorded_time'},
+          ],
+        },
+        {
+          'target': 'current_in_time',
+          'action': 'visible',
+          'join': 'and',
+          'conditions': [
+            {'field': 'correction_type', 'op': 'eq', 'value': 'correct_recorded_time'},
+            {'field': 'recorded_event', 'op': 'eq', 'value': 'check_in'},
+          ],
+        },
+        {
+          'target': 'proposed_correct_in_time',
+          'action': 'visible',
+          'join': 'and',
+          'conditions': [
+            {'field': 'correction_type', 'op': 'eq', 'value': 'correct_recorded_time'},
+            {'field': 'recorded_event', 'op': 'eq', 'value': 'check_in'},
+          ],
+        },
+        {
+          'target': 'proposed_correct_in_time',
+          'action': 'required',
+          'join': 'and',
+          'conditions': [
+            {'field': 'correction_type', 'op': 'eq', 'value': 'correct_recorded_time'},
+            {'field': 'recorded_event', 'op': 'eq', 'value': 'check_in'},
+          ],
+        },
+        {
+          'target': 'current_out_time',
+          'action': 'visible',
+          'join': 'and',
+          'conditions': [
+            {'field': 'correction_type', 'op': 'eq', 'value': 'correct_recorded_time'},
+            {'field': 'recorded_event', 'op': 'eq', 'value': 'check_out'},
+          ],
+        },
+        {
+          'target': 'proposed_correct_out_time',
+          'action': 'visible',
+          'join': 'and',
+          'conditions': [
+            {'field': 'correction_type', 'op': 'eq', 'value': 'correct_recorded_time'},
+            {'field': 'recorded_event', 'op': 'eq', 'value': 'check_out'},
+          ],
+        },
+        {
+          'target': 'proposed_correct_out_time',
+          'action': 'required',
+          'join': 'and',
+          'conditions': [
+            {'field': 'correction_type', 'op': 'eq', 'value': 'correct_recorded_time'},
+            {'field': 'recorded_event', 'op': 'eq', 'value': 'check_out'},
           ],
         },
         {

@@ -17,6 +17,7 @@ FormMap hrSettlementPreset() => {
           'color': '#E8F2FF',
           'fields': [
             _applicantEmployee(),
+            _applicantCode(),
             _applicantDepartment(),
             _applicantPosition(),
             _applicantJoiningDate(),
@@ -157,6 +158,15 @@ FormMap _applicantPosition() => {
       'type': 'Text',
       'readonly': true,
       'default_source': 'designation',
+      'span': 1,
+    };
+
+FormMap _applicantCode() => {
+      'key': 'applicant_code',
+      'label': 'کد پرسنلی',
+      'type': 'Text',
+      'readonly': true,
+      'default_source': 'employee_number',
       'span': 1,
     };
 

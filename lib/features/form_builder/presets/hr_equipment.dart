@@ -130,9 +130,10 @@ FormMap hrEquipmentPreset() => {
                   'key': 'equipment_reference',
                   'label': 'تجهیز در اختیار شما',
                   'type': 'Link',
-                  'source': 'Item',
+                  'source': 'Asset',
                   'required': true,
-                  'help': 'کالای تجهیز تحویل‌گرفته‌شده را وارد کنید.',
+                  'unique': true,
+                  'help': 'یکی از دارایی‌های تحویل‌گرفته‌شده را انتخاب کنید؛ تکرار یک دارایی مجاز نیست.',
                 },
                 {
                   'key': 'quantity',

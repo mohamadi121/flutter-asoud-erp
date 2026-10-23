@@ -28,17 +28,19 @@ const _fieldKeys = <String>{
   'link_filter', 'default', 'default_source', 'options', 'style', 'min', 'max',
   'after_or_equal', 'after_or_equal_message', 'columns', 'min_rows', 'max_rows',
   'formula', 'min_length', 'max_length', 'extensions', 'max_files', 'max_mb',
-  'error_message', 'format', 'minute_step',
+  'error_message', 'format', 'minute_step', 'fetch_from', 'not_equal',
+  'not_equal_message', 'exclude_self', 'unique',
 };
 const _ruleKeys = <String>{'target', 'action', 'join', 'conditions', 'enabled'};
 const _conditionKeys = <String>{'field', 'op', 'value'};
 const _sources = <String>{
   'Employee', 'Customer', 'Supplier', 'Item', 'Warehouse', 'Account',
-  'Cost Center', 'Project', 'Department',
+  'Cost Center', 'Project', 'Department', 'Attendance', 'Shift Type',
+  'Training Event', 'Asset',
 };
 const _defaultSources = <String>{
   'user', 'company', 'today', 'employee', 'department', 'designation',
-  'joining_date',
+  'joining_date', 'employee_number', 'default_shift',
 };
 
 void main() {
