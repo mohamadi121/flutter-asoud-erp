@@ -5,7 +5,6 @@ FormMap hrSettlementPreset() => {
       'schema_version': 2,
       'kind': 'Request',
       'title': 'درخواست تسویه‌حساب پرسنل',
-      'short_title': 'درخواست تسویه‌حساب',
       'module': 'HR',
       'icon': 'assignment_turned_in',
       'color': '#1876D2',

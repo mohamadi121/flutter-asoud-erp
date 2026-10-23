@@ -4,7 +4,6 @@ FormMap hrTrainingPreset() => {
       'schema_version': 2,
       'kind': 'Request',
       'title': 'درخواست آموزش کارکنان',
-      'short_title': 'درخواست آموزش',
       'module': 'HR',
       'icon': 'school',
       'color': '#1876D2',

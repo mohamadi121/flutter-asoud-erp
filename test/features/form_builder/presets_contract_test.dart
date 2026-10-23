@@ -17,7 +17,7 @@ const _skippedPresetTitles = <String>{
 
 const _schemaKeys = <String>{
   'schema_version', 'format', 'kind', 'title', 'module', 'icon', 'color',
-  'description', 'sections', 'rules', 'access',
+  'description', 'sections', 'rules', 'access', 'layout',
 };
 const _sectionKeys = <String>{
   'id', 'title', 'description', 'icon', 'color', 'background_color',
@@ -27,7 +27,8 @@ const _fieldKeys = <String>{
   'key', 'label', 'type', 'required', 'readonly', 'span', 'help', 'source',
   'link_filter', 'default', 'default_source', 'options', 'style', 'min', 'max',
   'after_or_equal', 'after_or_equal_message', 'columns', 'min_rows', 'max_rows',
-  'formula',
+  'formula', 'min_length', 'max_length', 'extensions', 'max_files', 'max_mb',
+  'error_message', 'format', 'minute_step',
 };
 const _ruleKeys = <String>{'target', 'action', 'join', 'conditions', 'enabled'};
 const _conditionKeys = <String>{'field', 'op', 'value'};

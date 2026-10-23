@@ -29,7 +29,7 @@ void main() {
     final keys = fields.map((field) => field['key']).toList();
 
     expect(schema['title'], 'درخواست تسویه‌حساب پرسنل');
-    expect(schema['short_title'], 'درخواست تسویه‌حساب');
+    expect(schema.containsKey('short_title'), isFalse);
     expect(schema['module'], 'HR');
     expect(schema['icon'], 'assignment_turned_in');
     expect(schema['color'], '#1876D2');
