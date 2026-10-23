@@ -83,10 +83,25 @@ class OrganizationRepository {
   }
 
   Future<Map<String, dynamic>> units(String company) async {
-    final (_, epoch) = await _scope(company);
-    final result = await _call('list_units', {'company': company});
+    final (key, epoch) = await _scope(company);
+    Map<String, dynamic> data;
+    try {
+      data = await _call('list_units', {'company': company});
+      _check(epoch);
+      await local.save(
+          id: '$key:units',
+          entityType: 'organization_units',
+          payload: data,
+          status: LocalSyncStatus.synced);
+    } catch (e) {
+      _check(epoch);
+      if (e is! TimeoutException && !isRetryableOfflineFailure(e)) rethrow;
+      final cached = await local.get('$key:units');
+      if (cached == null) rethrow;
+      data = cached.payload;
+    }
     _check(epoch);
-    return result;
+    return data;
   }
 
   Future<void> saveUnit(String company, Map<String, dynamic> payload) async {
