@@ -17,6 +17,14 @@ import '../../helpers/fake_local_record_store.dart';
 
 class MockClient extends Mock implements FrappeApiClient {}
 
+/// A future ISO date (today + 30 days) for forms that reject past dates.
+String futureNeededDate() {
+  final d = DateTime.now().add(const Duration(days: 30));
+  return '${d.year.toString().padLeft(4, '0')}-'
+      '${d.month.toString().padLeft(2, '0')}-'
+      '${d.day.toString().padLeft(2, '0')}';
+}
+
 /// A signed-out client: the repository is in local (preview) mode.
 FrappeApiClient previewClient() {
   final client = MockClient();
