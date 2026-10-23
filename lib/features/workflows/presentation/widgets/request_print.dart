@@ -6,7 +6,9 @@ import 'package:pdf/widgets.dart' as pw;
 
 import '../../../../core/utils/persian_format.dart';
 import '../../../../core/utils/persian_server_values.dart';
+import '../../domain/entities/request_models.dart';
 import '../../domain/entities/workflow_task.dart';
+import 'request_returned_banner.dart' show requestActivityComment;
 
 /// Persian labels of workflow activity actions, shared by screen and print.
 String requestActionLabel(String action) => switch (action) {
@@ -16,6 +18,7 @@ String requestActionLabel(String action) => switch (action) {
       'Return' => 'بازگشت برای اصلاح',
       'Cancelled' => 'لغو درخواست',
       'Edited' => 'ویرایش درخواست',
+      'Resubmitted' => 'اصلاح و ارسال مجدد',
       'System Action Succeeded' => 'اقدام خودکار',
       'System Action Failed' => 'خطای اقدام خودکار',
       'Condition True' || 'Condition False' => 'بررسی شرط',
@@ -68,6 +71,18 @@ List<List<String>> requestPrintReasons(Map<String, dynamic> request) {
           stage['status'] == 'returned' &&
           '${stage['comment'] ?? ''}'.trim().isNotEmpty)
         ['علت بازگشت', '${stage['comment']}'.trim()],
+  ];
+}
+
+/// «وضعیت اجرا» rows of a request from `execution`; the raw error is never
+/// printed. Empty when the request has no execution.
+List<List<String>> requestPrintExecution(Map<String, dynamic> request) {
+  final execution = RequestExecution.fromMap(request['execution']);
+  if (!execution.applicable) return const [];
+  return [
+    ['وضعیت اجرا', execution.sentence],
+    if (execution.succeeded && execution.reference.isNotEmpty)
+      ['شماره سند اجرا', execution.reference],
   ];
 }
 
@@ -136,6 +151,7 @@ Future<Uint8List> buildRequestPdf({
   final fields =
       requestPrintFields(values, labels: labels, formatted: formatted);
   final reasons = requestPrintReasons(request);
+  final execution = requestPrintExecution(request);
 
   doc.addPage(pw.MultiPage(
     pageFormat: PdfPageFormat.a4,
@@ -169,6 +185,7 @@ Future<Uint8List> buildRequestPdf({
             info('شماره درخواست', number),
             info('تاریخ ثبت', formatJalaliIso('${request['creation'] ?? ''}')),
             info('وضعیت', statusLabel),
+            for (final row in execution) info(row[0], row[1]),
             info('درخواست‌کننده', '${request['requester_name'] ?? ''}'),
             info('واحد', '${request['department'] ?? ''}'),
             info('عنوان', '${request['subject'] ?? ''}'),
@@ -232,7 +249,13 @@ Future<Uint8List> buildRequestPdf({
                       ? activity.actor
                       : persianRoleLabel(activity.actor),
               requestActionLabel(activity.action),
-              activity.comment.trim().isEmpty ? '—' : activity.comment.trim(),
+              requestActivityComment(activity, labelOf: (key) => labels[key])
+                      .trim()
+                      .isEmpty
+                  ? '—'
+                  : requestActivityComment(activity,
+                          labelOf: (key) => labels[key])
+                      .trim(),
               activity.createdOn == null
                   ? '—'
                   : formatJalaliIso(activity.createdOn!.toIso8601String()),
