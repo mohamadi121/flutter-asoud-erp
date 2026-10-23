@@ -332,6 +332,58 @@ class RequestNative extends Equatable {
   List<Object?> get props => [doctype, name, status, error];
 }
 
+/// What happened after the approval (`execution` of `get_request`), kept apart
+/// from the approval status: an approved request is not an executed one.
+class RequestExecution extends Equatable {
+  const RequestExecution({
+    this.state = 'not_applicable',
+    this.label = '',
+    this.error = '',
+    this.executedOn = '',
+    this.executedByName = '',
+    this.reference = '',
+  });
+
+  factory RequestExecution.fromMap(Object? source) {
+    final map = _map(source);
+    return RequestExecution(
+      state: _text(map['state']).isEmpty
+          ? 'not_applicable'
+          : _text(map['state']),
+      label: _text(map['label']),
+      error: _text(map['error']),
+      executedOn: _text(map['executed_on']),
+      executedByName: _text(map['executed_by_name']),
+      reference: _text(map['reference']),
+    );
+  }
+
+  /// `not_applicable`, `not_started`, `pending`, `succeeded`, `failed`,
+  /// `needs_review` or `not_connected`.
+  final String state;
+  final String label, error, executedOn, executedByName, reference;
+
+  bool get applicable => state != 'not_applicable';
+  bool get succeeded => state == 'succeeded';
+
+  /// The server label; a Persian sentence per state when it is missing.
+  String get sentence => label.isNotEmpty
+      ? label
+      : switch (state) {
+          'not_started' => 'تأیید شده، اجرا انجام نشده',
+          'pending' => 'در انتظار اجرا',
+          'succeeded' => 'اجرا انجام شد',
+          'failed' => 'اجرا ناموفق بود؛ درخواست تأیید شده است',
+          'needs_review' => 'نیازمند بررسی',
+          'not_connected' => 'اجرای خودکار برای این نوع درخواست متصل نیست',
+          _ => '',
+        };
+
+  @override
+  List<Object?> get props =>
+      [state, label, error, executedOn, executedByName, reference];
+}
+
 /// `get_request` (§4.7).
 /// One workflow step of a request, as returned in `get_request.stages`.
 class RequestStage extends Equatable {
@@ -402,6 +454,7 @@ class RequestDetail extends Equatable {
     this.attachments = const [],
     this.fields = const [],
     this.native = const RequestNative(),
+    this.execution = const RequestExecution(),
     this.stages = const [],
     this.pendingSync = false,
     this.localPreview = false,
@@ -463,6 +516,7 @@ class RequestDetail extends Equatable {
           if (row is Map) WorkflowFormFieldDefinition.fromMap(row)
       ],
       native: RequestNative.fromMap(map['native']),
+      execution: RequestExecution.fromMap(map['execution']),
       stages: [
         for (final row in map['stages'] as List? ?? const [])
           if (row is Map) RequestStage.fromMap(row)
@@ -486,6 +540,7 @@ class RequestDetail extends Equatable {
   final List<RequestAttachment> attachments;
   final List<WorkflowFormFieldDefinition> fields;
   final RequestNative native;
+  final RequestExecution execution;
   final List<RequestStage> stages;
   final Map<String, dynamic> raw;
 
@@ -549,6 +604,7 @@ class RequestDetail extends Equatable {
         attachments,
         fields,
         native,
+        execution,
         pendingSync,
         localPreview,
         isSample,

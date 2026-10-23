@@ -47,12 +47,18 @@ class WorkflowTaskActivity extends Equatable {
     this.createdOn,
     this.stageTitle = '',
     this.actorName = '',
+    this.before = const {},
+    this.after = const {},
   });
   final String actor, action, comment, stageTitle, actorName;
   final DateTime? createdOn;
+
+  /// Field values before and after an edit (`before`/`after` of an activity
+  /// row); empty for events that changed nothing.
+  final Map<String, dynamic> before, after;
   @override
   List<Object?> get props =>
-      [actor, action, comment, createdOn, stageTitle, actorName];
+      [actor, action, comment, createdOn, stageTitle, actorName, before, after];
 }
 
 class WorkflowTaskDataValue extends Equatable {
