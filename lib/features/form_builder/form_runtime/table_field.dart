@@ -155,12 +155,6 @@ Widget? buildTableField({
                   }
                 },
                 onDelete: () async {
-                  if (minRows != null && minRows >= 1 && rows.length <= minRows) {
-                    ScaffoldMessenger.of(effectiveContext).showSnackBar(
-                      SnackBar(content: Text('حداقل ${toPersianDigits(minRows)} ردیف لازم است.')),
-                    );
-                    return;
-                  }
                   final confirmed = await showDialog<bool>(
                     context: effectiveContext,
                     builder: (c) => Directionality(
