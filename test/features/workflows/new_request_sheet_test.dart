@@ -42,6 +42,86 @@ Widget _host(Future<List<Map<String, dynamic>>> Function() load) => MaterialApp(
     );
 
 void main() {
+  test('every module has its own subgroups and the bank maps into them', () {
+    for (final module in [
+      'منابع انسانی',
+      'مالی',
+      'خرید',
+      'انبار',
+      'فروش',
+      'فناوری اطلاعات',
+      'سایر'
+    ]) {
+      final list = subgroupsForModule(module);
+      expect(list.first, 'همه درخواست‌ها');
+      expect(list.last, 'سایر');
+    }
+    expect(subgroupsForModule('همه'), ['همه درخواست‌ها']);
+    expect(subgroupsForModule('منابع انسانی'), [
+      'همه درخواست‌ها',
+      'مرخصی و مأموریت',
+      'حضور و غیاب',
+      'مالی پرسنلی',
+      'گواهی و مدارک',
+      'آموزش و تجهیزات',
+      'سایر'
+    ]);
+    expect(hrRequestBank.length, 10);
+    for (final row in [...hrRequestBank, ...purchaseRequestBank]) {
+      expect(subgroupsForModule(row.module), contains(row.subgroup));
+      expect(row.description, isNotEmpty);
+    }
+    expect(
+        requestSubgroup({'workflow_title': 'درخواست مساعده'}), 'مالی پرسنلی');
+    expect(requestModule({'workflow_title': 'درخواست مساعده'}), 'منابع انسانی');
+    // server types: unknown or missing subgroup falls back to «سایر».
+    expect(
+        requestSubgroup(
+            {'workflow_title': 'x', 'module_key': 'HR', 'request_subgroup': 'حضور و غیاب'}),
+        'حضور و غیاب');
+    expect(
+        requestSubgroup(
+            {'workflow_title': 'x', 'module_key': 'HR', 'request_subgroup': 'نامعتبر'}),
+        'سایر');
+    expect(requestSubgroup({'workflow_title': 'x', 'module_key': 'Stock'}),
+        'سایر');
+  });
+
+  testWidgets('selecting منابع انسانی shows its subgroups and filters',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(360, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final types = [
+      for (final row in hrRequestBank)
+        {
+          'workflow_title': row.title,
+          'short_title': row.description,
+          'icon_key': 'leave',
+        },
+    ];
+    await tester.pumpWidget(_host(() async => types));
+    await tester.tap(find.text('باز کردن'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('new-request-module-منابع انسانی')));
+    await tester.pumpAndSettle();
+    expect(tester.widget<Text>(find.descendant(
+        of: find.byKey(const Key('new-request-count')),
+        matching: find.byType(Text))).data, '10');
+    await tester.tap(find.byType(DropdownButtonFormField<String>));
+    await tester.pumpAndSettle();
+    for (final name in subgroupsForModule('منابع انسانی').skip(1).take(4)) {
+      expect(find.text(name), findsWidgets);
+    }
+    await tester.tap(find.text('حضور و غیاب').last);
+    await tester.pumpAndSettle();
+    expect(find.text('درخواست اضافه‌کاری'), findsOneWidget);
+    expect(tester.widget<Text>(find.descendant(
+        of: find.byKey(const Key('new-request-count')),
+        matching: find.byType(Text))).data, '3');
+    expect(find.text('درخواست مساعده'), findsNothing);
+    expect(find.text('اصلاح ورود یا خروج ثبت‌نشده یا نادرست'), findsOneWidget);
+  });
+
   test('filter applies visibility, module, subgroup, keywords and count', () {
     expect(filterNewRequestTypes(_types).length, 3);
     expect(filterNewRequestTypes(_types, module: 'خرید').length, 2);
