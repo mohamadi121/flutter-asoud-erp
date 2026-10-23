@@ -18,6 +18,7 @@ import '../request_screen_registry.dart';
 import 'request_attachments.dart';
 import 'request_comments.dart';
 import 'request_custom_table.dart';
+import 'request_execution_card.dart';
 import 'request_link_fields.dart';
 import 'request_list_view.dart' show requestPriorityLabels;
 import 'request_print.dart';
@@ -604,6 +605,7 @@ class _RequestDetailScaffoldState extends State<RequestDetailScaffold> {
       if (detail.creation.isNotEmpty)
         'تاریخ ثبت: ${formatJalaliDateTimeIso(detail.creation)}',
       for (final entry in plain) '${entry.key}: ${entry.value}',
+      if (detail.execution.applicable) 'اجرا: ${detail.execution.sentence}',
     ];
   }
 
@@ -677,8 +679,13 @@ class _RequestDetailScaffoldState extends State<RequestDetailScaffold> {
                     formatJalaliDateTimeIso(
                         activity.createdOn!.toIso8601String()),
                 ].join(' · '),
-                comment:
-                    requestActivityComment(activity.action, activity.comment),
+                comment: activity.comment,
+                changes: requestChangeLines(activity.before, activity.after,
+                    labelOf: (key) =>
+                        view.field(key)?.label.trim().isNotEmpty == true
+                            ? view.field(key)!.label
+                            : activity.labels[key] ?? 'مقدار',
+                    format: view.format),
                 done: !activity.action.contains('Failed') &&
                     activity.action != 'Reject'),
         ]),
@@ -778,6 +785,8 @@ class _RequestDetailScaffoldState extends State<RequestDetailScaffold> {
             ),
           _DetailTabs(
             details: [
+              // WP5 insertion point: execution lane card.
+              RequestExecutionCard(execution: detail.execution),
               widget.infoBuilder?.call(context, view) ?? _info(view),
           if (detail.items.isNotEmpty)
             widget.itemsBuilder?.call(context, view) ?? _items(view),
@@ -965,11 +974,13 @@ class _Step extends StatelessWidget {
       required this.subtitle,
       required this.done,
       this.comment = '',
+      this.changes = const [],
       this.current = false,
       this.pending = false,
       this.returned = false});
   final String title, subtitle;
   final String comment;
+  final List<String> changes;
   final bool done, current, pending, returned;
   @override
   Widget build(BuildContext context) => Padding(
@@ -1013,6 +1024,13 @@ class _Step extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(top: 2),
                   child: Text('«${comment.trim()}»',
+                      style: const TextStyle(
+                          fontSize: 11, height: 1.7, color: AsoudColors.text)),
+                ),
+              for (final change in changes)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(change,
                       style: const TextStyle(
                           fontSize: 11, height: 1.7, color: AsoudColors.text)),
                 ),

@@ -4,6 +4,7 @@
 
 - Request detail: a request returned for correction shows a «برای اصلاح بازگردانده شد» banner with the reviewer's reason; the owner can tap «اصلاح درخواست» (only when the server allows it) to edit and resubmit, and the history shows «اصلاح و ارسال مجدد» with the old and new values.
 
+- Request detail: a «عملیات اجرایی» card, a summary line, the requester message and the printout show whether the approved request was executed («تأیید شده، اجرا انجام نشده» until the server reports success); the history tab shows «مقدار قبلی ← مقدار جدید» for edits. Needs the backend `execution` block.
 - فیلدهای فرم اکنون می‌توانند به‌عنوان «اطلاعات حساس» علامت‌گذاری شوند؛ دلیل رد یا بازگشت همیشه الزامی است و اقدام تأیید درخواست برای مالک نمایش داده نمی‌شود.
 - Cartable task: «مشاهده درخواست» opens the full request read-only (no edit, cancel or decision controls).
 - Request detail: a «وضعیت درخواست من» card for the requester and an «اقدام» card (approve, return, reject by the stage settings) for the user holding the open task.

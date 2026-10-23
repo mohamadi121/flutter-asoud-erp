@@ -25,7 +25,10 @@
    "reference_doctype": null,
    "reference_name": null,
    "stage_title": "ثبت درخواست",
-   "actor_name": "Employee"
+   "actor_name": "Employee",
+   "before": {},
+   "after": {},
+   "labels": {}
   },
   {
    "name": "rfseg6rjr2",
@@ -38,7 +41,10 @@
    "reference_doctype": null,
    "reference_name": null,
    "stage_title": "تأیید 1",
-   "actor_name": "Approver"
+   "actor_name": "Approver",
+   "before": {},
+   "after": {},
+   "labels": {}
   },
   {
    "name": "rfs8db1lt7",
@@ -51,7 +57,10 @@
    "reference_doctype": null,
    "reference_name": null,
    "stage_title": "تأیید 2",
-   "actor_name": "Approver"
+   "actor_name": "Approver",
+   "before": {},
+   "after": {},
+   "labels": {}
   },
   {
    "name": "rftrg0986f",
@@ -59,12 +68,21 @@
    "workflow_stage": "rfoqdtrino",
    "actor": "asoud.employee@example.com",
    "action": "Resubmitted",
-   "comment": "{\"changes\": [{\"key\": \"reason\", \"label\": \"دلیل\", \"before\": \"دلیل اولیه\", \"after\": \"دلیل اصلاح‌شده\"}]}",
+   "comment": "",
    "created_on": "2026-10-23 10:38:30.107121",
    "reference_doctype": null,
    "reference_name": null,
    "stage_title": "ثبت درخواست",
-   "actor_name": "Employee"
+   "actor_name": "Employee",
+   "before": {
+    "reason": "دلیل اولیه"
+   },
+   "after": {
+    "reason": "دلیل اصلاح‌شده"
+   },
+   "labels": {
+    "reason": "دلیل"
+   }
   },
   {
    "name": "rft1m9n6ii",
@@ -77,7 +95,10 @@
    "reference_doctype": null,
    "reference_name": null,
    "stage_title": "ثبت درخواست",
-   "actor_name": "Employee"
+   "actor_name": "Employee",
+   "before": {},
+   "after": {},
+   "labels": {}
   }
  ]
 }

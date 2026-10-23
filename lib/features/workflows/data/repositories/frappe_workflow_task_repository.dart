@@ -98,6 +98,18 @@ class FrappeWorkflowTaskRepository
                     DateTime.tryParse(activity['created_on']?.toString() ?? ''),
                 stageTitle: activity['stage_title']?.toString() ?? '',
                 actorName: activity['actor_name']?.toString() ?? '',
+                before: activity['before'] is Map
+                    ? Map<String, dynamic>.from(activity['before'] as Map)
+                    : const {},
+                after: activity['after'] is Map
+                    ? Map<String, dynamic>.from(activity['after'] as Map)
+                    : const {},
+                labels: activity['labels'] is Map
+                    ? {
+                        for (final entry in (activity['labels'] as Map).entries)
+                          '${entry.key}': '${entry.value}'
+                      }
+                    : const {},
               );
             }).toList(growable: false)
           : const [],

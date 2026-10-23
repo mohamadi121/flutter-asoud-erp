@@ -85,8 +85,7 @@ class WorkflowActivityTimeline extends StatelessWidget {
             label: workflowActivityLabel(activities[i].action),
             actor: activities[i].actor,
             createdOn: activities[i].createdOn,
-            comment: requestActivityComment(
-                activities[i].action, activities[i].comment),
+            comment: requestActivityComment(activities[i]),
             last: i == count - 1,
           ),
         if (pending)

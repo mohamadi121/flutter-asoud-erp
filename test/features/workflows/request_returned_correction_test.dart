@@ -54,6 +54,9 @@ class _Tasks extends Fake implements WorkflowTaskRepository {
             createdOn: DateTime.tryParse('${row['created_on']}'),
             stageTitle: '${row['stage_title'] ?? ''}',
             actorName: '${row['actor_name'] ?? ''}',
+            before: Map<String, dynamic>.from(row['before'] as Map? ?? {}),
+            after: Map<String, dynamic>.from(row['after'] as Map? ?? {}),
+            labels: Map<String, String>.from(row['labels'] as Map? ?? {}),
           ),
       ],
     );
@@ -139,16 +142,33 @@ void main() {
     await tester.tap(find.text('سوابق'));
     await tester.pumpAndSettle();
     expect(find.textContaining('اصلاح و ارسال مجدد'), findsWidgets);
-    expect(find.text('«دلیل: دلیل اولیه ← دلیل اصلاح‌شده»'), findsOneWidget);
+    // The change is a line of its own (activity before/after), not a quoted comment.
+    expect(find.text('دلیل: دلیل اولیه ← دلیل اصلاح‌شده'), findsOneWidget);
     expect(find.textContaining('{"changes"'), findsNothing);
   });
 
-  test('a resubmission comment that is not valid JSON shows nothing raw', () {
-    expect(requestActivityComment('Resubmitted', 'not json'), '');
-    expect(requestActivityComment('Return', 'علت'), 'علت');
+  test('an activity shows its comment, then one line per changed field', () {
     expect(
-        requestActivityComment('Resubmitted',
-            '{"changes":[{"key":"a","label":"الف","before":"","after":"۲"}]}'),
+        requestActivityComment(const WorkflowTaskActivity(
+            actor: 'a', action: 'Return', comment: 'علت')),
+        'علت');
+    expect(
+        requestActivityComment(const WorkflowTaskActivity(
+            actor: 'a',
+            action: 'Resubmitted',
+            before: {'a': ''},
+            after: {'a': '۲'},
+            labels: {'a': 'الف'})),
         'الف: — ← ۲');
+    // The form label wins over the stored one; without either a Persian word is shown.
+    expect(
+        requestActivityComment(
+            const WorkflowTaskActivity(
+                actor: 'a',
+                action: 'Resubmitted',
+                before: {'b': '۱'},
+                after: {'b': '۲'}),
+            labelOf: (key) => null),
+        'مقدار: ۱ ← ۲');
   });
 }

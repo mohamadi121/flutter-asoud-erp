@@ -1,31 +1,32 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
+import '../../domain/entities/workflow_task.dart';
+import 'request_execution_card.dart' show requestChangeLines;
 
-/// The history comment of an activity. A resubmission stores its changed fields as JSON;
-/// they are shown as «برچسب: قبلی ← جدید» lines, every other comment is shown as it is.
-String requestActivityComment(String action, String comment) {
-  if (action != 'Resubmitted') return comment;
-  try {
-    final decoded = jsonDecode(comment);
-    final changes = decoded is Map ? decoded['changes'] : null;
-    if (changes is! List) return '';
-    return [
-      for (final change in changes)
-        if (change is Map)
-          '${change['label'] ?? change['key']}: '
-              '${_shown(change['before'])} ← ${_shown(change['after'])}',
-    ].join('\n');
-  } catch (_) {
-    return '';
-  }
-}
-
-String _shown(Object? value) {
-  final text = '${value ?? ''}'.trim();
-  return text.isEmpty ? '—' : text;
+/// The history text of an activity: its comment, then one «برچسب: قبلی ← جدید»
+/// line per changed field (`before`/`after`, for example a resubmission).
+/// [labelOf] and [format] come from the form when it is loaded; otherwise the
+/// server's `labels` and the stored text are used.
+String requestActivityComment(
+  WorkflowTaskActivity activity, {
+  String? Function(String key)? labelOf,
+  String Function(String key, Object? value)? format,
+}) {
+  final lines = requestChangeLines(
+    activity.before,
+    activity.after,
+    labelOf: (key) =>
+        labelOf?.call(key) ?? activity.labels[key] ?? 'مقدار',
+    format: (key, value) {
+      final text = (format?.call(key, value) ?? '${value ?? ''}').trim();
+      return text.isEmpty ? '—' : text;
+    },
+  );
+  return [
+    if (activity.comment.trim().isNotEmpty) activity.comment.trim(),
+    ...lines,
+  ].join('\n');
 }
 
 /// «برای اصلاح بازگردانده شد» with the reviewer's reason. The correction button appears
