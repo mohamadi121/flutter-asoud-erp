@@ -83,7 +83,7 @@ void main() {
       final inTime = schemaFields(schema)
           .firstWhere((field) => field['key'] == 'proposed_check_in_time');
       final record = schemaFields(schema)
-          .firstWhere((field) => field['key'] == 'attendance_record');
+          .firstWhere((field) => field['key'] == 'attendance_record_details');
       expect(formFlag(inTime, schema, values, 'required'), isTrue);
       expect(formFlag(record, schema, values, 'required'), isFalse);
 
@@ -116,9 +116,46 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('ساعت ورود پیشنهادی'), findsNothing);
-      expect(find.text('رکورد تردد *'), findsOneWidget);
+      expect(find.text('مشخصات رکورد تردد *'), findsOneWidget);
       expect(find.text('ساعت صحیح پیشنهادی *'), findsOneWidget);
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('بلوک متقاضی و فرم در اندازه‌های RTL بدون خطا نمایش داده می‌شوند',
+        (tester) async {
+      final schema = hrTrafficCorrectionPreset();
+      final fields = schemaFields(schema);
+      final employee = fields.firstWhere((field) => field['key'] == 'applicant_employee');
+      final department = fields.firstWhere((field) => field['key'] == 'applicant_department');
+      final position = fields.firstWhere((field) => field['key'] == 'applicant_position');
+      expect(employee['default_source'], 'employee');
+      expect(department['default_source'], 'department');
+      expect(position['default_source'], 'designation');
+      expect([employee, department, position].any((field) => field.containsKey('default')), isFalse);
+
+      for (final size in [const Size(320, 640), const Size(390, 844), const Size(430, 932)]) {
+        tester.view.physicalSize = size;
+        tester.view.devicePixelRatio = 1;
+        await tester.pumpWidget(MaterialApp(
+          home: Directionality(
+            textDirection: TextDirection.rtl,
+            child: Scaffold(
+              body: SingleChildScrollView(
+                child: FormFieldsView(
+                  schema: schema,
+                  values: const {},
+                  repository: FormRepository(_Client(), 'شرکت نمونه آسود'),
+                  onChanged: (_) {},
+                ),
+              ),
+            ),
+          ),
+        ));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull, reason: '${size.width}×${size.height}');
+      }
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
     });
   });
 }
