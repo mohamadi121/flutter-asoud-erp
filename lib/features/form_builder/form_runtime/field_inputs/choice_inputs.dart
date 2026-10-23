@@ -40,17 +40,21 @@ Widget? buildChoiceInput({
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(label),
-            for (final option in options)
-              RadioListTile<String>(
-                contentPadding: EdgeInsets.zero,
-                title: Text('${option['label']}'),
-                value: '${option['id']}',
-                groupValue: selectedId,
-                onChanged: (id) {
-                  state.didChange(id);
-                  onChanged(id);
-                },
-              ),
+            RadioGroup<String>(
+              groupValue: selectedId,
+              onChanged: (id) {
+                state.didChange(id);
+                onChanged(id);
+              },
+              child: Column(children: [
+                for (final option in options)
+                  RadioListTile<String>(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text('${option['label']}'),
+                    value: '${option['id']}',
+                  ),
+              ]),
+            ),
             if (state.hasError)
               Text(state.errorText!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
           ],

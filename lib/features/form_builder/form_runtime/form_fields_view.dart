@@ -123,7 +123,7 @@ class FormFieldsView extends StatelessWidget {
       final description = '${section['description'] ?? ''}'.trim();
       final bg = _sectionColor('${section['background_color'] ?? section['color'] ?? ''}');
       final accent = _sectionAccent(bg);
-      final icon = _sectionIcon('${section['icon'] ?? ''}');
+      final icon = sectionIconForName('${section['icon'] ?? ''}');
       return Padding(
         padding: const EdgeInsets.only(bottom: 16),
         child: StatefulBuilder(builder: (context, setSectionState) {
@@ -221,7 +221,7 @@ class FormFieldsView extends StatelessWidget {
       editable: editable,
     );
     if (readonlyWidget != null) {
-      return readonlyWidget;
+      return _withAutomaticPlaceholder(f, v, readonlyWidget);
     }
 
     final choiceWidget = buildChoiceInput(
@@ -233,7 +233,7 @@ class FormFieldsView extends StatelessWidget {
       onChanged: set,
     );
     if (choiceWidget != null) {
-      return choiceWidget;
+      return _withAutomaticPlaceholder(f, v, choiceWidget);
     }
 
     final tableWidget = buildTableField(
@@ -249,7 +249,7 @@ class FormFieldsView extends StatelessWidget {
     );
     if (tableWidget != null) {
       final minRows = (f['min_rows'] as num?)?.toInt() ?? 0;
-      return FormField<dynamic>(
+      return _withAutomaticPlaceholder(f, v, FormField<dynamic>(
         validator: (_) {
           final count = formMaps(v).length;
           if ((required || minRows > 0) && count < minRows) {
@@ -261,7 +261,7 @@ class FormFieldsView extends StatelessWidget {
           tableWidget,
           if (state.hasError) Padding(padding: const EdgeInsets.only(top: 4), child: Text(state.errorText!, style: TextStyle(color: Theme.of(context).colorScheme.error))),
         ]),
-      );
+      ));
     }
 
     final dateTimeWidget = buildDateTimeInput(
@@ -274,7 +274,7 @@ class FormFieldsView extends StatelessWidget {
       onChanged: set,
     );
     if (dateTimeWidget != null) {
-      return dateTimeWidget;
+      return _withAutomaticPlaceholder(f, v, dateTimeWidget);
     }
 
     final linkWidget = buildLinkInput(
@@ -288,7 +288,7 @@ class FormFieldsView extends StatelessWidget {
       onChanged: set,
     );
     if (linkWidget != null) {
-      return linkWidget;
+      return _withAutomaticPlaceholder(f, v, linkWidget);
     }
 
     final fileWidget = buildFileInput(
@@ -301,7 +301,7 @@ class FormFieldsView extends StatelessWidget {
       onChanged: set,
     );
     if (fileWidget != null) {
-      return fileWidget;
+      return _withAutomaticPlaceholder(f, v, fileWidget);
     }
 
     final input = buildTextNumberInput(
@@ -311,16 +311,24 @@ class FormFieldsView extends StatelessWidget {
       required: required,
       onChanged: set,
     )!;
-    if (v == null && '${f['default_source'] ?? ''}'.isNotEmpty) {
-      return Stack(children: [input, const Positioned(left: 8, bottom: 8, child: Text('دریافت خودکار', style: TextStyle(fontSize: 10, color: Color(0xFF64748B))))]);
-    }
-    return input;
+    return _withAutomaticPlaceholder(f, v, input);
   }
 
   Widget _withHelp(FormMap field, Widget input) {
     final help = '${field['help'] ?? ''}'.trim();
     if (help.isEmpty || ['Text', 'LongText', 'Integer', 'Decimal', 'Money', 'Rating'].contains(field['type'])) return input;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [input, const SizedBox(height: 4), Text(help, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)))]);
+  }
+
+  Widget _withAutomaticPlaceholder(FormMap field, dynamic value, Widget input) {
+    if (value != null || '${field['default_source'] ?? ''}'.trim().isEmpty) return input;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      input,
+      const Padding(
+        padding: EdgeInsets.only(top: 4),
+        child: Text('دریافت خودکار', style: TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+      ),
+    ]);
   }
 }
 
@@ -329,12 +337,19 @@ Color _sectionColor(String value) {
   return number == null ? const Color(0xFFEBF3FF) : Color(0xFF000000 | number);
 }
 Color _sectionAccent(Color color) => Color.lerp(color, Colors.black, .65) ?? const Color(0xFF1876D2);
-IconData _sectionIcon(String icon) => switch (icon) {
+IconData sectionIconForName(String icon) => switch (icon) {
   'person' || 'employee' => Icons.person_outline,
-  'event' || 'calendar' => Icons.event_outlined,
-  'description' || 'document' => Icons.description_outlined,
+  'event' || 'calendar' || 'schedule' || 'clock' => Icons.event_outlined,
+  'description' || 'document' || 'assignment' || 'assignment_turned_in' || 'fact_check' => Icons.description_outlined,
   'payments' || 'money' => Icons.payments_outlined,
   'school' || 'training' => Icons.school_outlined,
-  'inventory' || 'equipment' => Icons.inventory_2_outlined,
+  'inventory' || 'inventory_2' || 'equipment' || 'box' => Icons.inventory_2_outlined,
+  'swap_horiz' => Icons.swap_horiz,
+  'notes' || 'edit_note' => Icons.notes_outlined,
+  'wallet' => Icons.account_balance_wallet_outlined,
+  'badge' => Icons.badge_outlined,
+  'download' => Icons.download_outlined,
+  'account_tree' => Icons.account_tree_outlined,
+  'attach_file' => Icons.attach_file_outlined,
   _ => Icons.folder_outlined,
 };
