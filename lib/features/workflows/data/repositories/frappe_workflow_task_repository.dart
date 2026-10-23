@@ -60,6 +60,7 @@ class FrappeWorkflowTaskRepository
         reminderSentOn:
             DateTime.tryParse(item['reminder_sent_on']?.toString() ?? ''),
         escalatedOn: DateTime.tryParse(item['escalated_on']?.toString() ?? ''),
+        followup: item['followup']?.toString() ?? '',
       );
     }).toList(growable: false);
   }

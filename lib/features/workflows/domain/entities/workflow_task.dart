@@ -13,6 +13,7 @@ class WorkflowTask extends Equatable {
     this.reminderSentOn,
     this.escalatedOn,
     this.localOnly = false,
+    this.followup = '',
   });
 
   final String id;
@@ -23,6 +24,10 @@ class WorkflowTask extends Equatable {
   final DateTime? assignedOn;
   final DateTime? dueOn, reminderSentOn, escalatedOn;
   final bool localOnly;
+
+  /// Kind of the follow-up the task asks for (`confirm_receipt`), empty for an
+  /// ordinary workflow task (`followup` of `list_my_workflow_tasks`).
+  final String followup;
 
   @override
   List<Object?> get props => [
@@ -35,7 +40,8 @@ class WorkflowTask extends Equatable {
         dueOn,
         reminderSentOn,
         escalatedOn,
-        localOnly
+        localOnly,
+        followup
       ];
 }
 
