@@ -6,6 +6,7 @@ import 'rules_engine.dart';
 const serverOnlyLinkSources = {
   'Attendance',
   'Shift Type',
+  'Leave Type',
   'Training Event',
   'Asset',
 };
@@ -49,6 +50,8 @@ const noEmployeeMessage = 'پرونده پرسنلی شما ثبت نشده اس
 const serverOnlyListMessage = 'این فهرست فقط با اتصال به سرور در دسترس است.';
 const excludeSelfMessage = 'نمی‌توانید خودتان را انتخاب کنید.';
 const defaultNotEqualMessage = 'مقدار جدید نباید با مقدار فعلی یکسان باشد.';
+const defaultTimeAfterMessage = 'ساعت باید پس از ساعت مرجع باشد.';
+const defaultBeforeOrEqualMessage = 'تاریخ نباید بعد از تاریخ پایان باشد.';
 
 /// `fetch_from` split into the Link field key and the attribute.
 ({String link, String attribute})? parseFetchFrom(Object? raw) {
@@ -171,6 +174,37 @@ String? notEqualProblem(
   }
   final custom = '${field['not_equal_message'] ?? ''}'.trim();
   return custom.isEmpty ? defaultNotEqualMessage : custom;
+}
+
+/// Message when [field] is not strictly later than the Time field named in `time_after`.
+///
+/// Compares `(next day, time)` pairs, so `22:00` then `01:00 روز بعد` is valid.
+String? timeOrderProblem(
+  FormMap field,
+  FormMap values, {
+  required bool Function(FormMap other) otherVisible,
+  required FormMap schema,
+}) {
+  final otherKey = '${field['time_after'] ?? ''}';
+  if (otherKey.isEmpty) return null;
+  final mine = values[field['key']], theirs = values[otherKey];
+  if (isEmptyValue(mine) || isEmptyValue(theirs)) return null;
+  final other = _allFields(schema)
+      .where((f) => f['key'] == otherKey)
+      .cast<FormMap?>()
+      .firstOrNull;
+  if (other != null && !otherVisible(other)) return null;
+  final first = _clockMinutes(theirs, values['${otherKey}__next_day'] == true);
+  final second = _clockMinutes(mine, values['${field['key']}__next_day'] == true);
+  if (first == null || second == null || second > first) return null;
+  final custom = '${field['time_after_message'] ?? ''}'.trim();
+  return custom.isEmpty ? defaultTimeAfterMessage : custom;
+}
+
+int? _clockMinutes(dynamic value, bool nextDay) {
+  final match = RegExp(r'^(\d{2}):(\d{2})').firstMatch(toLatinDigits('$value').trim());
+  if (match == null) return null;
+  return int.parse(match.group(1)!) * 60 + int.parse(match.group(2)!) + (nextDay ? 1440 : 0);
 }
 
 /// Contract C13: first column whose `unique` flag is violated, as a message.

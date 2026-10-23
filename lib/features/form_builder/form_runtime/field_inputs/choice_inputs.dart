@@ -22,10 +22,14 @@ Widget? buildChoiceInput({
     );
   }
   if (type == 'Boolean') {
-    return SwitchListTile(
-      title: Text(label),
-      value: value == true,
-      onChanged: onChanged,
+    // Material keeps the tile's ink visible inside a coloured section card.
+    return Material(
+      color: Colors.transparent,
+      child: SwitchListTile(
+        title: Text(label),
+        value: value == true,
+        onChanged: onChanged,
+      ),
     );
   }
   if (type == 'Select') {

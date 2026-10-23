@@ -5,6 +5,7 @@ import '../../../../core/widgets/asoud_jalali_picker.dart';
 import '../../form_editor/field_sheet/live_clock_time_picker.dart';
 import '../../form_repository.dart';
 import '../rules_engine.dart';
+import '../record_links.dart' show defaultBeforeOrEqualMessage;
 
 Widget? buildDateTimeInput({
   required BuildContext context,
@@ -37,6 +38,15 @@ Widget? buildDateTimeInput({
         final minimum = DateTime.tryParse('$other') ?? parseJalaliDate('$other');
         if (current != null && minimum != null && current.isBefore(minimum)) {
           return '${f['after_or_equal_message'] ?? 'تاریخ پایان نباید قبل از تاریخ شروع باشد.'}';
+        }
+      }
+      final upperKey = '${f['before_or_equal'] ?? ''}';
+      final upper = values?[upperKey];
+      if (type != 'Time' && upperKey.isNotEmpty && !isEmptyValue(value) && !isEmptyValue(upper)) {
+        final current = DateTime.tryParse('$value') ?? parseJalaliDate('$value');
+        final maximum = DateTime.tryParse('$upper') ?? parseJalaliDate('$upper');
+        if (current != null && maximum != null && current.isAfter(maximum)) {
+          return '${f['before_or_equal_message'] ?? defaultBeforeOrEqualMessage}';
         }
       }
       return null;

@@ -61,6 +61,7 @@ const formSources = <String, String>{
   'Project': 'پروژه‌ها',
   'Attendance': 'رکورد حضور و غیاب',
   'Shift Type': 'نوع شیفت',
+  'Leave Type': 'نوع مرخصی',
   'Training Event': 'دوره آموزشی',
   'Asset': 'دارایی تحویل‌شده به من',
 };
@@ -241,14 +242,12 @@ class FormFieldsView extends StatelessWidget {
   }
 
   Widget _withNotEqual(FormMap f, FormMap computed, Widget input) {
-    if ('${f['not_equal'] ?? ''}'.isEmpty) return input;
+    if ('${f['not_equal'] ?? ''}'.isEmpty && '${f['time_after'] ?? ''}'.isEmpty) return input;
+    bool visible(FormMap other) => formFlag(other, schema, computed, 'visible');
     return FormField<dynamic>(
-      validator: (_) => notEqualProblem(
-        f,
-        computed,
-        schema: schema,
-        otherVisible: (other) => formFlag(other, schema, computed, 'visible'),
-      ),
+      validator: (_) =>
+          notEqualProblem(f, computed, schema: schema, otherVisible: visible) ??
+          timeOrderProblem(f, computed, schema: schema, otherVisible: visible),
       builder: (state) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

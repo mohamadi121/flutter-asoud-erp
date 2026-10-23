@@ -132,6 +132,7 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
       'output_type', 'extensions', 'max_files', 'max_mb', 'allow_delete',
       'readonly', 'default', 'default_source', 'exclude_self', 'fetch_from',
       'not_equal', 'not_equal_message', 'compare', 'next_day_allowed',
+      'before_or_equal', 'before_or_equal_message', 'time_after', 'time_after_message',
       'schedule_of', 'from_field', 'to_field', 'execution_key',
     };
     setState(() {
@@ -792,6 +793,18 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
           },
           (v) => set('after_or_equal', v.isEmpty ? null : v),
         ),
+        formSelect(
+          'نباید بعد از فیلد:',
+          '${f['before_or_equal'] ?? ''}',
+          {
+            '': 'بدون محدودیت',
+            for (final field in formMaps(widget.schema['sections'])
+                .expand((section) => formMaps(section['fields']))
+                .where((field) => field['type'] == 'Date' && field['key'] != f['key']))
+              '${field['key']}': '${field['label']}',
+          },
+          (v) => set('before_or_equal', v.isEmpty ? null : v),
+        ),
         ...buildDateTimeConfig(
           context: context,
           f: f,
@@ -1222,6 +1235,11 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
             update: (fn) => setState(fn),
           ),
           ...buildNotEqualConfig(
+            f: f,
+            fields: schemaFields(widget.schema),
+            set: set,
+          ),
+          ...buildTimeAfterConfig(
             f: f,
             fields: schemaFields(widget.schema),
             set: set,
