@@ -3,7 +3,6 @@ import '../form_repository.dart';
 /// الگوی خام آغاز درخواست تسویه‌حساب؛ مسیر رسیدگی را گردش کار تعیین می‌کند.
 FormMap hrSettlementPreset() => {
       'schema_version': 2,
-      'format': 1,
       'kind': 'Request',
       'title': 'درخواست تسویه‌حساب پرسنل',
       'short_title': 'درخواست تسویه‌حساب',
@@ -18,11 +17,10 @@ FormMap hrSettlementPreset() => {
           'icon': 'badge',
           'color': '#E8F2FF',
           'fields': [
-            _systemField('employee_full_name', 'نام و نام خانوادگی', 'full_name', span: 2),
-            _systemField('employee_code', 'کد پرسنلی', 'employee_number', span: 1),
-            _systemField('organization_unit', 'واحد سازمانی', 'department', span: 1),
-            _systemField('organization_position', 'سمت سازمانی', 'designation', span: 1),
-            _systemField('employment_start_date', 'تاریخ شروع همکاری', 'current_employment_start_date', span: 1),
+            _applicantEmployee(),
+            _applicantDepartment(),
+            _applicantPosition(),
+            _applicantJoiningDate(),
           ],
         },
         {
@@ -72,6 +70,7 @@ FormMap hrSettlementPreset() => {
               'label': 'وضعیت اولیه از نظر متقاضی',
               'type': 'Select',
               'required': true,
+              'style': 'radio',
               'default': 'needs_review',
               'options': [
                 {'id': 'all_returned', 'label': 'تمام اموال تحویل داده شده‌اند.'},
@@ -93,6 +92,21 @@ FormMap hrSettlementPreset() => {
               'type': 'LongText',
               'help': 'توضیحات مربوط به درخواست...',
               'max_length': 5000,
+            },
+          ],
+        },
+        {
+          'id': 'review_steps',
+          'title': 'مراحل بررسی تسویه',
+          'icon': 'fact_check',
+          'color': '#E6F6F7',
+          'fields': [
+            {
+              'key': 'review_steps_info',
+              'label': 'مراحل بررسی تسویه',
+              'type': 'Display',
+              'readonly': true,
+              'default': 'مسیر بررسی از گردش کار تعریف‌شده تعیین می‌شود. ثبت این درخواست به معنای پذیرش استعفا، خاتمه همکاری، تسویه مالی، تسویه اموال یا صدور سند نهایی نیست.',
             },
           ],
         },
@@ -118,13 +132,40 @@ FormMap hrSettlementPreset() => {
       'access': {'mode': 'all', 'roles': [], 'departments': []},
     };
 
-FormMap _systemField(String key, String label, String systemField, {required int span}) => {
-      'key': key,
-      'label': label,
+FormMap _applicantEmployee() => {
+      'key': 'applicant_employee',
+      'label': 'نام و نام خانوادگی',
+      'type': 'Link',
+      'readonly': true,
+      'source': 'Employee',
+      'default_source': 'employee',
+      'span': 2,
+    };
+
+FormMap _applicantDepartment() => {
+      'key': 'applicant_department',
+      'label': 'واحد سازمانی',
+      'type': 'Link',
+      'readonly': true,
+      'source': 'Department',
+      'default_source': 'department',
+      'span': 1,
+    };
+
+FormMap _applicantPosition() => {
+      'key': 'applicant_position',
+      'label': 'سمت سازمانی',
       'type': 'Text',
       'readonly': true,
-      'source_mode': 'asoud',
-      'source': 'Employee',
-      'system_field': systemField,
-      'span': span,
+      'default_source': 'designation',
+      'span': 1,
+    };
+
+FormMap _applicantJoiningDate() => {
+      'key': 'applicant_joining_date',
+      'label': 'تاریخ شروع همکاری',
+      'type': 'Date',
+      'readonly': true,
+      'default_source': 'joining_date',
+      'span': 1,
     };
