@@ -4,6 +4,7 @@ import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/persian_format.dart';
 import '../form_repository.dart';
 import 'formula_engine.dart';
+import 'section_colors.dart';
 import 'rules_engine.dart';
 
 class FormPrintPreviewPage extends StatefulWidget {
@@ -349,7 +350,7 @@ class _FormPrintPreviewPageState extends State<FormPrintPreviewPage> {
     required bool isLandscape,
   }) {
     final fields = formMaps(section['fields']);
-    final sectionColor = _printSectionColor('${section['background_color'] ?? section['color'] ?? ''}');
+    final sectionColor = sectionColors(section)?.background ?? const Color(0xFFF3F4F6);
     final nonTableFields = fields.where((f) => f['type'] != 'Table').toList();
     final tableFields = fields.where((f) => f['type'] == 'Table').toList();
 
@@ -418,10 +419,6 @@ class _FormPrintPreviewPageState extends State<FormPrintPreviewPage> {
     );
   }
 
-  Color _printSectionColor(String value) {
-    final number = int.tryParse(value.replaceAll('#', ''), radix: 16);
-    return number == null ? const Color(0xFFF3F4F6) : Color(0xFF000000 | number);
-  }
 
   Widget _buildPrintTable(FormMap table, dynamic value) {
     final columns = formMaps(table['columns']);

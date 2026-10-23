@@ -11,6 +11,7 @@ import 'field_inputs/readonly_display_inputs.dart';
 import 'field_inputs/text_number_inputs.dart';
 import 'formula_engine.dart';
 import 'rules_engine.dart';
+import 'section_colors.dart';
 import 'table_field.dart';
 
 export 'field_inputs/choice_inputs.dart';
@@ -120,9 +121,24 @@ class FormFieldsView extends StatelessWidget {
 
     Widget sectionView(FormMap section) {
       final title = '${section['title'] ?? ''}'.trim();
+      final hasNewPresentation = ['icon', 'color', 'background_color', 'description', 'collapsible']
+          .any((key) => section.containsKey(key));
+      if (!hasNewPresentation) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            if (title.isNotEmpty) ...[
+              Container(width: double.infinity, padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10), decoration: BoxDecoration(color: const Color(0xFFEBF3FF), borderRadius: BorderRadius.circular(8)), child: Text(title, style: const TextStyle(color: Color(0xFF1876D2), fontWeight: FontWeight.bold, fontSize: 13))),
+              const SizedBox(height: 12),
+            ],
+            _sectionFields(context, section, computed),
+          ]),
+        );
+      }
       final description = '${section['description'] ?? ''}'.trim();
-      final bg = _sectionColor('${section['background_color'] ?? section['color'] ?? ''}');
-      final accent = _sectionAccent(bg);
+      final colors = sectionColors(section)!;
+      final bg = colors.background;
+      final accent = colors.accent;
       final icon = sectionIconForName('${section['icon'] ?? ''}');
       return Padding(
         padding: const EdgeInsets.only(bottom: 16),
@@ -149,30 +165,7 @@ class FormFieldsView extends StatelessWidget {
               if (description.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 4), child: Text(description, style: const TextStyle(fontSize: 12, color: Color(0xFF475569)))),
               const SizedBox(height: 12),
             ],
-            if (!collapsed) LayoutBuilder(
-              builder: (context, constraints) {
-                final totalWidth = constraints.maxWidth;
-                const spacing = 12.0;
-                final halfWidth = (totalWidth - spacing) / 2;
-                final visibleFields = formMaps(section['fields'])
-                    .where((field) => formFlag(field, schema, computed, 'visible'))
-                    .toList();
-
-                return Wrap(
-                  spacing: spacing,
-                  runSpacing: 12,
-                  children: [
-                    for (final field in visibleFields)
-                      SizedBox(
-                        width: (field['span'] as num?)?.toInt() == 1
-                            ? halfWidth
-                            : totalWidth,
-                        child: _withHelp(field, _input(context, field, computed)),
-                      ),
-                  ],
-                );
-              },
-            ),
+            if (!collapsed) _sectionFields(context, section, computed),
               ]),
             ),
           );
@@ -208,6 +201,19 @@ class FormFieldsView extends StatelessWidget {
     }
     return Column(children: sections.map(sectionView).toList());
   }
+
+  Widget _sectionFields(BuildContext context, FormMap section, FormMap computed) => LayoutBuilder(
+    builder: (context, constraints) {
+      final totalWidth = constraints.maxWidth;
+      const spacing = 12.0;
+      final halfWidth = (totalWidth - spacing) / 2;
+      final visibleFields = formMaps(section['fields']).where((field) => formFlag(field, schema, computed, 'visible')).toList();
+      return Wrap(spacing: spacing, runSpacing: 12, children: [
+        for (final field in visibleFields)
+          SizedBox(width: (field['span'] as num?)?.toInt() == 1 ? halfWidth : totalWidth, child: _withHelp(field, _input(context, field, computed))),
+      ]);
+    },
+  );
 
   Widget _input(BuildContext context, FormMap f, FormMap computed) {
     final key = '${f['key']}';
@@ -255,8 +261,9 @@ class FormFieldsView extends StatelessWidget {
       return _withAutomaticPlaceholder(f, v, FormField<dynamic>(
         validator: (_) {
           final count = formMaps(v).length;
-          if ((required || minRows > 0) && count < minRows) {
-            return 'حداقل ${toPersianDigits(minRows == 0 ? 1 : minRows)} ردیف لازم است.';
+          final needed = minRows > 0 ? minRows : (required ? 1 : 0);
+          if (count < needed) {
+            return 'حداقل ${toPersianDigits(needed)} ردیف لازم است.';
           }
           return null;
         },
@@ -335,11 +342,6 @@ class FormFieldsView extends StatelessWidget {
   }
 }
 
-Color _sectionColor(String value) {
-  final number = int.tryParse(value.replaceAll('#', '').replaceAll('0X', ''), radix: 16);
-  return number == null ? const Color(0xFFEBF3FF) : Color(0xFF000000 | number);
-}
-Color _sectionAccent(Color color) => Color.lerp(color, Colors.black, .65) ?? const Color(0xFF1876D2);
 IconData sectionIconForName(String icon) => switch (icon) {
   'person' || 'employee' => Icons.person_outline,
   'event' || 'calendar' || 'schedule' || 'clock' => Icons.event_outlined,
@@ -354,5 +356,6 @@ IconData sectionIconForName(String icon) => switch (icon) {
   'download' => Icons.download_outlined,
   'account_tree' => Icons.account_tree_outlined,
   'attach_file' => Icons.attach_file_outlined,
+  'receipt' => Icons.receipt_long_outlined,
   _ => Icons.folder_outlined,
 };

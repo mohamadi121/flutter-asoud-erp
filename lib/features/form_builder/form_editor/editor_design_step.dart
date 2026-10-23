@@ -364,14 +364,17 @@ class _EditorDesignStepState extends State<EditorDesignStep> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('قابل جمع شدن', style: TextStyle(fontSize: 13)),
-                    value: section['collapsible'] == true,
-                    onChanged: (value) => widget.change(() {
-                      section['collapsible'] = value;
-                      if (!value) section['collapsed'] = false;
-                    }),
+                  Material(
+                    type: MaterialType.transparency,
+                    child: SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('قابل جمع شدن', style: TextStyle(fontSize: 13)),
+                      value: section['collapsible'] == true,
+                      onChanged: (value) => widget.change(() {
+                        section['collapsible'] = value;
+                        if (!value) section['collapsed'] = false;
+                      }),
+                    ),
                   ),
                   LayoutBuilder(
                     builder: (context, constraints) {

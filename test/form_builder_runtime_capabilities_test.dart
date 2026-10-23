@@ -73,6 +73,24 @@ void main() {
     expect(find.text('حداقل ۲ ردیف لازم است.'), findsOneWidget);
   });
 
+  testWidgets('جدول الزامی بدون حداقل ردیف نیز اعتبارسنجی می‌شود', (tester) async {
+    final key = GlobalKey<FormState>();
+    final schema = <String, dynamic>{'sections': [{'fields': [{'key': 'rows', 'type': 'Table', 'label': 'ردیف‌ها', 'required': true, 'columns': []}]}]};
+    await tester.pumpWidget(
+      MaterialApp(home: Directionality(textDirection: TextDirection.rtl, child: Scaffold(
+        body: Form(key: key, child: FormFieldsView(
+          schema: schema,
+          values: {},
+          onChanged: (_) {},
+          repository: FormRepository(_Client(), 'شرکت'),
+        )),
+      ))),
+    );
+    expect(key.currentState!.validate(), isFalse);
+    await tester.pump();
+    expect(find.text('حداقل ۱ ردیف لازم است.'), findsOneWidget);
+  });
+
   testWidgets('دریافت خودکار برای همه ورودی‌ها مقدار ذخیره نمی‌کند', (tester) async {
     final schema = <String, dynamic>{'sections': [{'fields': [
       for (final type in ['Text', 'Money', 'Date', 'Time', 'Select', 'Link', 'File'])
