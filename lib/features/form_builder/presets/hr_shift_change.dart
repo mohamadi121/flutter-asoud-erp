@@ -79,7 +79,6 @@ FormMap hrShiftChangePreset() => {
               'key': 'change_date',
               'label': 'تاریخ تغییر',
               'type': 'Date',
-              'required': true,
               'span': 2,
             },
             {
@@ -97,14 +96,6 @@ FormMap hrShiftChangePreset() => {
               'span': 1,
             },
             {
-              'key': 'current_shift',
-              'label': 'شیفت فعلی',
-              'type': 'Display',
-              'default': 'برنامه شیفت برای این تاریخ در دسترس نیست.',
-              'readonly': true,
-              'span': 2,
-            },
-            {
               'key': 'requested_shift',
               'label': 'شیفت جایگزین درخواستی',
               'type': 'Text',
@@ -117,14 +108,6 @@ FormMap hrShiftChangePreset() => {
               'label': 'همکار طرف جابه‌جایی',
               'type': 'Link',
               'source': 'Employee',
-              'span': 2,
-            },
-            {
-              'key': 'colleague_schedule_note',
-              'label': 'برنامه همکار',
-              'type': 'Display',
-              'default': 'برنامه همکار پس از انتخاب از منبع معتبر بررسی می‌شود.',
-              'readonly': true,
               'span': 2,
             },
           ],
@@ -161,8 +144,38 @@ FormMap hrShiftChangePreset() => {
             },
           ],
         },
+        {
+          'id': 'workflow_guidance',
+          'title': 'گردش تأیید',
+          'icon': 'account_tree',
+          'color': '#E5F7EF',
+          'fields': <FormMap>[
+            {
+              'key': 'workflow_note',
+              'label': 'گردش تأیید',
+              'type': 'Display',
+              'default': 'مسیر بررسی از گردش کار تعریف‌شده تعیین می‌شود.',
+              'span': 2,
+            },
+            {
+              'key': 'preview_notice',
+              'label': 'یادآوری',
+              'type': 'Display',
+              'default': 'این صفحه پیش‌نمایش درخواست تغییر شیفت است. ثبت یا تأیید درخواست به‌تنهایی برنامه کاری را تغییر نمی‌دهد.',
+              'span': 2,
+            },
+          ],
+        },
       ],
       'rules': <FormMap>[
+        {
+          'target': 'change_date',
+          'action': 'required',
+          'join': 'and',
+          'conditions': <FormMap>[
+            {'field': 'duration_mode', 'op': 'eq', 'value': 'single_day'},
+          ],
+        },
         {
           'target': 'change_date',
           'action': 'visible',
@@ -214,14 +227,6 @@ FormMap hrShiftChangePreset() => {
         {
           'target': 'exchange_colleague',
           'action': 'required',
-          'join': 'and',
-          'conditions': <FormMap>[
-            {'field': 'change_type', 'op': 'eq', 'value': 'swap_with_colleague'},
-          ],
-        },
-        {
-          'target': 'colleague_schedule_note',
-          'action': 'visible',
           'join': 'and',
           'conditions': <FormMap>[
             {'field': 'change_type', 'op': 'eq', 'value': 'swap_with_colleague'},

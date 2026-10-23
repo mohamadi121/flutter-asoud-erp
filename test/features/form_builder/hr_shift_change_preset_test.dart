@@ -51,7 +51,6 @@ void main() {
         'applicant_employee',
         'change_type',
         'duration_mode',
-        'change_date',
         'requested_shift',
         'reason',
       ]),
@@ -216,5 +215,39 @@ void main() {
       findsOneWidget,
     );
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('تاریخ تغییر مخفی در حالت بازه مانع اعتبارسنجی نمی‌شود', (tester) async {
+    final values = <String, dynamic>{
+      'change_type': 'self_change',
+      'duration_mode': 'date_range',
+      'start_date': '2026-10-24',
+      'end_date': '2026-10-26',
+      'requested_shift': 'شیفت عصر',
+      'reason': 'personal',
+    };
+    await tester.pumpWidget(_fieldsPreview(schema, values, const Size(390, 844)));
+    await tester.pump();
+    expect(tester.state<FormState>(find.byType(Form)).validate(), isTrue);
+    expect(evaluatedValues(schema, values).containsKey('change_date'), isFalse);
+    final single = {...values, 'duration_mode': 'single_day'}..remove('start_date');
+    await tester.pumpWidget(_fieldsPreview(schema, single, const Size(390, 844)));
+    await tester.pump();
+    expect(tester.state<FormState>(find.byType(Form)).validate(), isFalse);
+  });
+
+  test('کارت گردش و یادآوری پیش‌نمایش خنثی و بدون کلیدهای ناشناس‌اند', () {
+    final fields = schemaFields(schema);
+    String note(String key) => fields.firstWhere((f) => f['key'] == key)['default'] as String;
+    expect(note('workflow_note'), 'مسیر بررسی از گردش کار تعریف‌شده تعیین می‌شود.');
+    expect(note('preview_notice'),
+        'این صفحه پیش‌نمایش درخواست تغییر شیفت است. ثبت یا تأیید درخواست به‌تنهایی برنامه کاری را تغییر نمی‌دهد.');
+    final keys = fields.map((f) => f['key']);
+    expect(keys, isNot(contains('current_shift')));
+    expect(keys, isNot(contains('colleague_schedule_note')));
+    for (final f in fields) {
+      expect(f.containsKey('system_source'), isFalse);
+      expect(f.containsKey('source_mode'), isFalse);
+    }
   });
 }

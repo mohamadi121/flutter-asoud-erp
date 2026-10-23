@@ -5,7 +5,6 @@ FormMap employmentCertificatePreset() => {
       'format': 1,
       'kind': 'Request',
       'title': 'درخواست گواهی اشتغال به کار',
-      'short_title': 'درخواست گواهی اشتغال',
       'module': 'HR',
       'icon': 'badge',
       'color': '#6D5BD0',
@@ -84,6 +83,7 @@ FormMap employmentCertificatePreset() => {
               'type': 'Select',
               'required': true,
               'default': 'persian',
+              'style': 'radio',
               'options': [
                 {'id': 'persian', 'label': 'فارسی'},
                 {'id': 'english', 'label': 'انگلیسی'},
@@ -95,6 +95,7 @@ FormMap employmentCertificatePreset() => {
               'type': 'Select',
               'required': true,
               'default': 'no',
+              'style': 'radio',
               'options': [
                 {'id': 'no', 'label': 'خیر'},
                 {'id': 'yes', 'label': 'بله'},
@@ -140,6 +141,26 @@ FormMap employmentCertificatePreset() => {
               'label': 'توضیحات تکمیلی',
               'type': 'LongText',
               'max_length': 2000,
+            },
+          ],
+        },
+        {
+          'id': 'approval_issuance',
+          'title': 'گردش تأیید و صدور',
+          'color': '#FCE9EE',
+          'icon': 'account_tree',
+          'fields': [
+            {
+              'key': 'workflow_notice',
+              'label': 'گردش تأیید و صدور',
+              'type': 'Display',
+              'default': 'مسیر بررسی از گردش کار تعریف‌شده تعیین می‌شود.',
+            },
+            {
+              'key': 'preview_notice',
+              'label': 'یادآوری',
+              'type': 'Display',
+              'default': 'این صفحه پیش‌نمایش درخواست است، نه متن گواهی صادرشده. صدور سند واقعی به داده معتبر، مجوز و قالب سند نیاز دارد.',
             },
           ],
         },

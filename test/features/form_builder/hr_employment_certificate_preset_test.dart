@@ -51,7 +51,7 @@ void main() {
 
     expect(schemaProblems(schema), isEmpty);
     expect(schema['title'], 'درخواست گواهی اشتغال به کار');
-    expect(schema['short_title'], 'درخواست گواهی اشتغال');
+    expect(schema.containsKey('short_title'), isFalse);
     expect(keys.toSet().length, keys.length);
     expect(keys, containsAll(['applicant_employee', 'recipient', 'purpose', 'purpose_details', 'certificate_language', 'include_compensation', 'delivery_method']));
     expect(keys.any((key) => '$key'.contains('office')), isFalse);
@@ -130,5 +130,18 @@ void main() {
     expect(formFlag(schemaFields(schema).firstWhere((field) => field['key'] == 'purpose_details'), schema, values, 'required'), isTrue);
     expect(evaluatedValues(schema, {...values, 'purpose_details': 'مانده'}).containsKey('purpose_details'), isTrue);
     expect(evaluatedValues(schema, {...values, 'purpose': 'bank', 'purpose_details': 'مانده'}).containsKey('purpose_details'), isFalse);
+  });
+
+  test('زبان و درج حقوق رادیویی‌اند و کارت‌های گردش خنثی‌اند', () {
+    final schema = employmentCertificatePreset();
+    final fields = schemaFields(schema);
+    Map f(String k) => fields.firstWhere((x) => x['key'] == k);
+    expect(f('certificate_language')['style'], 'radio');
+    expect(f('include_compensation')['style'], 'radio');
+    expect(f('delivery_method')['style'], 'radio');
+    expect(f('workflow_notice')['default'], 'مسیر بررسی از گردش کار تعریف‌شده تعیین می‌شود.');
+    expect(f('preview_notice')['default'],
+        'این صفحه پیش‌نمایش درخواست است، نه متن گواهی صادرشده. صدور سند واقعی به داده معتبر، مجوز و قالب سند نیاز دارد.');
+    expect(schema.containsKey('short_title'), isFalse);
   });
 }
