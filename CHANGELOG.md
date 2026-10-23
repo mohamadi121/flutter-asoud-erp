@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- جزئیات درخواست: وقتی گواهی اشتغال صادر شده باشد کارت «گواهی صادرشده» با شماره و تاریخ صدور و دکمه «دانلود گواهی» نمایش داده می‌شود (فقط برای درخواست‌دهنده و مدیران منابع انسانی؛ سرور سایرین را رد می‌کند و پیام فارسی نمایش داده می‌شود). قالب آمادهٔ «درخواست گواهی اشتغال به کار» حالا فیلدهای خود را به اجرای `certificate_issue` نگاشت می‌کند تا گواهی پس از تأیید نهایی خودکار صادر شود.
+
 - Request detail: a request returned for correction shows a «برای اصلاح بازگردانده شد» banner with the reviewer's reason; the owner can tap «اصلاح درخواست» (only when the server allows it) to edit and resubmit, and the history shows «اصلاح و ارسال مجدد» with the old and new values.
 
 - Request detail: a «عملیات اجرایی» card, a summary line, the requester message and the printout show whether the approved request was executed («تأیید شده، اجرا انجام نشده» until the server reports success); the history tab shows «مقدار قبلی ← مقدار جدید» for edits. Needs the backend `execution` block.

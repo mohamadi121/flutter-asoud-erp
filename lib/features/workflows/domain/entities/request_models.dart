@@ -332,6 +332,31 @@ class RequestNative extends Equatable {
   List<Object?> get props => [doctype, name, status, error];
 }
 
+/// The issued employment certificate (`certificate` of `get_request`): present
+/// only for a viewer who may download it (the requester, HR and System managers).
+class RequestCertificate extends Equatable {
+  const RequestCertificate(
+      {this.number = '', this.filename = '', this.issuedOn = ''});
+
+  /// Null for a missing or empty block.
+  static RequestCertificate? fromMap(Object? source) {
+    final map = _map(source);
+    if (_text(map['number']).isEmpty && _text(map['filename']).isEmpty) {
+      return null;
+    }
+    return RequestCertificate(
+      number: _text(map['number']),
+      filename: _text(map['filename']),
+      issuedOn: _text(map['issued_on']),
+    );
+  }
+
+  final String number, filename, issuedOn;
+
+  @override
+  List<Object?> get props => [number, filename, issuedOn];
+}
+
 /// What happened after the approval (`execution` of `get_request`), kept apart
 /// from the approval status: an approved request is not an executed one.
 class RequestExecution extends Equatable {
@@ -455,6 +480,7 @@ class RequestDetail extends Equatable {
     this.fields = const [],
     this.native = const RequestNative(),
     this.execution = const RequestExecution(),
+    this.certificate,
     this.stages = const [],
     this.pendingSync = false,
     this.localPreview = false,
@@ -517,6 +543,7 @@ class RequestDetail extends Equatable {
       ],
       native: RequestNative.fromMap(map['native']),
       execution: RequestExecution.fromMap(map['execution']),
+      certificate: RequestCertificate.fromMap(map['certificate']),
       stages: [
         for (final row in map['stages'] as List? ?? const [])
           if (row is Map) RequestStage.fromMap(row)
@@ -541,6 +568,7 @@ class RequestDetail extends Equatable {
   final List<WorkflowFormFieldDefinition> fields;
   final RequestNative native;
   final RequestExecution execution;
+  final RequestCertificate? certificate;
   final List<RequestStage> stages;
   final Map<String, dynamic> raw;
 
@@ -605,6 +633,7 @@ class RequestDetail extends Equatable {
         fields,
         native,
         execution,
+        certificate,
         pendingSync,
         localPreview,
         isSample,

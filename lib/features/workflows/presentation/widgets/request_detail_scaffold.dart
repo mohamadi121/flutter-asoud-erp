@@ -16,6 +16,7 @@ import '../../domain/repositories/workflow_task_repository.dart';
 import '../pages/workflow_instance_detail_page.dart';
 import '../request_screen_registry.dart';
 import 'request_attachments.dart';
+import 'request_certificate_card.dart';
 import 'request_comments.dart';
 import 'request_custom_table.dart';
 import 'request_execution_card.dart';
@@ -787,6 +788,13 @@ class _RequestDetailScaffoldState extends State<RequestDetailScaffold> {
             details: [
               // WP5 insertion point: execution lane card.
               RequestExecutionCard(execution: detail.execution),
+              if (detail.certificate != null)
+                RequestCertificateCard(
+                    certificate: detail.certificate!,
+                    requestName: detail.name,
+                    repository: widget.repository,
+                    saver: widget.fileSaver,
+                    onMessage: _message),
               widget.infoBuilder?.call(context, view) ?? _info(view),
           if (detail.items.isNotEmpty)
             widget.itemsBuilder?.call(context, view) ?? _items(view),
