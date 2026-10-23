@@ -222,6 +222,7 @@ class _LoginPageState extends State<LoginPage> {
                     const SizedBox(height: 14),
                     TextField(
                       controller: _username,
+                      key: const Key('username_field'),
                       enabled: !_busy,
                       keyboardType: TextInputType.emailAddress,
                       textDirection: TextDirection.ltr,
@@ -233,6 +234,7 @@ class _LoginPageState extends State<LoginPage> {
                     const SizedBox(height: 14),
                     TextField(
                       controller: _password,
+                      key: const Key('password_field'),
                       enabled: !_busy,
                       obscureText: _obscurePassword,
                       textDirection: TextDirection.ltr,
@@ -258,6 +260,7 @@ class _LoginPageState extends State<LoginPage> {
                     SizedBox(
                       height: 52,
                       child: FilledButton(
+                        key: const Key('login_button'),
                         onPressed: _busy ? null : _login,
                         child: Text(_busy ? 'در حال ورود…' : 'ورود'),
                       ),
