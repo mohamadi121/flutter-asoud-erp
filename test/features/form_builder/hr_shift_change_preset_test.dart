@@ -66,8 +66,9 @@ void main() {
     expect(fields.firstWhere((field) => field['key'] == 'duration_mode')['style'], 'radio');
     expect(fields.firstWhere((field) => field['key'] == 'end_date')['after_or_equal'], 'start_date');
     expect(fields.firstWhere((field) => field['key'] == 'end_date')['after_or_equal_message'], 'تاریخ پایان نباید قبل از تاریخ شروع باشد.');
-    expect(fields.firstWhere((field) => field['key'] == 'requested_shift').containsKey('source'), isFalse);
-    expect(fields.firstWhere((field) => field['key'] == 'requested_shift')['help'], contains('نام یا شناسه شیفت'));
+    expect(fields.firstWhere((field) => field['key'] == 'requested_shift')['source'], 'Shift Type');
+    expect(fields.firstWhere((field) => field['key'] == 'current_shift')['default_source'], 'default_shift');
+    expect(fields.firstWhere((field) => field['key'] == 'exchange_colleague')['exclude_self'], isTrue);
     expect(fields.firstWhere((field) => field['key'] == 'applicant_position')['default_source'], 'designation');
     expect(
       fields.firstWhere((field) => field['key'] == 'reason')['options'],
@@ -243,7 +244,6 @@ void main() {
     expect(note('preview_notice'),
         'این صفحه پیش‌نمایش درخواست تغییر شیفت است. ثبت یا تأیید درخواست به‌تنهایی برنامه کاری را تغییر نمی‌دهد.');
     final keys = fields.map((f) => f['key']);
-    expect(keys, isNot(contains('current_shift')));
     expect(keys, isNot(contains('colleague_schedule_note')));
     for (final f in fields) {
       expect(f.containsKey('system_source'), isFalse);

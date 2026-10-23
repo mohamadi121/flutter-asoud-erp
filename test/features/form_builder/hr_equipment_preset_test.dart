@@ -144,8 +144,8 @@ void main() {
     final returnReference = formMaps(
       fields.singleWhere((field) => field['key'] == 'returnable_equipment')['columns'],
     ).singleWhere((column) => column['key'] == 'equipment_reference');
-    expect(returnReference['source'], 'Item');
-    expect(returnReference['help'], 'کالای تجهیز تحویل‌گرفته‌شده را وارد کنید.');
+    expect(returnReference['source'], 'Asset');
+    expect(returnReference['unique'], isTrue);
     expect(returnReference.containsKey('system_source'), isFalse);
 
     final sections = formMaps(hrEquipmentPreset()['sections']);

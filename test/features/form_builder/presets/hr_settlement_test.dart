@@ -45,7 +45,7 @@ void main() {
       'property_declaration',
       'additional_notes',
     ]));
-    expect(fields.where((field) => field['readonly'] == true && field['type'] != 'Display').length, 4);
+    expect(fields.where((field) => field['readonly'] == true && field['type'] != 'Display').length, 5);
     expect(keys, isNot(contains('company')));
     expect(keys.any((key) => key.contains('office')), isFalse);
     expect(fields.firstWhere((field) => field['key'] == 'applicant_employee'), {
@@ -102,7 +102,7 @@ void main() {
         ),
       ));
       await tester.pumpAndSettle();
-      expect(find.text('دریافت خودکار'), findsNWidgets(4));
+      expect(find.text('دریافت خودکار'), findsNWidgets(5));
       expect(find.text('این تاریخ پیشنهادی است و تا زمان تأیید مراجع دارای اختیار، تاریخ قطعی پایان همکاری محسوب نمی‌شود.'), findsOneWidget);
       expect(find.text('این انتخاب صرفاً اعلام متقاضی است. تأیید نهایی وضعیت اموال و تجهیزات توسط واحد مسئول انجام می‌شود.'), findsOneWidget);
       expect(tester.takeException(), isNull);

@@ -67,8 +67,8 @@ void main() {
     expect(fields.firstWhere((field) => field['key'] == 'applicant_department')['default_source'], 'department');
     expect(fields.firstWhere((field) => field['key'] == 'applicant_position')['default_source'], 'designation');
     expect(fields.where((field) => field.containsKey('system_source')), isEmpty);
-    expect(fields.where((field) => field['key'] == 'training_course').single['type'], 'Text');
-    expect(fields.where((field) => field['key'] == 'training_course').single['help'], contains('فهرست دوره‌های آموزشی در دسترس نیست.'));
+    expect(fields.where((field) => field['key'] == 'training_course').single['source'], 'Training Event');
+    expect(fields.where((f) => f['fetch_from'] == 'training_course.start_time'), hasLength(1));
     for (final key in ['request_type', 'delivery_method', 'cost_status']) {
       expect(fields.firstWhere((field) => field['key'] == key)['style'], 'radio');
     }
