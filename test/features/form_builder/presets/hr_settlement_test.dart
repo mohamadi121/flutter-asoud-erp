@@ -35,21 +35,39 @@ void main() {
     expect(schema['color'], '#1876D2');
     expect(keys.toSet().length, keys.length);
     expect(keys, containsAll([
-      'employee_full_name',
-      'employee_code',
-      'organization_unit',
-      'organization_position',
-      'employment_start_date',
+      'applicant_employee',
+      'applicant_department',
+      'applicant_position',
+      'applicant_joining_date',
       'settlement_reason',
       'reason_description',
       'proposed_end_date',
       'property_declaration',
       'additional_notes',
     ]));
-    expect(fields.where((field) => field['readonly'] == true).length, 5);
+    expect(fields.where((field) => field['readonly'] == true).length, 4);
     expect(keys, isNot(contains('company')));
+    expect(keys.any((key) => key.contains('office')), isFalse);
+    expect(fields.firstWhere((field) => field['key'] == 'applicant_employee'), {
+      'key': 'applicant_employee',
+      'label': 'نام و نام خانوادگی',
+      'type': 'Link',
+      'readonly': true,
+      'source': 'Employee',
+      'default_source': 'employee',
+      'span': 2,
+    });
+    expect(fields.firstWhere((field) => field['key'] == 'applicant_department')['default_source'], 'department');
+    expect(fields.firstWhere((field) => field['key'] == 'applicant_position')['default_source'], 'designation');
+    expect(fields.firstWhere((field) => field['key'] == 'applicant_joining_date')['default_source'], 'joining_date');
+    expect(fields.where((field) => field.containsKey('default')).map((field) => field['default']), isNot(contains('دریافت خودکار')));
     final reason = fields.singleWhere((field) => field['key'] == 'settlement_reason');
     expect(reason['required'], isTrue);
+    final property = fields.singleWhere((field) => field['key'] == 'property_declaration');
+    expect(property['style'], 'radio');
+    expect(property['default'], 'needs_review');
+    expect(schema['sections'][2]['description'], 'این انتخاب صرفاً اعلام متقاضی است. تأیید نهایی وضعیت اموال و تجهیزات توسط واحد مسئول انجام می‌شود.');
+    expect(fields.singleWhere((field) => field['key'] == 'proposed_end_date')['help'], 'این تاریخ پیشنهادی است و تا زمان تأیید مراجع دارای اختیار، تاریخ قطعی پایان همکاری محسوب نمی‌شود.');
     expect(reason['options'], equals([
       {'id': 'resignation', 'label': 'استعفا'},
       {'id': 'contract_end', 'label': 'پایان قرارداد'},
@@ -61,9 +79,7 @@ void main() {
   });
 
   testWidgets('پیش‌نمایش ۳۶۰×۸۰۰ شرح علت را شرطی و فقط هنگام نمایش اجباری می‌کند', (tester) async {
-    tester.view.physicalSize = const Size(360, 800);
     tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
     final schema = hrSettlementPreset();
@@ -74,16 +90,24 @@ void main() {
     expect(formFlag(description, schema, {'settlement_reason': 'resignation'}, 'visible'), isFalse);
     expect(formFlag(description, schema, {'settlement_reason': 'resignation'}, 'required'), isFalse);
 
-    await tester.pumpWidget(MaterialApp(
-      debugShowCheckedModeBanner: false,
-      theme: AsoudTheme.light,
-      home: FormPreviewPage(
-        schema: schema,
-        repository: FormRepository(_PreviewClient(), 'شرکت نمونه آسود'),
-        initialValues: {'settlement_reason': 'other', 'proposed_end_date': '2026-10-22'},
-      ),
-    ));
-    await tester.pumpAndSettle();
+    for (final size in [const Size(320, 640), const Size(390, 844), const Size(430, 932)]) {
+      tester.view.physicalSize = size;
+      await tester.pumpWidget(MaterialApp(
+        debugShowCheckedModeBanner: false,
+        theme: AsoudTheme.light,
+        home: FormPreviewPage(
+          schema: schema,
+          repository: FormRepository(_PreviewClient(), 'شرکت نمونه آسود'),
+          initialValues: {'settlement_reason': 'other', 'proposed_end_date': '2026-10-22'},
+        ),
+      ));
+      await tester.pumpAndSettle();
+      expect(find.text('دریافت خودکار'), findsNWidgets(4));
+      expect(find.text('این تاریخ پیشنهادی است و تا زمان تأیید مراجع دارای اختیار، تاریخ قطعی پایان همکاری محسوب نمی‌شود.'), findsOneWidget);
+      expect(find.text('این انتخاب صرفاً اعلام متقاضی است. تأیید نهایی وضعیت اموال و تجهیزات توسط واحد مسئول انجام می‌شود.'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    }
+    addTearDown(tester.view.resetPhysicalSize);
 
     expect(find.text('شرح علت *'), findsOneWidget);
     await tester.tap(find.text('آزمایش ثبت'));
