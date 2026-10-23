@@ -30,6 +30,7 @@ import '../features/parties/data/repositories/frappe_party_repository.dart';
 import '../features/parties/data/repositories/server_first_party_repository.dart';
 import '../features/parties/domain/repositories/party_repository.dart';
 import '../features/workflows/data/generic_request_repository.dart';
+import '../features/workflows/data/receipt_confirmation_repository.dart';
 import '../features/workflows/data/repositories/frappe_workflow_repository.dart';
 import '../features/workflows/data/repositories/preview_fallback_workflow_repository.dart';
 import '../features/workflows/domain/repositories/workflow_repository.dart';
@@ -143,6 +144,9 @@ class _AsoudErpAppState extends State<AsoudErpApp> {
             value: PreviewWorkflowTaskRepository(
               FrappeWorkflowTaskRepository(client),
             ),
+          ),
+          RepositoryProvider<ReceiptConfirmationRepository>.value(
+            value: FrappeReceiptConfirmationRepository(client),
           ),
           RepositoryProvider<WorkflowNotificationRepository>.value(
             value: PreviewWorkflowNotificationRepository(
