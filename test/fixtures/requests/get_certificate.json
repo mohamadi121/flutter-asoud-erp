@@ -1,0 +1,14 @@
+{
+ "ok": true,
+ "data": {
+  "number": "CERT-2026-00001",
+  "filename": "CERT-2026-00001.pdf",
+  "content_type": "application/pdf",
+  "size": 8,
+  "issued_on": "2026-10-23 09:30:00.123456",
+  "content_base64": "JVBERi0xLjQK"
+ },
+ "meta": {
+  "api_version": "v1"
+ }
+}

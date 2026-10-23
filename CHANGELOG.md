@@ -6,6 +6,8 @@
 
 - Presets: the advance form (reason, description, notes, attachments), the settlement form (reason, description, notes) and the shift-change form (description, notes) mark those fields «اطلاعات حساس»; the server shows them only to the requester, workflow participants and HR/System managers, and never copies them into notification text, created documents or execution comments. The editor shows and keeps the flag. Needs the backend confidential-field change.
 
+- جزئیات درخواست: وقتی گواهی اشتغال صادر شده باشد کارت «گواهی صادرشده» با شماره و تاریخ صدور و دکمه «دانلود گواهی» نمایش داده می‌شود (فقط برای درخواست‌دهنده و مدیران منابع انسانی؛ سرور سایرین را رد می‌کند و پیام فارسی نمایش داده می‌شود). اجرای `certificate_issue` را مدیر در ویرایشگر فرم («اجرای پس از تأیید») تنظیم می‌کند؛ قالب‌های آماده خام می‌مانند.
+
 - Request detail: a request returned for correction shows a «برای اصلاح بازگردانده شد» banner with the reviewer's reason; the owner can tap «اصلاح درخواست» (only when the server allows it) to edit and resubmit, and the history shows «اصلاح و ارسال مجدد» with the old and new values.
 
 - Request detail: a «عملیات اجرایی» card, a summary line, the requester message and the printout show whether the approved request was executed («تأیید شده، اجرا انجام نشده» until the server reports success); the history tab shows «مقدار قبلی ← مقدار جدید» for edits. Needs the backend `execution` block.

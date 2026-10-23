@@ -868,4 +868,21 @@ class GenericRequestRepository {
       bytes: base64Decode(result['content_base64'] as String),
     );
   }
+
+  /// The issued employment certificate of the request [request] (PDF bytes).
+  /// The server answers 403 to anyone but the requester, HR and System managers.
+  Future<({String filename, String contentType, Uint8List bytes})> certificate(
+      String request) async {
+    await identify();
+    if (isLocal) throw const ApiException.protocol();
+    final result = await remote('get_certificate', {'name': request});
+    if (result is! Map || result['content_base64'] is! String) {
+      throw const ApiException.protocol();
+    }
+    return (
+      filename: '${result['filename'] ?? request}',
+      contentType: '${result['content_type'] ?? 'application/pdf'}',
+      bytes: base64Decode(result['content_base64'] as String),
+    );
+  }
 }
