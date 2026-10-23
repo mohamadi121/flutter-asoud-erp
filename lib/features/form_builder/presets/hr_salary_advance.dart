@@ -1,9 +1,10 @@
-import '../form_editor/editor_widgets.dart';
 import '../form_repository.dart';
 
 /// الگوی خام و قابل استفادهٔ مجدد درخواست مساعده منابع انسانی.
 FormMap hrSalaryAdvancePreset() => {
-      ...blankSchema('Request'),
+      'schema_version': 2,
+      'format': 1,
+      'kind': 'Request',
       'title': 'درخواست مساعده',
       'module': 'HR',
       'icon': 'wallet',
@@ -16,32 +17,29 @@ FormMap hrSalaryAdvancePreset() => {
           'color': '#E8F2FF',
           'fields': [
             {
-              'key': 'applicant_full_name',
+              'key': 'applicant_employee',
               'label': 'نام و نام خانوادگی',
-              'type': 'Text',
-              'source_mode': 'asoud',
+              'type': 'Link',
               'source': 'Employee',
+              'default_source': 'employee',
               'readonly': true,
-              'default': 'دریافت خودکار',
               'span': 2,
             },
             {
               'key': 'applicant_department',
               'label': 'واحد سازمانی',
-              'type': 'Text',
-              'source_mode': 'asoud',
+              'type': 'Link',
               'source': 'Department',
+              'default_source': 'department',
               'readonly': true,
-              'default': 'دریافت خودکار',
               'span': 1,
             },
             {
               'key': 'applicant_position',
               'label': 'سمت سازمانی',
               'type': 'Text',
-              'source_mode': 'asoud',
+              'default_source': 'designation',
               'readonly': true,
-              'default': 'دریافت خودکار',
               'span': 1,
             },
           ],
@@ -91,6 +89,7 @@ FormMap hrSalaryAdvancePreset() => {
           'id': 'repayment_proposal',
           'title': 'پیشنهاد نحوه تسویه',
           'color': '#FFF0DD',
+          'collapsible': true,
           'fields': [
             {
               'key': 'repayment_method',
@@ -109,6 +108,7 @@ FormMap hrSalaryAdvancePreset() => {
               'label': 'تعداد اقساط پیشنهادی',
               'type': 'Select',
               'span': 1,
+              'style': 'radio',
               'options': [
                 {'id': 'installments_1', 'label': '۱ قسط'},
                 {'id': 'installments_2', 'label': '۲ قسط'},
@@ -148,34 +148,6 @@ FormMap hrSalaryAdvancePreset() => {
               'type': 'File',
               'span': 2,
               'help': 'در صورت نیاز، فایل را مطابق محدودیت‌های سامانه اضافه کنید.',
-            },
-          ],
-        },
-        {
-          'id': 'approval_flow',
-          'title': 'گردش تأیید',
-          'color': '#FCE9EE',
-          'fields': [
-            {
-              'key': 'approval_flow_notice',
-              'label': 'گردش تأیید',
-              'type': 'Display',
-              'span': 2,
-              'default': 'مراحل و مسئولان رسیدگی از گردش کار پیکربندی‌شده سازمان تعیین می‌شوند.',
-            },
-          ],
-        },
-        {
-          'id': 'review_and_submit',
-          'title': 'بررسی نهایی و ارسال',
-          'color': '#E8F2FF',
-          'fields': [
-            {
-              'key': 'review_notice',
-              'label': 'بررسی و ادامه',
-              'type': 'Display',
-              'span': 2,
-              'default': 'روش بازپرداخت، مبلغ مصوب و پرداخت واقعی پس از رسیدگی توسط مسئولان مجاز تعیین می‌شود.',
             },
           ],
         },
