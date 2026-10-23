@@ -83,7 +83,17 @@ void main() {
         tasks));
     await tester.pumpAndSettle();
 
+    await tester.dragUntilVisible(
+      find.text('مأموریت تهران — نمایشگاه'),
+      find.byType(Scrollable).first,
+      const Offset(0, -200),
+    );
     expect(find.text('مأموریت تهران — نمایشگاه'), findsOneWidget);
+    await tester.dragUntilVisible(
+      find.text('تنخواه خرداد واحد فروش'),
+      find.byType(Scrollable).first,
+      const Offset(0, -200),
+    );
     expect(find.text('تنخواه خرداد واحد فروش'), findsOneWidget);
     expect(find.text('در انتظار تأیید'), findsOneWidget);
     expect(find.text('رد شده'), findsWidgets); // the tab and a status chip
