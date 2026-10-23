@@ -72,7 +72,38 @@ class OrganizationRepository {
     return photo;
   }
 
+  static const maxPhotoRequests = 4;
+  int _activePhotos = 0;
+  final _photoQueue = <Completer<void>>[];
+
+  Future<void> _acquirePhotoSlot() async {
+    if (_activePhotos < maxPhotoRequests) {
+      _activePhotos++;
+      return;
+    }
+    final turn = Completer<void>();
+    _photoQueue.add(turn);
+    await turn.future;
+  }
+
+  void _releasePhotoSlot() {
+    if (_photoQueue.isEmpty) {
+      _activePhotos--;
+    } else {
+      _photoQueue.removeAt(0).complete();
+    }
+  }
+
   Future<Uint8List?> _fetchPhoto(String company, String employee) async {
+    await _acquirePhotoSlot();
+    try {
+      return await _fetchPhotoNow(company, employee);
+    } finally {
+      _releasePhotoSlot();
+    }
+  }
+
+  Future<Uint8List?> _fetchPhotoNow(String company, String employee) async {
     final (_, epoch) = await _scope(company);
     final result = await _call(
         'employee_photo', {'company': company, 'employee': employee});
