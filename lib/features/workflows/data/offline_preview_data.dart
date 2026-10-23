@@ -65,15 +65,6 @@ Future<List<Map<String, dynamic>>> offlineRequestTypes() async {
   final all = [...designs, if (designs.isEmpty) ...demoDesignMaps()];
   return [
     ...RequestDemoRegistry.requestTypes(),
-    for (final item in purchaseRequestBank)
-      {
-        ...systemRequestType('purchase'),
-        'name': 'PREVIEW-PURCHASE-${purchaseRequestBank.indexOf(item) + 1}',
-        'workflow_title': item.title,
-        'short_title': item.description,
-        'request_subgroup': item.subgroup,
-        'keywords': item.keywords,
-      },
     for (final design in all)
       if ((design['workflow'] as Map?)?['target_doctype'] ==
               'ASOUD Workflow Request' &&
@@ -87,6 +78,15 @@ Future<List<Map<String, dynamic>>> offlineRequestTypes() async {
           'fields': _formFields(design),
           if (design['is_sample'] == true) 'is_sample': true,
         },
+    for (final item in purchaseRequestBank)
+      {
+        ...systemRequestType('purchase'),
+        'name': 'PREVIEW-PURCHASE-${purchaseRequestBank.indexOf(item) + 1}',
+        'workflow_title': item.title,
+        'short_title': item.description,
+        'request_subgroup': item.subgroup,
+        'keywords': item.keywords,
+      },
   ];
 }
 
