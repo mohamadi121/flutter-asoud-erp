@@ -200,6 +200,9 @@ class FrappeWorkflowTaskRepository
               );
             }).toList(growable: false)
           : const [],
+      requestValues: item['request_values'] is Map
+          ? Map<String, dynamic>.from(item['request_values'] as Map)
+          : const {},
     );
   }
 

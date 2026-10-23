@@ -91,6 +91,7 @@ class WorkflowTaskDetail extends Equatable {
     this.referenceDoctype = '',
     this.referenceName = '',
     this.documentValues = const [],
+    this.requestValues = const {},
   });
   final WorkflowTask task;
   final String stageType;
@@ -103,6 +104,7 @@ class WorkflowTaskDetail extends Equatable {
   final List<WorkflowTaskDataSection> previousData;
   final String referenceDoctype, referenceName;
   final List<WorkflowTaskDataValue> documentValues;
+  final Map<String, dynamic> requestValues;
   @override
   List<Object> get props => [
         task,
@@ -118,6 +120,7 @@ class WorkflowTaskDetail extends Equatable {
         referenceDoctype,
         referenceName,
         documentValues,
+        requestValues,
       ];
 }
 

@@ -185,6 +185,10 @@ class _FieldEditorState extends State<_FieldEditor> {
   late final TextEditingController label;
   late final TextEditingController keyName;
   late final TextEditingController options;
+  late final TextEditingController maxFromRequest;
+  late final TextEditingController minimumExclusive;
+  late final TextEditingController comparisonRequest;
+  late final TextEditingController reasonField;
   late String type;
   late bool requiredField;
   String? error;
@@ -196,6 +200,10 @@ class _FieldEditorState extends State<_FieldEditor> {
     label = TextEditingController(text: initial?.label ?? '');
     keyName = TextEditingController(text: initial?.key ?? '');
     options = TextEditingController(text: initial?.options.join('\n') ?? '');
+    maxFromRequest = TextEditingController(text: initial?.maxFromRequest ?? '');
+    minimumExclusive = TextEditingController(text: '${initial?.minValueExclusive ?? ''}');
+    comparisonRequest = TextEditingController(text: initial?.reasonRequiredIfLessThan ?? '');
+    reasonField = TextEditingController(text: initial?.reasonField ?? '');
     type = initial?.type ?? 'Short Text';
     requiredField = initial?.required ?? false;
   }
@@ -204,7 +212,9 @@ class _FieldEditorState extends State<_FieldEditor> {
   void dispose() {
     label.dispose();
     keyName.dispose();
-    options.dispose();
+    for (final controller in [options, maxFromRequest, minimumExclusive, comparisonRequest, reasonField]) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -256,6 +266,20 @@ class _FieldEditorState extends State<_FieldEditor> {
                   decoration: const InputDecoration(
                       labelText: 'گزینه‌ها *', hintText: 'هر گزینه در یک خط')),
             ],
+            if (type == 'Number' || type == 'Currency') ...[
+              const SizedBox(height: 10),
+              TextField(controller: maxFromRequest, textDirection: TextDirection.ltr,
+                  decoration: const InputDecoration(labelText: 'حداکثر از کلید درخواست')),
+              const SizedBox(height: 10),
+              TextField(controller: minimumExclusive, keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'حداقل انحصاری')),
+              const SizedBox(height: 10),
+              TextField(controller: comparisonRequest, textDirection: TextDirection.ltr,
+                  decoration: const InputDecoration(labelText: 'کلید درخواست برای الزام علت کاهش')),
+              const SizedBox(height: 10),
+              TextField(controller: reasonField, textDirection: TextDirection.ltr,
+                  decoration: const InputDecoration(labelText: 'کلید فیلد علت کاهش')),
+            ],
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('تکمیل این فیلد اجباری باشد'),
@@ -290,6 +314,17 @@ class _FieldEditorState extends State<_FieldEditor> {
       setState(() => error = 'حداقل دو گزینه وارد کنید.');
       return;
     }
+    final minimum = minimumExclusive.text.trim().isEmpty
+        ? null
+        : num.tryParse(minimumExclusive.text.trim());
+    if (minimumExclusive.text.trim().isNotEmpty && minimum == null) {
+      setState(() => error = 'حداقل انحصاری باید عدد باشد.');
+      return;
+    }
+    if (comparisonRequest.text.trim().isNotEmpty && reasonField.text.trim().isEmpty) {
+      setState(() => error = 'کلید فیلد علت کاهش را وارد کنید.');
+      return;
+    }
     Navigator.pop(
         context,
         WorkflowFormFieldDefinition(
@@ -297,7 +332,11 @@ class _FieldEditorState extends State<_FieldEditor> {
             label: label.text.trim(),
             type: type,
             required: requiredField,
-            options: type == 'Choice' ? choices : const []));
+            options: type == 'Choice' ? choices : const [],
+            maxFromRequest: maxFromRequest.text.trim().isEmpty ? null : maxFromRequest.text.trim(),
+            minValueExclusive: minimum,
+            reasonRequiredIfLessThan: comparisonRequest.text.trim().isEmpty ? null : comparisonRequest.text.trim(),
+            reasonField: reasonField.text.trim().isEmpty ? null : reasonField.text.trim()));
   }
 }
 

@@ -61,6 +61,42 @@ class WorkflowTaskDetailCubit extends Cubit<WorkflowTaskDetailState> {
         return 'فیلد «${field.label}» الزامی است.';
       }
     }
+    num? number(Object? value) {
+      if (value is num) return value;
+      return num.tryParse((value ?? '').toString().replaceAll(',', ''));
+    }
+    for (final field in detail.fields) {
+      final value = number(state.values[field.key]);
+      if (value != null && field.minValueExclusive != null &&
+          value <= field.minValueExclusive!) {
+        return 'مقدار «${field.label}» باید بیشتر از ${field.minValueExclusive} باشد.';
+      }
+      final maximum = number(detail.requestValues[field.maxFromRequest]);
+      if (value != null && maximum != null && value > maximum) {
+        return 'مقدار «${field.label}» نباید از مقدار درخواست‌شده بیشتر باشد.';
+      }
+      final comparison = number(detail.requestValues[field.reasonRequiredIfLessThan]);
+      if (value != null && comparison != null && value < comparison) {
+        final reason = state.values[field.reasonField]?.toString().trim() ?? '';
+        if (reason.isEmpty) return 'ثبت علت کاهش الزامی است.';
+      }
+      if (field.rowsFromRequest == null) continue;
+      final rows = state.values[field.key];
+      final requestRows = detail.requestValues[field.rowsFromRequest];
+      if (rows is! List || requestRows is! List || rows.length != requestRows.length) {
+        return 'تعداد ردیف‌های «${field.label}» نباید تغییر کند.';
+      }
+      for (var index = 0; index < rows.length; index++) {
+        if (rows[index] is! Map || requestRows[index] is! Map) continue;
+        for (final column in field.columns) {
+          final rowValue = number((rows[index] as Map)[column.key]);
+          final rowMaximum = number((requestRows[index] as Map)[column.maxFromRow]);
+          if (rowValue != null && rowMaximum != null && rowValue > rowMaximum) {
+            return 'مقدار «${column.label}» در ردیف ${index + 1} نباید از مقدار درخواست‌شده بیشتر باشد.';
+          }
+        }
+      }
+    }
     return null;
   }
 

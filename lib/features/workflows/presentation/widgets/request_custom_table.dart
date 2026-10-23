@@ -98,12 +98,12 @@ class _RequestCustomTableState extends State<RequestCustomTable> {
           value: value,
           label: column.label,
           required: column.required && !widget.preview,
-          enabled: widget.enabled && !widget.preview,
+          enabled: widget.enabled && !widget.preview && !column.readonly,
           onChanged: changed);
     }
     if (column.type == 'Attachment' && widget.uploadAttachment != null) {
       return OutlinedButton.icon(
-          onPressed: !widget.enabled || widget.preview
+          onPressed: !widget.enabled || widget.preview || column.readonly
               ? null
               : () async {
                   final row = rows[index];
@@ -140,12 +140,12 @@ class _RequestCustomTableState extends State<RequestCustomTable> {
                           : option.replaceFirst('attachment:', ''),
                       overflow: TextOverflow.ellipsis))
           ],
-          onChanged: widget.enabled && !widget.preview ? changed : null);
+          onChanged: widget.enabled && !widget.preview && !column.readonly ? changed : null);
     }
     return TextFormField(
         key: ValueKey('${ids[index]}:${column.key}'),
         initialValue: value,
-        enabled: widget.enabled && !widget.preview,
+        enabled: widget.enabled && !widget.preview && !column.readonly,
         style: const TextStyle(fontSize: 11),
         decoration: decoration,
         keyboardType: column.type == 'Number' || column.type == 'Currency'
@@ -209,7 +209,7 @@ class _RequestCustomTableState extends State<RequestCustomTable> {
                               width: 48,
                               child: IconButton(
                                   tooltip: 'حذف ردیف',
-                                  onPressed: !widget.enabled || widget.preview
+                                  onPressed: !widget.enabled || widget.preview || widget.field.rowsFromRequest != null
                                       ? null
                                       : () => setState(() {
                                             rows.removeAt(index);
@@ -224,7 +224,7 @@ class _RequestCustomTableState extends State<RequestCustomTable> {
             Text(state.errorText!,
                 style:
                     const TextStyle(fontSize: 11, color: AsoudColors.danger)),
-          if (!widget.preview)
+          if (!widget.preview && widget.field.rowsFromRequest == null)
             TextButton.icon(
                 onPressed: !widget.enabled || rows.length >= 100
                     ? null
