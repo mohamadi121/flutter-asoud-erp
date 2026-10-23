@@ -1,0 +1,83 @@
+{
+ "name": "WFI-2026-04139",
+ "subject": "درخواست آزمایشی",
+ "status": "Running",
+ "workflow_definition": "req-f1716fd3",
+ "current_stage": "rfofn00bdc",
+ "current_stage_title": "تأیید 1",
+ "current_assignees": [
+  "asoud.approver@example.com"
+ ],
+ "reference_doctype": "ASOUD Workflow Request",
+ "reference_name": "REQ-00236",
+ "started_by": "asoud.employee@example.com",
+ "started_on": "2026-10-23 10:38:29.849661",
+ "completed_on": null,
+ "activities": [
+  {
+   "name": "rfrudt2f7r",
+   "workflow_task": "WFT-2026-04140",
+   "workflow_stage": "rfoqdtrino",
+   "actor": "asoud.employee@example.com",
+   "action": "Complete",
+   "comment": "",
+   "created_on": "2026-10-23 10:38:29.925227",
+   "reference_doctype": null,
+   "reference_name": null,
+   "stage_title": "ثبت درخواست",
+   "actor_name": "Employee"
+  },
+  {
+   "name": "rfseg6rjr2",
+   "workflow_task": "WFT-2026-04141",
+   "workflow_stage": "rfofn00bdc",
+   "actor": "asoud.approver@example.com",
+   "action": "Approve",
+   "comment": "",
+   "created_on": "2026-10-23 10:38:30.001886",
+   "reference_doctype": null,
+   "reference_name": null,
+   "stage_title": "تأیید 1",
+   "actor_name": "Approver"
+  },
+  {
+   "name": "rfs8db1lt7",
+   "workflow_task": "WFT-2026-04142",
+   "workflow_stage": "rfoiut84uf",
+   "actor": "asoud.approver@example.com",
+   "action": "Return",
+   "comment": "مبلغ را اصلاح کنید",
+   "created_on": "2026-10-23 10:38:30.038916",
+   "reference_doctype": null,
+   "reference_name": null,
+   "stage_title": "تأیید 2",
+   "actor_name": "Approver"
+  },
+  {
+   "name": "rftrg0986f",
+   "workflow_task": null,
+   "workflow_stage": "rfoqdtrino",
+   "actor": "asoud.employee@example.com",
+   "action": "Resubmitted",
+   "comment": "{\"changes\": [{\"key\": \"reason\", \"label\": \"دلیل\", \"before\": \"دلیل اولیه\", \"after\": \"دلیل اصلاح‌شده\"}]}",
+   "created_on": "2026-10-23 10:38:30.107121",
+   "reference_doctype": null,
+   "reference_name": null,
+   "stage_title": "ثبت درخواست",
+   "actor_name": "Employee"
+  },
+  {
+   "name": "rft1m9n6ii",
+   "workflow_task": "WFT-2026-04143",
+   "workflow_stage": "rfoqdtrino",
+   "actor": "asoud.employee@example.com",
+   "action": "Complete",
+   "comment": "",
+   "created_on": "2026-10-23 10:38:30.122622",
+   "reference_doctype": null,
+   "reference_name": null,
+   "stage_title": "ثبت درخواست",
+   "actor_name": "Employee"
+  }
+ ]
+}

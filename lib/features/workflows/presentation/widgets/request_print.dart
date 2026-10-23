@@ -7,6 +7,7 @@ import 'package:pdf/widgets.dart' as pw;
 import '../../../../core/utils/persian_format.dart';
 import '../../../../core/utils/persian_server_values.dart';
 import '../../domain/entities/workflow_task.dart';
+import 'request_returned_banner.dart' show requestActivityComment;
 
 /// Persian labels of workflow activity actions, shared by screen and print.
 String requestActionLabel(String action) => switch (action) {
@@ -16,6 +17,7 @@ String requestActionLabel(String action) => switch (action) {
       'Return' => 'بازگشت برای اصلاح',
       'Cancelled' => 'لغو درخواست',
       'Edited' => 'ویرایش درخواست',
+      'Resubmitted' => 'اصلاح و ارسال مجدد',
       'System Action Succeeded' => 'اقدام خودکار',
       'System Action Failed' => 'خطای اقدام خودکار',
       'Condition True' || 'Condition False' => 'بررسی شرط',
@@ -232,7 +234,12 @@ Future<Uint8List> buildRequestPdf({
                       ? activity.actor
                       : persianRoleLabel(activity.actor),
               requestActionLabel(activity.action),
-              activity.comment.trim().isEmpty ? '—' : activity.comment.trim(),
+              requestActivityComment(activity.action, activity.comment)
+                      .trim()
+                      .isEmpty
+                  ? '—'
+                  : requestActivityComment(activity.action, activity.comment)
+                      .trim(),
               activity.createdOn == null
                   ? '—'
                   : formatJalaliIso(activity.createdOn!.toIso8601String()),

@@ -21,6 +21,7 @@ import 'request_custom_table.dart';
 import 'request_link_fields.dart';
 import 'request_list_view.dart' show requestPriorityLabels;
 import 'request_print.dart';
+import 'request_returned_banner.dart';
 import 'request_status.dart';
 import 'request_viewer_cards.dart';
 
@@ -676,7 +677,8 @@ class _RequestDetailScaffoldState extends State<RequestDetailScaffold> {
                     formatJalaliDateTimeIso(
                         activity.createdOn!.toIso8601String()),
                 ].join(' · '),
-                comment: activity.comment,
+                comment:
+                    requestActivityComment(activity.action, activity.comment),
                 done: !activity.action.contains('Failed') &&
                     activity.action != 'Reject'),
         ]),
@@ -749,6 +751,8 @@ class _RequestDetailScaffoldState extends State<RequestDetailScaffold> {
           if (!widget.readOnly)
             RequestViewerCards(
                 data: value, tasks: _tasks(), onDecided: load),
+          // WP3 insertion point: returned-for-correction banner and correction button.
+          RequestReturnedBanner(data: value, onCorrect: edit),
           if (detail.statusKey == RequestStatusKey.rejected &&
               detail.rejectionReason.isNotEmpty)
             Container(
