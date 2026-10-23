@@ -185,12 +185,21 @@ class _InfoRowWidget extends StatelessWidget {
 /// page in `RequestScreenRegistry`. Built on [RequestDetailScaffold].
 class RequestDetailPage extends StatelessWidget {
   const RequestDetailPage(
-      {required this.name, required this.repository, this.tasks, super.key});
+      {required this.name,
+      required this.repository,
+      this.tasks,
+      this.readOnly = false,
+      super.key});
+  final bool readOnly;
   final String name;
   final GenericRequestRepository repository;
   final WorkflowTaskRepository? tasks;
 
   @override
   Widget build(BuildContext context) =>
-      RequestDetailScaffold(repository: repository, name: name, tasks: tasks);
+      RequestDetailScaffold(
+          repository: repository,
+          name: name,
+          tasks: tasks,
+          readOnly: readOnly);
 }

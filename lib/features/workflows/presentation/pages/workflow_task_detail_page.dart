@@ -7,10 +7,13 @@ import '../../../../core/utils/persian_server_values.dart';
 import '../../../../core/utils/persian_format.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../../core/widgets/asoud_form.dart';
+import '../../../../core/network/frappe_client.dart';
+import '../../data/generic_request_repository.dart';
 import '../../domain/entities/workflow_definition.dart';
 import '../../domain/entities/workflow_task.dart';
 import '../../domain/repositories/workflow_task_repository.dart';
 import '../cubit/workflow_task_detail_cubit.dart';
+import 'request_flow_pages.dart' show RequestDetailPage;
 import '../widgets/request_custom_table.dart';
 import '../widgets/request_link_fields.dart';
 import '../widgets/workflow_activity_timeline.dart';
@@ -71,6 +74,15 @@ class _TaskDetailView extends StatelessWidget {
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
                         children: [
                           _TaskSummaryCard(rows: _summaryRows(detail)),
+                          if (detail.requestName.isNotEmpty)
+                            Align(
+                              alignment: AlignmentDirectional.centerStart,
+                              child: TextButton.icon(
+                                onPressed: () => _openRequest(context, detail),
+                                icon: const Icon(Icons.description_outlined),
+                                label: const Text('مشاهده درخواست'),
+                              ),
+                            ),
                           if (detail.previousData.isNotEmpty) ...[
                             const SizedBox(height: 16),
                             const AsoudSectionTitle(
@@ -115,6 +127,18 @@ class _TaskDetailView extends StatelessWidget {
           );
         },
       );
+}
+
+void _openRequest(BuildContext context, WorkflowTaskDetail detail) {
+  final repository = GenericRequestRepository(
+      context.read<FrappeApiClient>(), detail.requestCompany);
+  Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => Directionality(
+          textDirection: TextDirection.rtl,
+          child: RequestDetailPage(
+              name: detail.requestName,
+              repository: repository,
+              readOnly: true))));
 }
 
 /// The sticky decision bar. Approve is the primary action; Reject and Return

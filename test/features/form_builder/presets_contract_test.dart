@@ -5,11 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 const _checkedPresetTitles = <String>{
   'درخواست اصلاح تردد',
   'درخواست مساعده',
-  'درخواست تغییر شیفت',
-};
-
-const _skippedPresetTitles = <String>{
   'درخواست گواهی اشتغال به کار',
+  'درخواست تغییر شیفت',
   'درخواست آموزش کارکنان',
   'درخواست تحویل یا عودت تجهیزات',
   'درخواست تسویه‌حساب پرسنل',
@@ -29,8 +26,8 @@ const _fieldKeys = <String>{
   'after_or_equal', 'after_or_equal_message', 'columns', 'min_rows', 'max_rows',
   'formula', 'min_length', 'max_length', 'extensions', 'max_files', 'max_mb',
   'error_message', 'format', 'minute_step', 'fetch_from', 'not_equal',
-  'not_equal_message', 'exclude_self', 'unique',
-  'schedule_of', 'from_field', 'to_field',
+  'not_equal_message', 'exclude_self', 'unique', 'schedule_of', 'from_field',
+  'to_field',
 };
 const _ruleKeys = <String>{'target', 'action', 'join', 'conditions', 'enabled'};
 const _conditionKeys = <String>{'field', 'op', 'value'};
@@ -49,7 +46,6 @@ void main() {
     final presets = formPresets('Request');
     final titles = presets.map((preset) => '${preset['title']}').toSet();
     expect(titles.containsAll(_checkedPresetTitles), isTrue);
-    expect(titles.containsAll(_skippedPresetTitles), isTrue);
 
     for (final preset in presets.where(
       (item) => _checkedPresetTitles.contains('${item['title']}'),
