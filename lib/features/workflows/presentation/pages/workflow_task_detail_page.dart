@@ -15,6 +15,7 @@ import '../../domain/repositories/workflow_task_repository.dart';
 import '../cubit/workflow_task_detail_cubit.dart';
 import 'request_flow_pages.dart' show RequestDetailPage;
 import '../widgets/request_custom_table.dart';
+import '../widgets/receipt_confirmation_bar.dart';
 import '../widgets/request_link_fields.dart';
 import '../widgets/workflow_activity_timeline.dart';
 import '../../../directives/presentation/directive_pages.dart';
@@ -83,6 +84,11 @@ class _TaskDetailView extends StatelessWidget {
                                 label: const Text('مشاهده درخواست'),
                               ),
                             ),
+                          if (_isReceipt(detail)) ...[
+                            const SizedBox(height: 16),
+                            const AsoudSectionTitle(title: 'مشخصات تحویل'),
+                            _PreviousDataCard(section: _receiptSection(detail)),
+                          ],
                           if (detail.previousData.isNotEmpty) ...[
                             const SizedBox(height: 16),
                             const AsoudSectionTitle(
@@ -103,7 +109,8 @@ class _TaskDetailView extends StatelessWidget {
                             ),
                             const SizedBox(height: 12),
                           ],
-                          if (_technicalValues(detail).isNotEmpty) ...[
+                          if (!_isReceipt(detail) &&
+                              _technicalValues(detail).isNotEmpty) ...[
                             const SizedBox(height: 4),
                             _TechnicalDetailsSection(
                                 values: _technicalValues(detail)),
@@ -123,11 +130,29 @@ class _TaskDetailView extends StatelessWidget {
                   ]),
             bottomNavigationBar: detail == null || detail.task.status != 'Open'
                 ? null
-                : _DecisionBar(detail: detail),
+                : _isReceipt(detail)
+                    ? ReceiptConfirmationBar(task: detail.task.id)
+                    : _DecisionBar(detail: detail),
           );
         },
       );
 }
+
+bool _isReceipt(WorkflowTaskDetail detail) =>
+    detail.activityType == 'ConfirmReceipt';
+
+/// The equipment rows of a receipt task; the delivery date is shown in Jalali.
+WorkflowTaskDataSection _receiptSection(WorkflowTaskDetail detail) =>
+    WorkflowTaskDataSection(title: 'مشخصات تحویل', values: [
+      for (final value in detail.documentValues)
+        if ((value.value?.toString().trim() ?? '').isNotEmpty)
+          value.key == 'transaction_date'
+              ? WorkflowTaskDataValue(
+                  key: value.key,
+                  label: value.label,
+                  value: formatJalaliIso(value.value.toString()))
+              : value,
+    ]);
 
 void _openRequest(BuildContext context, WorkflowTaskDetail detail) {
   final repository = GenericRequestRepository(
