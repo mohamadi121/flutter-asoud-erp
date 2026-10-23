@@ -6,6 +6,8 @@
 - Ready HR request templates (settings → forms → create from template): traffic correction, salary advance, employment certificate, shift change, settlement, training, equipment delivery or return. Raw reusable forms only: applicant data comes from the signed-in user's Employee (`default_source`), no fixed approvers or workflow.
 - New request: a bottom sheet with module, subgroup, search and row descriptions; offline rows without a real form show a message instead of opening a wrong form.
 - Organization chart: employee photos load lazily and are cached per session.
+- Organization workspace: native units (create, edit, move, safe delete with a dependency check first), visual chart report, Excel units sheet. Managing the structure now requires System Manager or HR Manager, matching the server.
+- Organization: one employee can no longer be seated in two positions (checked before saving, and the picker hides employees seated elsewhere); the units list is cached for offline use and loaded apart from personnel; the visual report still renders when units fail to load; employee photos load at most four at a time; position history shows employee names; a template unit whose title already exists is matched to that unit; failures name their kind in Persian.
 - Requires the backend change that accepts `designation` and `joining_date` as default sources (frappe-erp-next-2 PR #19).
 
 ## 0.28.0+49
