@@ -15,6 +15,7 @@ import 'form_runtime.dart';
 import 'presets/hr_traffic_correction.dart';
 import 'presets/hr_salary_advance.dart';
 import 'presets/hr_employment_certificate.dart';
+import 'presets/hr_shift_change.dart';
 
 class VersionedFormsPage extends StatefulWidget {
   const VersionedFormsPage({
@@ -1085,6 +1086,7 @@ List<FormMap> formPresets(String kind) {
     return [
       hrTrafficCorrectionPreset(),
       employmentCertificatePreset(),
+      hrShiftChangePreset(),
       for (final item in [
         (
           'درخواست عمومی',
