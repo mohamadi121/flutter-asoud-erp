@@ -30,6 +30,8 @@ class _RequestFieldEditorPageState extends State<RequestFieldEditorPage> {
       TextEditingController(text: initial?.defaultValue ?? '');
   late final options =
       TextEditingController(text: initial?.options.join('\n') ?? '');
+  late final rowsFromRequest =
+      TextEditingController(text: initial?.rowsFromRequest ?? '');
   late final columns = [
     for (final column
         in initial?.columns ?? const <WorkflowFormFieldDefinition>[])
@@ -57,7 +59,8 @@ class _RequestFieldEditorPageState extends State<RequestFieldEditorPage> {
       technicalKey,
       help,
       defaultValue,
-      options
+      options,
+      rowsFromRequest
     ]) {
       controller.dispose();
     }
@@ -143,6 +146,9 @@ class _RequestFieldEditorPageState extends State<RequestFieldEditorPage> {
       columns: selectedType == 'Table'
           ? columns.map((column) => column.value).toList()
           : const [],
+      rowsFromRequest: selectedType == 'Table' && rowsFromRequest.text.trim().isNotEmpty
+          ? rowsFromRequest.text.trim()
+          : null,
     ));
   }
 
@@ -294,6 +300,13 @@ class _RequestFieldEditorPageState extends State<RequestFieldEditorPage> {
   }
 
   List<Widget> _tableEditors() => [
+        TextFormField(
+            controller: rowsFromRequest,
+            textDirection: TextDirection.ltr,
+            decoration: const InputDecoration(
+                labelText: 'کلید جدول درخواست',
+                helperText: 'ردیف‌های درخواست را فقط‌خواندنی در این مرحله نمایش می‌دهد.')),
+        const SizedBox(height: 12),
         const Text('ستون‌های جدول',
             style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900)),
         const SizedBox(height: 5),
@@ -371,7 +384,22 @@ class _RequestFieldEditorPageState extends State<RequestFieldEditorPage> {
                           value: column.required,
                           onChanged: (value) =>
                               setState(() => column.required = value)),
+                      const SizedBox(width: 12),
+                      const Text('فقط‌خواندنی',
+                          style: TextStyle(fontSize: 10, color: AsoudColors.muted)),
+                      Switch(
+                          value: column.readonly,
+                          onChanged: (value) =>
+                              setState(() => column.readonly = value)),
                     ]),
+                    if (column.type == 'Number' || column.type == 'Currency')
+                      TextFormField(
+                          controller: column.maxFromRow,
+                          textDirection: TextDirection.ltr,
+                          decoration: const InputDecoration(
+                              hintText: 'حداکثر از ستون درخواست (مانند quantity)',
+                              isDense: true),
+                          style: const TextStyle(fontSize: 11)),
                     if (column.type == 'Choice')
                       TextFormField(
                           controller: column.options,
@@ -427,17 +455,22 @@ class _ColumnDraft {
         required = field.required,
         existing = field.label.isNotEmpty,
         label = TextEditingController(text: field.label),
-        options = TextEditingController(text: field.options.join('\n'));
+        options = TextEditingController(text: field.options.join('\n')),
+        maxFromRow = TextEditingController(text: field.maxFromRow ?? ''),
+        readonly = field.readonly;
   final String key;
   final WorkflowFormFieldDefinition source;
   final bool existing;
   String type;
   bool required;
-  final TextEditingController label, options;
+  bool readonly;
+  final TextEditingController label, options, maxFromRow;
   WorkflowFormFieldDefinition get value => source.copyWith(
       label: label.text.trim(),
       type: type,
       required: required,
+      readonly: readonly,
+      maxFromRow: maxFromRow.text.trim().isEmpty ? null : maxFromRow.text.trim(),
       options: type == 'Choice'
           ? options.text
               .split('\n')
@@ -448,5 +481,6 @@ class _ColumnDraft {
   void dispose() {
     label.dispose();
     options.dispose();
+    maxFromRow.dispose();
   }
 }

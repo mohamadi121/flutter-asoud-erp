@@ -366,6 +366,13 @@ class WorkflowFormFieldDefinition extends Equatable {
     this.defaultSource,
     this.requiredBySetting,
     this.sensitive = false,
+    this.maxFromRequest,
+    this.minValueExclusive,
+    this.reasonRequiredIfLessThan,
+    this.reasonField,
+    this.rowsFromRequest,
+    this.maxFromRow,
+    this.readonly = false,
   });
 
   factory WorkflowFormFieldDefinition.fromMap(Map<dynamic, dynamic> map) =>
@@ -410,6 +417,13 @@ class WorkflowFormFieldDefinition extends Equatable {
         defaultSource: _text(map['default_source']),
         requiredBySetting: _text(map['required_by_setting']),
         sensitive: map['sensitive'] == true || map['sensitive'] == 1,
+        maxFromRequest: _text(map['max_from_request']),
+        minValueExclusive: map['min_value_exclusive'] as num?,
+        reasonRequiredIfLessThan: _text(map['reason_required_if_less_than']),
+        reasonField: _text(map['reason_field']),
+        rowsFromRequest: _text(map['rows_from_request']),
+        maxFromRow: _text(map['max_from_row']),
+        readonly: map['readonly'] == true || map['readonly'] == 1,
       );
 
   static String? _text(Object? value) {
@@ -451,6 +465,10 @@ class WorkflowFormFieldDefinition extends Equatable {
   final String? defaultSource;
   final String? requiredBySetting;
   final bool sensitive;
+  final String? maxFromRequest, reasonRequiredIfLessThan, reasonField;
+  final String? rowsFromRequest, maxFromRow;
+  final num? minValueExclusive;
+  final bool readonly;
 
   /// Persian label of a `Choice` value, falling back to the value itself.
   String optionLabel(String value) => optionLabels[value] ?? value;
@@ -476,6 +494,14 @@ class WorkflowFormFieldDefinition extends Equatable {
         if (minDate != null) 'min_date': minDate,
         if (maxLength != null) 'max_length': maxLength,
         if (rowOptions != null) 'row_options': rowOptions!.toMap(),
+        if (maxFromRequest != null) 'max_from_request': maxFromRequest,
+        if (minValueExclusive != null) 'min_value_exclusive': minValueExclusive,
+        if (reasonRequiredIfLessThan != null)
+          'reason_required_if_less_than': reasonRequiredIfLessThan,
+        if (reasonField != null) 'reason_field': reasonField,
+        if (rowsFromRequest != null) 'rows_from_request': rowsFromRequest,
+        if (maxFromRow != null) 'max_from_row': maxFromRow,
+        if (readonly) 'readonly': true,
         if (defaultSource != null) 'default_source': defaultSource,
         if (requiredBySetting != null) 'required_by_setting': requiredBySetting,
         if (sensitive) 'sensitive': true,
@@ -491,6 +517,8 @@ class WorkflowFormFieldDefinition extends Equatable {
     String? helpText,
     bool? showInList,
     List<WorkflowFormFieldDefinition>? columns,
+    String? maxFromRow,
+    bool? readonly,
   }) =>
       WorkflowFormFieldDefinition(
         key: key ?? this.key,
@@ -515,6 +543,13 @@ class WorkflowFormFieldDefinition extends Equatable {
         defaultSource: defaultSource,
         requiredBySetting: requiredBySetting,
         sensitive: sensitive,
+        maxFromRequest: maxFromRequest,
+        minValueExclusive: minValueExclusive,
+        reasonRequiredIfLessThan: reasonRequiredIfLessThan,
+        reasonField: reasonField,
+        rowsFromRequest: rowsFromRequest,
+        maxFromRow: maxFromRow ?? this.maxFromRow,
+        readonly: readonly ?? this.readonly,
       );
 
   @override
@@ -541,5 +576,12 @@ class WorkflowFormFieldDefinition extends Equatable {
         defaultSource,
         requiredBySetting,
         sensitive,
+        maxFromRequest,
+        minValueExclusive,
+        reasonRequiredIfLessThan,
+        reasonField,
+        rowsFromRequest,
+        maxFromRow,
+        readonly,
       ];
 }
