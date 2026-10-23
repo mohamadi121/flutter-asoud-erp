@@ -69,6 +69,12 @@ void main() {
     expect(fields.where((field) => field.containsKey('system_source')), isEmpty);
     expect(fields.where((field) => field['key'] == 'training_course').single['source'], 'Training Event');
     expect(fields.where((f) => f['fetch_from'] == 'training_course.start_time'), hasLength(1));
+    expect(fields.map((f) => f['fetch_from']), containsAll([
+      'training_course.course',
+      'training_course.trainer_name',
+      'training_course.location',
+      'training_course.employee_count',
+    ]));
     for (final key in ['request_type', 'delivery_method', 'cost_status']) {
       expect(fields.firstWhere((field) => field['key'] == key)['style'], 'radio');
     }

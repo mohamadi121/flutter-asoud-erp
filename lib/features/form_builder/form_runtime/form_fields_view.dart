@@ -290,6 +290,7 @@ class FormFieldsView extends StatelessWidget {
     final readonlyWidget = buildReadonlyDisplayInput(
       f: f,
       value: v,
+      values: computed,
       label: label,
       editable: editable,
     );
@@ -346,6 +347,10 @@ class FormFieldsView extends StatelessWidget {
       required: required,
       values: computed,
       onChanged: set,
+      nextDay: computed['${f['key']}__next_day'] == true,
+      onNextDayChanged: f['next_day_allowed'] == true
+          ? (selected) => onChanged({...computed, '${f['key']}__next_day': selected})
+          : null,
     );
     if (dateTimeWidget != null) {
       return _withAutomaticPlaceholder(f, v, dateTimeWidget);

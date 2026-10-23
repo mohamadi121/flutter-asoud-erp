@@ -79,6 +79,38 @@ FormMap hrTrainingPreset() => {
               'span': 2,
             },
             {
+              'key': 'course_title',
+              'label': 'عنوان دوره',
+              'type': 'Text',
+              'readonly': true,
+              'fetch_from': 'training_course.course',
+              'span': 2,
+            },
+            {
+              'key': 'course_trainer',
+              'label': 'مدرس',
+              'type': 'Text',
+              'readonly': true,
+              'fetch_from': 'training_course.trainer_name',
+              'span': 1,
+            },
+            {
+              'key': 'course_location',
+              'label': 'محل برگزاری',
+              'type': 'Text',
+              'readonly': true,
+              'fetch_from': 'training_course.location',
+              'span': 1,
+            },
+            {
+              'key': 'course_employee_count',
+              'label': 'تعداد شرکت‌کنندگان',
+              'type': 'Integer',
+              'readonly': true,
+              'fetch_from': 'training_course.employee_count',
+              'span': 1,
+            },
+            {
               'key': 'course_start_time',
               'label': 'ساعت شروع دوره',
               'type': 'Time',
@@ -226,6 +258,15 @@ FormMap hrTrainingPreset() => {
         },
       ],
       'rules': <FormMap>[
+        for (final target in <String>['course_title', 'course_trainer', 'course_location', 'course_employee_count'])
+          {
+            'target': target,
+            'action': 'visible',
+            'join': 'and',
+            'conditions': <FormMap>[
+              {'field': 'request_type', 'op': 'eq', 'value': 'existing_course'},
+            ],
+          },
         {
           'target': 'course_type',
           'action': 'visible',

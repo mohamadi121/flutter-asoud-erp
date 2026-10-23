@@ -7,10 +7,26 @@ import '../rules_engine.dart';
 Widget? buildReadonlyDisplayInput({
   required FormMap f,
   required dynamic value,
+  required FormMap values,
   required String label,
   required bool editable,
 }) {
   final type = '${f['type']}';
+  final compare = formMap(f['compare']);
+  if (type == 'Display' && compare.isNotEmpty) {
+    String shown(dynamic raw) => isEmptyValue(raw) ? 'ثبت نشده' : toPersianDigits('$raw');
+    final current = shown(values[compare['current']]);
+    final proposed = shown(values[compare['proposed']]);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEAF4FF),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text('ساعت ثبت‌شده $current ← پیشنهادی $proposed'),
+    );
+  }
   if (type == 'Formula' || type == 'Display' || (!editable && type != 'Table')) {
     final text = ['Date', 'DateTime'].contains(type) && !isEmptyValue(value)
         ? formatJalaliDateTimeIso('$value')

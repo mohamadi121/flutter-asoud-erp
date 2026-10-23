@@ -23,6 +23,11 @@ void main() {
         fields.where((field) => field['required'] == true).map((field) => field['key']),
         containsAll(['correction_type', 'attendance_date', 'correction_reason']),
       );
+      expect(fields.where((field) => field['next_day_allowed'] == true).map((field) => field['key']),
+          containsAll(['proposed_check_in_time', 'proposed_check_out_time',
+            'proposed_correct_in_time', 'proposed_correct_out_time']));
+      expect(fields.firstWhere((field) => field['key'] == 'in_time_comparison')['compare'],
+          {'current': 'current_in_time', 'proposed': 'proposed_correct_in_time'});
       expect(
         fields.firstWhere((field) => field['key'] == 'correction_type')['options'],
         equals([

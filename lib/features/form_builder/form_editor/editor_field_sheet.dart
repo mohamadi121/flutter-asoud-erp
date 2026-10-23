@@ -130,7 +130,7 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
       'min_date', 'max_date', 'min_time', 'max_time', 'options', 'formula',
       'output_type', 'extensions', 'max_files', 'max_mb', 'allow_delete',
       'readonly', 'default', 'default_source', 'exclude_self', 'fetch_from',
-      'not_equal', 'not_equal_message',
+      'not_equal', 'not_equal_message', 'compare', 'next_day_allowed',
     };
     setState(() {
       for (final key in typeSpecificKeys) {
@@ -1167,6 +1167,7 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
             {
               '': 'مقدار ثابت یا خالی',
               if (f['type'] == 'Date') 'today': 'تاریخ امروز',
+              if (f['type'] == 'Date') 'contract_start': 'شروع قرارداد جاری (در نبود قرارداد: شروع به کار)',
               if (['Text', 'Display'].contains(f['type'])) ...{
                 'user': 'کاربر ثبت‌کننده',
                 'company': 'دفتر جاری',
@@ -1198,6 +1199,18 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
             fields: schemaFields(widget.schema),
             set: set,
           ),
+          ...buildCompareConfig(
+            f: f,
+            fields: schemaFields(widget.schema),
+            set: set,
+          ),
+          if (f['type'] == 'Time')
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('امکان انتخاب روز بعد', style: TextStyle(fontSize: 13)),
+              value: f['next_day_allowed'] == true,
+              onChanged: (v) => set('next_day_allowed', v ? true : null),
+            ),
           if (widget.column) uniqueColumnSwitch(f, set),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,

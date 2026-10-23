@@ -408,7 +408,7 @@ void main() {
       expect(formSources['Training Event'], 'دوره آموزشی');
       expect(formSources['Asset'], 'دارایی تحویل‌شده به من');
       expect(formLinkFilters['Attendance'], containsPair('attendance_date', 'تاریخ حضور'));
-      expect(formFetchAttributes['Training Event']!.keys, ['start_time', 'end_time', 'type', 'level', 'training_program']);
+      expect(formFetchAttributes['Training Event']!.keys, ['start_time', 'end_time', 'type', 'level', 'training_program', 'course', 'location', 'trainer_name', 'employee_count']);
     });
 
     testWidgets('fetch_from picker: link field then attribute; saves the contract value', (tester) async {
