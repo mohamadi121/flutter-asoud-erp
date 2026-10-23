@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Cartable: an older server that answers with the plain list no longer breaks the cartable (the partial-list notice is shown); the offline-preview wrapper now forwards the complete-list capability so the notice disappears when every page was fetched.
+- Directive reminder: the time is sent with the device offset and converted to the organization time on the server; reminders are sent only while the server scheduler is running.
 - Form builder: section presentation, collapsible sections, radio choices, date ordering and repeatable-table validation are supported at runtime.
 - Ready HR request templates (settings → forms → create from template): traffic correction, salary advance, employment certificate, shift change, settlement, training, equipment delivery or return. Raw reusable forms only: applicant data comes from the signed-in user's Employee (`default_source`), no fixed approvers or workflow.
 - New request: a bottom sheet with module, subgroup, search and row descriptions; offline rows without a real form show a message instead of opening a wrong form.
