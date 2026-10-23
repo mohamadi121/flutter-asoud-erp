@@ -119,6 +119,19 @@ void main() {
     await client.sessionChanges.close();
   });
 
+  test('at most four photo requests are in flight at once', () async {
+    client.gate = Completer<void>();
+    final reads = [
+      for (var i = 0; i < 10; i++)
+        repository.employeePhoto('شرکت', 'employee:E$i'),
+    ];
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    expect(client.photoRequests, hasLength(OrganizationRepository.maxPhotoRequests));
+    client.gate!.complete();
+    await Future.wait(reads);
+    expect(client.photoRequests, hasLength(10));
+  });
+
   test('a photo is fetched once and later reads come from the cache', () async {
     final first = await repository.employeePhoto('شرکت', 'employee:EMP-1');
     final second = await repository.employeePhoto('شرکت', 'employee:EMP-1');

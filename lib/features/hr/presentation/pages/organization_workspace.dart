@@ -1,7 +1,14 @@
 part of 'organization_page.dart';
 
-Map<String, dynamic> _templateOrganizationPayload(
-    OrganizationTemplate template) {
+@visibleForTesting
+Map<String, dynamic> templateOrganizationPayload(OrganizationTemplate template,
+    {List<Map<String, dynamic>> existingUnits = const []}) {
+  // A template unit whose title already exists as a unit is matched to it by
+  // its real id instead of being created again.
+  final existing = <String, String>{
+    for (final u in existingUnits)
+      if (u['disabled'] != 1) '${u['department_name']}': '${u['name']}'
+  };
   final departments = template.positions
       .map((p) => p.department)
       .where((d) => d.isNotEmpty)
@@ -15,7 +22,12 @@ Map<String, dynamic> _templateOrganizationPayload(
     'template_title': template.title,
     'units': [
       for (final title in departments)
-        {'code': ids[title], 'title': title, 'parent': ''}
+        {
+          'code': ids[title],
+          'title': title,
+          'parent': '',
+          if (existing.containsKey(title)) 'name': existing[title]
+        }
     ],
     'rows': [
       for (final p in template.positions)
@@ -52,7 +64,7 @@ class _OrganizationImportReviewState extends State<_OrganizationImportReview> {
     try {
       final c = context.read<OrganizationCubit>();
       if (c.state.snapshot.pending) {
-        throw StateError(
+        throw const FormatException(
             'ابتدا پیش‌نویس چارت را همگام یا با نسخه سرور مقایسه کنید.');
       }
       final result =
@@ -60,7 +72,11 @@ class _OrganizationImportReviewState extends State<_OrganizationImportReview> {
       if (mounted) setState(() => preview = result);
     } catch (e) {
       if (mounted) {
-        setState(() => error = e is ApiException ? e.message : e.toString());
+        setState(() => error = e is ApiException
+            ? e.message
+            : e is FormatException && e.message.isNotEmpty
+                ? e.message
+                : 'پیش‌نمایش ورود آماده نشد؛ دوباره تلاش کنید.');
       }
     } finally {
       if (mounted) setState(() => busy = false);
@@ -397,16 +413,7 @@ class _PositionDetails extends StatelessWidget {
                     height: 300,
                     child: TabBarView(children: [
                       _Occupants(ids: row.activeEmployees),
-                      ListView(children: [
-                        if (row.history.isEmpty)
-                          const ListTile(title: Text('سابقه‌ای ثبت نشده است.')),
-                        for (final entry in row.history)
-                          ListTile(
-                              title: Text('${entry['employee']}'
-                                  .replaceFirst('employee:', '')),
-                              subtitle: Text(
-                                  'شروع: ${_assignmentDate(entry['started_at'])}\nپایان: ${entry['ended_at'] == null ? 'فعال' : _assignmentDate(entry['ended_at'])}')),
-                      ]),
+                      _AssignmentHistory(history: row.history),
                     ])),
               ])),
           const _OrgDetailSection(title: 'جایگاه‌های زیرمجموعه'),
@@ -421,6 +428,41 @@ class _PositionDetails extends StatelessWidget {
                     _PositionDetails(code: child.code, canManage: canManage))),
         ]);
       });
+}
+
+class _AssignmentHistory extends StatefulWidget {
+  const _AssignmentHistory({required this.history});
+  final List<Map<String, dynamic>> history;
+  @override
+  State<_AssignmentHistory> createState() => _AssignmentHistoryState();
+}
+
+class _AssignmentHistoryState extends State<_AssignmentHistory> {
+  late Future<List<OrganizationEmployee>> people;
+  @override
+  void initState() {
+    super.initState();
+    final cubit = context.read<OrganizationCubit>();
+    people = cubit.repository.employees(cubit.company);
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      FutureBuilder<List<OrganizationEmployee>>(
+          future: people,
+          builder: (context, snap) => ListView(children: [
+                if (widget.history.isEmpty)
+                  const ListTile(title: Text('سابقه‌ای ثبت نشده است.')),
+                for (final entry in widget.history)
+                  ListTile(
+                      title: Text(snap.data
+                              ?.where((p) => p.id == entry['employee'])
+                              .map((p) => p.displayName)
+                              .firstOrNull ??
+                          'پرسنل منتسب'),
+                      subtitle: Text(
+                          'شروع: ${_assignmentDate(entry['started_at'])}\nپایان: ${entry['ended_at'] == null ? 'فعال' : _assignmentDate(entry['ended_at'])}')),
+              ]));
 }
 
 class _Occupants extends StatefulWidget {
@@ -500,10 +542,19 @@ class _OrganizationUnitsState extends State<_OrganizationUnits> {
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
                   return Center(
-                      child: TextButton(
-                          onPressed: () => setState(_reload),
-                          child: const Text(
-                              'دریافت واحدها ناموفق بود؛ تلاش دوباره')));
+                      child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(failureMessage(snapshot.error),
+                                    key: const ValueKey('organization-units-error'),
+                                    textAlign: TextAlign.center),
+                                TextButton(
+                                    onPressed: () => setState(_reload),
+                                    child: const Text(
+                                        'دریافت واحدها ناموفق بود؛ تلاش دوباره')),
+                              ])));
                 }
                 if (!snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
@@ -722,6 +773,9 @@ class _UnitFormState extends State<_UnitForm> {
           ])));
 }
 
+/// Blocks a second delete flow while one is already checking or deleting.
+bool _unitDeleteRunning = false;
+
 class _UnitDetails extends StatelessWidget {
   const _UnitDetails(
       {required this.unit, required this.units, required this.canManage});
@@ -839,7 +893,8 @@ class _UnitDetails extends StatelessWidget {
                       onPressed: () => Navigator.pop(c, true),
                       child: const Text('بررسی وابستگی‌ها'))
                 ]));
-    if (yes != true || !context.mounted) return;
+    if (yes != true || !context.mounted || _unitDeleteRunning) return;
+    _unitDeleteRunning = true;
     try {
       final c = context.read<OrganizationCubit>();
       final preview = await c.repository.previewDeleteUnit(
@@ -874,6 +929,8 @@ class _UnitDetails extends StatelessWidget {
       if (context.mounted) {
         _orgMessage(context, e is ApiException ? e.message : 'حذف تأیید نشد.');
       }
+    } finally {
+      _unitDeleteRunning = false;
     }
   }
 }

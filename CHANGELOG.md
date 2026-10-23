@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+
+- فیلدهای فرم اکنون می‌توانند به‌عنوان «اطلاعات حساس» علامت‌گذاری شوند؛ دلیل رد یا بازگشت همیشه الزامی است و اقدام تأیید درخواست برای مالک نمایش داده نمی‌شود.
 - Cartable task: «مشاهده درخواست» opens the full request read-only (no edit, cancel or decision controls).
 - Request detail: a «وضعیت درخواست من» card for the requester and an «اقدام» card (approve, return, reject by the stage settings) for the user holding the open task.
 
@@ -19,6 +21,8 @@
 - New request: a bottom sheet with module, subgroup, search and row descriptions; offline rows without a real form show a message instead of opening a wrong form.
 - Organization chart: employee photos load lazily and are cached per session.
 - HR request templates now use the record sources: traffic correction picks the real attendance record and shows the recorded time, shift change uses shift types and excludes the user from the colleague list, training picks a scheduled training event, equipment return picks assigned assets without repeats, settlement shows the personnel code automatically.
+- Organization workspace: native units (create, edit, move, safe delete with a dependency check first), visual chart report, Excel units sheet. Managing the structure now requires System Manager or HR Manager, matching the server.
+- Organization: one employee can no longer be seated in two positions (checked before saving, and the picker hides employees seated elsewhere); the units list is cached for offline use and loaded apart from personnel; the visual report still renders when units fail to load; employee photos load at most four at a time; position history shows employee names; a template unit whose title already exists is matched to that unit; failures name their kind in Persian.
 - Requires the backend change that accepts `designation` and `joining_date` as default sources (frappe-erp-next-2 PR #19).
 
 ## 0.28.0+49
