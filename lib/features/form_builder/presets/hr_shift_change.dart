@@ -38,8 +38,8 @@ FormMap hrShiftChangePreset() => {
             {
               'key': 'applicant_position',
               'label': 'سمت سازمانی',
-              'type': 'Display',
-              'default': 'اطلاعات پرسنلی در دسترس نیست',
+              'type': 'Text',
+              'default_source': 'designation',
               'readonly': true,
               'span': 1,
             },
@@ -57,6 +57,7 @@ FormMap hrShiftChangePreset() => {
               'type': 'Select',
               'default': 'self_change',
               'required': true,
+              'style': 'radio',
               'options': <FormMap>[
                 {'id': 'self_change', 'label': 'تغییر شیفت خودم'},
                 {'id': 'swap_with_colleague', 'label': 'جابه‌جایی شیفت با همکار'},
@@ -68,6 +69,7 @@ FormMap hrShiftChangePreset() => {
               'type': 'Select',
               'default': 'single_day',
               'required': true,
+              'style': 'radio',
               'options': <FormMap>[
                 {'id': 'single_day', 'label': 'یک روز'},
                 {'id': 'date_range', 'label': 'بازه زمانی'},
@@ -77,7 +79,6 @@ FormMap hrShiftChangePreset() => {
               'key': 'change_date',
               'label': 'تاریخ تغییر',
               'type': 'Date',
-              'required': true,
               'span': 2,
             },
             {
@@ -90,38 +91,23 @@ FormMap hrShiftChangePreset() => {
               'key': 'end_date',
               'label': 'تاریخ پایان',
               'type': 'Date',
+              'after_or_equal': 'start_date',
+              'after_or_equal_message': 'تاریخ پایان نباید قبل از تاریخ شروع باشد.',
               'span': 1,
-            },
-            {
-              'key': 'current_shift',
-              'label': 'شیفت فعلی',
-              'type': 'Display',
-              'default': 'برنامه شیفت برای این تاریخ در دسترس نیست.',
-              'readonly': true,
-              'span': 2,
             },
             {
               'key': 'requested_shift',
               'label': 'شیفت جایگزین درخواستی',
               'type': 'Text',
-              'source_mode': 'asoud',
-              'source': 'Shift',
               'required': true,
               'span': 2,
+              'help': 'نام یا شناسه شیفت درخواستی را وارد کنید؛ اعتبارسنجی و اعمال تغییر به اتصال برنامه‌ریزی شیفت نیاز دارد.',
             },
             {
               'key': 'exchange_colleague',
               'label': 'همکار طرف جابه‌جایی',
               'type': 'Link',
               'source': 'Employee',
-              'span': 2,
-            },
-            {
-              'key': 'colleague_schedule_note',
-              'label': 'برنامه همکار',
-              'type': 'Display',
-              'default': 'برنامه همکار پس از انتخاب از منبع معتبر بررسی می‌شود.',
-              'readonly': true,
               'span': 2,
             },
           ],
@@ -166,16 +152,30 @@ FormMap hrShiftChangePreset() => {
           'fields': <FormMap>[
             {
               'key': 'workflow_note',
-              'label': 'راهنمای مسیر درخواست',
+              'label': 'گردش تأیید',
               'type': 'Display',
-              'default': 'مسیر و مسئولان رسیدگی از گردش کار پیکربندی‌شده تعیین می‌شوند.',
-              'readonly': true,
+              'default': 'مسیر بررسی از گردش کار تعریف‌شده تعیین می‌شود.',
+              'span': 2,
+            },
+            {
+              'key': 'preview_notice',
+              'label': 'یادآوری',
+              'type': 'Display',
+              'default': 'این صفحه پیش‌نمایش درخواست تغییر شیفت است. ثبت یا تأیید درخواست به‌تنهایی برنامه کاری را تغییر نمی‌دهد.',
               'span': 2,
             },
           ],
         },
       ],
       'rules': <FormMap>[
+        {
+          'target': 'change_date',
+          'action': 'required',
+          'join': 'and',
+          'conditions': <FormMap>[
+            {'field': 'duration_mode', 'op': 'eq', 'value': 'single_day'},
+          ],
+        },
         {
           'target': 'change_date',
           'action': 'visible',
@@ -227,14 +227,6 @@ FormMap hrShiftChangePreset() => {
         {
           'target': 'exchange_colleague',
           'action': 'required',
-          'join': 'and',
-          'conditions': <FormMap>[
-            {'field': 'change_type', 'op': 'eq', 'value': 'swap_with_colleague'},
-          ],
-        },
-        {
-          'target': 'colleague_schedule_note',
-          'action': 'visible',
           'join': 'and',
           'conditions': <FormMap>[
             {'field': 'change_type', 'op': 'eq', 'value': 'swap_with_colleague'},
