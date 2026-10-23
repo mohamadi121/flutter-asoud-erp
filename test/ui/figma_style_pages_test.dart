@@ -60,6 +60,8 @@ void main() {
     expect(find.text('خانه'), findsOneWidget);
     await tester.dragUntilVisible(find.text('دسترسی سریع'),
         find.byType(Scrollable).first, const Offset(0, -200));
+    await tester.dragUntilVisible(find.text('گزارش‌ها'),
+        find.byType(Scrollable).first, const Offset(0, -200));
     expect(find.text('گزارش‌ها'), findsWidgets);
     expect(tester.takeException(), isNull);
     await tester.binding.setSurfaceSize(null);
