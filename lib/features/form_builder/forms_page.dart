@@ -13,6 +13,7 @@ import 'form_editor.dart';
 import 'form_repository.dart';
 import 'form_runtime.dart';
 import 'presets/hr_traffic_correction.dart';
+import 'presets/hr_salary_advance.dart';
 
 class VersionedFormsPage extends StatefulWidget {
   const VersionedFormsPage({
@@ -1165,6 +1166,7 @@ List<FormMap> formPresets(String kind) {
             },
           ],
         },
+      hrSalaryAdvancePreset(),
     ];
   }
   return [
