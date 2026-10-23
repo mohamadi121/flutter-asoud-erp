@@ -28,6 +28,10 @@ const formFetchAttributes = <String, Map<String, String>>{
     'type': 'نوع',
     'level': 'سطح',
     'training_program': 'دوره',
+    'course': 'عنوان دوره',
+    'location': 'محل برگزاری',
+    'trainer_name': 'مدرس',
+    'employee_count': 'تعداد شرکت‌کنندگان',
   },
   'Asset': {
     'asset_name': 'نام دارایی',
@@ -158,7 +162,13 @@ String? notEqualProblem(
       .cast<FormMap?>()
       .firstOrNull;
   if (other != null && !otherVisible(other)) return null;
-  if (_normal(mine) != _normal(theirs)) return null;
+  if (field['type'] == 'Time' && other?['type'] == 'Time') {
+    final mineNext = values['${field['key']}__next_day'] == true;
+    final otherNext = values['${otherKey}__next_day'] == true;
+    if (_normal(mine) != _normal(theirs) || mineNext != otherNext) return null;
+  } else if (_normal(mine) != _normal(theirs)) {
+    return null;
+  }
   final custom = '${field['not_equal_message'] ?? ''}'.trim();
   return custom.isEmpty ? defaultNotEqualMessage : custom;
 }

@@ -27,7 +27,7 @@ const _fieldKeys = <String>{
   'formula', 'min_length', 'max_length', 'extensions', 'max_files', 'max_mb',
   'error_message', 'format', 'minute_step', 'fetch_from', 'not_equal',
   'not_equal_message', 'exclude_self', 'unique', 'schedule_of', 'from_field',
-  'to_field',
+  'to_field', 'compare', 'next_day_allowed',
 };
 const _ruleKeys = <String>{'target', 'action', 'join', 'conditions', 'enabled'};
 const _conditionKeys = <String>{'field', 'op', 'value'};
@@ -38,7 +38,7 @@ const _sources = <String>{
 };
 const _defaultSources = <String>{
   'user', 'company', 'today', 'employee', 'department', 'designation',
-  'joining_date', 'employee_number', 'default_shift',
+  'joining_date', 'employee_number', 'default_shift', 'contract_start',
 };
 
 void main() {

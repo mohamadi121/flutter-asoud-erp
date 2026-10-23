@@ -408,7 +408,7 @@ void main() {
       expect(formSources['Training Event'], 'دوره آموزشی');
       expect(formSources['Asset'], 'دارایی تحویل‌شده به من');
       expect(formLinkFilters['Attendance'], containsPair('attendance_date', 'تاریخ حضور'));
-      expect(formFetchAttributes['Training Event']!.keys, ['start_time', 'end_time', 'type', 'level', 'training_program']);
+      expect(formFetchAttributes['Training Event']!.keys, ['start_time', 'end_time', 'type', 'level', 'training_program', 'course', 'location', 'trainer_name', 'employee_count']);
     });
 
     testWidgets('fetch_from picker: link field then attribute; saves the contract value', (tester) async {
@@ -511,5 +511,15 @@ void main() {
       await tester.pumpAndSettle();
       expect(saved?['default_source'], 'employee_number');
     });
+  });
+
+  test('not_equal on Time fields tells «08:00» from «08:00 روز بعد» without a date field', () {
+    final cur = {'key': 'cur', 'label': 'فعلی', 'type': 'Time'};
+    final prop = {'key': 'prop', 'label': 'پیشنهادی', 'type': 'Time', 'next_day_allowed': true, 'not_equal': 'cur'};
+    final schema = {'sections': [{'id': 's', 'fields': [cur, prop]}]};
+    String? problem(Map<String, dynamic> values) =>
+        notEqualProblem(prop, values, otherVisible: (_) => true, schema: schema);
+    expect(problem({'cur': '08:00', 'prop': '08:00'}), defaultNotEqualMessage);
+    expect(problem({'cur': '08:00', 'prop': '08:00', 'prop__next_day': true}), isNull);
   });
 }

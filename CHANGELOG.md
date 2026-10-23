@@ -14,6 +14,9 @@
 - فرم «درخواست تغییر شیفت» اکنون برنامه واقعی روزانه خود و همکار را نمایش می‌دهد و
   شیفت‌های پیشنهادی را به‌صورت جدول تاریخ و نوع شیفت دریافت می‌کند.
 
+- Form builder: time comparison boxes, a «روز بعد» toggle for overnight traffic requests,
+  current-contract start defaults with an explicit joining-date fallback, and native HRMS
+  course, trainer, venue and attendee information in the training request template.
 - Form builder: record sources. New Link sources (attendance record, shift type, training event, assigned asset), «خود کاربر قابل انتخاب نباشد» on Employee links, read-only fields filled from the chosen record (`fetch_from`, picked in the editor as «مقدار از فیلد»), dependent links that reset when their filter field changes, `not_equal` («نباید برابر با فیلد») and unique table columns («تکراری مجاز نیست»), default sources «کد پرسنلی» and «شیفت پیش‌فرض». Needs the matching backend change (`forms.get_link_options` rows `{name, label, extra}` and `meta.reason`); the new lists are server-only and say so in the offline preview.
 - Request print/PDF: values are printed as the screen shows them (Jalali dates, choice labels), with the rejection or return reason, decision comments and actor full names.
 - Request detail: summary card plus three tabs «جزئیات | گردش کار | سوابق». The workflow tab lists every real step with its responsible person, referral and decision time; the history tab shows actors by full name. Empty attachments now read «پیوستی ثبت نشده است.». Needs the backend `stages` and `actor_name` fields (until then the old current-stage row is shown).

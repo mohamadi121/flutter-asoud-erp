@@ -172,9 +172,9 @@ FormMap _applicantCode() => {
 
 FormMap _applicantJoiningDate() => {
       'key': 'applicant_joining_date',
-      'label': 'تاریخ شروع همکاری',
+      'label': 'شروع دوره همکاری (در نبود قرارداد: تاریخ شروع به کار)',
       'type': 'Date',
       'readonly': true,
-      'default_source': 'joining_date',
+      'default_source': 'contract_start',
       'span': 1,
     };

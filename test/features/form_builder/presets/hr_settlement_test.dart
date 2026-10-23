@@ -59,7 +59,9 @@ void main() {
     });
     expect(fields.firstWhere((field) => field['key'] == 'applicant_department')['default_source'], 'department');
     expect(fields.firstWhere((field) => field['key'] == 'applicant_position')['default_source'], 'designation');
-    expect(fields.firstWhere((field) => field['key'] == 'applicant_joining_date')['default_source'], 'joining_date');
+    final contractStart = fields.firstWhere((field) => field['key'] == 'applicant_joining_date');
+    expect(contractStart['default_source'], 'contract_start');
+    expect(contractStart['label'], contains('در نبود قرارداد'));
     expect(fields.where((field) => field.containsKey('default')).map((field) => field['default']), isNot(contains('دریافت خودکار')));
     final reason = fields.singleWhere((field) => field['key'] == 'settlement_reason');
     expect(reason['required'], isTrue);
