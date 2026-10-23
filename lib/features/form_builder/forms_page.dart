@@ -16,6 +16,7 @@ import 'presets/hr_traffic_correction.dart';
 import 'presets/hr_salary_advance.dart';
 import 'presets/hr_employment_certificate.dart';
 import 'presets/hr_shift_change.dart';
+import 'presets/hr_settlement.dart';
 
 class VersionedFormsPage extends StatefulWidget {
   const VersionedFormsPage({
@@ -1171,6 +1172,7 @@ List<FormMap> formPresets(String kind) {
           ],
         },
       hrSalaryAdvancePreset(),
+      hrSettlementPreset(),
     ];
   }
   return [
