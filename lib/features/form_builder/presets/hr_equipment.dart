@@ -40,10 +40,10 @@ FormMap hrEquipmentPreset() => {
             {
               'key': 'applicant_position',
               'label': 'سمت سازمانی',
-              'type': 'Display',
+              'type': 'Text',
+              'default_source': 'designation',
               'readonly': true,
               'span': 1,
-              'system_source': 'employee_designation',
             },
           ],
         },
@@ -59,6 +59,7 @@ FormMap hrEquipmentPreset() => {
               'label': 'نوع درخواست',
               'type': 'Select',
               'required': true,
+              'style': 'radio',
               'default': 'receive_equipment',
               'options': [
                 {'id': 'receive_equipment', 'label': 'دریافت تجهیزات'},
@@ -131,7 +132,7 @@ FormMap hrEquipmentPreset() => {
                   'type': 'Link',
                   'source': 'Item',
                   'required': true,
-                  'system_source': 'employee_equipment_assignment',
+                  'help': 'کالای تجهیز تحویل‌گرفته‌شده را وارد کنید.',
                 },
                 {
                   'key': 'quantity',
@@ -176,17 +177,18 @@ FormMap hrEquipmentPreset() => {
           ],
         },
         {
-          'id': 'reason_schedule',
-          'title': 'دلیل و زمان‌بندی پیشنهادی',
-          'icon': 'event',
-          'color': '#2E7D32',
-          'background_color': '#E5F7EF',
+          'id': 'reason',
+          'title': 'دلیل درخواست',
+          'icon': 'description',
+          'color': '#7B1FA2',
+          'background_color': '#F2EAFE',
           'fields': [
             {
               'key': 'receive_reason',
               'label': 'دلیل درخواست',
               'type': 'Select',
               'required': true,
+              'default': 'work_need',
               'options': [
                 {'id': 'work_need', 'label': 'نیاز کاری'},
                 {'id': 'replacement', 'label': 'جایگزینی تجهیز'},
@@ -199,6 +201,15 @@ FormMap hrEquipmentPreset() => {
               'label': 'شرح دلیل',
               'type': 'LongText',
             },
+          ],
+        },
+        {
+          'id': 'schedule',
+          'title': 'زمان‌بندی پیشنهادی',
+          'icon': 'event',
+          'color': '#2E7D32',
+          'background_color': '#E5F7EF',
+          'fields': [
             {
               'key': 'needed_date',
               'label': 'تاریخ موردنیاز',
@@ -222,8 +233,40 @@ FormMap hrEquipmentPreset() => {
               'key': 'general_notes',
               'label': 'توضیحات تکمیلی',
               'type': 'LongText',
-              'placeholder':
-                  'مشخصات فنی موردنیاز، علت آسیب یا توضیحات بیشتر...',
+              'help': 'مشخصات فنی موردنیاز، علت آسیب یا توضیحات بیشتر…',
+            },
+          ],
+        },
+        {
+          'id': 'review_flow',
+          'title': 'گردش بررسی و انجام عملیات',
+          'icon': 'account_tree',
+          'color': '#00838F',
+          'background_color': '#E6F6F7',
+          'fields': [
+            {
+              'key': 'review_flow_notice',
+              'label': 'گردش بررسی و انجام عملیات',
+              'type': 'Display',
+              'readonly': true,
+              'default': 'مسیر بررسی از گردش کار تعریف‌شده تعیین می‌شود.',
+            },
+          ],
+        },
+        {
+          'id': 'final_notice',
+          'title': 'بررسی نهایی',
+          'icon': 'info',
+          'color': '#F57F17',
+          'background_color': '#FFF0DD',
+          'fields': [
+            {
+              'key': 'final_warning',
+              'label': 'هشدار',
+              'type': 'Display',
+              'readonly': true,
+              'default':
+                  'ثبت درخواست به‌معنای ثبت ورود یا خروج کالا، تحویل قطعی تجهیز، عودت واقعی یا تسویه مسئولیت اموال نیست.',
             },
           ],
         },

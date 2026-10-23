@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -54,6 +57,8 @@ void main() {
         'needed_date': 'تاریخ موردنیاز',
         'suggested_return_date': 'تاریخ پیشنهادی عودت',
         'general_notes': 'توضیحات تکمیلی',
+        'review_flow_notice': 'گردش بررسی و انجام عملیات',
+        'final_warning': 'هشدار',
       },
     );
     expect(
@@ -110,10 +115,113 @@ void main() {
     expect(schemaProblems(hrEquipmentPreset()), isEmpty);
   });
 
+  test('طرح تجهیزات قرارداد مقدارهای خودکار و جدول‌های الزامی را دارد', () {
+    final fields = _fields(hrEquipmentPreset());
+    final applicant = {
+      for (final field in fields.where((field) => '${field['key']}'.startsWith('applicant_')))
+        '${field['key']}': field,
+    };
+    expect(applicant['applicant_employee']!['default_source'], 'employee');
+    expect(applicant['applicant_department']!['default_source'], 'department');
+    expect(applicant['applicant_position']!['default_source'], 'designation');
+    for (final field in applicant.values) {
+      expect(field['readonly'], true);
+      expect(field.containsKey('default'), isFalse);
+    }
+
+    expect(
+      fields.singleWhere((field) => field['key'] == 'equipment_request_type')['style'],
+      'radio',
+    );
+    for (final key in ['requested_equipment', 'returnable_equipment']) {
+      final table = fields.singleWhere((field) => field['key'] == key);
+      expect(table['required'], true);
+      expect(table['min_rows'], 1);
+      final quantity = formMaps(table['columns']).singleWhere((column) => column['key'] == 'quantity');
+      expect(quantity['type'], 'Integer');
+      expect(quantity['min'], 1);
+    }
+    final returnReference = formMaps(
+      fields.singleWhere((field) => field['key'] == 'returnable_equipment')['columns'],
+    ).singleWhere((column) => column['key'] == 'equipment_reference');
+    expect(returnReference['source'], 'Item');
+    expect(returnReference['help'], 'کالای تجهیز تحویل‌گرفته‌شده را وارد کنید.');
+    expect(returnReference.containsKey('system_source'), isFalse);
+
+    final sections = formMaps(hrEquipmentPreset()['sections']);
+    final schedule = sections.singleWhere((section) => section['id'] == 'schedule');
+    expect(schedule['title'], 'زمان‌بندی پیشنهادی');
+    expect(schedule['icon'], 'event');
+    expect(schedule['color'], '#2E7D32');
+    expect(schedule['background_color'], '#E5F7EF');
+  });
+
+  test('طرح تجهیزات برای اعتبارسنجی سرور ذخیره می‌شود', () {
+    final output = File('/tmp/claude-1000/preset-hr_equipment.json');
+    output.parent.createSync(recursive: true);
+    output.writeAsStringSync(jsonEncode(hrEquipmentPreset()));
+    expect(output.existsSync(), isTrue);
+  });
+
+  test('قواعد حالت دریافت و عودت مقدارهای پنهان را حذف می‌کنند', () {
+    final schema = hrEquipmentPreset();
+    final receive = evaluatedValues(schema, {
+      'equipment_request_type': 'receive_equipment',
+      'requested_equipment': [],
+      'needed_date': '1405-01-20',
+      'suggested_return_date': '1405-01-21',
+    });
+    expect(receive.containsKey('requested_equipment'), isTrue);
+    expect(receive.containsKey('returnable_equipment'), isFalse);
+    expect(receive.containsKey('needed_date'), isTrue);
+    expect(receive.containsKey('suggested_return_date'), isFalse);
+
+    final returned = evaluatedValues(schema, {
+      'equipment_request_type': 'return_equipment',
+      'requested_equipment': [],
+      'returnable_equipment': [],
+      'needed_date': '1405-01-20',
+      'suggested_return_date': '1405-01-21',
+    });
+    expect(returned.containsKey('requested_equipment'), isFalse);
+    expect(returned.containsKey('returnable_equipment'), isTrue);
+    expect(returned.containsKey('needed_date'), isFalse);
+    expect(returned.containsKey('suggested_return_date'), isTrue);
+  });
+
+  test('فیلدهای الزامی پنهان اعتبارسنجی را در حالت عودت مسدود نمی‌کنند', () {
+    final schema = hrEquipmentPreset();
+    final values = evaluatedValues(schema, {
+      'equipment_request_type': 'return_equipment',
+      'returnable_equipment': [
+        {'equipment_reference': 'ITEM-1', 'quantity': 1, 'reported_condition': 'healthy'},
+      ],
+    });
+    expect(values.containsKey('receive_reason'), isFalse);
+    expect(values.containsKey('requested_equipment'), isFalse);
+    expect(values['returnable_equipment'], isNotEmpty);
+  });
+
+  test('کارت‌های گردش و هشدار نهایی متن خنثی و دقیق دارند', () {
+    final fields = [
+      for (final s in hrEquipmentPreset()['sections'] as List)
+        for (final f in (s as Map)['fields'] as List) f as Map,
+    ];
+    expect(
+        fields.firstWhere((f) => f['key'] == 'review_flow_notice')['default'],
+        'مسیر بررسی از گردش کار تعریف‌شده تعیین می‌شود.');
+    expect(
+        fields.firstWhere((f) => f['key'] == 'final_warning')['default'],
+        'ثبت درخواست به‌معنای ثبت ورود یا خروج کالا، تحویل قطعی تجهیز، عودت واقعی یا تسویه مسئولیت اموال نیست.');
+    expect(fields.firstWhere((f) => f['key'] == 'receive_reason')['default'],
+        'work_need');
+    expect(fields.any((f) => f.containsKey('placeholder')), isFalse);
+  });
+
   testWidgets(
-      'پیش‌نمایش اجرا در ۳۶۰×۸۰۰ شرط‌ها و اجبار فیلد قابل مشاهده را اعمال می‌کند',
+      'پیش‌نمایش RTL در اندازه‌های موبایل شرط‌ها و اجبار فیلد قابل مشاهده را اعمال می‌کند',
       (tester) async {
-    tester.view.physicalSize = const Size(360, 800);
+    tester.view.physicalSize = const Size(320, 640);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -157,14 +265,19 @@ void main() {
     await tester.pump();
     expect(find.text('تکمیل این فیلد الزامی است.'), findsOneWidget);
 
-    await tester.tap(find.byType(DropdownButtonFormField<String>).first);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('عودت تجهیزات').last);
+    await tester.ensureVisible(find.text('عودت تجهیزات').first);
+    await tester.tap(find.text('عودت تجهیزات').first);
     await tester.pumpAndSettle();
 
     expect(find.text('تجهیزات مورد درخواست *'), findsNothing);
     expect(find.text('تجهیزات قابل عودت *'), findsOneWidget);
     expect(find.text('شرح دلیل *'), findsNothing);
     expect(tester.takeException(), isNull);
+
+    for (final size in [const Size(390, 844), const Size(430, 932)]) {
+      tester.view.physicalSize = size;
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    }
   });
 }
