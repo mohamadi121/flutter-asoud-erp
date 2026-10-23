@@ -52,7 +52,7 @@ class _OrganizationImportReviewState extends State<_OrganizationImportReview> {
     try {
       final c = context.read<OrganizationCubit>();
       if (c.state.snapshot.pending) {
-        throw StateError(
+        throw const FormatException(
             'ابتدا پیش‌نویس چارت را همگام یا با نسخه سرور مقایسه کنید.');
       }
       final result =
@@ -60,7 +60,11 @@ class _OrganizationImportReviewState extends State<_OrganizationImportReview> {
       if (mounted) setState(() => preview = result);
     } catch (e) {
       if (mounted) {
-        setState(() => error = e is ApiException ? e.message : e.toString());
+        setState(() => error = e is ApiException
+            ? e.message
+            : e is FormatException && e.message.isNotEmpty
+                ? e.message
+                : 'پیش‌نمایش ورود آماده نشد؛ دوباره تلاش کنید.');
       }
     } finally {
       if (mounted) setState(() => busy = false);
