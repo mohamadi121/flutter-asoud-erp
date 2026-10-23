@@ -131,6 +131,7 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
       'output_type', 'extensions', 'max_files', 'max_mb', 'allow_delete',
       'readonly', 'default', 'default_source', 'exclude_self', 'fetch_from',
       'not_equal', 'not_equal_message',
+      'schedule_of', 'from_field', 'to_field',
     };
     setState(() {
       for (final key in typeSpecificKeys) {
@@ -530,9 +531,34 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
         return _buildTableBasicSettings();
       case 'File':
         return _buildFileBasicSettings();
+      case 'Schedule':
+        return _buildScheduleSettings();
       default:
         return const SizedBox.shrink();
     }
+  }
+
+  Widget _buildScheduleSettings() {
+    final fields = schemaFields(widget.schema).where((field) => field['key'] != f['key']).toList();
+    final employees = fields.where((field) => field['type'] == 'Link' && field['source'] == 'Employee').toList();
+    final dates = fields.where((field) => field['type'] == 'Date').toList();
+    Widget picker(String label, String key, List<DropdownMenuItem<String>> items) => DropdownButtonFormField<String>(
+      key: ValueKey('${f[key]}'),
+      initialValue: items.any((item) => item.value == f[key]) ? '${f[key]}' : null,
+      decoration: InputDecoration(labelText: label),
+      items: items,
+      onChanged: (value) => set(key, value),
+    );
+    return Column(children: [
+      picker('برنامه چه کسی', 'schedule_of', [
+        const DropdownMenuItem(value: 'self', child: Text('کارمند واردشده')),
+        for (final field in employees) DropdownMenuItem(value: '${field['key']}', child: Text('${field['label']}')),
+      ]),
+      const SizedBox(height: 12),
+      picker('تاریخ شروع', 'from_field', [for (final field in dates) DropdownMenuItem(value: '${field['key']}', child: Text('${field['label']}'))]),
+      const SizedBox(height: 12),
+      picker('تاریخ پایان', 'to_field', [for (final field in dates) DropdownMenuItem(value: '${field['key']}', child: Text('${field['label']}'))]),
+    ]);
   }
 
   Widget _buildTextSettings() {

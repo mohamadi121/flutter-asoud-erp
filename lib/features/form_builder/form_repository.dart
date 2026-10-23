@@ -81,6 +81,20 @@ class FormRepository {
     );
   }
 
+  Future<List<FormMap>> employeeSchedule({
+    required String fromDate,
+    required String toDate,
+    String? employee,
+  }) async {
+    if (!client.isAuthenticated) return const [];
+    return formMaps(await call('employee_schedule', {
+      'company': company,
+      'from_date': fromDate,
+      'to_date': toDate,
+      if (employee != null && employee.isNotEmpty) 'employee': employee,
+    }));
+  }
+
   bool unavailable(Object error) =>
       error is ApiException &&
       (error.kind == ApiFailureKind.network ||

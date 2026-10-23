@@ -484,6 +484,16 @@ List<String> schemaProblems(FormMap schema) {
       }
     }
     if (field['type'] == 'Table' && formMaps(field['columns']).isEmpty) problems.add('${field['label']}: ستون جدول را اضافه کنید.');
+    if (field['type'] == 'Schedule') {
+      final scheduleOf = '${field['schedule_of'] ?? ''}';
+      final employee = fields.where((candidate) => candidate['key'] == scheduleOf && candidate['type'] == 'Link' && candidate['source'] == 'Employee');
+      if (scheduleOf != 'self' && employee.isEmpty) problems.add('${field['label']}: کارمند برنامه معتبر نیست.');
+      for (final setting in ['from_field', 'to_field']) {
+        if (!fields.any((candidate) => candidate['key'] == field[setting] && candidate['type'] == 'Date')) {
+          problems.add('${field['label']}: تاریخ برنامه معتبر نیست.');
+        }
+      }
+    }
     if (field['fetch_from'] != null) {
       final parsed = parseFetchFrom(field['fetch_from']);
       final link = fields.where((f) => f['key'] == parsed?.link && f['type'] == 'Link');

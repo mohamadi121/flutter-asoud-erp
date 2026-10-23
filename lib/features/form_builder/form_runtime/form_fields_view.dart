@@ -13,6 +13,7 @@ import 'formula_engine.dart';
 import 'record_links.dart';
 import 'rules_engine.dart';
 import 'section_colors.dart';
+import 'schedule_field.dart';
 import 'table_field.dart';
 
 export 'field_inputs/choice_inputs.dart';
@@ -45,6 +46,7 @@ const formTypes = <String, String>{
   'Rating': 'امتیاز ۱ تا ۵',
   'Barcode': 'بارکد / شناسه',
   'Display': 'متن نمایشی',
+  'Schedule': 'برنامه شیفت',
 };
 
 const formSources = <String, String>{
@@ -286,6 +288,14 @@ class FormFieldsView extends StatelessWidget {
 
   Widget _typedInput(BuildContext context, FormMap f, FormMap computed, dynamic v, bool required, String label, bool editable, ValueChanged<dynamic> set) {
     final key = '${f['key']}';
+
+    if (f['type'] == 'Schedule') {
+      return ScheduleField(
+        field: f,
+        values: computed,
+        repository: repository,
+      );
+    }
 
     final readonlyWidget = buildReadonlyDisplayInput(
       f: f,
