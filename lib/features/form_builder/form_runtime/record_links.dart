@@ -162,7 +162,7 @@ String? notEqualProblem(
       .cast<FormMap?>()
       .firstOrNull;
   if (other != null && !otherVisible(other)) return null;
-  if (field['type'] == 'Time' && values['attendance_date'] != null) {
+  if (field['type'] == 'Time' && other?['type'] == 'Time') {
     final mineNext = values['${field['key']}__next_day'] == true;
     final otherNext = values['${otherKey}__next_day'] == true;
     if (_normal(mine) != _normal(theirs) || mineNext != otherNext) return null;
