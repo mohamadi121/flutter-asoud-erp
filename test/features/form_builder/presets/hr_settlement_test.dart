@@ -45,7 +45,7 @@ void main() {
       'property_declaration',
       'additional_notes',
     ]));
-    expect(fields.where((field) => field['readonly'] == true).length, 4);
+    expect(fields.where((field) => field['readonly'] == true && field['type'] != 'Display').length, 4);
     expect(keys, isNot(contains('company')));
     expect(keys.any((key) => key.contains('office')), isFalse);
     expect(fields.firstWhere((field) => field['key'] == 'applicant_employee'), {
@@ -122,5 +122,18 @@ void main() {
       isFalse,
     );
     expect(tester.takeException(), isNull);
+  });
+
+  test('کارت مراحل بررسی فقط یک متن خنثی است و کلید format ندارد', () {
+    final schema = hrSettlementPreset();
+    final fields = [
+      for (final s in schema['sections'] as List)
+        ...(((s as Map)['fields']) as List).cast<Map>(),
+    ];
+    final info = fields.singleWhere((f) => f['key'] == 'review_steps_info');
+    expect(info['type'], 'Display');
+    expect(info['default'], startsWith('مسیر بررسی از گردش کار تعریف‌شده تعیین می‌شود.'));
+    expect(fields.where((f) => f['type'] == 'Display'), hasLength(1));
+    expect(schema.containsKey('format'), isFalse);
   });
 }

@@ -3,7 +3,6 @@ import '../form_repository.dart';
 /// الگوی خام آغاز درخواست تسویه‌حساب؛ مسیر رسیدگی را گردش کار تعیین می‌کند.
 FormMap hrSettlementPreset() => {
       'schema_version': 2,
-      'format': 1,
       'kind': 'Request',
       'title': 'درخواست تسویه‌حساب پرسنل',
       'short_title': 'درخواست تسویه‌حساب',
@@ -93,6 +92,21 @@ FormMap hrSettlementPreset() => {
               'type': 'LongText',
               'help': 'توضیحات مربوط به درخواست...',
               'max_length': 5000,
+            },
+          ],
+        },
+        {
+          'id': 'review_steps',
+          'title': 'مراحل بررسی تسویه',
+          'icon': 'fact_check',
+          'color': '#E6F6F7',
+          'fields': [
+            {
+              'key': 'review_steps_info',
+              'label': 'مراحل بررسی تسویه',
+              'type': 'Display',
+              'readonly': true,
+              'default': 'مسیر بررسی از گردش کار تعریف‌شده تعیین می‌شود. ثبت این درخواست به معنای پذیرش استعفا، خاتمه همکاری، تسویه مالی، تسویه اموال یا صدور سند نهایی نیست.',
             },
           ],
         },
