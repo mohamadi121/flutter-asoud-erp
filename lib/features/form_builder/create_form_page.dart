@@ -322,10 +322,8 @@ class _CreateFormPageState extends State<CreateFormPage> {
     if (chosen != null && mounted) {
       setState(() {
         selectedPreset = chosen;
-        if (_titleController.text.trim().isEmpty) {
-          _titleController.text = 'کپی ${chosen['title']}';
-          if (_titleError != null) _titleError = null;
-        }
+        _titleController.text = 'کپی ${chosen['title']}';
+        _titleError = null;
         if (_descController.text.trim().isEmpty &&
             (chosen['description'] ?? '').isNotEmpty) {
           _descController.text = chosen['description'];

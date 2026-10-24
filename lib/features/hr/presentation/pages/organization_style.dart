@@ -22,46 +22,63 @@ class _OrgSheetTheme extends StatelessWidget {
       child: child);
 }
 
+class _OrgPanel extends StatelessWidget {
+  const _OrgPanel({required this.children});
+  final List<Widget> children;
+  @override
+  Widget build(BuildContext context) => Container(
+      padding: const EdgeInsets.all(14),
+      decoration: _orgWhiteCard(),
+      child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch, children: children));
+}
+
 class _OrgDetailPage extends StatelessWidget {
-  const _OrgDetailPage({required this.title, required this.children});
+  const _OrgDetailPage(
+      {required this.title, required this.children, this.grouped = false});
   final String title;
   final List<Widget> children;
+  final bool grouped;
   @override
   Widget build(BuildContext context) => Scaffold(
       backgroundColor: _orgCanvas,
       appBar: _OrganizationReferenceHeader(title: title, form: true),
       body: ListView(padding: const EdgeInsets.all(16), children: [
-        Container(
-            padding: const EdgeInsets.all(20),
-            decoration: _orgWhiteCard(),
-            child: Row(children: [
-              AsoudIconBox(
-                  icon: Icons.inventory_2_outlined,
-                  color: _orgAccents[0],
-                  size: 52),
-              const SizedBox(width: 14),
-              Expanded(
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                    Text(context.read<OrganizationCubit>().company,
-                        style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: _orgInk)),
-                    const SizedBox(height: 8),
-                    const Text('مدیریت ساختار سازمانی',
-                        style:
-                            TextStyle(fontSize: 12, color: Color(0xff858b96))),
-                  ])),
-            ])),
+        if (!grouped)
+          Container(
+              padding: const EdgeInsets.all(20),
+              decoration: _orgWhiteCard(),
+              child: Row(children: [
+                AsoudIconBox(
+                    icon: Icons.inventory_2_outlined,
+                    color: _orgAccents[0],
+                    size: 52),
+                const SizedBox(width: 14),
+                Expanded(
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                      Text(context.read<OrganizationCubit>().company,
+                          style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: _orgInk)),
+                      const SizedBox(height: 8),
+                      const Text('مدیریت ساختار سازمانی',
+                          style: TextStyle(
+                              fontSize: 12, color: Color(0xff858b96))),
+                    ])),
+              ])),
         const SizedBox(height: 16),
-        Container(
-            padding: const EdgeInsets.all(16),
-            decoration: _orgWhiteCard(),
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: children)),
+        if (grouped)
+          ...children
+        else
+          Container(
+              padding: const EdgeInsets.all(16),
+              decoration: _orgWhiteCard(),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: children)),
         const SizedBox(height: 16),
         OutlinedButton(
             onPressed: () => Navigator.maybePop(context),

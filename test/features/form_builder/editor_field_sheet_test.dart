@@ -6,7 +6,8 @@ import 'package:asoud_erp/features/form_builder/form_editor/editor_field_sheet.d
 import 'package:asoud_erp/features/form_builder/form_editor/editor_widgets.dart';
 import 'package:asoud_erp/features/form_builder/form_repository.dart';
 
-Widget _wrapTestWidget(Widget child, {double width = 360, double height = 800}) {
+Widget _wrapTestWidget(Widget child,
+    {double width = 360, double height = 800}) {
   return MaterialApp(
     debugShowCheckedModeBanner: false,
     theme: AsoudTheme.light,
@@ -21,6 +22,32 @@ Widget _wrapTestWidget(Widget child, {double width = 360, double height = 800}) 
 }
 
 void main() {
+  for (final type in ['Formula', 'Table']) {
+    testWidgets(
+        '$type base confirmation keeps the sheet open for advanced configuration',
+        (tester) async {
+      FormMap? result;
+      await tester.pumpWidget(_wrapTestWidget(Builder(
+          builder: (context) => TextButton(
+                onPressed: () async {
+                  result = await editSchemaField(
+                      context,
+                      {'sections': <FormMap>[]},
+                      {'key': 'sample', 'type': type, 'label': 'نمونه'});
+                },
+                child: const Text('باز کردن'),
+              ))));
+      await tester.tap(find.text('باز کردن'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ذخیره تغییرات'));
+      await tester.pumpAndSettle();
+      expect(result, isNull);
+      expect(find.text('پیشرفته'), findsWidgets);
+      expect(find.text('ذخیره تغییرات'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('basic field cards count and labels', (tester) async {
     expect(basicFieldCards.length, 11);
     expect(basicFieldCards[0].label, 'متن کوتاه');
@@ -36,7 +63,8 @@ void main() {
     expect(basicFieldCards[10].label, 'پیوست فایل');
   });
 
-  testWidgets('FieldTypeGrid renders in 360 and 320 px without overflow', (tester) async {
+  testWidgets('FieldTypeGrid renders in 360 and 320 px without overflow',
+      (tester) async {
     for (final width in [360.0, 320.0]) {
       String selected = 'Text';
       await tester.pumpWidget(_wrapTestWidget(
@@ -88,7 +116,8 @@ void main() {
     expect(cancelled, false);
   });
 
-  testWidgets('SmartLinkPicker dropdown expands and selects items', (tester) async {
+  testWidgets('SmartLinkPicker dropdown expands and selects items',
+      (tester) async {
     FormMap? selected;
 
     await tester.pumpWidget(_wrapTestWidget(
@@ -119,7 +148,9 @@ void main() {
     expect(selected?['name'], 'EMP-001');
   });
 
-  testWidgets('SheetBottomButtons renders buttons with correct labels and styles', (tester) async {
+  testWidgets(
+      'SheetBottomButtons renders buttons with correct labels and styles',
+      (tester) async {
     var primaryPressed = false;
     var previewPressed = false;
     var cancelPressed = false;
@@ -150,7 +181,8 @@ void main() {
     expect(cancelPressed, true);
   });
 
-  testWidgets('SheetBottomButtons in edit mode shows ذخیره تغییرات', (tester) async {
+  testWidgets('SheetBottomButtons in edit mode shows ذخیره تغییرات',
+      (tester) async {
     await tester.pumpWidget(_wrapTestWidget(
       SheetBottomButtons(
         isEditing: true,
@@ -167,7 +199,8 @@ void main() {
     expect(find.text('بازگشت به تنظیمات'), findsOneWidget);
   });
 
-  testWidgets('editSchemaField opens sheet, edits title, validates and saves', (tester) async {
+  testWidgets('editSchemaField opens sheet, edits title, validates and saves',
+      (tester) async {
     FormMap? result;
     final schema = blankSchema('Request');
 
@@ -200,7 +233,8 @@ void main() {
     expect(find.text('عنوان فیلد الزامی است'), findsOneWidget);
 
     // Enter label
-    await tester.enterText(find.byType(TextFormField).first, 'نام درخواست‌کننده');
+    await tester.enterText(
+        find.byType(TextFormField).first, 'نام درخواست‌کننده');
     await tester.pumpAndSettle();
 
     // Tap save
@@ -212,7 +246,8 @@ void main() {
     expect(result!['type'], 'Text');
   });
 
-  testWidgets('FieldSheetPreview renders table and file attachments', (tester) async {
+  testWidgets('FieldSheetPreview renders table and file attachments',
+      (tester) async {
     for (final width in [360.0, 320.0]) {
       await tester.pumpWidget(_wrapTestWidget(
         SingleChildScrollView(
@@ -249,11 +284,14 @@ void main() {
       expect(find.text('فایل پیوست'), findsOneWidget);
       expect(find.text('جهت جدول: افقی (افزودن ردیف)'), findsOneWidget);
       expect(find.text('کد کالا'), findsOneWidget);
-      expect(find.text('برای پیوست فایل ضربه بزنید یا فایل را بکشید'), findsOneWidget);
+      expect(find.text('برای پیوست فایل ضربه بزنید یا فایل را بکشید'),
+          findsOneWidget);
     }
   });
 
-  testWidgets('table properties exclude nested tables and keep system text as text', (tester) async {
+  testWidgets(
+      'table properties exclude nested tables and keep system text as text',
+      (tester) async {
     FormMap? result;
     final schema = blankSchema('Request');
     await tester.pumpWidget(_wrapTestWidget(
@@ -290,7 +328,8 @@ void main() {
     expect(result?['source'], 'Item');
   });
 
-  testWidgets('changing a column card clears incompatible settings', (tester) async {
+  testWidgets('changing a column card clears incompatible settings',
+      (tester) async {
     FormMap? result;
     await tester.pumpWidget(_wrapTestWidget(
       Builder(
@@ -329,7 +368,8 @@ void main() {
     expect(result!.containsKey('max_length'), false);
   });
 
-  testWidgets('each column type opens its dedicated settings at mobile widths', (tester) async {
+  testWidgets('each column type opens its dedicated settings at mobile widths',
+      (tester) async {
     const settings = {
       'متن کوتاه': 'روش تأمین مقدار فیلد',
       'متن بلند': 'تعداد سطر اولیه',
@@ -347,9 +387,15 @@ void main() {
         await tester.pumpWidget(_wrapTestWidget(
           Builder(
             builder: (context) => ElevatedButton(
-              onPressed: () => editSchemaField(context, blankSchema('Request'), {
-                'key': 'c_type', 'label': 'مشخصه', 'type': 'Text',
-              }, column: true),
+              onPressed: () => editSchemaField(
+                  context,
+                  blankSchema('Request'),
+                  {
+                    'key': 'c_type',
+                    'label': 'مشخصه',
+                    'type': 'Text',
+                  },
+                  column: true),
               child: const Text('باز کردن ستون'),
             ),
           ),
@@ -360,7 +406,8 @@ void main() {
         await tester.ensureVisible(find.text(entry.key));
         await tester.tap(find.text(entry.key));
         await tester.pumpAndSettle();
-        expect(find.text(entry.value), findsOneWidget, reason: '${entry.key} در عرض $width');
+        expect(find.text(entry.value), findsOneWidget,
+            reason: '${entry.key} در عرض $width');
         await tester.tap(find.byIcon(Icons.close).first);
         await tester.pumpAndSettle();
         if (find.text('تأیید').evaluate().isNotEmpty) {
@@ -371,34 +418,48 @@ void main() {
     }
   });
 
-  testWidgets('two table definitions keep their own column structures', (tester) async {
+  testWidgets('two table definitions keep their own column structures',
+      (tester) async {
     final first = {
-      'key': 'first', 'type': 'Table', 'columns': [
+      'key': 'first',
+      'type': 'Table',
+      'columns': [
         {'key': 'first_name', 'label': 'نام کالا', 'type': 'Text'},
       ],
     };
     final second = {
-      'key': 'second', 'type': 'Table', 'columns': [
+      'key': 'second',
+      'type': 'Table',
+      'columns': [
         {'key': 'second_count', 'label': 'تعداد', 'type': 'Integer'},
       ],
     };
     expect(formMaps(first['columns']).single['key'], 'first_name');
     expect(formMaps(second['columns']).single['key'], 'second_count');
-    (first['columns'] as List).add({'key': 'first_price', 'label': 'مبلغ', 'type': 'Money'});
-    expect(formMaps(first['columns']).map((column) => column['key']), ['first_name', 'first_price']);
-    expect(formMaps(second['columns']).map((column) => column['key']), ['second_count']);
+    (first['columns'] as List)
+        .add({'key': 'first_price', 'label': 'مبلغ', 'type': 'Money'});
+    expect(formMaps(first['columns']).map((column) => column['key']),
+        ['first_name', 'first_price']);
+    expect(formMaps(second['columns']).map((column) => column['key']),
+        ['second_count']);
   });
 
-  testWidgets('table column deletion asks before removing a safe column', (tester) async {
+  testWidgets('table column deletion asks before removing a safe column',
+      (tester) async {
     await tester.pumpWidget(_wrapTestWidget(
-      Builder(builder: (context) => ElevatedButton(
-        onPressed: () => editSchemaField(context, blankSchema('Request'), {
-          'key': 'items', 'label': 'اقلام', 'type': 'Table', 'columns': [
-            {'key': 'item', 'label': 'کالا', 'type': 'Text'},
-          ],
-        }),
-        child: const Text('باز کردن جدول'),
-      )),
+      Builder(
+          builder: (context) => ElevatedButton(
+                onPressed: () =>
+                    editSchemaField(context, blankSchema('Request'), {
+                  'key': 'items',
+                  'label': 'اقلام',
+                  'type': 'Table',
+                  'columns': [
+                    {'key': 'item', 'label': 'کالا', 'type': 'Text'},
+                  ],
+                }),
+                child: const Text('باز کردن جدول'),
+              )),
     ));
     await tester.tap(find.text('باز کردن جدول'));
     await tester.pumpAndSettle();

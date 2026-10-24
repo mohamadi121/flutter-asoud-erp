@@ -158,9 +158,11 @@ class _OrganizationVisualReportState extends State<_OrganizationVisualReport> {
                                         child: const Text('ورود از اکسل'))),
                                 Expanded(
                                     child: TextButton(
-                                        onPressed: () => _orgSheet<bool>(
-                                            context,
-                                            const _OrganizationPositionForm()),
+                                        onPressed: () =>
+                                            _openOrganizationPage<bool>(
+                                                context,
+                                                const _OrganizationCreateForm(
+                                                    position: true)),
                                         child: const Text('ایجاد دستی'))),
                               ]),
                             if (widget.canManage)

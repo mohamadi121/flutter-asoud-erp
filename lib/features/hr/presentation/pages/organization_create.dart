@@ -2,8 +2,9 @@ part of 'organization_page.dart';
 
 /// Compact creation views share the existing native unit API and chart save.
 class _OrganizationCreateForm extends StatefulWidget {
-  const _OrganizationCreateForm({required this.position});
+  const _OrganizationCreateForm({required this.position, this.parent});
   final bool position;
+  final OrgPosition? parent;
   @override
   State<_OrganizationCreateForm> createState() =>
       _OrganizationCreateFormState();
@@ -22,6 +23,7 @@ class _OrganizationCreateFormState extends State<_OrganizationCreateForm> {
   @override
   void initState() {
     super.initState();
+    selected = widget.position ? widget.parent?.departmentId ?? '' : '';
     // Stable technical chart identifier, not a personnel/business code.
     final random = math.Random.secure();
     code =
@@ -93,6 +95,7 @@ class _OrganizationCreateFormState extends State<_OrganizationCreateForm> {
         final row = OrgPosition(
             code: code,
             title: title.text.trim(),
+            parent: widget.parent?.code ?? '',
             departmentId: selected,
             department: '${unit['department_name']}',
             occupants: const []);

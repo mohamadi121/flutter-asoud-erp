@@ -379,8 +379,17 @@ class _PositionDetails extends StatelessWidget {
                 onPressed: state.busy
                     ? null
                     : () => _orgSheet<bool>(
-                        context, _OrganizationPositionForm(item: row)),
-                label: const Text('ویرایش و مدیریت انتساب')),
+                        context,
+                        _OrganizationPositionForm(
+                            item: row,
+                            unitId: row.departmentId,
+                            unitTitle: row.department)),
+                label: const Text('ویرایش مشخصات جایگاه')),
+          FilledButton.icon(
+              onPressed: () => _orgSheet<void>(context,
+                  _OrganizationAssignments(code: code, canManage: canManage)),
+              icon: const Icon(Icons.people_outline),
+              label: const Text('انتساب پرسنل و سوابق')),
           const SizedBox(height: 16),
           DefaultTabController(
               length: 2,
@@ -724,79 +733,49 @@ class _UnitDetails extends StatelessWidget {
   final bool canManage;
   @override
   Widget build(BuildContext context) =>
-      _OrgDetailPage(title: 'جزئیات واحد', children: [
-        _OrgDetailIdentity(
-            title: '${unit['department_name']}',
-            subtitle:
-                'زیرمجموعه: ${units.where((u) => u['name'] == unit['parent_department']).map((u) => u['department_name']).firstOrNull ?? unit['parent_department'] ?? 'ریشه ساختار'}'),
-        if (canManage) ...[
-          OutlinedButton.icon(
-              key: const ValueKey('organization-unit-edit'),
-              icon: const Icon(Icons.edit_outlined, size: 20),
-              onPressed: () async {
-                final saved = await _orgSheet<bool>(
-                    context, _UnitForm(unit: unit, units: units));
-                if (saved == true && context.mounted) Navigator.pop(context);
-              },
-              label: const Text('ویرایش مشخصات واحد')),
-          TextButton.icon(
-              onPressed: () => _manage(context),
-              icon: const Icon(Icons.tune, size: 18),
-              label: const Text('مدیریت واحد')),
-        ],
-        const Divider(color: Color(0xffeeeeF3)),
-        _OrgDetailSection(
-            title: 'زیرواحدها',
-            addKey: const ValueKey('organization-subunit-add'),
-            onAdd: !canManage || unit['is_group'] != 1
-                ? null
-                : () async {
-                    final saved = await _orgSheet<bool>(context,
-                        _UnitForm(units: units, parent: '${unit['name']}'));
-                    if (saved == true && context.mounted) {
-                      Navigator.pop(context);
-                    }
-                  }),
-        if (!units.any((u) => u['parent_department'] == unit['name']))
-          const _OrgNotice(
-              icon: Icons.account_tree_outlined,
-              color: Color(0xff8965af),
-              text: 'برای این واحد هنوز زیرواحدی تعریف نشده است.'),
-        for (final child
-            in units.where((u) => u['parent_department'] == unit['name']))
-          _OrgDetailRow(
-              title: '${child['department_name']}',
-              onTap: () => _orgSheet<void>(
-                  context,
-                  _UnitDetails(
-                      unit: child, units: units, canManage: canManage))),
-        _OrgDetailSection(
-            title: 'جایگاه‌های این واحد',
-            onAdd: !canManage
-                ? null
-                : () => _orgSheet<bool>(
+      _OrgDetailPage(title: 'جزئیات واحد', grouped: true, children: [
+        _OrgPanel(children: [
+          _OrgDetailIdentity(
+              title: '${unit['department_name']}',
+              subtitle:
+                  'زیرمجموعه: ${units.where((u) => u['name'] == unit['parent_department']).map((u) => u['department_name']).firstOrNull ?? unit['parent_department'] ?? 'ریشه ساختار'}'),
+          if (canManage) ...[
+            TextButton.icon(
+                onPressed: () => _manage(context),
+                icon: const Icon(Icons.tune, size: 18),
+                label: const Text('مدیریت واحد')),
+          ],
+        ]),
+        const SizedBox(height: 12),
+        _OrgPanel(children: [
+          _OrgDetailSection(
+              title: 'زیرواحدها',
+              addKey: const ValueKey('organization-subunit-add'),
+              onAdd: !canManage || unit['is_group'] != 1
+                  ? null
+                  : () async {
+                      final saved = await _orgSheet<bool>(context,
+                          _UnitForm(units: units, parent: '${unit['name']}'));
+                      if (saved == true && context.mounted) {
+                        Navigator.pop(context);
+                      }
+                    }),
+          if (!units.any((u) => u['parent_department'] == unit['name']))
+            const _OrgNotice(
+                icon: Icons.account_tree_outlined,
+                color: Color(0xff8965af),
+                text: 'برای این واحد هنوز زیرواحدی تعریف نشده است.'),
+          for (final child
+              in units.where((u) => u['parent_department'] == unit['name']))
+            _OrgDetailRow(
+                title: '${child['department_name']}',
+                onTap: () => _orgSheet<void>(
                     context,
-                    _OrganizationPositionForm(
-                        unitId: '${unit['name']}',
-                        unitTitle: '${unit['department_name']}'))),
-        BlocBuilder<OrganizationCubit, OrganizationState>(
-            builder: (context, state) {
-          final rows =
-              state.snapshot.rows.where((r) => r.departmentId == unit['name']);
-          return Column(children: [
-            if (rows.isEmpty)
-              const _OrgNotice(
-                  icon: Icons.work_outline,
-                  color: AsoudColors.success,
-                  text: 'هنوز جایگاه شغلی تعریف نشده است.'),
-            for (final row in rows)
-              _OrgDetailRow(
-                  title: row.title,
-                  position: true,
-                  onTap: () => _orgSheet<void>(context,
-                      _PositionDetails(code: row.code, canManage: canManage))),
-          ]);
-        }),
+                    _UnitDetails(
+                        unit: child, units: units, canManage: canManage))),
+        ]),
+        const SizedBox(height: 12),
+        _OrgPanel(children: [_UnitPositions(unit: unit, canManage: canManage)]),
       ]);
   Future<void> _manage(BuildContext context) async {
     final action = await showModalBottomSheet<String>(

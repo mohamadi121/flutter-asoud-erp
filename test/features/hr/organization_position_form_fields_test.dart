@@ -115,7 +115,7 @@ Future<void> _openCreateForm(WidgetTester tester, _OrgClient client,
   await tester.pumpAndSettle();
   await tester.tap(find.byTooltip('عملیات جایگاه'));
   await tester.pumpAndSettle();
-  await tester.tap(find.text('افزودن زیرمجموعه'));
+  await tester.tap(find.text('ویرایش جایگاه'));
   await tester.pumpAndSettle();
 }
 
@@ -129,8 +129,7 @@ void main() {
     'modified': '2026-10-22 10:00:00'
   };
 
-  testWidgets(
-      'editing a unit preserves its native root outside the company list',
+  testWidgets('legacy unit edit entry is removed without changing native data',
       (tester) async {
     final client = _OrgClient(units: [unit]);
     await _openCreateForm(tester, client, openForm: false);
@@ -138,17 +137,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('منابع انسانی'));
     await tester.pumpAndSettle();
-    final edit = find.byKey(const ValueKey('organization-unit-edit'));
-    await tester.ensureVisible(edit);
-    await tester.tap(edit);
-    await tester.pumpAndSettle();
-    expect(find.text('All Departments'), findsOneWidget);
-    final save = find.byKey(const ValueKey('organization-unit-submit'));
-    await tester.ensureVisible(save);
-    await tester.tap(save);
-    await tester.pumpAndSettle();
-    expect(client.lastUnitPayload!['name'], 'HR-CO');
-    expect(client.lastUnitPayload!['parent'], 'All Departments');
+    expect(find.byKey(const ValueKey('organization-unit-edit')), findsNothing);
+    expect(find.text('ویرایش مشخصات واحد'), findsNothing);
+    expect(find.textContaining('All Departments'), findsOneWidget);
+    expect(client.lastUnitPayload, isNull);
     expect(tester.takeException(), isNull);
   });
 
@@ -175,6 +167,58 @@ void main() {
     expect(client.lastUnitPayload!.containsKey('name'), isFalse);
     expect(client.lastUnitPayload!['parent'], 'HR-CO');
     expect(client.lastUnitPayload!['title'], 'آموزش');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'inline position creation preserves the native unit and creates no assignment',
+      (tester) async {
+    final client = _OrgClient(units: [unit]);
+    await _openCreateForm(tester, client, openForm: false);
+    await tester.tap(find.text('واحدها'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('منابع انسانی'));
+    await tester.pumpAndSettle();
+    final add = find.byKey(const ValueKey('organization-inline-position-open'));
+    await tester.ensureVisible(add);
+    await tester.tap(add);
+    await tester.pumpAndSettle();
+    final save =
+        find.byKey(const ValueKey('organization-inline-position-save'));
+    expect(tester.widget<FilledButton>(save).onPressed, isNull);
+    await tester.enterText(
+        find.widgetWithText(TextFormField, 'عنوان جایگاه جدید'),
+        'کارشناس آموزش');
+    await tester.ensureVisible(save);
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+    final rows = (client.lastSavePayload!['rows'] as List).cast<Map>();
+    final added = rows.singleWhere((r) => r['title'] == 'کارشناس آموزش');
+    expect(added['department_id'], 'HR-CO');
+    expect(added['occupants'], isEmpty);
+    expect(added['capacity'], 1);
+    expect(rows.any((r) => r['code'] == 'CEO'), isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'assignment page shows real capacity and retains assignment history tab',
+      (tester) async {
+    await _openCreateForm(tester, _OrgClient(), openForm: false);
+    await tester.tap(find.text('جایگاه‌ها'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('مدیرعامل'));
+    await tester.pumpAndSettle();
+    final assignments = find.text('انتساب پرسنل و سوابق');
+    await tester.ensureVisible(assignments);
+    await tester.tap(assignments);
+    await tester.pumpAndSettle();
+    expect(find.text('ظرفیت کل'), findsOneWidget);
+    expect(find.text('ظرفیت خالی'), findsOneWidget);
+    expect(find.text('ظرفیت جایگاه تکمیل است.'), findsOneWidget);
+    await tester.tap(find.text('سوابق انتساب').last);
+    await tester.pumpAndSettle();
+    expect(find.text('سابقه‌ای ثبت نشده است.'), findsWidgets);
     expect(tester.takeException(), isNull);
   });
 
@@ -222,47 +266,30 @@ void main() {
     await _openCreateForm(tester, _OrgClient());
 
     expect(find.text('عنوان جایگاه *'), findsOneWidget);
-    expect(find.text('کد جایگاه *'), findsOneWidget);
+    expect(find.text('کد جایگاه *'), findsNothing);
     expect(find.widgetWithText(AppSelectField, 'واحد سازمانی'), findsOneWidget);
-    expect(find.byType(AppTextField), findsNWidgets(4));
-    expect(find.byType(AppSelectField), findsNWidgets(3));
+    expect(find.byType(AppTextField), findsNWidgets(3));
+    expect(find.byType(AppSelectField), findsNWidgets(2));
     expect(find.text('ظرفیت *'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('the position form validates, fills and submits a position',
-      (tester) async {
+  testWidgets('position edit keeps its code and occupants', (tester) async {
     final client = _OrgClient();
     await _openCreateForm(tester, client);
-
-    await tester.tap(find.text('ذخیره جایگاه'));
+    final title = find.widgetWithText(TextFormField, 'عنوان جایگاه *');
+    await tester.enterText(title, '');
+    await tester.tap(find.text('ثبت تغییرات'));
     await tester.pumpAndSettle();
     expect(find.text('عنوان جایگاه را وارد کنید.'), findsOneWidget);
-    expect(find.text('کد جایگاه را وارد کنید.'), findsOneWidget);
-
-    await tester.enterText(
-        find.widgetWithText(TextFormField, 'عنوان جایگاه *'), 'مدیر مالی');
-    await tester.enterText(
-        find.widgetWithText(TextFormField, 'کد جایگاه *'), 'FIN');
-
-    await tester.tap(find.byKey(const ValueKey('org-employee-')));
+    await tester.enterText(title, 'مدیر ارشد');
+    await tester.tap(find.text('ثبت تغییرات'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('جایگاه خالی').last);
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('ذخیره جایگاه'));
-    await tester.pumpAndSettle();
-
-    expect(client.writes, contains('asoud_erp.api.v1.organization.save_chart'));
-    final rows = (client.lastSavePayload!['rows'] as List)
-        .map((e) => Map<String, dynamic>.from(e as Map))
-        .toList();
-    expect(
-        rows.any((row) => row['code'] == 'FIN' && row['title'] == 'مدیر مالی'),
-        isTrue);
-    final created = rows.singleWhere((r) => r['code'] == 'FIN');
-    expect(created['occupants'], isEmpty);
-    expect(created['capacity'], 1);
+    final rows = (client.lastSavePayload!['rows'] as List).cast<Map>();
+    final edited = rows.singleWhere((r) => r['code'] == 'CEO');
+    expect(edited['title'], 'مدیر ارشد');
+    expect(edited['occupants'], ['EMP-001']);
+    expect(rows.length, 1);
     expect(tester.takeException(), isNull);
   });
 }

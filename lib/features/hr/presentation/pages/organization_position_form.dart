@@ -2,8 +2,8 @@ part of 'organization_page.dart';
 
 class _OrganizationPositionForm extends StatefulWidget {
   const _OrganizationPositionForm(
-      {this.item, this.parent, this.unitId = '', this.unitTitle = ''});
-  final OrgPosition? item, parent;
+      {required this.item, this.unitId = '', this.unitTitle = ''});
+  final OrgPosition? item;
   final String unitId, unitTitle;
   @override
   State<_OrganizationPositionForm> createState() =>
@@ -36,7 +36,7 @@ class _OrganizationPositionFormState extends State<_OrganizationPositionForm> {
       _departmentId != (widget.item?.departmentId ?? widget.unitId) ||
       _duties.text != (widget.item?.duties ?? '') ||
       _capacity.text != '${widget.item?.capacity ?? 1}' ||
-      _parentCode != (widget.item?.parent ?? widget.parent?.code ?? '') ||
+      _parentCode != (widget.item?.parent ?? '') ||
       jsonEncode(_occupants) != jsonEncode(widget.item?.activeEmployees ?? []);
 
   Future<void> _discard() async {
@@ -50,18 +50,14 @@ class _OrganizationPositionFormState extends State<_OrganizationPositionForm> {
   @override
   void initState() {
     super.initState();
-    _selectedParent = widget.item?.parent ?? widget.parent?.code ?? '';
+    _selectedParent = widget.item?.parent ?? '';
     _code = TextEditingController(text: widget.item?.code ?? '');
     _title = TextEditingController(text: widget.item?.title ?? '');
     _department = TextEditingController(
         text: widget.item?.department ??
-            (widget.unitTitle.isNotEmpty
-                ? widget.unitTitle
-                : widget.parent?.department ?? ''));
+            (widget.unitTitle.isNotEmpty ? widget.unitTitle : ''));
     _departmentId = widget.item?.departmentId ??
-        (widget.unitId.isNotEmpty
-            ? widget.unitId
-            : widget.parent?.departmentId ?? '');
+        (widget.unitId.isNotEmpty ? widget.unitId : '');
     _capacity = TextEditingController(text: '${widget.item?.capacity ?? 1}');
     _duties = TextEditingController(text: widget.item?.duties ?? '');
     _occupants = [...?widget.item?.activeEmployees];
@@ -176,27 +172,28 @@ class _OrganizationPositionFormState extends State<_OrganizationPositionForm> {
                                         : null,
                               ),
                               const SizedBox(height: 16),
-                              AppTextField(
-                                controller: _code,
-                                label: 'کد جایگاه',
-                                required: true,
-                                ltr: true,
-                                enabled: !busy && widget.item == null,
-                                prefixIcon: const Icon(Icons.tag),
-                                validator: (value) {
-                                  final code =
-                                      _normalizedOrgCode(value?.trim() ?? '');
-                                  if (code.isEmpty) {
-                                    return 'کد جایگاه را وارد کنید.';
-                                  }
-                                  if (state.snapshot.rows.any((row) =>
-                                      row.code != _editingCode &&
-                                      _normalizedOrgCode(row.code) == code)) {
-                                    return 'این کد قبلاً ثبت شده است.';
-                                  }
-                                  return null;
-                                },
-                              ),
+                              if (widget.item == null)
+                                AppTextField(
+                                  controller: _code,
+                                  label: 'کد جایگاه',
+                                  required: true,
+                                  ltr: true,
+                                  enabled: !busy && widget.item == null,
+                                  prefixIcon: const Icon(Icons.tag),
+                                  validator: (value) {
+                                    final code =
+                                        _normalizedOrgCode(value?.trim() ?? '');
+                                    if (code.isEmpty) {
+                                      return 'کد جایگاه را وارد کنید.';
+                                    }
+                                    if (state.snapshot.rows.any((row) =>
+                                        row.code != _editingCode &&
+                                        _normalizedOrgCode(row.code) == code)) {
+                                      return 'این کد قبلاً ثبت شده است.';
+                                    }
+                                    return null;
+                                  },
+                                ),
                               const SizedBox(height: 16),
                               AppSelectField(
                                 value: _departmentId,
@@ -269,119 +266,124 @@ class _OrganizationPositionFormState extends State<_OrganizationPositionForm> {
                             ],
                           ))),
                   const SizedBox(height: 12),
-                  Card(
-                      child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text('انتصاب پرسنل',
-                                  style:
-                                      TextStyle(fontWeight: FontWeight.w900)),
-                              const SizedBox(height: 8),
-                              const Text(
-                                  'انتخاب از پرسنل ثبت‌شده منابع انسانی است. مدیر مستقیم در پرونده پرسنلی جداگانه تعیین می‌شود؛ ذخیره یا تغییر جایگاه، مدیر مستقیم و دسترسی‌ها را تغییر نمی‌دهد.',
-                                  style: TextStyle(
-                                      fontSize: 11, color: AsoudColors.muted)),
-                              const SizedBox(height: 16),
-                              if (_loadingPeople)
-                                const LinearProgressIndicator(),
-                              if (_peopleError != null) ...[
-                                Text(_peopleError!,
-                                    style: const TextStyle(
-                                        color: AsoudColors.muted,
-                                        fontSize: 11)),
-                                TextButton(
-                                    onPressed: busy || _loadingPeople
-                                        ? null
-                                        : _loadPeople,
-                                    child: const Text('تلاش دوباره')),
-                              ],
-                              AppSelectField(
-                                key: ValueKey('org-employee-$_employee'),
-                                label: 'پرسنل',
-                                value: _employee,
-                                displayValue: _employee.isEmpty
-                                    ? 'انتساب پرسنل جدید'
-                                    : available
-                                            .where((person) =>
-                                                person.id == _employee)
-                                            .map((person) => person.displayName)
-                                            .firstOrNull ??
-                                        _employee,
-                                hint: 'انتخاب از منابع انسانی',
-                                prefixIcon: const Icon(Icons.person_outline),
-                                enabled: !(busy || _loadingPeople),
-                                onPick: () => _pickOrganizationEmployee(
-                                    context, available),
-                                onChanged: (value) => setState(() {
-                                  _employee = '';
-                                  if (value.isNotEmpty &&
-                                      !_occupants.contains(value)) {
-                                    _occupants.add(value);
-                                  }
-                                }),
-                              ),
-                              for (final id in _occupants)
-                                ListTile(
-                                    title: Text(_people
-                                            .where((p) => p.id == id)
-                                            .map((p) => p.displayName)
-                                            .firstOrNull ??
-                                        id),
-                                    subtitle: Text(_people
-                                            .where((p) =>
-                                                p.id == id &&
-                                                p.personnelCode.isNotEmpty)
-                                            .map((p) => p.personnelCode)
-                                            .firstOrNull ??
-                                        id.replaceFirst('employee:', '')),
-                                    trailing: IconButton(
-                                        icon: const Icon(
-                                            Icons.person_remove_outlined),
-                                        tooltip: 'پایان انتساب پس از ذخیره',
-                                        onPressed: busy
-                                            ? null
-                                            : () async {
-                                                final yes = await showDialog<
-                                                        bool>(
-                                                    context: context,
-                                                    builder: (c) => AlertDialog(
-                                                            title: const Text(
-                                                                'پایان انتساب'),
-                                                            content: const Text(
-                                                                'پس از ذخیره، انتساب پایان می‌یابد؛ پرونده پرسنل و سابقه حذف نمی‌شوند.'),
-                                                            actions: [
-                                                              TextButton(
-                                                                  onPressed: () =>
-                                                                      Navigator.pop(
-                                                                          c,
-                                                                          false),
-                                                                  child: const Text(
-                                                                      'انصراف')),
-                                                              FilledButton(
-                                                                  onPressed: () =>
-                                                                      Navigator.pop(
-                                                                          c,
-                                                                          true),
-                                                                  child: const Text(
-                                                                      'تأیید'))
-                                                            ]));
-                                                if (yes == true && mounted) {
-                                                  setState(() =>
-                                                      _occupants.remove(id));
-                                                }
-                                              })),
-                              if (widget.item?.history.isNotEmpty == true) ...[
-                                const Text('سوابق انتساب'),
-                                for (final h in widget.item!.history)
+                  if (widget.item == null)
+                    Card(
+                        child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('انتصاب پرسنل',
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.w900)),
+                                const SizedBox(height: 8),
+                                const Text(
+                                    'انتخاب از پرسنل ثبت‌شده منابع انسانی است. مدیر مستقیم در پرونده پرسنلی جداگانه تعیین می‌شود؛ ذخیره یا تغییر جایگاه، مدیر مستقیم و دسترسی‌ها را تغییر نمی‌دهد.',
+                                    style: TextStyle(
+                                        fontSize: 11,
+                                        color: AsoudColors.muted)),
+                                const SizedBox(height: 16),
+                                if (_loadingPeople)
+                                  const LinearProgressIndicator(),
+                                if (_peopleError != null) ...[
+                                  Text(_peopleError!,
+                                      style: const TextStyle(
+                                          color: AsoudColors.muted,
+                                          fontSize: 11)),
+                                  TextButton(
+                                      onPressed: busy || _loadingPeople
+                                          ? null
+                                          : _loadPeople,
+                                      child: const Text('تلاش دوباره')),
+                                ],
+                                AppSelectField(
+                                  key: ValueKey('org-employee-$_employee'),
+                                  label: 'پرسنل',
+                                  value: _employee,
+                                  displayValue: _employee.isEmpty
+                                      ? 'انتساب پرسنل جدید'
+                                      : available
+                                              .where((person) =>
+                                                  person.id == _employee)
+                                              .map((person) =>
+                                                  person.displayName)
+                                              .firstOrNull ??
+                                          _employee,
+                                  hint: 'انتخاب از منابع انسانی',
+                                  prefixIcon: const Icon(Icons.person_outline),
+                                  enabled: !(busy || _loadingPeople),
+                                  onPick: () => _pickOrganizationEmployee(
+                                      context, available),
+                                  onChanged: (value) => setState(() {
+                                    _employee = '';
+                                    if (value.isNotEmpty &&
+                                        !_occupants.contains(value)) {
+                                      _occupants.add(value);
+                                    }
+                                  }),
+                                ),
+                                for (final id in _occupants)
                                   ListTile(
-                                      title: Text('${h['employee']}'),
-                                      subtitle: Text(
-                                          'شروع: ${_assignmentDate(h['started_at'])}\nپایان: ${h['ended_at'] == null ? 'فعال' : _assignmentDate(h['ended_at'])}')),
+                                      title: Text(_people
+                                              .where((p) => p.id == id)
+                                              .map((p) => p.displayName)
+                                              .firstOrNull ??
+                                          id),
+                                      subtitle: Text(_people
+                                              .where((p) =>
+                                                  p.id == id &&
+                                                  p.personnelCode.isNotEmpty)
+                                              .map((p) => p.personnelCode)
+                                              .firstOrNull ??
+                                          id.replaceFirst('employee:', '')),
+                                      trailing: IconButton(
+                                          icon: const Icon(
+                                              Icons.person_remove_outlined),
+                                          tooltip: 'پایان انتساب پس از ذخیره',
+                                          onPressed: busy
+                                              ? null
+                                              : () async {
+                                                  final yes = await showDialog<
+                                                          bool>(
+                                                      context: context,
+                                                      builder: (c) =>
+                                                          AlertDialog(
+                                                              title: const Text(
+                                                                  'پایان انتساب'),
+                                                              content: const Text(
+                                                                  'پس از ذخیره، انتساب پایان می‌یابد؛ پرونده پرسنل و سابقه حذف نمی‌شوند.'),
+                                                              actions: [
+                                                                TextButton(
+                                                                    onPressed: () =>
+                                                                        Navigator.pop(
+                                                                            c,
+                                                                            false),
+                                                                    child: const Text(
+                                                                        'انصراف')),
+                                                                FilledButton(
+                                                                    onPressed: () =>
+                                                                        Navigator.pop(
+                                                                            c,
+                                                                            true),
+                                                                    child: const Text(
+                                                                        'تأیید'))
+                                                              ]));
+                                                  if (yes == true && mounted) {
+                                                    setState(() =>
+                                                        _occupants.remove(id));
+                                                  }
+                                                })),
+                                if (widget.item?.history.isNotEmpty ==
+                                    true) ...[
+                                  const Text('سوابق انتساب'),
+                                  for (final h in widget.item!.history)
+                                    ListTile(
+                                        title: Text('${h['employee']}'),
+                                        subtitle: Text(
+                                            'شروع: ${_assignmentDate(h['started_at'])}\nپایان: ${h['ended_at'] == null ? 'فعال' : _assignmentDate(h['ended_at'])}')),
+                                ],
                               ],
-                            ],
-                          ))),
+                            ))),
                   const SizedBox(height: 16),
                   const _OrgNotice(
                       icon: Icons.info_outline,
@@ -390,12 +392,36 @@ class _OrganizationPositionFormState extends State<_OrganizationPositionForm> {
                           'بالادست سازمانی با نقش دسترسی متفاوت است؛ ثبت این جایگاه دسترسی کاربری ایجاد نمی‌کند.'),
                 ]),
               )),
-              bottomNavigationBar: AsoudBottomActions(
-                primaryLabel: _saving ? 'در حال ذخیره…' : 'ذخیره جایگاه',
-                onPrimary: busy ? null : _save,
-                secondaryLabel: 'انصراف',
-                onSecondary: busy ? null : _discard,
-              ),
+              bottomNavigationBar: widget.item != null
+                  ? SafeArea(
+                      top: false,
+                      child: Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                          child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                FilledButton.icon(
+                                    onPressed: busy ? null : _save,
+                                    icon: const Icon(Icons.check, size: 18),
+                                    label: Text(_saving
+                                        ? 'در حال ثبت…'
+                                        : 'ثبت تغییرات')),
+                                const SizedBox(height: 8),
+                                OutlinedButton(
+                                    onPressed: busy ? null : _discard,
+                                    child: const Text('انصراف')),
+                              ])))
+                  : AsoudBottomActions(
+                      primaryLabel: _saving
+                          ? 'در حال ذخیره…'
+                          : widget.item == null
+                              ? 'ذخیره جایگاه'
+                              : 'ثبت تغییرات',
+                      onPrimary: busy ? null : _save,
+                      secondaryLabel: 'انصراف',
+                      onSecondary: busy ? null : _discard,
+                    ),
             ),
           );
         },

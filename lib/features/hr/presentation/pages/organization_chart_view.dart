@@ -121,8 +121,10 @@ class _OrganizationChartState extends State<_OrganizationChart> {
                           child: FilledButton.icon(
                             onPressed: state.busy
                                 ? null
-                                : () => _openOrganizationPage<bool>(context,
-                                    _OrganizationPositionForm(parent: parent)),
+                                : () => _openOrganizationPage<bool>(
+                                    context,
+                                    _OrganizationCreateForm(
+                                        position: true, parent: parent)),
                             icon: const Icon(Icons.add),
                             label: const Text('افزودن زیرمجموعه'),
                           ),
@@ -443,12 +445,14 @@ class _OrganizationMenu extends StatelessWidget {
                 await _move(context);
                 return;
               }
-              if (action == 'add' || action == 'edit') {
+              if (action == 'add') {
+                await _openOrganizationPage<bool>(context,
+                    _OrganizationCreateForm(position: true, parent: position));
+                return;
+              }
+              if (action == 'edit') {
                 await _orgSheet<bool>(
-                    context,
-                    _OrganizationPositionForm(
-                        item: action == 'edit' ? position : null,
-                        parent: action == 'add' ? position : null));
+                    context, _OrganizationPositionForm(item: position));
                 return;
               }
               final cubit = context.read<OrganizationCubit>();

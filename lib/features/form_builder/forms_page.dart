@@ -7,7 +7,6 @@ import '../../core/network/frappe_client.dart';
 import '../../core/offline/offline_failure.dart';
 import '../../core/widgets/asoud_ui.dart';
 import '../../core/utils/jalali_date.dart';
-import '../request_types/presentation/pages/forms_management_page.dart';
 import 'create_form_page.dart';
 import 'form_editor.dart';
 import 'form_repository.dart';
@@ -68,11 +67,13 @@ class _VersionedFormsPageState extends State<VersionedFormsPage> {
       } catch (_) {}
     }
   }
+
   void reload() {
     setState(() {
       rows = repository.list(kind, manage: widget.manage);
     });
   }
+
   Future<void> editor(FormMap initial) async {
     await Navigator.push(
       context,
@@ -173,7 +174,8 @@ class _VersionedFormsPageState extends State<VersionedFormsPage> {
                 ),
               for (final r in history)
                 ListTile(
-                  title: Text('نسخه ${toPersianDigits('${r['version'] ?? 1}')}'),
+                  title:
+                      Text('نسخه ${toPersianDigits('${r['version'] ?? 1}')}'),
                   subtitle: Text(
                     '${formatJalaliDateTimeIso('${r['published_on']}')} · ${r['published_by'] ?? ''}\n${r['change_note'] ?? ''}',
                   ),
@@ -544,19 +546,6 @@ class _VersionedFormsPageState extends State<VersionedFormsPage> {
                   );
                 },
               ),
-              if (widget.manage)
-                TextButton(
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute<void>(
-                      builder: (_) =>
-                          FormsManagementPage(company: widget.company),
-                    ),
-                  ),
-                  child: const Text(
-                    'فرم‌ها و الگوهای نسخه قبلی (بدون مهاجرت خودکار)',
-                  ),
-                ),
               if (!widget.manage)
                 TextButton(
                   onPressed: entries,
@@ -581,17 +570,27 @@ class _VersionedFormsPageState extends State<VersionedFormsPage> {
       Color(0xFFF57F17),
       Color(0xFFFFF8E1)
     ),
-    'Sales':
-        (Icons.shopping_bag_outlined, Color(0xFF7B1FA2), Color(0xFFF3E5F5)),
+    'Sales': (
+      Icons.shopping_bag_outlined,
+      Color(0xFF7B1FA2),
+      Color(0xFFF3E5F5)
+    ),
     'Stock': (Icons.inventory_2_outlined, Color(0xFF00796B), Color(0xFFE0F7FA)),
-    'Purchase': (Icons.business_center_outlined, Color(0xFFC2185B), Color(0xFFFFEBEE)),
+    'Purchase': (
+      Icons.business_center_outlined,
+      Color(0xFFC2185B),
+      Color(0xFFFFEBEE)
+    ),
     'Manufacturing': (
       Icons.precision_manufacturing_outlined,
       Color(0xFF455A64),
       Color(0xFFECEFF1)
     ),
-    'Projects':
-        (Icons.assignment_outlined, Color(0xFF512DA8), Color(0xFFEDE7F6)),
+    'Projects': (
+      Icons.assignment_outlined,
+      Color(0xFF512DA8),
+      Color(0xFFEDE7F6)
+    ),
     'IT': (Icons.computer_outlined, Color(0xFF0288D1), Color(0xFFE1F5FE)),
     'General': (
       Icons.dashboard_customize_outlined,
@@ -646,9 +645,8 @@ class _VersionedFormsPageState extends State<VersionedFormsPage> {
     final customColor = _parseHexColor(s['color']?.toString());
     final cardIcon = customIcon ?? visual.$1;
     final cardIconColor = customColor ?? visual.$2;
-    final cardIconBg = customColor != null
-        ? customColor.withValues(alpha: 0.12)
-        : visual.$3;
+    final cardIconBg =
+        customColor != null ? customColor.withValues(alpha: 0.12) : visual.$3;
     final status = '${row['status'] ?? 'Draft'}';
 
     String statusText;
@@ -1045,8 +1043,7 @@ Future<String?> pickModuleModal(BuildContext context, {String? current}) async {
                           size: 20,
                         ),
                         const SizedBox(width: 10),
-                        Text(entry.value,
-                            style: const TextStyle(fontSize: 13)),
+                        Text(entry.value, style: const TextStyle(fontSize: 13)),
                       ],
                     ),
                   ),
