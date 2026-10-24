@@ -135,7 +135,36 @@ void main() {
     'modified': '2026-10-22 10:00:00'
   };
 
-  testWidgets('legacy unit edit entry is removed without changing native data',
+  for (final width in [320.0, 390.0, 430.0]) {
+    testWidgets('unit management keeps root and all direct children at $width', (tester) async {
+      final client = _OrgClient(units: [unit, {
+        ...unit, 'name': 'CHILD-A', 'department_name': 'آموزش', 'parent_department': 'HR-CO',
+      }, {
+        ...unit, 'name': 'CHILD-B', 'department_name': 'جذب', 'parent_department': 'HR-CO',
+      }]);
+      await _openCreateForm(tester, client, openForm: false);
+      tester.view.physicalSize = Size(width, 1600);
+      await tester.pumpAndSettle();
+      expect(find.text('مدیرعامل'), findsOneWidget);
+      await tester.ensureVisible(find.text('منابع انسانی').first);
+      await tester.tap(find.text('منابع انسانی').first);
+      await tester.pumpAndSettle();
+      expect(find.text('مدیریت ساختار سازمانی'), findsOneWidget);
+      expect(find.text('مدیرعامل'), findsOneWidget);
+      expect(find.text('آموزش'), findsOneWidget);
+      expect(find.text('جذب'), findsOneWidget);
+      expect(find.text('پیش‌نمایش تغییر سلسله‌مراتب'), findsOneWidget);
+      expect(tester.widget<FilledButton>(find.byKey(const ValueKey('organization-management-submit'))).onPressed, isNull);
+      expect(client.lastUnitPayload, isNull);
+      await tester.tap(find.text('آموزش'));
+      await tester.pumpAndSettle();
+      expect(find.text('این واحد زیرواحد ندارد.'), findsOneWidget);
+      expect(find.text('جذب'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('unit details opens as a page with inline editing and management',
       (tester) async {
     final client = _OrgClient(units: [unit]);
     await _openCreateForm(tester, client, openForm: false);
@@ -143,9 +172,17 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('منابع انسانی'));
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('organization-unit-edit')), findsNothing);
+    expect(find.byKey(const ValueKey('organization-unit-edit')), findsOneWidget);
     expect(find.text('ویرایش مشخصات واحد'), findsNothing);
-    expect(find.textContaining('All Departments'), findsOneWidget);
+    expect(find.byType(BottomSheet), findsNothing);
+    expect(find.text('جزئیات واحد سازمانی'), findsOneWidget);
+    expect(find.text('جابه‌جایی واحد'), findsOneWidget);
+    expect(find.text('حذف واحد'), findsOneWidget);
+    expect(find.textContaining('All Departments'), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('organization-unit-edit')));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(TextFormField, 'عنوان واحد'), findsOneWidget);
+    expect(find.text('ذخیره'), findsOneWidget);
     expect(client.lastUnitPayload, isNull);
     expect(tester.takeException(), isNull);
   });

@@ -230,6 +230,9 @@ Future<String?> _pickOrganizationEmployee(
 }
 
 Future<T?> _orgSheet<T>(BuildContext context, Widget child) {
+  if (child is _UnitDetails || child is _UnitForm) {
+    return _openOrganizationPage<T>(context, _OrgSheetTheme(child: child));
+  }
   final cubit = context.read<OrganizationCubit>();
   return showModalBottomSheet<T>(
       context: context,
@@ -248,12 +251,7 @@ Future<T?> _orgSheet<T>(BuildContext context, Widget child) {
               child: Padding(
                   padding: EdgeInsets.only(
                       bottom: MediaQuery.viewInsetsOf(c).bottom),
-                  child: child is _UnitDetails
-                      ? ConstrainedBox(
-                          constraints: BoxConstraints(
-                              maxHeight: MediaQuery.sizeOf(c).height * .85),
-                          child: _OrgSheetTheme(child: child))
-                      : SizedBox(
+                  child: SizedBox(
                           height: MediaQuery.sizeOf(c).height * .85,
                           child: _OrgSheetTheme(child: child))))));
 }
@@ -579,9 +577,9 @@ class _OrganizationUnitsState extends State<_OrganizationUnits> {
                       canManage: manage,
                       onCreateUnit: () => _edit(units),
                       onOpenUnit: (unit) async {
-                        await _orgSheet<void>(
+                        await _openOrganizationPage<void>(
                             context,
-                            _UnitDetails(
+                            _OrganizationUnitManagement(
                                 unit: unit, units: units, canManage: manage));
                         if (mounted) setState(_reload);
                       });
@@ -603,9 +601,7 @@ class _UnitForm extends StatefulWidget {
   const _UnitForm(
       {required this.units,
       this.unit,
-      this.parent = '',
-      this.moveOnly = false});
-  final bool moveOnly;
+      this.parent = ''});
   final List<Map<String, dynamic>> units;
   final Map<String, dynamic>? unit;
   final String parent;
@@ -708,9 +704,7 @@ class _UnitFormState extends State<_UnitForm> {
       child: Scaffold(
           appBar: _OrganizationReferenceHeader(
               form: true,
-              title: widget.moveOnly
-                  ? 'جابه‌جایی واحد'
-                  : widget.unit == null
+              title: widget.unit == null
                       ? (widget.parent.isEmpty
                           ? 'ایجاد واحد سازمانی'
                           : 'افزودن زیرواحد')
@@ -718,8 +712,7 @@ class _UnitFormState extends State<_UnitForm> {
           body: ListView(padding: const EdgeInsets.all(16), children: [
             if (error != null)
               Text(error!, style: const TextStyle(color: AsoudColors.danger)),
-            if (!widget.moveOnly)
-              AppTextField(
+            AppTextField(
                   controller: title,
                   label: 'عنوان واحد',
                   required: true,
@@ -728,7 +721,7 @@ class _UnitFormState extends State<_UnitForm> {
             AppSelectField(
                 value: parent.isEmpty ? '__root__' : parent,
                 label: 'واحد بالادستی',
-                enabled: !busy && (widget.unit == null || widget.moveOnly),
+                enabled: !busy && widget.unit == null,
                 displayValue: widget.units
                         .where((u) => u['name'] == parent)
                         .map((u) => '${u['department_name']}')
@@ -751,8 +744,7 @@ class _UnitFormState extends State<_UnitForm> {
                                   '${u['name']}', '${u['department_name']}'))
                         ]),
                 onChanged: (v) => setState(() => parent = v)),
-            if (!widget.moveOnly)
-              SwitchListTile(
+            SwitchListTile(
                   title: const Text('امکان ایجاد زیرواحد'),
                   subtitle: const Text(
                       'واحد گروهی در ERPNext؛ برای واحد دارای زیرواحد قابل غیرفعال‌کردن نیست.'),
@@ -762,154 +754,18 @@ class _UnitFormState extends State<_UnitForm> {
                               u['parent_department'] == widget.unit?['name'])
                       ? null
                       : (v) => setState(() => group = v)),
-            if (widget.unit != null && !widget.moveOnly)
+            if (widget.unit != null)
               const Text(
                   'برای تغییر واحد بالادستی از مدیریت واحد ← جابه‌جایی استفاده کنید.'),
             FilledButton(
                 key: const ValueKey('organization-unit-submit'),
-                onPressed: busy || (widget.moveOnly && parent == initialParent)
-                    ? null
-                    : _save,
+                onPressed: busy ? null : _save,
                 child: Text(busy
                     ? 'در حال ثبت…'
-                    : widget.moveOnly
-                        ? 'ثبت جابه‌جایی'
-                        : widget.unit == null
+                    : widget.unit == null
                             ? 'افزودن واحد'
                             : 'ثبت تغییرات')),
             TextButton(
                 onPressed: busy ? null : discard, child: const Text('انصراف')),
           ])));
-}
-
-/// Blocks a second delete flow while one is already checking or deleting.
-bool _unitDeleteRunning = false;
-
-class _UnitDetails extends StatelessWidget {
-  const _UnitDetails(
-      {required this.unit, required this.units, required this.canManage});
-  final Map<String, dynamic> unit;
-  final List<Map<String, dynamic>> units;
-  final bool canManage;
-  @override
-  Widget build(BuildContext context) =>
-      _OrgDetailPage(title: 'جزئیات واحد', grouped: true, children: [
-        _OrgPanel(children: [
-          _OrgDetailIdentity(
-              title: '${unit['department_name']}',
-              subtitle:
-                  'زیرمجموعه: ${units.where((u) => u['name'] == unit['parent_department']).map((u) => u['department_name']).firstOrNull ?? unit['parent_department'] ?? 'ریشه ساختار'}'),
-          if (canManage) ...[
-            TextButton.icon(
-                onPressed: () => _manage(context),
-                icon: const Icon(Icons.tune, size: 18),
-                label: const Text('مدیریت واحد')),
-          ],
-        ]),
-        const SizedBox(height: 12),
-        _OrgPanel(children: [
-          _OrgDetailSection(
-              title: 'زیرواحدها',
-              addKey: const ValueKey('organization-subunit-add'),
-              onAdd: !canManage || unit['is_group'] != 1
-                  ? null
-                  : () async {
-                      final saved = await _orgSheet<bool>(context,
-                          _UnitForm(units: units, parent: '${unit['name']}'));
-                      if (saved == true && context.mounted) {
-                        Navigator.pop(context);
-                      }
-                    }),
-          if (!units.any((u) => u['parent_department'] == unit['name']))
-            const _OrgNotice(
-                icon: Icons.account_tree_outlined,
-                color: Color(0xff8965af),
-                text: 'برای این واحد هنوز زیرواحدی تعریف نشده است.'),
-          for (final child
-              in units.where((u) => u['parent_department'] == unit['name']))
-            _OrgDetailRow(
-                title: '${child['department_name']}',
-                onTap: () => _orgSheet<void>(
-                    context,
-                    _UnitDetails(
-                        unit: child, units: units, canManage: canManage))),
-        ]),
-        const SizedBox(height: 12),
-        _OrgPanel(children: [_UnitPositions(unit: unit, canManage: canManage)]),
-      ]);
-  Future<void> _manage(BuildContext context) async {
-    final action = await showModalBottomSheet<String>(
-        context: context,
-        builder: (c) => SafeArea(
-                child: Column(mainAxisSize: MainAxisSize.min, children: [
-              ListTile(
-                  title: const Text('جابه‌جایی واحد'),
-                  subtitle: const Text('تغییر واحد بالادستی بدون حذف اطلاعات'),
-                  onTap: () => Navigator.pop(c, 'move')),
-              ListTile(
-                  title: const Text('حذف ایمن واحد'),
-                  subtitle: const Text('بررسی وابستگی‌ها پیش از حذف'),
-                  onTap: () => Navigator.pop(c, 'delete')),
-            ])));
-    if (!context.mounted || action == null) return;
-    if (action == 'move') {
-      final saved = await _orgSheet<bool>(
-          context, _UnitForm(unit: unit, units: units, moveOnly: true));
-      if (saved == true && context.mounted) Navigator.pop(context);
-      return;
-    }
-    final yes = await showDialog<bool>(
-        context: context,
-        builder: (c) => AlertDialog(
-                title: const Text('بررسی امکان حذف واحد'),
-                content: const Text(
-                    'در صورت وجود زیرواحد، جایگاه یا سوابق مرتبط، سرور حذف را رد می‌کند.'),
-                actions: [
-                  TextButton(
-                      onPressed: () => Navigator.pop(c, false),
-                      child: const Text('انصراف')),
-                  FilledButton(
-                      onPressed: () => Navigator.pop(c, true),
-                      child: const Text('بررسی وابستگی‌ها'))
-                ]));
-    if (yes != true || !context.mounted || _unitDeleteRunning) return;
-    _unitDeleteRunning = true;
-    try {
-      final c = context.read<OrganizationCubit>();
-      final preview = await c.repository.previewDeleteUnit(
-          c.company, '${unit['name']}', '${unit['modified']}');
-      if (!context.mounted) return;
-      if (preview['can_delete'] != true) {
-        _orgMessage(context, (preview['blockers'] as List).join('\n'));
-        return;
-      }
-      final confirmed = await showDialog<bool>(
-          context: context,
-          builder: (dialog) => AlertDialog(
-                  title: const Text('تأیید حذف واحد'),
-                  content: Text(
-                      'واحد «${unit['department_name']}» حذف شود؟ وابستگی‌ها هنگام حذف دوباره بررسی می‌شوند.'),
-                  actions: [
-                    TextButton(
-                        onPressed: () => Navigator.pop(dialog, false),
-                        child: const Text('انصراف')),
-                    FilledButton(
-                        style: FilledButton.styleFrom(
-                            backgroundColor: AsoudColors.danger),
-                        onPressed: () => Navigator.pop(dialog, true),
-                        child: const Text('تأیید حذف واحد')),
-                  ]));
-      if (confirmed != true || !context.mounted) return;
-      await c.repository
-          .deleteUnit(c.company, '${unit['name']}', '${unit['modified']}');
-      await c.load();
-      if (context.mounted) Navigator.pop(context);
-    } catch (e) {
-      if (context.mounted) {
-        _orgMessage(context, e is ApiException ? e.message : 'حذف تأیید نشد.');
-      }
-    } finally {
-      _unitDeleteRunning = false;
-    }
-  }
 }

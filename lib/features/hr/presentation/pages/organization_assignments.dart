@@ -471,6 +471,8 @@ class _UnitPositionsState extends State<_UnitPositions> {
                 children: [
                   _OrgDetailSection(
                       title: 'جایگاه‌های شغلی',
+                      icon: Icons.work_outline,
+                      color: _orgAccents[2],
                       addKey:
                           const ValueKey('organization-inline-position-open'),
                       onAdd: widget.canManage && !adding

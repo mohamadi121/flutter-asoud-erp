@@ -35,17 +35,15 @@ class _OrgPanel extends StatelessWidget {
 
 class _OrgDetailPage extends StatelessWidget {
   const _OrgDetailPage(
-      {required this.title, required this.children, this.grouped = false});
+      {required this.title, required this.children});
   final String title;
   final List<Widget> children;
-  final bool grouped;
   @override
   Widget build(BuildContext context) => Scaffold(
       backgroundColor: _orgCanvas,
       appBar: _OrganizationReferenceHeader(title: title, form: true),
       body: ListView(padding: const EdgeInsets.all(16), children: [
-        if (!grouped)
-          Container(
+        Container(
               padding: const EdgeInsets.all(20),
               decoration: _orgWhiteCard(),
               child: Row(children: [
@@ -70,10 +68,7 @@ class _OrgDetailPage extends StatelessWidget {
                     ])),
               ])),
         const SizedBox(height: 16),
-        if (grouped)
-          ...children
-        else
-          Container(
+        Container(
               padding: const EdgeInsets.all(16),
               decoration: _orgWhiteCard(),
               child: Column(
@@ -116,7 +111,9 @@ class _OrgDetailIdentity extends StatelessWidget {
 }
 
 class _OrgDetailSection extends StatelessWidget {
-  const _OrgDetailSection({required this.title, this.onAdd, this.addKey});
+  const _OrgDetailSection({required this.title, this.onAdd, this.addKey, this.icon, this.color});
+  final IconData? icon;
+  final Color? color;
   final String title;
   final VoidCallback? onAdd;
   final Key? addKey;
@@ -124,6 +121,10 @@ class _OrgDetailSection extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
       padding: const EdgeInsets.symmetric(vertical: 18),
       child: Row(children: [
+        if (icon != null) ...[
+          AsoudIconBox(icon: icon!, color: color ?? _orgAccents[0], size: 30),
+          const SizedBox(width: 8),
+        ],
         Expanded(
             child: Text(title,
                 style: const TextStyle(
@@ -314,21 +315,22 @@ class _OrganizationUnitListState extends State<_OrganizationUnitList> {
 class _OrganizationReferenceHeader extends StatelessWidget
     implements PreferredSizeWidget {
   const _OrganizationReferenceHeader(
-      {this.title = 'ساختار سازمانی', this.form = false});
+      {this.title = 'ساختار سازمانی', this.form = false, this.compact = false});
   final String title;
   final bool form;
+  final bool compact;
   @override
-  Size get preferredSize => const Size.fromHeight(94);
+  Size get preferredSize => Size.fromHeight(compact ? 66 : 94);
   @override
   Widget build(BuildContext context) => SafeArea(
       bottom: false,
       child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          padding: EdgeInsets.symmetric(horizontal: compact ? 14 : 20, vertical: compact ? 8 : 12),
           child: Row(children: [
-            const AsoudIconBox(
+            AsoudIconBox(
                 icon: Icons.account_tree_outlined,
                 color: Color(0xff3778b7),
-                size: 50),
+                size: compact ? 36 : 50),
             const SizedBox(width: 8),
             Expanded(
                 child: Column(
@@ -341,7 +343,7 @@ class _OrganizationReferenceHeader extends StatelessWidget
                           overflow: TextOverflow.ellipsis,
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                              fontSize: 20,
+                              fontSize: compact ? 16 : 20,
                               height: 1.2,
                               fontWeight: FontWeight.w800,
                               color: _orgInk))),
@@ -549,6 +551,8 @@ class _OrganizationHierarchyPanel extends StatelessWidget {
                   decoration: _orgWhiteCard(),
                   padding: const EdgeInsets.all(14),
                   child: Column(children: [
+                    if (roots.isEmpty)
+                      const SizedBox(width: 174, child: _OrganizationRootCard()),
                     for (final root in roots) ...[
                       SizedBox(
                           width: 174,
