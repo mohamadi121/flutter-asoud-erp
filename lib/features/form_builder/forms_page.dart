@@ -50,6 +50,8 @@ class _VersionedFormsPageState extends State<VersionedFormsPage> {
   late String kind = widget.initialKind;
   String query = '', module = '', status = '';
   bool expandedModules = false;
+  bool _systemManager = false;
+  bool _acting = false;
   late final TextEditingController _searchController = TextEditingController();
   late Future<List<FormMap>> rows = repository.list(
     kind,
@@ -124,9 +126,26 @@ class _VersionedFormsPageState extends State<VersionedFormsPage> {
   }
 
   Future<void> action(String action, FormMap row) async {
+    if (_acting) return;
+    setState(() => _acting = true);
     try {
+      final builtin = row['builtin_key'];
+      if (action == 'remove_builtin') {
+        if (!_systemManager || builtin == null) return;
+        if (!await formConfirm(context,
+            'این قالب از فهرست شرکت حذف شود؟ اطلاعات ثبت‌شده و نسخه‌های قبلی حفظ می‌شوند.')) {
+          return;
+        }
+        await repository.call('remove_builtin', {'company': widget.company, 'key': builtin});
+        if (mounted) reload();
+        return;
+      }
       if (action == 'edit' || action == 'copy') {
-        final data = row['schema'] != null
+        final data = builtin != null && action == 'edit'
+            ? formMap(await repository.call('open_builtin', {
+                'company': widget.company, 'key': builtin, 'manage': 1,
+              }))
+            : row['schema'] != null
             ? copyForm(row)
             : formMap(
                 await repository.call('get_form', {
@@ -143,11 +162,13 @@ class _VersionedFormsPageState extends State<VersionedFormsPage> {
         } else if (mounted) {
           await editor(data);
         }
-      } else if (action == 'preview') {
+      } else if (action == 'preview' || action == 'fill') {
         final data = formMap(
-          await repository.call('get_form', {
+          builtin != null ? await repository.call('open_builtin', {
+            'company': widget.company, 'key': builtin, 'manage': 0,
+          }) : await repository.call('get_form', {
             'name': row['name'],
-            'manage': widget.manage ? 1 : 0,
+            'manage': action == 'fill' ? 0 : widget.manage ? 1 : 0,
           }),
         );
         if (!mounted) {
@@ -159,10 +180,11 @@ class _VersionedFormsPageState extends State<VersionedFormsPage> {
             builder: (_) => FormEntryPage(
               repository: repository,
               record: data,
-              previewOnly: widget.manage,
+              previewOnly: action == 'preview' && widget.manage,
             ),
           ),
         );
+        if (mounted && builtin != null) reload();
       } else if (action == 'versions') {
         final history = formMaps(
           await repository.call('get_history', {
@@ -216,6 +238,8 @@ class _VersionedFormsPageState extends State<VersionedFormsPage> {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(offlineFailureMessage(e))));
       }
+    } finally {
+      if (mounted) setState(() => _acting = false);
     }
   }
 
@@ -306,6 +330,7 @@ class _VersionedFormsPageState extends State<VersionedFormsPage> {
         if (!snapshot.data!.canManageForms) {
           return const AccessDeniedScaffold();
         }
+        _systemManager = snapshot.data!.canManageRoles;
         return _buildContent(context);
       },
     );
@@ -686,7 +711,9 @@ class _VersionedFormsPageState extends State<VersionedFormsPage> {
     }
 
     return InkWell(
-      onTap: () => action(widget.manage ? 'edit' : 'preview', row),
+      onTap: _acting ? null : () => action(
+          row['builtin_key'] != null
+              ? 'fill' : widget.manage ? 'edit' : 'preview', row),
       borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -759,12 +786,15 @@ class _VersionedFormsPageState extends State<VersionedFormsPage> {
             ),
             if (widget.manage)
               PopupMenuButton<String>(
+                enabled: !_acting,
                 icon: const Icon(Icons.more_vert,
                     color: Color(0xFF64748B), size: 20),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
                 onSelected: (v) => action(v, row),
                 itemBuilder: (_) => [
+                  if (row['builtin_key'] != null && _systemManager)
+                    const PopupMenuItem(value: 'remove_builtin', child: Text('حذف از فهرست شرکت')),
                   const PopupMenuItem(
                     value: 'edit',
                     child: Text('ویرایش / نسخه جدید'),
@@ -774,7 +804,7 @@ class _VersionedFormsPageState extends State<VersionedFormsPage> {
                     child: Text('ایجاد نسخه مشابه'),
                   ),
                   if (row['name'] != null) ...[
-                    const PopupMenuItem(
+                    if (row['builtin_pending'] != true) const PopupMenuItem(
                       value: 'versions',
                       child: Text('نسخه‌ها'),
                     ),
@@ -782,7 +812,7 @@ class _VersionedFormsPageState extends State<VersionedFormsPage> {
                       value: 'preview',
                       child: Text('پیش‌نمایش'),
                     ),
-                    PopupMenuItem(
+                    if (_systemManager && row['builtin_key'] == null) PopupMenuItem(
                       value: row['disabled'] == 1 ? 'enable' : 'disable',
                       child: Text(
                         row['disabled'] == 1 ? 'فعال‌سازی' : 'غیرفعال‌سازی',

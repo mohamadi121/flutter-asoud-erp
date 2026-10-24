@@ -100,6 +100,10 @@ class _FakeManagerClient extends Fake implements FrappeApiClient {
         },
       };
     }
+    if (method.endsWith('open_builtin')) {
+      final found = forms!.firstWhere((f) => f['builtin_key'] == data?['key']);
+      return {'message': {'ok': true, 'data': {...found, 'revision': 'REV-BUILTIN'}}};
+    }
     if (method.endsWith('get_form')) {
       final name = data?['name'];
       final defaultForms = <Map<String, dynamic>>[
@@ -159,6 +163,34 @@ void main() {
 
   setUp(() {
     SharedPreferences.setMockInitialValues({});
+  });
+
+  testWidgets('builtin card opens entry rather than editor and pending menu is safe', (tester) async {
+    tester.view.physicalSize = const Size(390, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final client = _FakeManagerClient(forms: [{
+      'name': 'builtin-leave', 'title': 'درخواست مرخصی', 'kind': 'Request',
+      'module_key': 'HR', 'status': 'Published', 'builtin_key': 'leave',
+      'builtin_pending': true,
+      'schema': {'title': 'درخواست مرخصی', 'kind': 'Request', 'module': 'HR', 'sections': <Map<String, dynamic>>[]},
+    }]);
+    await tester.pumpWidget(_wrap(const VersionedFormsPage(company: 'شرکت داده‌پردازی آسود'), client));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(PopupMenuButton<String>));
+    await tester.pumpAndSettle();
+    expect(find.text('حذف از فهرست شرکت'), findsOneWidget);
+    expect(find.text('نسخه‌ها'), findsNothing);
+    expect(find.text('غیرفعال‌سازی'), findsNothing);
+    await tester.tapAt(const Offset(5, 5));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('درخواست مرخصی'));
+    await tester.pumpAndSettle();
+    expect(find.byType(FormEntryPage), findsOneWidget);
+    expect(client.recordedCalls.lastWhere((v) => v.endsWith('open_builtin')), endsWith('open_builtin'));
+    final index = client.recordedCalls.indexWhere((v) => v.endsWith('open_builtin'));
+    expect(client.recordedData[index]?['manage'], 0);
   });
 
   testWidgets('کاربر فاقد نقش مدیریت فرم صفحه دسترسی ندارید را می‌بیند',
