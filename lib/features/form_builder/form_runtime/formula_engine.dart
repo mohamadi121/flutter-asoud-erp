@@ -503,8 +503,10 @@ List<String> schemaProblems(FormMap schema) {
         problems.add('${field['label']}: مقدار از فیلد معتبر نیست.');
       }
     }
-    if ('${field['not_equal'] ?? ''}'.isNotEmpty && !fields.any((f) => f['key'] == field['not_equal'])) {
-      problems.add('${field['label']}: فیلد مقایسه حذف شده است.');
+    for (final bound in ['not_equal', 'before_or_equal', 'time_after']) {
+      if ('${field[bound] ?? ''}'.isNotEmpty && !fields.any((f) => f['key'] == field[bound])) {
+        problems.add('${field['label']}: فیلد مقایسه حذف شده است.');
+      }
     }
   }
   final graph = {for (final key in keys) key: <String>{}};

@@ -60,6 +60,7 @@ class FrappeWorkflowTaskRepository
         reminderSentOn:
             DateTime.tryParse(item['reminder_sent_on']?.toString() ?? ''),
         escalatedOn: DateTime.tryParse(item['escalated_on']?.toString() ?? ''),
+        followup: item['followup']?.toString() ?? '',
       );
     }).toList(growable: false);
   }
@@ -220,6 +221,9 @@ class FrappeWorkflowTaskRepository
               );
             }).toList(growable: false)
           : const [],
+      requestValues: item['request_values'] is Map
+          ? Map<String, dynamic>.from(item['request_values'] as Map)
+          : const {},
     );
   }
 

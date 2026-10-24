@@ -6,7 +6,7 @@ import '../../domain/entities/request_models.dart';
 
 Color _color(RequestExecution execution) => switch (execution.state) {
       'succeeded' => AsoudColors.success,
-      'failed' || 'needs_review' => AsoudColors.danger,
+      'failed' || 'needs_review' || 'voided' => AsoudColors.danger,
       'pending' || 'not_started' => AsoudColors.warning,
       _ => AsoudColors.muted,
     };
@@ -15,6 +15,7 @@ IconData _icon(RequestExecution execution) => switch (execution.state) {
       'succeeded' => Icons.check_circle_rounded,
       'failed' || 'needs_review' => Icons.error_outline_rounded,
       'pending' => Icons.hourglass_top_rounded,
+      'voided' => Icons.block_rounded,
       'not_connected' => Icons.link_off_rounded,
       _ => Icons.pending_actions_rounded,
     };
@@ -38,6 +39,14 @@ class RequestExecutionCard extends StatelessWidget {
         'انجام‌دهنده: ${execution.executedByName}',
       if (execution.succeeded && execution.executedOn.isNotEmpty)
         'زمان اجرا: ${formatJalaliDateTimeIso(execution.executedOn)}',
+      if (execution.voided && execution.voidReason.isNotEmpty)
+        'دلیل ابطال: ${execution.voidReason}',
+      if (execution.voided && execution.voidByName.isNotEmpty)
+        'ابطال‌کننده: ${execution.voidByName}',
+      if (execution.voided && execution.voidOn.isNotEmpty)
+        'زمان ابطال: ${formatJalaliDateTimeIso(execution.voidOn)}',
+      if (execution.voided && execution.voidBlocked.isNotEmpty)
+        'صدور مجدد ممکن نیست: ${execution.voidBlocked}',
     ];
     return Container(
       width: double.infinity,

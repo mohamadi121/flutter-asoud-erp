@@ -332,6 +332,31 @@ class RequestNative extends Equatable {
   List<Object?> get props => [doctype, name, status, error];
 }
 
+/// The issued employment certificate (`certificate` of `get_request`): present
+/// only for a viewer who may download it (the requester, HR and System managers).
+class RequestCertificate extends Equatable {
+  const RequestCertificate(
+      {this.number = '', this.filename = '', this.issuedOn = ''});
+
+  /// Null for a missing or empty block.
+  static RequestCertificate? fromMap(Object? source) {
+    final map = _map(source);
+    if (_text(map['number']).isEmpty && _text(map['filename']).isEmpty) {
+      return null;
+    }
+    return RequestCertificate(
+      number: _text(map['number']),
+      filename: _text(map['filename']),
+      issuedOn: _text(map['issued_on']),
+    );
+  }
+
+  final String number, filename, issuedOn;
+
+  @override
+  List<Object?> get props => [number, filename, issuedOn];
+}
+
 /// What happened after the approval (`execution` of `get_request`), kept apart
 /// from the approval status: an approved request is not an executed one.
 class RequestExecution extends Equatable {
@@ -342,6 +367,12 @@ class RequestExecution extends Equatable {
     this.executedOn = '',
     this.executedByName = '',
     this.reference = '',
+    this.canVoid = false,
+    this.canReissue = false,
+    this.voidReason = '',
+    this.voidByName = '',
+    this.voidOn = '',
+    this.voidBlocked = '',
   });
 
   factory RequestExecution.fromMap(Object? source) {
@@ -355,13 +386,29 @@ class RequestExecution extends Equatable {
       executedOn: _text(map['executed_on']),
       executedByName: _text(map['executed_by_name']),
       reference: _text(map['reference']),
+      canVoid: map['can_void'] == true,
+      canReissue: map['can_reissue'] == true,
+      voidReason: _text(_map(map['void'])['reason']),
+      voidByName: _text(_map(map['void'])['by_name']),
+      voidOn: _text(_map(map['void'])['on']),
+      voidBlocked: _text(_map(map['void'])['reissue_blocked']),
     );
   }
 
   /// `not_applicable`, `not_started`, `pending`, `succeeded`, `failed`,
-  /// `needs_review` or `not_connected`.
+  /// `needs_review`, `not_connected` or `voided`.
   final String state;
   final String label, error, executedOn, executedByName, reference;
+
+  /// HR Manager actions the server allows now (`can_void`, `can_reissue`).
+  final bool canVoid, canReissue;
+
+  /// The last void (reason, who, when); only sent to System/HR Managers.
+  final String voidReason, voidByName, voidOn;
+
+  /// Why a reissue is impossible after this void (Persian); empty when it is possible.
+  final String voidBlocked;
+  bool get voided => state == 'voided';
 
   bool get applicable => state != 'not_applicable';
   bool get succeeded => state == 'succeeded';
@@ -376,12 +423,26 @@ class RequestExecution extends Equatable {
           'failed' => 'اجرا ناموفق بود؛ درخواست تأیید شده است',
           'needs_review' => 'نیازمند بررسی',
           'not_connected' => 'اجرای خودکار برای این نوع درخواست متصل نیست',
+          'voided' => 'سند ابطال شد',
           _ => '',
         };
 
   @override
   List<Object?> get props =>
-      [state, label, error, executedOn, executedByName, reference];
+      [
+        state,
+        label,
+        error,
+        executedOn,
+        executedByName,
+        reference,
+        canVoid,
+        canReissue,
+        voidReason,
+        voidByName,
+        voidOn,
+        voidBlocked,
+      ];
 }
 
 /// `get_request` (§4.7).
@@ -455,6 +516,7 @@ class RequestDetail extends Equatable {
     this.fields = const [],
     this.native = const RequestNative(),
     this.execution = const RequestExecution(),
+    this.certificate,
     this.stages = const [],
     this.pendingSync = false,
     this.localPreview = false,
@@ -517,6 +579,7 @@ class RequestDetail extends Equatable {
       ],
       native: RequestNative.fromMap(map['native']),
       execution: RequestExecution.fromMap(map['execution']),
+      certificate: RequestCertificate.fromMap(map['certificate']),
       stages: [
         for (final row in map['stages'] as List? ?? const [])
           if (row is Map) RequestStage.fromMap(row)
@@ -541,6 +604,7 @@ class RequestDetail extends Equatable {
   final List<WorkflowFormFieldDefinition> fields;
   final RequestNative native;
   final RequestExecution execution;
+  final RequestCertificate? certificate;
   final List<RequestStage> stages;
   final Map<String, dynamic> raw;
 
@@ -605,6 +669,7 @@ class RequestDetail extends Equatable {
         fields,
         native,
         execution,
+        certificate,
         pendingSync,
         localPreview,
         isSample,

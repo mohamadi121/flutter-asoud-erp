@@ -33,6 +33,7 @@ FormMap hrSettlementPreset() => {
               'key': 'settlement_reason',
               'label': 'علت درخواست',
               'type': 'Select',
+              'sensitive': true,
               'required': true,
               'options': [
                 {'id': 'resignation', 'label': 'استعفا'},
@@ -46,6 +47,7 @@ FormMap hrSettlementPreset() => {
               'key': 'reason_description',
               'label': 'شرح علت',
               'type': 'LongText',
+              'sensitive': true,
               'help': 'شرح علت درخواست را وارد کنید.',
               'max_length': 5000,
             },
@@ -90,6 +92,7 @@ FormMap hrSettlementPreset() => {
               'key': 'additional_notes',
               'label': 'توضیحات تکمیلی',
               'type': 'LongText',
+              'sensitive': true,
               'help': 'توضیحات مربوط به درخواست...',
               'max_length': 5000,
             },
@@ -172,9 +175,9 @@ FormMap _applicantCode() => {
 
 FormMap _applicantJoiningDate() => {
       'key': 'applicant_joining_date',
-      'label': 'تاریخ شروع همکاری',
+      'label': 'شروع دوره همکاری (در نبود قرارداد: تاریخ شروع به کار)',
       'type': 'Date',
       'readonly': true,
-      'default_source': 'joining_date',
+      'default_source': 'contract_start',
       'span': 1,
     };

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../core/utils/jalali_date.dart';
 import '../../../core/widgets/asoud_jalali_picker.dart';
 import '../form_repository.dart';
+import '../execution_settings.dart';
 import '../form_runtime.dart';
 import 'editor_field_types/choice_options.dart';
 import 'editor_field_types/date_time.dart';
@@ -130,8 +131,9 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
       'min_date', 'max_date', 'min_time', 'max_time', 'options', 'formula',
       'output_type', 'extensions', 'max_files', 'max_mb', 'allow_delete',
       'readonly', 'default', 'default_source', 'exclude_self', 'fetch_from',
-      'not_equal', 'not_equal_message',
-      'schedule_of', 'from_field', 'to_field',
+      'not_equal', 'not_equal_message', 'compare', 'next_day_allowed',
+      'before_or_equal', 'before_or_equal_message', 'time_after', 'time_after_message',
+      'schedule_of', 'from_field', 'to_field', 'execution_key',
     };
     setState(() {
       for (final key in typeSpecificKeys) {
@@ -791,6 +793,18 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
           },
           (v) => set('after_or_equal', v.isEmpty ? null : v),
         ),
+        formSelect(
+          'نباید بعد از فیلد:',
+          '${f['before_or_equal'] ?? ''}',
+          {
+            '': 'بدون محدودیت',
+            for (final field in formMaps(widget.schema['sections'])
+                .expand((section) => formMaps(section['fields']))
+                .where((field) => field['type'] == 'Date' && field['key'] != f['key']))
+              '${field['key']}': '${field['label']}',
+          },
+          (v) => set('before_or_equal', v.isEmpty ? null : v),
+        ),
         ...buildDateTimeConfig(
           context: context,
           f: f,
@@ -1193,6 +1207,7 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
             {
               '': 'مقدار ثابت یا خالی',
               if (f['type'] == 'Date') 'today': 'تاریخ امروز',
+              if (f['type'] == 'Date') 'contract_start': 'شروع قرارداد جاری (در نبود قرارداد: شروع به کار)',
               if (['Text', 'Display'].contains(f['type'])) ...{
                 'user': 'کاربر ثبت‌کننده',
                 'company': 'دفتر جاری',
@@ -1224,6 +1239,23 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
             fields: schemaFields(widget.schema),
             set: set,
           ),
+          ...buildTimeAfterConfig(
+            f: f,
+            fields: schemaFields(widget.schema),
+            set: set,
+          ),
+          ...buildCompareConfig(
+            f: f,
+            fields: schemaFields(widget.schema),
+            set: set,
+          ),
+          if (f['type'] == 'Time')
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('امکان انتخاب روز بعد', style: TextStyle(fontSize: 13)),
+              value: f['next_day_allowed'] == true,
+              onChanged: (v) => set('next_day_allowed', v ? true : null),
+            ),
           if (widget.column) uniqueColumnSwitch(f, set),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
@@ -1266,6 +1298,9 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
             fieldOptions: fieldOptions,
             set: set,
           ),
+          if (widget.schema['execution'] != null && widget.repository != null && !widget.column)
+            ExecutionSettings(repository: widget.repository!, schema: widget.schema,
+              fields: [f], showKind: false, onChanged: () => setState(() {})),
           if (widget.schema['kind'] == 'Document' || widget.parentNative != null)
             formSelect(
               'فیلد مقصد سند',

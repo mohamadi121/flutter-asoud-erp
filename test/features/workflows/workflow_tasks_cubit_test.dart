@@ -25,6 +25,7 @@ class _Repository implements WorkflowTaskRepository {
   var completed = '';
   var lastStatus = '';
   String? comment;
+  WorkflowTaskDetail? taskDetail;
   @override
   bool get isOfflinePreview => true;
 
@@ -57,7 +58,7 @@ class _Repository implements WorkflowTaskRepository {
   }
 
   @override
-  Future<WorkflowTaskDetail> getTask(String task) async => WorkflowTaskDetail(
+  Future<WorkflowTaskDetail> getTask(String task) async => taskDetail ?? WorkflowTaskDetail(
         task: (await getMyTasks()).single,
         stageType: 'User Task',
         fields: const [
@@ -118,6 +119,32 @@ void main() {
     cubit.setValue('title', 'درخواست خرید');
     expect(await cubit.submit('Complete'), isTrue);
     expect(repository.completed, 'TASK-1:Complete');
+    await cubit.close();
+  });
+
+  test('مبلغ مرحله با درخواست مقایسه می‌شود و کاهش علت می‌خواهد', () async {
+    final repository = _Repository()
+      ..taskDetail = WorkflowTaskDetail(
+        task: const WorkflowTask(id: 'TASK-1', instance: 'I', stage: 'S', title: 'بررسی', status: 'Open'),
+        stageType: 'Approval',
+        requestValues: const {'requested': 100},
+        fields: const [
+          WorkflowFormFieldDefinition(key: 'approved', label: 'مبلغ مصوب', type: 'Currency',
+            maxFromRequest: 'requested', minValueExclusive: 0,
+            reasonRequiredIfLessThan: 'requested', reasonField: 'reason'),
+          WorkflowFormFieldDefinition(key: 'reason', label: 'علت کاهش', type: 'Long Text'),
+        ],
+      );
+    final cubit = WorkflowTaskDetailCubit(repository, 'TASK-1');
+    await cubit.load();
+    cubit.setValue('approved', 0);
+    expect(cubit.validate(), contains('بیشتر'));
+    cubit.setValue('approved', 120);
+    expect(cubit.validate(), contains('بیشتر باشد'));
+    cubit.setValue('approved', 80);
+    expect(cubit.validate(), contains('علت کاهش'));
+    cubit.setValue('reason', 'بودجه محدود است');
+    expect(cubit.validate(), isNull);
     await cubit.close();
   });
 

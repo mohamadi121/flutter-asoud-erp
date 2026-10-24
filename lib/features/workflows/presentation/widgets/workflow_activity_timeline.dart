@@ -40,6 +40,9 @@ String workflowActivityLabel(String action) => switch (action.trim()) {
       'Cancelled' => 'لغو شد',
       'Edited' => 'ویرایش شد',
       'Resubmitted' => 'اصلاح و ارسال مجدد',
+      'Voided' => 'ابطال سند',
+      'Reissued' => 'صدور مجدد سند',
+      'Execution Effects' => 'ثبت وضعیت پیش از اجرا',
       _ => persianWorkflowStageTitle(action),
     };
 

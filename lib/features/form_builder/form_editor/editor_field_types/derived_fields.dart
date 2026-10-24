@@ -96,6 +96,27 @@ List<Widget> buildNotEqualConfig({
   ];
 }
 
+List<Widget> buildTimeAfterConfig({
+  required FormMap f,
+  required List<FormMap> fields,
+  required void Function(String key, dynamic value) set,
+}) {
+  if (f['type'] != 'Time') return const [];
+  return [
+    formSelect(
+      'باید بعد از فیلد:',
+      '${f['time_after'] ?? ''}',
+      {
+        '': 'بدون محدودیت',
+        for (final field in fields)
+          if (field['key'] != f['key'] && field['type'] == 'Time')
+            '${field['key']}': '${field['label']}',
+      },
+      (v) => set('time_after', v.isEmpty ? null : v),
+    ),
+  ];
+}
+
 Widget uniqueColumnSwitch(
   FormMap f,
   void Function(String key, dynamic value) set,
@@ -106,3 +127,28 @@ Widget uniqueColumnSwitch(
       value: f['unique'] == true,
       onChanged: (v) => set('unique', v ? true : null),
     );
+
+List<Widget> buildCompareConfig({
+  required FormMap f,
+  required List<FormMap> fields,
+  required void Function(String key, dynamic value) set,
+}) {
+  if (f['type'] != 'Display') return const [];
+  final times = fields.where((field) => field['type'] == 'Time' && field['key'] != f['key']).toList();
+  if (times.length < 2) return const [];
+  final compare = formMap(f['compare']);
+  final options = {'': 'انتخاب نشده', for (final field in times) '${field['key']}': '${field['label']}'};
+  void update(String side, String value) {
+    if (value.isEmpty) {
+      set('compare', null);
+      return;
+    }
+    final other = side == 'current' ? 'proposed' : 'current';
+    final fallback = times.firstWhere((field) => field['key'] != value)['key'];
+    set('compare', {...compare, side: value, other: compare[other] ?? fallback});
+  }
+  return [
+    formSelect('ساعت ثبت‌شده', '${compare['current'] ?? ''}', options, (v) => update('current', v)),
+    formSelect('ساعت پیشنهادی', '${compare['proposed'] ?? ''}', options, (v) => update('proposed', v)),
+  ];
+}

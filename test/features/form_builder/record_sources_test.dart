@@ -408,7 +408,7 @@ void main() {
       expect(formSources['Training Event'], 'دوره آموزشی');
       expect(formSources['Asset'], 'دارایی تحویل‌شده به من');
       expect(formLinkFilters['Attendance'], containsPair('attendance_date', 'تاریخ حضور'));
-      expect(formFetchAttributes['Training Event']!.keys, ['start_time', 'end_time', 'type', 'level', 'training_program']);
+      expect(formFetchAttributes['Training Event']!.keys, ['start_time', 'end_time', 'type', 'level', 'training_program', 'course', 'location', 'trainer_name', 'employee_count']);
     });
 
     testWidgets('fetch_from picker: link field then attribute; saves the contract value', (tester) async {
@@ -510,6 +510,180 @@ void main() {
       await tester.tap(find.text('ذخیره تغییرات'));
       await tester.pumpAndSettle();
       expect(saved?['default_source'], 'employee_number');
+    });
+  });
+
+  test('not_equal on Time fields tells «08:00» from «08:00 روز بعد» without a date field', () {
+    final cur = {'key': 'cur', 'label': 'فعلی', 'type': 'Time'};
+    final prop = {'key': 'prop', 'label': 'پیشنهادی', 'type': 'Time', 'next_day_allowed': true, 'not_equal': 'cur'};
+    final schema = {'sections': [{'id': 's', 'fields': [cur, prop]}]};
+    String? problem(Map<String, dynamic> values) =>
+        notEqualProblem(prop, values, otherVisible: (_) => true, schema: schema);
+    expect(problem({'cur': '08:00', 'prop': '08:00'}), defaultNotEqualMessage);
+    expect(problem({'cur': '08:00', 'prop': '08:00', 'prop__next_day': true}), isNull);
+  });
+
+  test('Leave Type is a server-only link source with a Persian label', () {
+    expect(serverOnlyLinkSources, contains('Leave Type'));
+    expect(formSources['Leave Type'], 'نوع مرخصی');
+  });
+
+  group('date and time ordering keys', () {
+    final start = {'key': 'start', 'label': 'شروع', 'type': 'Date'};
+    final end = {'key': 'end', 'label': 'پایان', 'type': 'Date', 'after_or_equal': 'start'};
+    final half = {
+      'key': 'half',
+      'label': 'نیم‌روز',
+      'type': 'Date',
+      'after_or_equal': 'start',
+      'before_or_equal': 'end',
+      'before_or_equal_message': 'تاریخ نیم‌روز باید در بازه درخواست باشد.',
+    };
+    final from = {'key': 'from', 'label': 'ساعت شروع', 'type': 'Time'};
+    final to = {
+      'key': 'to',
+      'label': 'ساعت پایان',
+      'type': 'Time',
+      'next_day_allowed': true,
+      'time_after': 'from',
+      'time_after_message': 'ساعت پایان باید پس از ساعت شروع باشد.',
+    };
+    final schema = _schema([start, end, half, from, to]);
+
+    test('timeOrderProblem compares (next day, time) pairs and ignores empty values', () {
+      String? problem(FormMap values) =>
+          timeOrderProblem(to, values, otherVisible: (_) => true, schema: schema);
+      expect(problem({'from': '17:00', 'to': '17:00'}), 'ساعت پایان باید پس از ساعت شروع باشد.');
+      expect(problem({'from': '17:00:00', 'to': '16:59'}), 'ساعت پایان باید پس از ساعت شروع باشد.');
+      expect(problem({'from': '17:00', 'to': '08:00'}), isNotNull);
+      expect(problem({'from': '17:00', 'to': '17:01'}), isNull);
+      expect(problem({'from': '22:00', 'to': '01:00', 'to__next_day': true}), isNull);
+      expect(problem({'from': '22:00'}), isNull);
+      expect(problem({'to': '08:00'}), isNull);
+      final plain = {...to}..remove('time_after_message');
+      expect(
+        timeOrderProblem(plain, {'from': '17:00', 'to': '09:00'}, otherVisible: (_) => true, schema: schema),
+        defaultTimeAfterMessage,
+      );
+      expect(
+        timeOrderProblem(to, {'from': '17:00', 'to': '09:00'}, otherVisible: (_) => false, schema: schema),
+        isNull,
+      );
+    });
+
+    for (final width in [320.0, 390.0, 430.0]) {
+      testWidgets('form blocks a half day after the end and an end time before the start at ${width.toInt()}', (tester) async {
+        tester.view.physicalSize = Size(width, 1600);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final key = GlobalKey<FormState>();
+        FormMap values = {
+          'start': '2026-10-23',
+          'end': '2026-10-25',
+          'half': '2026-10-27',
+          'from': '17:00',
+          'to': '16:00',
+        };
+        await tester.pumpWidget(_app(
+          _Host(schema, _Repository(authenticated: false), values, key, []),
+          width,
+        ));
+        await tester.pumpAndSettle();
+        expect(key.currentState!.validate(), isFalse);
+        await tester.pump();
+        expect(find.text('تاریخ نیم‌روز باید در بازه درخواست باشد.'), findsOneWidget);
+        expect(find.text('ساعت پایان باید پس از ساعت شروع باشد.'), findsOneWidget);
+
+        values = {
+          'start': '2026-10-23',
+          'end': '2026-10-25',
+          'half': '2026-10-25',
+          'from': '22:00',
+          'to': '01:00',
+          'to__next_day': true,
+        };
+        await tester.pumpWidget(const SizedBox());
+        await tester.pumpWidget(_app(
+          _Host(schema, _Repository(authenticated: false), values, key, []),
+          width,
+        ));
+        await tester.pumpAndSettle();
+        expect(key.currentState!.validate(), isTrue);
+        expect(tester.takeException(), isNull);
+      });
+    }
+
+    test('schemaProblems reports a deleted bound field', () {
+      expect(schemaProblems(schema), isEmpty);
+      expect(schemaProblems(_schema([start, half])), contains('نیم‌روز: فیلد مقایسه حذف شده است.'));
+      expect(schemaProblems(_schema([to])), contains('ساعت پایان: فیلد مقایسه حذف شده است.'));
+    });
+
+    Future<void> openField(WidgetTester tester, FormMap field, void Function(FormMap?) onSaved,
+        {bool advanced = true}) async {
+      tester.view.physicalSize = const Size(390, 1400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(_app(
+        Builder(
+          builder: (context) => ElevatedButton(
+            onPressed: () async => onSaved(await editSchemaField(context, schema, field, repository: _Repository())),
+            child: const Text('باز کن'),
+          ),
+        ),
+        390,
+      ));
+      await tester.tap(find.text('باز کن'));
+      await tester.pumpAndSettle();
+      if (advanced) {
+        await tester.tap(find.text('پیشرفته'));
+        await tester.pumpAndSettle();
+      }
+    }
+
+    Future<void> choose(WidgetTester tester, String label, String option) async {
+      final dropdown = find.ancestor(
+        of: find.text(label),
+        matching: find.byType(DropdownButtonFormField<String>),
+      );
+      await tester.ensureVisible(dropdown);
+      await tester.tap(dropdown);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(option).last);
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('ذخیره تغییرات'));
+      await tester.tap(find.text('ذخیره تغییرات'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('editor sets before_or_equal on a Date field', (tester) async {
+      final field = {'key': 'late', 'label': 'تاریخ دیرتر', 'type': 'Date'};
+      FormMap? saved;
+      await openField(tester, field, (value) => saved = value, advanced: false);
+      await choose(tester, 'نباید بعد از فیلد:', 'پایان');
+      expect(saved?['before_or_equal'], 'end');
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('editor sets time_after on a Time field and offers only other Time fields', (tester) async {
+      final field = {'key': 'late', 'label': 'ساعت دیرتر', 'type': 'Time'};
+      FormMap? saved;
+      await openField(tester, field, (value) => saved = value);
+      final dropdown = find.ancestor(
+        of: find.text('باید بعد از فیلد:'),
+        matching: find.byType(DropdownButtonFormField<String>),
+      );
+      await tester.ensureVisible(dropdown);
+      await tester.tap(dropdown);
+      await tester.pumpAndSettle();
+      expect(find.text('ساعت شروع'), findsWidgets);
+      expect(find.text('شروع'), findsNothing);
+      await tester.tap(find.text('ساعت شروع').last);
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('ذخیره تغییرات'));
+      await tester.tap(find.text('ذخیره تغییرات'));
+      await tester.pumpAndSettle();
+      expect(saved?['time_after'], 'from');
     });
   });
 }

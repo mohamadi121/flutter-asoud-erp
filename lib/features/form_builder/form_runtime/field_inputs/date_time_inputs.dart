@@ -5,6 +5,7 @@ import '../../../../core/widgets/asoud_jalali_picker.dart';
 import '../../form_editor/field_sheet/live_clock_time_picker.dart';
 import '../../form_repository.dart';
 import '../rules_engine.dart';
+import '../record_links.dart' show defaultBeforeOrEqualMessage;
 
 Widget? buildDateTimeInput({
   required BuildContext context,
@@ -14,6 +15,8 @@ Widget? buildDateTimeInput({
   required bool required,
   FormMap? values,
   required ValueChanged<dynamic> onChanged,
+  bool nextDay = false,
+  ValueChanged<bool>? onNextDayChanged,
 }) {
   final type = '${f['type']}';
   if (type != 'Date' && type != 'Time' && type != 'DateTime') {
@@ -37,11 +40,20 @@ Widget? buildDateTimeInput({
           return '${f['after_or_equal_message'] ?? 'تاریخ پایان نباید قبل از تاریخ شروع باشد.'}';
         }
       }
+      final upperKey = '${f['before_or_equal'] ?? ''}';
+      final upper = values?[upperKey];
+      if (type != 'Time' && upperKey.isNotEmpty && !isEmptyValue(value) && !isEmptyValue(upper)) {
+        final current = DateTime.tryParse('$value') ?? parseJalaliDate('$value');
+        final maximum = DateTime.tryParse('$upper') ?? parseJalaliDate('$upper');
+        if (current != null && maximum != null && current.isAfter(maximum)) {
+          return '${f['before_or_equal_message'] ?? defaultBeforeOrEqualMessage}';
+        }
+      }
       return null;
     },
     builder: (state) => Material(
       color: Colors.transparent,
-      child: ListTile(
+      child: Column(children: [ListTile(
         title: Text(label),
         subtitle: Text(state.errorText ?? display),
         trailing: const Icon(Icons.calendar_month),
@@ -97,7 +109,14 @@ Widget? buildDateTimeInput({
               : picked!.toIso8601String(),
         );
       },
-    ),
+    ), if (type == 'Time' && onNextDayChanged != null)
+      SwitchListTile(
+        dense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+        title: const Text('روز بعد'),
+        value: nextDay,
+        onChanged: onNextDayChanged,
+      ),]),
   ),
 );
 }

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/network/api_exception.dart';
+import '../../../form_builder/form_repository.dart';
+import '../../../form_builder/execution_settings.dart';
 import '../../../../core/network/frappe_client.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/persian_format.dart';
@@ -985,7 +987,8 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
   Future<void> _editForm() async {
     final fields = await Navigator.push<List<WorkflowFormFieldDefinition>>(
       context,
-      MaterialPageRoute(builder: (_) => _StageFormPage(fields: formFields)),
+      MaterialPageRoute(builder: (_) => _StageFormPage(fields: formFields,
+          executionRepository: FormRepository(automation.client, company ?? ''))),
     );
     if (fields != null && mounted) {
       setState(() => formFields = fields);
@@ -1832,7 +1835,8 @@ class _StageFormChoicesState extends State<_StageFormChoices> {
 
 /// Edits the form fields of a user task.
 class _StageFormPage extends StatefulWidget {
-  const _StageFormPage({required this.fields});
+  const _StageFormPage({required this.fields, required this.executionRepository});
+  final FormRepository executionRepository;
   final List<WorkflowFormFieldDefinition> fields;
   @override
   State<_StageFormPage> createState() => _StageFormPageState();
@@ -1847,6 +1851,11 @@ class _StageFormPageState extends State<_StageFormPage> {
           WorkflowFormBuilder(
               fields: fields,
               onChanged: (value) => setState(() => fields = value)),
+          Builder(builder: (_) {
+            final mapped = fields.map((field) => field.toMap()).toList();
+            return ExecutionSettings(repository: widget.executionRepository, fields: mapped,
+              onChanged: () => setState(() => fields = mapped.map(WorkflowFormFieldDefinition.fromMap).toList()));
+          }),
         ]),
         bottomNavigationBar: AsoudBottomActions(
           primaryLabel: 'تأیید فرم',

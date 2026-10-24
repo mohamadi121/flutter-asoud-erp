@@ -606,7 +606,8 @@ class FrappeClient implements FrappeApiClient {
 
   static bool isReadOnlyMethod(String method) {
     final action = method.split('.').last;
-    if (action == 'options' ||
+    if (action == 'execution_kinds' ||
+        action == 'options' ||
         action == 'catalog' ||
         action == 'organization_tree' ||
         action == 'permission_preview' ||

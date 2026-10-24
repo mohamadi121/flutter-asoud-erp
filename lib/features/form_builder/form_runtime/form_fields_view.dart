@@ -61,6 +61,7 @@ const formSources = <String, String>{
   'Project': 'پروژه‌ها',
   'Attendance': 'رکورد حضور و غیاب',
   'Shift Type': 'نوع شیفت',
+  'Leave Type': 'نوع مرخصی',
   'Training Event': 'دوره آموزشی',
   'Asset': 'دارایی تحویل‌شده به من',
 };
@@ -241,14 +242,12 @@ class FormFieldsView extends StatelessWidget {
   }
 
   Widget _withNotEqual(FormMap f, FormMap computed, Widget input) {
-    if ('${f['not_equal'] ?? ''}'.isEmpty) return input;
+    if ('${f['not_equal'] ?? ''}'.isEmpty && '${f['time_after'] ?? ''}'.isEmpty) return input;
+    bool visible(FormMap other) => formFlag(other, schema, computed, 'visible');
     return FormField<dynamic>(
-      validator: (_) => notEqualProblem(
-        f,
-        computed,
-        schema: schema,
-        otherVisible: (other) => formFlag(other, schema, computed, 'visible'),
-      ),
+      validator: (_) =>
+          notEqualProblem(f, computed, schema: schema, otherVisible: visible) ??
+          timeOrderProblem(f, computed, schema: schema, otherVisible: visible),
       builder: (state) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -301,6 +300,7 @@ class FormFieldsView extends StatelessWidget {
     final readonlyWidget = buildReadonlyDisplayInput(
       f: f,
       value: v,
+      values: computed,
       label: label,
       editable: editable,
     );
@@ -357,6 +357,10 @@ class FormFieldsView extends StatelessWidget {
       required: required,
       values: computed,
       onChanged: set,
+      nextDay: computed['${f['key']}__next_day'] == true,
+      onNextDayChanged: f['next_day_allowed'] == true
+          ? (selected) => onChanged({...computed, '${f['key']}__next_day': selected})
+          : null,
     );
     if (dateTimeWidget != null) {
       return _withAutomaticPlaceholder(f, v, dateTimeWidget);

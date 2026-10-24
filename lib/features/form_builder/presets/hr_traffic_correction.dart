@@ -72,12 +72,14 @@ FormMap hrTrafficCorrectionPreset() => {
               'key': 'proposed_check_in_time',
               'label': 'ساعت ورود پیشنهادی',
               'type': 'Time',
+              'next_day_allowed': true,
               'help': 'ساعت ورود را از ساعت‌گزین انتخاب کنید.',
             },
             {
               'key': 'proposed_check_out_time',
               'label': 'ساعت خروج پیشنهادی',
               'type': 'Time',
+              'next_day_allowed': true,
               'help': 'ساعت خروج را از ساعت‌گزین انتخاب کنید.',
             },
             {
@@ -102,6 +104,7 @@ FormMap hrTrafficCorrectionPreset() => {
               'key': 'current_in_time',
               'label': 'ساعت ورود ثبت‌شده فعلی',
               'type': 'Time',
+              'next_day_allowed': true,
               'readonly': true,
               'fetch_from': 'attendance_record.in_time',
             },
@@ -109,14 +112,23 @@ FormMap hrTrafficCorrectionPreset() => {
               'key': 'proposed_correct_in_time',
               'label': 'ساعت ورود صحیح پیشنهادی',
               'type': 'Time',
+              'next_day_allowed': true,
               'not_equal': 'current_in_time',
               'not_equal_message': 'ساعت پیشنهادی با ساعت ثبت‌شده فعلی یکسان است.',
               'help': 'ساعت صحیح را از ساعت‌گزین انتخاب کنید.',
             },
             {
+              'key': 'in_time_comparison',
+              'label': 'مقایسه ساعت ورود',
+              'type': 'Display',
+              'readonly': true,
+              'compare': {'current': 'current_in_time', 'proposed': 'proposed_correct_in_time'},
+            },
+            {
               'key': 'current_out_time',
               'label': 'ساعت خروج ثبت‌شده فعلی',
               'type': 'Time',
+              'next_day_allowed': true,
               'readonly': true,
               'fetch_from': 'attendance_record.out_time',
             },
@@ -124,9 +136,17 @@ FormMap hrTrafficCorrectionPreset() => {
               'key': 'proposed_correct_out_time',
               'label': 'ساعت خروج صحیح پیشنهادی',
               'type': 'Time',
+              'next_day_allowed': true,
               'not_equal': 'current_out_time',
               'not_equal_message': 'ساعت پیشنهادی با ساعت ثبت‌شده فعلی یکسان است.',
               'help': 'ساعت صحیح را از ساعت‌گزین انتخاب کنید.',
+            },
+            {
+              'key': 'out_time_comparison',
+              'label': 'مقایسه ساعت خروج',
+              'type': 'Display',
+              'readonly': true,
+              'compare': {'current': 'current_out_time', 'proposed': 'proposed_correct_out_time'},
             },
             {
               'key': 'other_correction_description',
@@ -259,6 +279,15 @@ FormMap hrTrafficCorrectionPreset() => {
           ],
         },
         {
+          'target': 'in_time_comparison',
+          'action': 'visible',
+          'join': 'and',
+          'conditions': [
+            {'field': 'correction_type', 'op': 'eq', 'value': 'correct_recorded_time'},
+            {'field': 'recorded_event', 'op': 'eq', 'value': 'check_in'},
+          ],
+        },
+        {
           'target': 'proposed_correct_in_time',
           'action': 'required',
           'join': 'and',
@@ -278,6 +307,15 @@ FormMap hrTrafficCorrectionPreset() => {
         },
         {
           'target': 'proposed_correct_out_time',
+          'action': 'visible',
+          'join': 'and',
+          'conditions': [
+            {'field': 'correction_type', 'op': 'eq', 'value': 'correct_recorded_time'},
+            {'field': 'recorded_event', 'op': 'eq', 'value': 'check_out'},
+          ],
+        },
+        {
+          'target': 'out_time_comparison',
           'action': 'visible',
           'join': 'and',
           'conditions': [
