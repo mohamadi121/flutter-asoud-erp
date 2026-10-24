@@ -163,17 +163,19 @@ void main() {
       (tester) async {
     final client = _Client();
     await _open(tester, client);
+    tester.view.physicalSize = const Size(390, 1600);
+    await tester.pumpAndSettle();
     await tester.tap(find.text('واحدها'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('منابع انسانی'));
     await tester.pumpAndSettle();
-    final manage = find.text('مدیریت واحد');
-    await tester.ensureVisible(manage);
-    await tester.tap(manage);
+    final deleteAction = find.text('حذف واحد').last;
+    await tester.ensureVisible(deleteAction);
+    await tester.tap(deleteAction);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('حذف ایمن واحد'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('بررسی وابستگی‌ها'));
+    final check = find.byKey(const ValueKey('organization-management-submit'));
+    await tester.ensureVisible(check);
+    await tester.tap(check);
     await tester.pumpAndSettle();
     await tester.tap(find.text('تأیید حذف واحد').last);
     await tester.pumpAndSettle();
