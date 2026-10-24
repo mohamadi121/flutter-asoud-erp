@@ -489,7 +489,7 @@ void main() {
       expect(find.text('خروجی مبلغ · بدون فرمول'), findsOneWidget);
     });
 
-    testWidgets('Item 5: table field in basic tab may be saved with zero columns', (tester) async {
+    testWidgets('Item 5: table basic confirmation opens advanced before saving zero columns', (tester) async {
       FormMap? savedResult;
       final schema = blankSchema('Request');
 
@@ -512,6 +512,12 @@ void main() {
 
       await tester.enterText(find.byType(TextFormField).first, 'جدول آزمایشی');
       await tester.pumpAndSettle();
+      await tester.tap(find.text('تأیید و افزودن'));
+      await tester.pumpAndSettle();
+
+      // Basic confirmation now continues configuration instead of closing.
+      expect(savedResult, isNull);
+      expect(find.text('تأیید و افزودن'), findsOneWidget);
       await tester.tap(find.text('تأیید و افزودن'));
       await tester.pumpAndSettle();
 
