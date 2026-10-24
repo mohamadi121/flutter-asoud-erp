@@ -196,12 +196,13 @@ class _OrganizationUnitManagementState
                   padding: EdgeInsets.all(12),
                   child: Text('این واحد زیرواحد ندارد.')),
             for (final child in children)
-              Container(
-                  margin: const EdgeInsets.only(top: 8),
-                  decoration: BoxDecoration(
-                      color: const Color(0xfff4f5fa),
-                      borderRadius: BorderRadius.circular(12)),
-                  child: ListTile(
+              Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Material(
+                    color: const Color(0xfff4f5fa),
+                    borderRadius: BorderRadius.circular(12),
+                    clipBehavior: Clip.antiAlias,
+                    child: ListTile(
                     enabled: !locked,
                     dense: true,
                     leading: Icon(Icons.account_tree_outlined,
@@ -210,7 +211,7 @@ class _OrganizationUnitManagementState
                     subtitle: Text('زیرمجموعه: ${unit['department_name']}'),
                     trailing: const Icon(Icons.chevron_left, size: 18),
                     onTap: () => select(child),
-                  )),
+                  ))),
           ]),
           const SizedBox(height: 12),
           _OrgPanel(children: [
