@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.29.0+50
+
+Pairs with backend 0.17.0 (leave, mission, overtime, certificate, receipt confirmation and void/reissue need it).
 
 - ابطال و صدور مجدد سند اجراشده: در منوی ⋮ جزئیات درخواست، مدیر منابع انسانی «ابطال سند» (با دلیل اجباری) و «صدور مجدد» (با تأیید) را می‌بیند؛ برای بقیهٔ کاربران پنهان است. نوار اجرا «سند ابطال شد» را با دلیل، ابطال‌کننده و زمان نشان می‌دهد و سوابق «ابطال سند» و «صدور مجدد سند» دارد. نیازمند بک‌اند با `void_native_document` و `reissue_native_document`.
 
