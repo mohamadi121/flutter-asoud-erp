@@ -195,9 +195,14 @@ void main() {
     await tester.enterText(
         find.widgetWithText(TextFormField, 'عنوان جایگاه جدید'),
         'کارشناس آموزش');
+    // onChanged schedules the rebuild that enables the save button.
+    await tester.pumpAndSettle();
+    expect(tester.widget<FilledButton>(save).onPressed, isNotNull);
     await tester.ensureVisible(save);
     await tester.tap(save);
     await tester.pumpAndSettle();
+    expect(client.lastSavePayload, isNotNull,
+        reason: 'Saving the inline position must reach the repository.');
     final rows = (client.lastSavePayload!['rows'] as List).cast<Map>();
     final added = rows.singleWhere((r) => r['title'] == 'کارشناس آموزش');
     expect(added['department_id'], 'HR-CO');
