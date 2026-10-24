@@ -11,6 +11,16 @@ import 'create_form_page.dart';
 import 'form_editor.dart';
 import 'form_repository.dart';
 import 'form_runtime.dart';
+import 'presets/hr_traffic_correction.dart';
+import 'presets/hr_salary_advance.dart';
+import 'presets/hr_employment_certificate.dart';
+import 'presets/hr_shift_change.dart';
+import 'presets/hr_settlement.dart';
+import 'presets/hr_training.dart';
+import 'presets/hr_equipment.dart';
+import 'presets/hr_leave.dart';
+import 'presets/hr_mission.dart';
+import 'presets/hr_overtime.dart';
 
 class VersionedFormsPage extends StatefulWidget {
   const VersionedFormsPage({
@@ -1077,6 +1087,14 @@ List<FormMap> formPresets(String kind) {
       {'key': key, 'label': label, 'type': type, ...extra};
   if (kind == 'Request') {
     return [
+      hrTrafficCorrectionPreset(),
+      employmentCertificatePreset(),
+      hrShiftChangePreset(),
+      hrTrainingPreset(),
+      hrEquipmentPreset(),
+      hrLeavePreset(),
+      hrMissionPreset(),
+      hrOvertimePreset(),
       for (final item in [
         (
           'درخواست عمومی',
@@ -1084,20 +1102,6 @@ List<FormMap> formPresets(String kind) {
           'clipboard',
           '#1E88E5',
           'قالب پیش‌فرض برای ثبت انواع درخواست‌های عمومی سازمانی',
-        ),
-        (
-          'درخواست مرخصی',
-          'HR',
-          'calendar',
-          '#2E7D32',
-          'قالب آماده برای ثبت انواع مرخصی استحقاقی، استعلاجی و ساعتی',
-        ),
-        (
-          'درخواست مأموریت',
-          'HR',
-          'briefcase',
-          '#2E7D32',
-          'قالب آماده برای اعزام و مأموریت‌های اداری و عملیاتی',
         ),
         (
           'درخواست تجهیزات',
@@ -1119,13 +1123,6 @@ List<FormMap> formPresets(String kind) {
           'cart',
           '#C2185B',
           'قالب ثبت نیاز و درخواست خرید کالا و تجهیزات',
-        ),
-        (
-          'اصلاح تردد',
-          'HR',
-          'clock',
-          '#2E7D32',
-          'قالب اصلاح ساعت ورود و خروج و تردد پرسنلی',
         ),
       ])
         {
@@ -1167,6 +1164,8 @@ List<FormMap> formPresets(String kind) {
             },
           ],
         },
+      hrSalaryAdvancePreset(),
+      hrSettlementPreset(),
     ];
   }
   return [

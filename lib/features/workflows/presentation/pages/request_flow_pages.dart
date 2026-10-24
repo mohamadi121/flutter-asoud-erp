@@ -3,12 +3,12 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/jalali_date.dart';
 import '../../../../core/widgets/asoud_ui.dart';
-import '../../../request_types/domain/request_type_catalog.dart';
 import '../../data/generic_request_repository.dart';
 import '../../domain/repositories/workflow_task_repository.dart';
 import '../widgets/request_detail_scaffold.dart';
 import '../widgets/request_print.dart';
 import '../request_screen_registry.dart';
+import '../widgets/new_request_sheet.dart';
 import '../widgets/request_status.dart';
 
 export '../widgets/request_detail_scaffold.dart' show RequestPrintPage;
@@ -18,79 +18,7 @@ export '../widgets/request_status.dart'
 /// «انتخاب نوع درخواست»: a sheet listing the request types the user may submit.
 Future<Map<String, dynamic>?> pickRequestType(
         BuildContext context, GenericRequestRepository repository) =>
-    showModalBottomSheet<Map<String, dynamic>>(
-      context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      builder: (context) => SafeArea(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-              maxHeight: MediaQuery.sizeOf(context).height * .75),
-          child: FutureBuilder<List<Map<String, dynamic>>>(
-            future: repository.options(),
-            builder: (context, snapshot) {
-              if (snapshot.hasError) {
-                return const Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Text('دریافت انواع درخواست ممکن نشد.',
-                        textAlign: TextAlign.center));
-              }
-              if (!snapshot.hasData) {
-                return const Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Center(child: CircularProgressIndicator()));
-              }
-              // The system templates (`template_key`) come first.
-              final rows = [
-                ...snapshot.data!
-                    .where((row) => '${row['template_key'] ?? ''}'.isNotEmpty),
-                ...snapshot.data!
-                    .where((row) => '${row['template_key'] ?? ''}'.isEmpty),
-              ];
-              return ListView(
-                  shrinkWrap: true,
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                  children: [
-                    const Text('نوع درخواست را انتخاب کنید',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.w900)),
-                    const SizedBox(height: 12),
-                    if (rows.isEmpty)
-                      const Text('نوع درخواستی برای این دفتر تعریف نشده است.',
-                          textAlign: TextAlign.center),
-                    for (final row in rows)
-                      Card(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        child: ListTile(
-                          leading: AsoudIconBox(
-                              icon: requestIconFor('${row['icon_key']}').icon,
-                              color: requestIconFor('${row['icon_key']}').color,
-                              size: 42),
-                          title: Text('${row['workflow_title']}',
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.w800)),
-                          subtitle: Text(
-                              '${row['short_title'] ?? row['process_description'] ?? ''}',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis),
-                          trailing: const Icon(Icons.chevron_left_rounded),
-                          onTap: () => Navigator.pop(context, row),
-                        ),
-                      ),
-                    ListTile(
-                      leading: const Icon(Icons.dynamic_form_outlined),
-                      title: const Text('فرم‌های منتشرشده سازمان'),
-                      subtitle: const Text('جست‌وجو و انتخاب فرم‌های نسخه‌دار'),
-                      onTap: () => Navigator.pop(
-                          context, <String, dynamic>{'versioned_forms': true}),
-                    ),
-                  ]);
-            },
-          ),
-        ),
-      ),
-    );
+    showNewRequestSheet(context, loadTypes: repository.options);
 
 /// «درخواست شما با موفقیت ثبت شد» with the request summary.
 class RequestSubmittedPage extends StatelessWidget {
@@ -257,12 +185,21 @@ class _InfoRowWidget extends StatelessWidget {
 /// page in `RequestScreenRegistry`. Built on [RequestDetailScaffold].
 class RequestDetailPage extends StatelessWidget {
   const RequestDetailPage(
-      {required this.name, required this.repository, this.tasks, super.key});
+      {required this.name,
+      required this.repository,
+      this.tasks,
+      this.readOnly = false,
+      super.key});
+  final bool readOnly;
   final String name;
   final GenericRequestRepository repository;
   final WorkflowTaskRepository? tasks;
 
   @override
   Widget build(BuildContext context) =>
-      RequestDetailScaffold(repository: repository, name: name, tasks: tasks);
+      RequestDetailScaffold(
+          repository: repository,
+          name: name,
+          tasks: tasks,
+          readOnly: readOnly);
 }

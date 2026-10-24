@@ -49,7 +49,7 @@ void main() {
   }
 
   testWidgets('basic field cards count and labels', (tester) async {
-    expect(basicFieldCards.length, 11);
+    expect(basicFieldCards.length, 12);
     expect(basicFieldCards[0].label, 'متن کوتاه');
     expect(basicFieldCards[1].label, 'متن بلند');
     expect(basicFieldCards[2].label, 'عدد');
@@ -61,6 +61,7 @@ void main() {
     expect(basicFieldCards[8].label, 'فیلد محاسباتی');
     expect(basicFieldCards[9].label, 'جدول تکرارشونده');
     expect(basicFieldCards[10].label, 'پیوست فایل');
+    expect(basicFieldCards[11].label, 'برنامه شیفت');
   });
 
   testWidgets('FieldTypeGrid renders in 360 and 320 px without overflow',
@@ -246,8 +247,31 @@ void main() {
     expect(result!['type'], 'Text');
   });
 
-  testWidgets('FieldSheetPreview renders table and file attachments',
-      (tester) async {
+  for (final width in [320.0, 390.0]) {
+    testWidgets('sensitive field switch is saved at $width', (tester) async {
+      FormMap? result;
+      final schema = blankSchema('Request');
+      await tester.pumpWidget(_wrapTestWidget(
+        Builder(builder: (context) => ElevatedButton(
+          onPressed: () async => result = await editSchemaField(context, schema,
+              {'key': 'secret', 'label': 'شرح', 'type': 'Text'}),
+          child: const Text('Open'),
+        )), width: width));
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('پیشرفته'));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(find.text('اطلاعات حساس'), 180,
+          scrollable: find.byType(Scrollable).last);
+      await tester.tap(find.text('اطلاعات حساس'));
+      await tester.tap(find.text('ذخیره تغییرات'));
+      await tester.pumpAndSettle();
+      expect(result?['sensitive'], isTrue);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('FieldSheetPreview renders table and file attachments', (tester) async {
     for (final width in [360.0, 320.0]) {
       await tester.pumpWidget(_wrapTestWidget(
         SingleChildScrollView(

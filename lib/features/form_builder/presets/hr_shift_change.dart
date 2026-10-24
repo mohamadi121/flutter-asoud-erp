@@ -1,0 +1,333 @@
+import '../form_repository.dart';
+
+/// Raw reusable request schema; workflow routing and shift execution stay external.
+FormMap hrShiftChangePreset() => {
+      'schema_version': 2,
+      'kind': 'Request',
+      'title': 'درخواست تغییر شیفت',
+      'module': 'HR',
+      'icon': 'calendar',
+      'color': '#1876D2',
+      'description': 'قالب خام درخواست تغییر شیفت یا جابه‌جایی شیفت با همکار',
+      'sections': <FormMap>[
+        {
+          'id': 'applicant_details',
+          'title': 'مشخصات متقاضی',
+          'icon': 'person',
+          'color': '#E8F2FF',
+          'fields': <FormMap>[
+            {
+              'key': 'applicant_employee',
+              'label': 'نام و نام خانوادگی',
+              'type': 'Link',
+              'source': 'Employee',
+              'default_source': 'employee',
+              'readonly': true,
+              'required': true,
+              'span': 2,
+            },
+            {
+              'key': 'applicant_department',
+              'label': 'واحد سازمانی',
+              'type': 'Link',
+              'source': 'Department',
+              'default_source': 'department',
+              'readonly': true,
+              'span': 1,
+            },
+            {
+              'key': 'applicant_position',
+              'label': 'سمت سازمانی',
+              'type': 'Text',
+              'default_source': 'designation',
+              'readonly': true,
+              'span': 1,
+            },
+          ],
+        },
+        {
+          'id': 'shift_details',
+          'title': 'مشخصات تغییر شیفت',
+          'icon': 'schedule',
+          'color': '#F2EAFE',
+          'fields': <FormMap>[
+            {
+              'key': 'change_type',
+              'label': 'نوع تغییر',
+              'type': 'Select',
+              'default': 'self_change',
+              'required': true,
+              'style': 'radio',
+              'options': <FormMap>[
+                {'id': 'self_change', 'label': 'تغییر شیفت خودم'},
+                {'id': 'swap_with_colleague', 'label': 'جابه‌جایی شیفت با همکار'},
+              ],
+            },
+            {
+              'key': 'duration_mode',
+              'label': 'مدت درخواست',
+              'type': 'Select',
+              'default': 'single_day',
+              'required': true,
+              'style': 'radio',
+              'options': <FormMap>[
+                {'id': 'single_day', 'label': 'یک روز'},
+                {'id': 'date_range', 'label': 'بازه زمانی'},
+              ],
+            },
+            {
+              'key': 'change_date',
+              'label': 'تاریخ تغییر',
+              'type': 'Date',
+              'span': 2,
+            },
+            {
+              'key': 'start_date',
+              'label': 'تاریخ شروع',
+              'type': 'Date',
+              'span': 1,
+            },
+            {
+              'key': 'end_date',
+              'label': 'تاریخ پایان',
+              'type': 'Date',
+              'after_or_equal': 'start_date',
+              'after_or_equal_message': 'تاریخ پایان نباید قبل از تاریخ شروع باشد.',
+              'span': 1,
+            },
+            {
+              'key': 'current_schedule_day',
+              'label': 'برنامه فعلی',
+              'type': 'Schedule',
+              'schedule_of': 'self',
+              'from_field': 'change_date',
+              'to_field': 'change_date',
+              'readonly': true,
+              'span': 2,
+            },
+            {
+              'key': 'current_schedule_range',
+              'label': 'برنامه فعلی',
+              'type': 'Schedule',
+              'schedule_of': 'self',
+              'from_field': 'start_date',
+              'to_field': 'end_date',
+              'readonly': true,
+              'span': 2,
+            },
+            {
+              'key': 'requested_shifts',
+              'label': 'شیفت‌های پیشنهادی',
+              'type': 'Table',
+              'required': true,
+              'min_rows': 1,
+              'span': 2,
+              'columns': <FormMap>[
+                {'key': 'date', 'label': 'تاریخ', 'type': 'Date', 'required': true, 'unique': true},
+                {'key': 'shift_type', 'label': 'شیفت پیشنهادی', 'type': 'Link', 'source': 'Shift Type', 'required': true},
+              ],
+            },
+            {
+              'key': 'exchange_colleague',
+              'label': 'همکار طرف جابه‌جایی',
+              'type': 'Link',
+              'source': 'Employee',
+              'exclude_self': true,
+              'span': 2,
+            },
+            {
+              'key': 'colleague_schedule_day',
+              'label': 'برنامه فعلی همکار',
+              'type': 'Schedule',
+              'schedule_of': 'exchange_colleague',
+              'from_field': 'change_date',
+              'to_field': 'change_date',
+              'readonly': true,
+              'span': 2,
+            },
+            {
+              'key': 'colleague_schedule_range',
+              'label': 'برنامه فعلی همکار',
+              'type': 'Schedule',
+              'schedule_of': 'exchange_colleague',
+              'from_field': 'start_date',
+              'to_field': 'end_date',
+              'readonly': true,
+              'span': 2,
+            },
+          ],
+        },
+        {
+          'id': 'reason_details',
+          'title': 'دلیل درخواست',
+          'icon': 'notes',
+          'color': '#FFF0DD',
+          'fields': <FormMap>[
+            {
+              'key': 'reason',
+              'label': 'علت تغییر شیفت',
+              'type': 'Select',
+              'required': true,
+              'options': <FormMap>[
+                {'id': 'personal', 'label': 'امور شخصی'},
+                {'id': 'medical', 'label': 'دلایل درمانی'},
+                {'id': 'family', 'label': 'مسائل خانوادگی'},
+                {'id': 'other', 'label': 'سایر موارد'},
+              ],
+            },
+            {
+              'key': 'reason_description',
+              'label': 'شرح علت',
+              'type': 'LongText',
+              'sensitive': true,
+              'span': 2,
+            },
+            {
+              'key': 'additional_notes',
+              'label': 'توضیحات تکمیلی',
+              'type': 'LongText',
+              'sensitive': true,
+              'span': 2,
+            },
+          ],
+        },
+        {
+          'id': 'workflow_guidance',
+          'title': 'گردش تأیید',
+          'icon': 'account_tree',
+          'color': '#E5F7EF',
+          'fields': <FormMap>[
+            {
+              'key': 'workflow_note',
+              'label': 'گردش تأیید',
+              'type': 'Display',
+              'default': 'مسیر بررسی از گردش کار تعریف‌شده تعیین می‌شود.',
+              'span': 2,
+            },
+            {
+              'key': 'preview_notice',
+              'label': 'یادآوری',
+              'type': 'Display',
+              'default': 'این صفحه پیش‌نمایش درخواست تغییر شیفت است. ثبت یا تأیید درخواست به‌تنهایی برنامه کاری را تغییر نمی‌دهد.',
+              'span': 2,
+            },
+          ],
+        },
+      ],
+      'rules': <FormMap>[
+        {
+          'target': 'change_date',
+          'action': 'required',
+          'join': 'and',
+          'conditions': <FormMap>[
+            {'field': 'duration_mode', 'op': 'eq', 'value': 'single_day'},
+          ],
+        },
+        {
+          'target': 'change_date',
+          'action': 'visible',
+          'join': 'and',
+          'conditions': <FormMap>[
+            {'field': 'duration_mode', 'op': 'eq', 'value': 'single_day'},
+          ],
+        },
+        {
+          'target': 'start_date',
+          'action': 'visible',
+          'join': 'and',
+          'conditions': <FormMap>[
+            {'field': 'duration_mode', 'op': 'eq', 'value': 'date_range'},
+          ],
+        },
+        {
+          'target': 'start_date',
+          'action': 'required',
+          'join': 'and',
+          'conditions': <FormMap>[
+            {'field': 'duration_mode', 'op': 'eq', 'value': 'date_range'},
+          ],
+        },
+        {
+          'target': 'end_date',
+          'action': 'visible',
+          'join': 'and',
+          'conditions': <FormMap>[
+            {'field': 'duration_mode', 'op': 'eq', 'value': 'date_range'},
+          ],
+        },
+        {
+          'target': 'end_date',
+          'action': 'required',
+          'join': 'and',
+          'conditions': <FormMap>[
+            {'field': 'duration_mode', 'op': 'eq', 'value': 'date_range'},
+          ],
+        },
+        {
+          'target': 'exchange_colleague',
+          'action': 'visible',
+          'join': 'and',
+          'conditions': <FormMap>[
+            {'field': 'change_type', 'op': 'eq', 'value': 'swap_with_colleague'},
+          ],
+        },
+        for (final target in <String>['current_schedule_day'])
+          {
+            'target': target,
+            'action': 'visible',
+            'join': 'and',
+            'conditions': <FormMap>[{'field': 'duration_mode', 'op': 'eq', 'value': 'single_day'}],
+          },
+        for (final target in <String>['current_schedule_range'])
+          {
+            'target': target,
+            'action': 'visible',
+            'join': 'and',
+            'conditions': <FormMap>[{'field': 'duration_mode', 'op': 'eq', 'value': 'date_range'}],
+          },
+        for (final target in <String>['colleague_schedule_day'])
+          {
+            'target': target,
+            'action': 'visible',
+            'join': 'and',
+            'conditions': <FormMap>[
+              {'field': 'change_type', 'op': 'eq', 'value': 'swap_with_colleague'},
+              {'field': 'duration_mode', 'op': 'eq', 'value': 'single_day'},
+            ],
+          },
+        for (final target in <String>['colleague_schedule_range'])
+          {
+            'target': target,
+            'action': 'visible',
+            'join': 'and',
+            'conditions': <FormMap>[
+              {'field': 'change_type', 'op': 'eq', 'value': 'swap_with_colleague'},
+              {'field': 'duration_mode', 'op': 'eq', 'value': 'date_range'},
+            ],
+          },
+        {
+          'target': 'exchange_colleague',
+          'action': 'required',
+          'join': 'and',
+          'conditions': <FormMap>[
+            {'field': 'change_type', 'op': 'eq', 'value': 'swap_with_colleague'},
+          ],
+        },
+        {
+          'target': 'reason_description',
+          'action': 'visible',
+          'join': 'and',
+          'conditions': <FormMap>[
+            {'field': 'reason', 'op': 'eq', 'value': 'other'},
+          ],
+        },
+        {
+          'target': 'reason_description',
+          'action': 'required',
+          'join': 'and',
+          'conditions': <FormMap>[
+            {'field': 'reason', 'op': 'eq', 'value': 'other'},
+          ],
+        },
+      ],
+    };

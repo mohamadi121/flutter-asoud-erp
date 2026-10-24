@@ -10,6 +10,7 @@ _publish_work/
 .codex/
 .agents/
 test/ui/failures/
+test/failures/
 android/.gradle/
 android/.gradle/
 android/local.properties

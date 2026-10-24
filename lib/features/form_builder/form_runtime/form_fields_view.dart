@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/utils/jalali_date.dart';
+
 import '../form_repository.dart';
 import 'field_inputs/choice_inputs.dart';
 import 'field_inputs/date_time_inputs.dart';
@@ -8,7 +10,10 @@ import 'field_inputs/link_inputs.dart';
 import 'field_inputs/readonly_display_inputs.dart';
 import 'field_inputs/text_number_inputs.dart';
 import 'formula_engine.dart';
+import 'record_links.dart';
 import 'rules_engine.dart';
+import 'section_colors.dart';
+import 'schedule_field.dart';
 import 'table_field.dart';
 
 export 'field_inputs/choice_inputs.dart';
@@ -41,6 +46,7 @@ const formTypes = <String, String>{
   'Rating': 'امتیاز ۱ تا ۵',
   'Barcode': 'بارکد / شناسه',
   'Display': 'متن نمایشی',
+  'Schedule': 'برنامه شیفت',
 };
 
 const formSources = <String, String>{
@@ -53,6 +59,11 @@ const formSources = <String, String>{
   'Warehouse': 'انبارها',
   'Cost Center': 'مراکز هزینه',
   'Project': 'پروژه‌ها',
+  'Attendance': 'رکورد حضور و غیاب',
+  'Shift Type': 'نوع شیفت',
+  'Leave Type': 'نوع مرخصی',
+  'Training Event': 'دوره آموزشی',
+  'Asset': 'دارایی تحویل‌شده به من',
 };
 
 const formOps = <String, String>{
@@ -80,6 +91,9 @@ const formulaOps = <String, String>{
 };
 
 const formLinkFilters = <String, Map<String, String>>{
+  'Attendance': {
+    'attendance_date': 'تاریخ حضور',
+  },
   'Employee': {
     'department': 'واحد سازمانی',
     'company': 'دفتر / شرکت',
@@ -118,56 +132,55 @@ class FormFieldsView extends StatelessWidget {
 
     Widget sectionView(FormMap section) {
       final title = '${section['title'] ?? ''}'.trim();
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+      final hasNewPresentation = ['icon', 'color', 'background_color', 'description', 'collapsible']
+          .any((key) => section.containsKey(key));
+      if (!hasNewPresentation) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             if (title.isNotEmpty) ...[
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEBF3FF),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    color: Color(0xFF1876D2),
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                  ),
-                ),
-              ),
+              Container(width: double.infinity, padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10), decoration: BoxDecoration(color: const Color(0xFFEBF3FF), borderRadius: BorderRadius.circular(8)), child: Text(title, style: const TextStyle(color: Color(0xFF1876D2), fontWeight: FontWeight.bold, fontSize: 13))),
               const SizedBox(height: 12),
             ],
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final totalWidth = constraints.maxWidth;
-                const spacing = 12.0;
-                final halfWidth = (totalWidth - spacing) / 2;
-                final visibleFields = formMaps(section['fields'])
-                    .where((field) => formFlag(field, schema, computed, 'visible'))
-                    .toList();
-
-                return Wrap(
-                  spacing: spacing,
-                  runSpacing: 12,
-                  children: [
-                    for (final field in visibleFields)
-                      SizedBox(
-                        width: (field['span'] as num?)?.toInt() == 1
-                            ? halfWidth
-                            : totalWidth,
-                        child: _input(context, field, computed),
-                      ),
-                  ],
-                );
-              },
+            _sectionFields(context, section, computed),
+          ]),
+        );
+      }
+      final description = '${section['description'] ?? ''}'.trim();
+      final colors = sectionColors(section) ?? const SectionColors(Color(0xFFEBF3FF), Color(0xFF1876D2));
+      final bg = colors.background;
+      final accent = colors.accent;
+      final icon = sectionIconForName('${section['icon'] ?? ''}');
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 16),
+        child: StatefulBuilder(builder: (context, setSectionState) {
+          var collapsed = section['collapsible'] == true && section['collapsed'] == true;
+          return Material(
+            type: MaterialType.transparency,
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(10)),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            if (title.isNotEmpty) ...[
+              InkWell(
+                onTap: section['collapsible'] == true ? () => setSectionState(() {
+                  section['collapsed'] = !collapsed;
+                  collapsed = !collapsed;
+                }) : null,
+                child: Row(children: [
+                  Icon(icon, color: accent, size: 20), const SizedBox(width: 8),
+                  Expanded(child: Text(title, style: TextStyle(color: accent, fontWeight: FontWeight.bold, fontSize: 13))),
+                  if (section['collapsible'] == true) Icon(collapsed ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_up, color: accent),
+                ]),
+              ),
+              if (description.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 4), child: Text(description, style: const TextStyle(fontSize: 12, color: Color(0xFF475569)))),
+              const SizedBox(height: 12),
+            ],
+            if (!collapsed) _sectionFields(context, section, computed),
+              ]),
             ),
-          ],
-        ),
+          );
+        }),
       );
     }
 
@@ -200,22 +213,99 @@ class FormFieldsView extends StatelessWidget {
     return Column(children: sections.map(sectionView).toList());
   }
 
+  Widget _sectionFields(BuildContext context, FormMap section, FormMap computed) => LayoutBuilder(
+    builder: (context, constraints) {
+      final totalWidth = constraints.maxWidth;
+      const spacing = 12.0;
+      final halfWidth = (totalWidth - spacing) / 2;
+      final visibleFields = formMaps(section['fields']).where((field) => formFlag(field, schema, computed, 'visible')).toList();
+      return Wrap(spacing: spacing, runSpacing: 12, children: [
+        for (final field in visibleFields)
+          SizedBox(width: (field['span'] as num?)?.toInt() == 1 ? halfWidth : totalWidth, child: _withHelp(field, _input(context, field, computed))),
+      ]);
+    },
+  );
+
   Widget _input(BuildContext context, FormMap f, FormMap computed) {
     final key = '${f['key']}';
     final v = computed[key];
     final required = formFlag(f, schema, computed, 'required');
     final label = '${f['label']}${required ? ' *' : ''}';
     final editable = enabled && !formFlag(f, schema, computed, 'readonly');
-    void set(dynamic value) => onChanged({...computed, key: value});
+    void set(dynamic value) =>
+        onChanged(applyFieldChange(schema, computed, key, value));
+
+    if (parseFetchFrom(f['fetch_from']) != null) {
+      return _withAutomaticPlaceholder(f, v, _fetchedInput(f, v, label));
+    }
+    return _withNotEqual(f, computed, _typedInput(context, f, computed, v, required, label, editable, set));
+  }
+
+  Widget _withNotEqual(FormMap f, FormMap computed, Widget input) {
+    if ('${f['not_equal'] ?? ''}'.isEmpty && '${f['time_after'] ?? ''}'.isEmpty) return input;
+    bool visible(FormMap other) => formFlag(other, schema, computed, 'visible');
+    return FormField<dynamic>(
+      validator: (_) =>
+          notEqualProblem(f, computed, schema: schema, otherVisible: visible) ??
+          timeOrderProblem(f, computed, schema: schema, otherVisible: visible),
+      builder: (state) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          input,
+          if (state.hasError)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                state.errorText!,
+                style: TextStyle(color: Theme.of(state.context).colorScheme.error, fontSize: 12),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _fetchedInput(FormMap f, dynamic value, String label) {
+    final text = isEmptyValue(value)
+        ? '—'
+        : switch ('${f['type']}') {
+            'Date' => formatJalaliIso('$value'),
+            'Time' => toPersianDigits('$value'),
+            'DateTime' => () {
+                final d = DateTime.tryParse('$value');
+                return d == null
+                    ? '$value'
+                    : '${formatJalaliIso('$value')} ${toPersianDigits('${d.hour}:${d.minute.toString().padLeft(2, '0')}')}';
+              }(),
+            _ => '$value',
+          };
+    return InputDecorator(
+      decoration: InputDecoration(labelText: label, enabled: false),
+      child: Text(text),
+    );
+  }
+
+  Widget _typedInput(BuildContext context, FormMap f, FormMap computed, dynamic v, bool required, String label, bool editable, ValueChanged<dynamic> set) {
+    final key = '${f['key']}';
+
+    if (f['type'] == 'Schedule') {
+      return ScheduleField(
+        field: f,
+        values: computed,
+        repository: repository,
+        formName: formName,
+      );
+    }
 
     final readonlyWidget = buildReadonlyDisplayInput(
       f: f,
       value: v,
+      values: computed,
       label: label,
       editable: editable,
     );
     if (readonlyWidget != null) {
-      return readonlyWidget;
+      return _withAutomaticPlaceholder(f, v, readonlyWidget);
     }
 
     final choiceWidget = buildChoiceInput(
@@ -227,7 +317,7 @@ class FormFieldsView extends StatelessWidget {
       onChanged: set,
     );
     if (choiceWidget != null) {
-      return choiceWidget;
+      return _withAutomaticPlaceholder(f, v, choiceWidget);
     }
 
     final tableWidget = buildTableField(
@@ -242,7 +332,21 @@ class FormFieldsView extends StatelessWidget {
       onChanged: set,
     );
     if (tableWidget != null) {
-      return tableWidget;
+      final minRows = (f['min_rows'] as num?)?.toInt() ?? 0;
+      return _withAutomaticPlaceholder(f, v, FormField<dynamic>(
+        validator: (_) {
+          final count = formMaps(v).length;
+          final needed = minRows > 0 ? minRows : (required ? 1 : 0);
+          if (count < needed) {
+            return 'حداقل ${toPersianDigits(needed)} ردیف لازم است.';
+          }
+          return uniqueColumnProblem(f, v);
+        },
+        builder: (state) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          tableWidget,
+          if (state.hasError) Padding(padding: const EdgeInsets.only(top: 4), child: Text(state.errorText!, style: TextStyle(color: Theme.of(context).colorScheme.error))),
+        ]),
+      ));
     }
 
     final dateTimeWidget = buildDateTimeInput(
@@ -251,10 +355,15 @@ class FormFieldsView extends StatelessWidget {
       value: v,
       label: label,
       required: required,
+      values: computed,
       onChanged: set,
+      nextDay: computed['${f['key']}__next_day'] == true,
+      onNextDayChanged: f['next_day_allowed'] == true
+          ? (selected) => onChanged({...computed, '${f['key']}__next_day': selected})
+          : null,
     );
     if (dateTimeWidget != null) {
-      return dateTimeWidget;
+      return _withAutomaticPlaceholder(f, v, dateTimeWidget);
     }
 
     final linkWidget = buildLinkInput(
@@ -266,9 +375,11 @@ class FormFieldsView extends StatelessWidget {
       repository: repository,
       formName: formName,
       onChanged: set,
+      onPicked: (name, extra) =>
+          onChanged(applyFieldChange(schema, computed, key, name, extra: extra)),
     );
     if (linkWidget != null) {
-      return linkWidget;
+      return _withAutomaticPlaceholder(f, v, linkWidget);
     }
 
     final fileWidget = buildFileInput(
@@ -281,15 +392,51 @@ class FormFieldsView extends StatelessWidget {
       onChanged: set,
     );
     if (fileWidget != null) {
-      return fileWidget;
+      return _withAutomaticPlaceholder(f, v, fileWidget);
     }
 
-    return buildTextNumberInput(
+    final input = buildTextNumberInput(
       f: f,
       value: v,
       label: label,
       required: required,
       onChanged: set,
     )!;
+    return _withAutomaticPlaceholder(f, v, input);
+  }
+
+  Widget _withHelp(FormMap field, Widget input) {
+    final help = '${field['help'] ?? ''}'.trim();
+    if (help.isEmpty || ['Text', 'LongText', 'Integer', 'Decimal', 'Money', 'Rating'].contains(field['type'])) return input;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [input, const SizedBox(height: 4), Text(help, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)))]);
+  }
+
+  Widget _withAutomaticPlaceholder(FormMap field, dynamic value, Widget input) {
+    if (value != null || '${field['default_source'] ?? ''}'.trim().isEmpty) return input;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      input,
+      const Padding(
+        padding: EdgeInsets.only(top: 4),
+        child: Text('دریافت خودکار', style: TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+      ),
+    ]);
   }
 }
+
+IconData sectionIconForName(String icon) => switch (icon) {
+  'person' || 'employee' => Icons.person_outline,
+  'event' || 'calendar' || 'schedule' || 'clock' => Icons.event_outlined,
+  'description' || 'document' || 'assignment' || 'assignment_turned_in' || 'fact_check' => Icons.description_outlined,
+  'payments' || 'money' => Icons.payments_outlined,
+  'school' || 'training' => Icons.school_outlined,
+  'inventory' || 'inventory_2' || 'equipment' || 'box' => Icons.inventory_2_outlined,
+  'swap_horiz' => Icons.swap_horiz,
+  'notes' || 'edit_note' => Icons.notes_outlined,
+  'wallet' => Icons.account_balance_wallet_outlined,
+  'badge' => Icons.badge_outlined,
+  'download' => Icons.download_outlined,
+  'account_tree' => Icons.account_tree_outlined,
+  'attach_file' => Icons.attach_file_outlined,
+  'receipt' => Icons.receipt_long_outlined,
+  _ => Icons.folder_outlined,
+};

@@ -54,9 +54,12 @@ class _GenericRequestsPageState extends State<GenericRequestsPage> {
 
   Future<List<Map<String, dynamic>>> _types() async {
     try {
+      final seen = <String>{};
       return [
         for (final row in await repository.options())
-          if ('${row['template_key'] ?? ''}'.isNotEmpty) row,
+          if ('${row['template_key'] ?? ''}' case final key
+              when key.isNotEmpty && seen.add(key))
+            row,
       ];
     } catch (_) {
       return const [];

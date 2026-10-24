@@ -29,6 +29,16 @@ List<Widget> buildLinkAdvancedConfig({
     return const [];
   }
   return [
+    if ((f['source'] ?? 'Employee') == 'Employee')
+      SwitchListTile(
+        contentPadding: EdgeInsets.zero,
+        title: const Text(
+          'خود کاربر قابل انتخاب نباشد',
+          style: TextStyle(fontSize: 13),
+        ),
+        value: f['exclude_self'] == true,
+        onChanged: (v) => set('exclude_self', v ? true : null),
+      ),
     formSelect(
       'فیلتر وابسته منبع',
       '${formMap(f['link_filter'])['field'] ?? ''}',

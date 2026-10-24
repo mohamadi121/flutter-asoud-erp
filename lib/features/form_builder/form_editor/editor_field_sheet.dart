@@ -5,9 +5,11 @@ import 'package:flutter/material.dart';
 import '../../../core/utils/jalali_date.dart';
 import '../../../core/widgets/asoud_jalali_picker.dart';
 import '../form_repository.dart';
+import '../execution_settings.dart';
 import '../form_runtime.dart';
 import 'editor_field_types/choice_options.dart';
 import 'editor_field_types/date_time.dart';
+import 'editor_field_types/derived_fields.dart';
 import 'editor_field_types/file.dart';
 import 'editor_field_types/formula.dart';
 import 'editor_field_types/link.dart';
@@ -36,8 +38,7 @@ Future<FormMap?> editSchemaField(
   FormRepository? repository,
 }) async {
   final f = copyForm(original);
-  final isEditing =
-      original['label'] != null && '${original['label']}'.trim().isNotEmpty;
+  final isEditing = original['label'] != null && '${original['label']}'.trim().isNotEmpty;
 
   // Initialize defaults if empty
   f.putIfAbsent('key', () => 'f_${newFormId()}');
@@ -124,35 +125,15 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
       if (!confirmed || !mounted) return;
     }
     const typeSpecificKeys = {
-      'source',
-      'source_mode',
-      'max_length',
-      'min_length',
-      'lines',
-      'format',
-      'error_message',
-      'min',
-      'max',
-      'precision',
-      'thousands_separator',
-      'digits',
-      'default_date_mode',
-      'default_time_mode',
-      'minute_step',
-      'min_date',
-      'max_date',
-      'min_time',
-      'max_time',
-      'options',
-      'formula',
-      'output_type',
-      'extensions',
-      'max_files',
-      'max_mb',
-      'allow_delete',
-      'readonly',
-      'default',
-      'default_source',
+      'source', 'source_mode', 'max_length', 'min_length', 'lines', 'format',
+      'error_message', 'min', 'max', 'precision', 'thousands_separator',
+      'digits', 'default_date_mode', 'default_time_mode', 'minute_step',
+      'min_date', 'max_date', 'min_time', 'max_time', 'options', 'formula',
+      'output_type', 'extensions', 'max_files', 'max_mb', 'allow_delete',
+      'readonly', 'default', 'default_source', 'exclude_self', 'fetch_from',
+      'not_equal', 'not_equal_message', 'compare', 'next_day_allowed',
+      'before_or_equal', 'before_or_equal_message', 'time_after', 'time_after_message',
+      'schedule_of', 'from_field', 'to_field', 'execution_key',
     };
     setState(() {
       for (final key in typeSpecificKeys) {
@@ -213,8 +194,7 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
         final minSelected = f['min_selected'] as num? ?? 0;
         final maxSelected = f['max_selected'] as num?;
         if (maxSelected != null && minSelected > maxSelected) {
-          setState(
-              () => labelError = 'حداقل انتخاب نمی‌تواند از حداکثر بیشتر باشد');
+          setState(() => labelError = 'حداقل انتخاب نمی‌تواند از حداکثر بیشتر باشد');
           return;
         }
       }
@@ -253,11 +233,9 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
               // Scrollable Body
               Expanded(
                 child: SingleChildScrollView(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   child: isPreview
-                      ? FieldSheetPreview(
-                          field: f, repository: widget.repository)
+                      ? FieldSheetPreview(field: f, repository: widget.repository)
                       : Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
@@ -361,21 +339,15 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
                   height: 38,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: selectedTab == i
-                        ? const Color(0xFF1876D2)
-                        : Colors.transparent,
+                    color: selectedTab == i ? const Color(0xFF1876D2) : Colors.transparent,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
                     tabs[i],
                     style: TextStyle(
                       fontSize: 13,
-                      fontWeight: selectedTab == i
-                          ? FontWeight.bold
-                          : FontWeight.normal,
-                      color: selectedTab == i
-                          ? Colors.white
-                          : const Color(0xFF5B6478),
+                      fontWeight: selectedTab == i ? FontWeight.bold : FontWeight.normal,
+                      color: selectedTab == i ? Colors.white : const Color(0xFF5B6478),
                     ),
                   ),
                 ),
@@ -399,10 +371,7 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
         children: [
           const Text(
             'کتابخانه فیلدها',
-            style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF122044)),
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF122044)),
           ),
           const SizedBox(height: 10),
           if (widget.column)
@@ -433,125 +402,119 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              children: [
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF2EAFE),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    _getTypeIcon(type),
-                    color: const Color(0xFF7C24E8),
-                    size: 18,
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF2EAFE),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  _getTypeIcon(type),
+                  color: const Color(0xFF7C24E8),
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'تنظیمات ${_getTypeLabel(type)}',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF122044),
                   ),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          // Common Field: Title
+          TextFormField(
+            key: ValueKey('label_${f['key']}'),
+            initialValue: '${f['label'] ?? ''}',
+            decoration: InputDecoration(
+              labelText: 'عنوان فیلد *',
+              hintText: 'مثلاً مبلغ نهایی یا نام کارمند',
+              errorText: labelError,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            ),
+            onChanged: (v) => set('label', v),
+          ),
+          const SizedBox(height: 12),
+          // Common Field: Help Text
+          TextFormField(
+            key: ValueKey('help_${f['key']}'),
+            initialValue: '${f['help'] ?? ''}',
+            decoration: InputDecoration(
+              labelText: 'توضیحات / راهنمای فیلد',
+              hintText: 'اختیاری',
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            ),
+            onChanged: (v) => set('help', v),
+          ),
+          const SizedBox(height: 8),
+          // Common Field: Required toggle (except Table/File which have custom wording)
+          if (type != 'Table' && type != 'File')
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('پاسخ به این فیلد الزامی باشد', style: TextStyle(fontSize: 13)),
+              value: f['required'] == true,
+              onChanged: (v) => set('required', v),
+            ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('این مشخصه در فرم نمایش داده شود', style: TextStyle(fontSize: 13)),
+            value: f['visible'] != false,
+            onChanged: (v) => set('visible', v),
+          ),
+          if (!widget.column) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Expanded(
                   child: Text(
-                    'تنظیمات ${_getTypeLabel(type)}',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF122044),
+                    'چیدمان فیلد',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF1E293B),
                     ),
+                  ),
+                ),
+                SegmentedButton<int>(
+                  segments: const [
+                    ButtonSegment<int>(
+                      value: 1,
+                      label: Text('نیم‌عرض', style: TextStyle(fontSize: 12)),
+                    ),
+                    ButtonSegment<int>(
+                      value: 2,
+                      label: Text('تمام‌عرض', style: TextStyle(fontSize: 12)),
+                    ),
+                  ],
+                  selected: {(f['span'] as num?)?.toInt() == 1 ? 1 : 2},
+                  onSelectionChanged: (Set<int> newSelection) {
+                    set('span', newSelection.first);
+                  },
+                  style: const ButtonStyle(
+                    visualDensity: VisualDensity.compact,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 14),
-            // Common Field: Title
-            TextFormField(
-              key: ValueKey('label_${f['key']}'),
-              initialValue: '${f['label'] ?? ''}',
-              decoration: InputDecoration(
-                labelText: 'عنوان فیلد *',
-                hintText: 'مثلاً مبلغ نهایی یا نام کارمند',
-                errorText: labelError,
-                border:
-                    OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              ),
-              onChanged: (v) => set('label', v),
-            ),
-            const SizedBox(height: 12),
-            // Common Field: Help Text
-            TextFormField(
-              key: ValueKey('help_${f['key']}'),
-              initialValue: '${f['help'] ?? ''}',
-              decoration: InputDecoration(
-                labelText: 'توضیحات / راهنمای فیلد',
-                hintText: 'اختیاری',
-                border:
-                    OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              ),
-              onChanged: (v) => set('help', v),
-            ),
-            const SizedBox(height: 8),
-            // Common Field: Required toggle (except Table/File which have custom wording)
-            if (type != 'Table' && type != 'File')
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('پاسخ به این فیلد الزامی باشد',
-                    style: TextStyle(fontSize: 13)),
-                value: f['required'] == true,
-                onChanged: (v) => set('required', v),
-              ),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('این مشخصه در فرم نمایش داده شود',
-                  style: TextStyle(fontSize: 13)),
-              value: f['visible'] != false,
-              onChanged: (v) => set('visible', v),
-            ),
-            if (!widget.column) ...[
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      'چیدمان فیلد',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFF1E293B),
-                      ),
-                    ),
-                  ),
-                  SegmentedButton<int>(
-                    segments: const [
-                      ButtonSegment<int>(
-                        value: 1,
-                        label: Text('نیم‌عرض', style: TextStyle(fontSize: 12)),
-                      ),
-                      ButtonSegment<int>(
-                        value: 2,
-                        label: Text('تمام‌عرض', style: TextStyle(fontSize: 12)),
-                      ),
-                    ],
-                    selected: {(f['span'] as num?)?.toInt() == 1 ? 1 : 2},
-                    onSelectionChanged: (Set<int> newSelection) {
-                      set('span', newSelection.first);
-                    },
-                    style: const ButtonStyle(
-                      visualDensity: VisualDensity.compact,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-            const Divider(height: 18, color: Color(0xFFE2E8F2)),
-            // Specific Settings by Type
-            _buildSpecificTypeSettings(type),
           ],
-        ),
+          const Divider(height: 18, color: Color(0xFFE2E8F2)),
+          // Specific Settings by Type
+          _buildSpecificTypeSettings(type),
+        ],
       ),
+    ),
     );
   }
 
@@ -579,9 +542,34 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
         return _buildTableBasicSettings();
       case 'File':
         return _buildFileBasicSettings();
+      case 'Schedule':
+        return _buildScheduleSettings();
       default:
         return const SizedBox.shrink();
     }
+  }
+
+  Widget _buildScheduleSettings() {
+    final fields = schemaFields(widget.schema).where((field) => field['key'] != f['key']).toList();
+    final employees = fields.where((field) => field['type'] == 'Link' && field['source'] == 'Employee').toList();
+    final dates = fields.where((field) => field['type'] == 'Date').toList();
+    Widget picker(String label, String key, List<DropdownMenuItem<String>> items) => DropdownButtonFormField<String>(
+      key: ValueKey('${f[key]}'),
+      initialValue: items.any((item) => item.value == f[key]) ? '${f[key]}' : null,
+      decoration: InputDecoration(labelText: label),
+      items: items,
+      onChanged: (value) => set(key, value),
+    );
+    return Column(children: [
+      picker('برنامه چه کسی', 'schedule_of', [
+        const DropdownMenuItem(value: 'self', child: Text('کارمند واردشده')),
+        for (final field in employees) DropdownMenuItem(value: '${field['key']}', child: Text('${field['label']}')),
+      ]),
+      const SizedBox(height: 12),
+      picker('تاریخ شروع', 'from_field', [for (final field in dates) DropdownMenuItem(value: '${field['key']}', child: Text('${field['label']}'))]),
+      const SizedBox(height: 12),
+      picker('تاریخ پایان', 'to_field', [for (final field in dates) DropdownMenuItem(value: '${field['key']}', child: Text('${field['label']}'))]),
+    ]);
   }
 
   Widget _buildTextSettings() {
@@ -591,10 +579,7 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
       children: [
         const Text(
           'روش تأمین مقدار فیلد',
-          style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF122044)),
+          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF122044)),
         ),
         RadioGroup<String>(
           groupValue: mode,
@@ -617,8 +602,7 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
               RadioListTile<String>(
                 dense: true,
                 contentPadding: EdgeInsets.zero,
-                title: Text('انتخاب از سیستم آسود',
-                    style: TextStyle(fontSize: 13)),
+                title: Text('انتخاب از سیستم آسود', style: TextStyle(fontSize: 13)),
                 value: 'asoud',
               ),
             ],
@@ -644,9 +628,7 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
           const SizedBox(height: 8),
           SmartLinkPickerDropdown(
             source: '${f['source'] ?? 'Employee'}',
-            selectedId: f['default'] is Map
-                ? f['default']['name']
-                : (f['default'] as String?),
+            selectedId: f['default'] is Map ? f['default']['name'] : (f['default'] as String?),
             selectedLabel: f['default'] is Map ? f['default']['label'] : null,
             repository: widget.repository,
             onSelected: (item) {
@@ -732,8 +714,7 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
           ),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
-          title: const Text('نمایش جداکننده سه‌رقمی',
-              style: TextStyle(fontSize: 13)),
+          title: const Text('نمایش جداکننده سه‌رقمی', style: TextStyle(fontSize: 13)),
           value: f['thousands_separator'] != false,
           onChanged: (v) => set('thousands_separator', v),
         ),
@@ -760,10 +741,7 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
         ),
         const Text(
           'مقدار پیش‌فرض تاریخ',
-          style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF122044)),
+          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF122044)),
         ),
         RadioGroup<String>(
           groupValue: mode,
@@ -782,8 +760,7 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
               RadioListTile<String>(
                 dense: true,
                 contentPadding: EdgeInsets.zero,
-                title: Text('تاریخ روز (هنگام اجرای واقعی فرم)',
-                    style: TextStyle(fontSize: 13)),
+                title: Text('تاریخ روز (هنگام اجرای واقعی فرم)', style: TextStyle(fontSize: 13)),
                 value: 'today',
               ),
               RadioListTile<String>(
@@ -798,12 +775,9 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
         if (mode == 'custom') ...[
           ListTile(
             contentPadding: EdgeInsets.zero,
-            title:
-                const Text('انتخاب تاریخ مشخص', style: TextStyle(fontSize: 13)),
+            title: const Text('انتخاب تاریخ مشخص', style: TextStyle(fontSize: 13)),
             subtitle: Text(
-              f['default'] != null
-                  ? toPersianDigits('${f['default']}')
-                  : 'لمس کنید',
+              f['default'] != null ? toPersianDigits('${f['default']}') : 'لمس کنید',
               style: const TextStyle(fontSize: 12, color: Color(0xFF1876D2)),
             ),
             trailing: const Icon(Icons.calendar_today, size: 18),
@@ -816,6 +790,30 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
             },
           ),
         ],
+        formSelect(
+          'نباید قبل از فیلد:',
+          '${f['after_or_equal'] ?? ''}',
+          {
+            '': 'بدون محدودیت',
+            for (final field in formMaps(widget.schema['sections'])
+                .expand((section) => formMaps(section['fields']))
+                .where((field) => field['type'] == 'Date' && field['key'] != f['key']))
+              '${field['key']}': '${field['label']}',
+          },
+          (v) => set('after_or_equal', v.isEmpty ? null : v),
+        ),
+        formSelect(
+          'نباید بعد از فیلد:',
+          '${f['before_or_equal'] ?? ''}',
+          {
+            '': 'بدون محدودیت',
+            for (final field in formMaps(widget.schema['sections'])
+                .expand((section) => formMaps(section['fields']))
+                .where((field) => field['type'] == 'Date' && field['key'] != f['key']))
+              '${field['key']}': '${field['label']}',
+          },
+          (v) => set('before_or_equal', v.isEmpty ? null : v),
+        ),
         ...buildDateTimeConfig(
           context: context,
           f: f,
@@ -834,20 +832,12 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
         formSelect(
           'فاصله دقیقه',
           '${f['minute_step'] ?? 5}',
-          const {
-            '5': '۵ دقیقه',
-            '10': '۱۰ دقیقه',
-            '15': '۱۵ دقیقه',
-            '30': '۳۰ دقیقه'
-          },
+          const {'5': '۵ دقیقه', '10': '۱۰ دقیقه', '15': '۱۵ دقیقه', '30': '۳۰ دقیقه'},
           (v) => set('minute_step', int.tryParse(v) ?? 5),
         ),
         const Text(
           'مقدار پیش‌فرض ساعت',
-          style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF122044)),
+          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF122044)),
         ),
         RadioGroup<String>(
           groupValue: mode,
@@ -881,12 +871,9 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
         if (mode == 'custom') ...[
           ListTile(
             contentPadding: EdgeInsets.zero,
-            title:
-                const Text('تنظیم ساعت مشخص', style: TextStyle(fontSize: 13)),
+            title: const Text('تنظیم ساعت مشخص', style: TextStyle(fontSize: 13)),
             subtitle: Text(
-              f['default'] != null
-                  ? toPersianDigits('${f['default']}')
-                  : 'لمس جهت تنظیم',
+              f['default'] != null ? toPersianDigits('${f['default']}') : 'لمس جهت تنظیم',
               style: const TextStyle(fontSize: 12, color: Color(0xFF1876D2)),
             ),
             trailing: const Icon(Icons.access_time, size: 18),
@@ -910,17 +897,9 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
         ],
         Row(
           children: [
-            Expanded(
-                child: editorFieldText(
-                    label: 'حداقل ساعت',
-                    value: f['min_time'],
-                    onChanged: (v) => set('min_time', v))),
+            Expanded(child: editorFieldText(label: 'حداقل ساعت', value: f['min_time'], onChanged: (v) => set('min_time', v))),
             const SizedBox(width: 8),
-            Expanded(
-                child: editorFieldText(
-                    label: 'حداکثر ساعت',
-                    value: f['max_time'],
-                    onChanged: (v) => set('max_time', v))),
+            Expanded(child: editorFieldText(label: 'حداکثر ساعت', value: f['max_time'], onChanged: (v) => set('max_time', v))),
           ],
         ),
       ],
@@ -938,25 +917,26 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
           onChanged: () => setState(() {}),
         ),
         const SizedBox(height: 8),
+        if (!multi) ...[
+          const Text('نمایش', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+          SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(value: 'dropdown', label: Text('لیست کشویی')),
+              ButtonSegment(value: 'radio', label: Text('دکمه رادیویی')),
+            ],
+            selected: {'${f['style'] ?? 'dropdown'}'},
+            onSelectionChanged: (value) => set('style', value.first),
+          ),
+          const SizedBox(height: 8),
+        ],
         if (multi) ...[
-          editorFieldText(
-              label: 'حداقل تعداد انتخاب',
-              value: f['min_selected'] ?? 0,
-              numeric: true,
-              onChanged: (v) => set('min_selected', v)),
-          editorFieldText(
-              label: 'حداکثر تعداد انتخاب',
-              value: f['max_selected'],
-              numeric: true,
-              onChanged: (v) => set('max_selected', v)),
+          editorFieldText(label: 'حداقل تعداد انتخاب', value: f['min_selected'] ?? 0, numeric: true, onChanged: (v) => set('min_selected', v)),
+          editorFieldText(label: 'حداکثر تعداد انتخاب', value: f['max_selected'], numeric: true, onChanged: (v) => set('max_selected', v)),
         ] else if (opts.isNotEmpty)
           formSelect(
             'گزینه پیش‌فرض',
             f['default'] as String?,
-            {
-              '': 'بدون پیش‌فرض',
-              for (final option in opts) '${option['id']}': '${option['label']}'
-            },
+            {'': 'بدون پیش‌فرض', for (final option in opts) '${option['id']}': '${option['label']}'},
             (v) => set('default', v.isEmpty ? null : v),
           ),
       ],
@@ -965,8 +945,7 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
 
   Widget _buildFormulaBasicSettings() {
     final outType = f['output_type'] ?? 'Integer';
-    final hasFormula =
-        f['formula'] != null && (formMap(f['formula'])['op'] != null);
+    final hasFormula = f['formula'] != null && (formMap(f['formula'])['op'] != null);
     final existingFormulaFields = schemaFields(widget.schema)
         .where((field) => field['type'] == 'Formula')
         .toList();
@@ -1016,8 +995,7 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
           style: OutlinedButton.styleFrom(
             side: const BorderSide(color: Color(0xFFBCD8FF)),
             backgroundColor: const Color(0xFFF8FAFD),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             padding: const EdgeInsets.symmetric(vertical: 12),
           ),
         ),
@@ -1025,10 +1003,7 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
         if (existingFormulaFields.isNotEmpty) ...[
           const Text(
             'فیلدهای محاسباتی در این فرم:',
-            style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF5B6478)),
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF5B6478)),
           ),
           const SizedBox(height: 6),
           for (final ff in existingFormulaFields)
@@ -1048,8 +1023,7 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
                       color: const Color(0xFFF2EAFE),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(Icons.calculate_outlined,
-                        color: Color(0xFF7C24E8), size: 18),
+                    child: const Icon(Icons.calculate_outlined, color: Color(0xFF7C24E8), size: 18),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
@@ -1058,15 +1032,11 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
                       children: [
                         Text(
                           '${ff['label'] ?? ff['key']}',
-                          style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF122044)),
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF122044)),
                         ),
                         Text(
                           'خروجی ${ff['output_type'] == 'Money' ? 'مبلغ' : 'عدد'} · ${ff['formula'] != null ? 'فرمول تعریف‌شده' : 'بدون فرمول'}',
-                          style: const TextStyle(
-                              fontSize: 11, color: Color(0xFF5B6478)),
+                          style: const TextStyle(fontSize: 11, color: Color(0xFF5B6478)),
                         ),
                       ],
                     ),
@@ -1091,9 +1061,7 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
               children: [
                 Icon(
                   hasFormula ? Icons.check_circle : Icons.info_outline,
-                  color: hasFormula
-                      ? const Color(0xFF0B6B3A)
-                      : const Color(0xFF7C24E8),
+                  color: hasFormula ? const Color(0xFF0B6B3A) : const Color(0xFF7C24E8),
                   size: 20,
                 ),
                 const SizedBox(width: 8),
@@ -1102,8 +1070,7 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
                     hasFormula
                         ? 'وضعیت: فرمول تعریف‌شده در تب پیشرفته'
                         : 'وضعیت: بدون فرمول (تنظیم در تب پیشرفته)',
-                    style:
-                        const TextStyle(fontSize: 12, color: Color(0xFF5B6478)),
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF5B6478)),
                   ),
                 ),
               ],
@@ -1121,10 +1088,7 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
       children: [
         const Text(
           'جهت جدول',
-          style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF122044)),
+          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF122044)),
         ),
         const SizedBox(height: 6),
         Row(
@@ -1136,19 +1100,13 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
                   height: 40,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: orient == 'horizontal'
-                        ? const Color(0xFFFFF0DD)
-                        : Colors.white,
+                    color: orient == 'horizontal' ? const Color(0xFFFFF0DD) : Colors.white,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: orient == 'horizontal'
-                          ? const Color(0xFFE67E22)
-                          : const Color(0xFFE2E8F2),
+                      color: orient == 'horizontal' ? const Color(0xFFE67E22) : const Color(0xFFE2E8F2),
                     ),
                   ),
-                  child: const Text('افقی',
-                      style:
-                          TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                  child: const Text('افقی', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                 ),
               ),
             ),
@@ -1160,19 +1118,13 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
                   height: 40,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: orient == 'vertical'
-                        ? const Color(0xFFFFF0DD)
-                        : Colors.white,
+                    color: orient == 'vertical' ? const Color(0xFFFFF0DD) : Colors.white,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: orient == 'vertical'
-                          ? const Color(0xFFE67E22)
-                          : const Color(0xFFE2E8F2),
+                      color: orient == 'vertical' ? const Color(0xFFE67E22) : const Color(0xFFE2E8F2),
                     ),
                   ),
-                  child: const Text('عمودی',
-                      style:
-                          TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                  child: const Text('عمودی', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                 ),
               ),
             ),
@@ -1195,8 +1147,7 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
         const SizedBox(height: 10),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
-          title: const Text('ثبت حداقل یک رکورد الزامی باشد',
-              style: TextStyle(fontSize: 13)),
+          title: const Text('ثبت حداقل یک رکورد الزامی باشد', style: TextStyle(fontSize: 13)),
           value: f['required'] == true,
           onChanged: (v) => set('required', v),
         ),
@@ -1210,8 +1161,7 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
       children: [
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
-          title: const Text('پیوست‌کردن حداقل یک فایل الزامی باشد',
-              style: TextStyle(fontSize: 13)),
+          title: const Text('پیوست‌کردن حداقل یک فایل الزامی باشد', style: TextStyle(fontSize: 13)),
           value: f['required'] == true,
           onChanged: (v) => set('required', v),
         ),
@@ -1221,8 +1171,7 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
 
   Widget _buildAdvancedTabContent() {
     final fieldOptions = {
-      for (final field
-          in schemaFields(widget.schema).where((v) => v['key'] != f['key']))
+      for (final field in schemaFields(widget.schema).where((v) => v['key'] != f['key']))
         '${field['key']}': '${field['label']}',
     };
 
@@ -1257,83 +1206,123 @@ class _FieldSheetModalState extends State<_FieldSheetModal> {
           border: Border.all(color: const Color(0xFFE2E8F2)),
         ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text('شناسه پایدار: ${f['key']}',
-                style: const TextStyle(fontSize: 11, color: Color(0xFF5B6478))),
-            const SizedBox(height: 12),
-            formSelect(
-              'منبع مقدار پیش‌فرض',
-              '${f['default_source'] ?? ''}',
-              {
-                '': 'مقدار ثابت یا خالی',
-                if (f['type'] == 'Date') 'today': 'تاریخ امروز',
-                if (['Text', 'Display'].contains(f['type'])) ...{
-                  'user': 'کاربر ثبت‌کننده',
-                  'company': 'دفتر جاری',
-                },
-                if (f['type'] == 'Link' && f['source'] == 'Employee')
-                  'employee': 'پرسنل مرتبط با کاربر',
-                if (f['type'] == 'Link' && f['source'] == 'Department')
-                  'department': 'واحد پرسنل ثبت‌کننده',
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('شناسه پایدار: ${f['key']}', style: const TextStyle(fontSize: 11, color: Color(0xFF5B6478))),
+          const SizedBox(height: 12),
+          formSelect(
+            'منبع مقدار پیش‌فرض',
+            '${f['default_source'] ?? ''}',
+            {
+              '': 'مقدار ثابت یا خالی',
+              if (f['type'] == 'Date') 'today': 'تاریخ امروز',
+              if (f['type'] == 'Date') 'contract_start': 'شروع قرارداد جاری (در نبود قرارداد: شروع به کار)',
+              if (['Text', 'Display'].contains(f['type'])) ...{
+                'user': 'کاربر ثبت‌کننده',
+                'company': 'دفتر جاری',
               },
-              (v) => set('default_source', v),
-            ),
-            ...buildLinkAdvancedConfig(
-              f: f,
-              fieldOptions: fieldOptions,
-              set: set,
-              update: (fn) => setState(fn),
-            ),
+              if (f['type'] == 'Link' && f['source'] == 'Employee')
+                'employee': 'پرسنل مرتبط با کاربر',
+              if (f['type'] == 'Link' && f['source'] == 'Department')
+                'department': 'واحد پرسنل ثبت‌کننده',
+              if (f['type'] == 'Text') 'employee_number': 'کد پرسنلی',
+              if (f['type'] == 'Link' && f['source'] == 'Shift Type')
+                'default_shift': 'شیفت پیش‌فرض',
+            },
+            (v) => set('default_source', v),
+          ),
+          ...buildLinkAdvancedConfig(
+            f: f,
+            fieldOptions: fieldOptions,
+            set: set,
+            update: (fn) => setState(fn),
+          ),
+          ...buildFetchFromConfig(
+            f: f,
+            fields: schemaFields(widget.schema),
+            set: set,
+            update: (fn) => setState(fn),
+          ),
+          ...buildNotEqualConfig(
+            f: f,
+            fields: schemaFields(widget.schema),
+            set: set,
+          ),
+          ...buildTimeAfterConfig(
+            f: f,
+            fields: schemaFields(widget.schema),
+            set: set,
+          ),
+          ...buildCompareConfig(
+            f: f,
+            fields: schemaFields(widget.schema),
+            set: set,
+          ),
+          if (f['type'] == 'Time')
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('فقط‌خواندنی', style: TextStyle(fontSize: 13)),
-              value: f['readonly'] == true,
-              onChanged: (v) => set('readonly', v),
+              title: const Text('امکان انتخاب روز بعد', style: TextStyle(fontSize: 13)),
+              value: f['next_day_allowed'] == true,
+              onChanged: (v) => set('next_day_allowed', v ? true : null),
             ),
-            ...buildTextNumberConfig(f, set),
-            ...buildDateTimeConfig(
-              context: context,
-              f: f,
-              set: set,
-              update: (fn) => setState(fn),
+          if (widget.column) uniqueColumnSwitch(f, set),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('فقط‌خواندنی', style: TextStyle(fontSize: 13)),
+            value: f['readonly'] == true,
+            onChanged: (v) => set('readonly', v),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('اطلاعات حساس', style: TextStyle(fontSize: 13)),
+            subtitle: const Text('مقدار فقط برای مالک درخواست و افراد مجاز نمایش داده می‌شود.'),
+            value: f['sensitive'] == true,
+            onChanged: (v) => set('sensitive', v),
+          ),
+          ...buildTextNumberConfig(f, set),
+          ...buildDateTimeConfig(
+            context: context,
+            f: f,
+            set: set,
+            update: (fn) => setState(fn),
+          ),
+          ...buildFileConfig(f, set),
+          if (f['type'] == 'File')
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('حذف فایل پیش از ثبت مجاز باشد', style: TextStyle(fontSize: 13)),
+              value: f['allow_delete'] != false,
+              onChanged: (v) => set('allow_delete', v),
             ),
-            ...buildFileConfig(f, set),
-            if (f['type'] == 'File')
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('حذف فایل پیش از ثبت مجاز باشد',
-                    style: TextStyle(fontSize: 13)),
-                value: f['allow_delete'] != false,
-                onChanged: (v) => set('allow_delete', v),
-              ),
-            ...buildTableConfig(
-              context: context,
-              f: f,
-              schema: widget.schema,
-              set: set,
-              onEditColumn: editSchemaField,
+          ...buildTableConfig(
+            context: context,
+            f: f,
+            schema: widget.schema,
+            set: set,
+            onEditColumn: editSchemaField,
+          ),
+          ...buildFormulaConfig(
+            f: f,
+            schema: widget.schema,
+            fieldOptions: fieldOptions,
+            set: set,
+          ),
+          if (widget.schema['execution'] != null && widget.repository != null && !widget.column)
+            ExecutionSettings(repository: widget.repository!, schema: widget.schema,
+              fields: [f], showKind: false, onChanged: () => setState(() {})),
+          if (widget.schema['kind'] == 'Document' || widget.parentNative != null)
+            formSelect(
+              'فیلد مقصد سند',
+              f['native_key'] as String?,
+              nativeFieldLabels(widget.parentNative ?? '${widget.schema['target']}'),
+              (v) => set('native_key', v),
             ),
-            ...buildFormulaConfig(
-              f: f,
-              schema: widget.schema,
-              fieldOptions: fieldOptions,
-              set: set,
-            ),
-            if (widget.schema['kind'] == 'Document' ||
-                widget.parentNative != null)
-              formSelect(
-                'فیلد مقصد سند',
-                f['native_key'] as String?,
-                nativeFieldLabels(
-                    widget.parentNative ?? '${widget.schema['target']}'),
-                (v) => set('native_key', v),
-              ),
-          ],
+        ],
         ),
       ),
     );
   }
+
 
   IconData _getTypeIcon(String type) {
     for (final card in basicFieldCards) {

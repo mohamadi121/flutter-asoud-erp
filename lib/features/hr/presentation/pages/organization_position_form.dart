@@ -19,6 +19,7 @@ class _OrganizationPositionFormState extends State<_OrganizationPositionForm> {
   late List<String> _occupants;
   late String _departmentId;
   List<Map<String, dynamic>> _units = [];
+  bool _unitsError = false;
   late String _employee;
   List<OrganizationEmployee> _people = [];
   bool _loadingPeople = false;
@@ -75,25 +76,30 @@ class _OrganizationPositionFormState extends State<_OrganizationPositionForm> {
       _loadingPeople = true;
       _peopleError = null;
     });
+    final cubit = context.read<OrganizationCubit>();
     try {
-      final cubit = context.read<OrganizationCubit>();
       final people = await cubit.repository.employees(cubit.company);
-      final units = await cubit.repository.units(cubit.company);
-      if (!mounted) return;
-      setState(() {
-        _people = people;
-        _units = (units['units'] as List)
-            .map((e) => Map<String, dynamic>.from(e as Map))
-            .toList();
-      });
+      if (mounted) setState(() => _people = people);
     } catch (_) {
       if (mounted) {
         setState(() => _peopleError =
             'فهرست پرسنل در دسترس نیست؛ می‌توانید جایگاه خالی بسازید یا انتصاب قبلی را نگه دارید.');
       }
-    } finally {
-      if (mounted) setState(() => _loadingPeople = false);
     }
+    try {
+      final units = await cubit.repository.units(cubit.company);
+      if (mounted) {
+        setState(() {
+          _units = (units['units'] as List)
+              .map((e) => Map<String, dynamic>.from(e as Map))
+              .toList();
+          _unitsError = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _unitsError = true);
+    }
+    if (mounted) setState(() => _loadingPeople = false);
   }
 
   @override
@@ -118,8 +124,14 @@ class _OrganizationPositionFormState extends State<_OrganizationPositionForm> {
               : parents.isEmpty
                   ? _parentCode
                   : parents.first.title;
+          final seatedElsewhere = {
+            for (final row in state.snapshot.rows)
+              if (row.code != _editingCode) ...row.activeEmployees
+          };
           final available = _people
-              .where((person) => !_occupants.contains(person.id))
+              .where((person) =>
+                  !_occupants.contains(person.id) &&
+                  !seatedElsewhere.contains(person.id))
               .toList();
           return PopScope(
             canPop: !_saving && (_allowClose || !_dirty),
@@ -201,7 +213,8 @@ class _OrganizationPositionFormState extends State<_OrganizationPositionForm> {
                                     ? 'انتخاب واحد'
                                     : _department.text,
                                 label: 'واحد سازمانی',
-                                enabled: !busy && !_loadingPeople,
+                                enabled:
+                                    !busy && !_loadingPeople && !_unitsError,
                                 onPick: () => showAppOptionSheet(context,
                                     title: 'واحد سازمانی',
                                     current: _departmentId,
@@ -223,6 +236,14 @@ class _OrganizationPositionFormState extends State<_OrganizationPositionForm> {
                                 }),
                                 prefixIcon: const Icon(Icons.business_outlined),
                               ),
+                              if (_unitsError)
+                                const Padding(
+                                    padding: EdgeInsets.only(top: 4),
+                                    child: Text(
+                                        'فهرست واحدها در دسترس نیست؛ ارتباط فعلی جایگاه با واحد بدون تغییر می‌ماند.',
+                                        style: TextStyle(
+                                            color: AsoudColors.muted,
+                                            fontSize: 11))),
                               const SizedBox(height: 12),
                               AppTextField(
                                   controller: _capacity,

@@ -332,7 +332,154 @@ class RequestNative extends Equatable {
   List<Object?> get props => [doctype, name, status, error];
 }
 
+/// The issued employment certificate (`certificate` of `get_request`): present
+/// only for a viewer who may download it (the requester, HR and System managers).
+class RequestCertificate extends Equatable {
+  const RequestCertificate(
+      {this.number = '', this.filename = '', this.issuedOn = ''});
+
+  /// Null for a missing or empty block.
+  static RequestCertificate? fromMap(Object? source) {
+    final map = _map(source);
+    if (_text(map['number']).isEmpty && _text(map['filename']).isEmpty) {
+      return null;
+    }
+    return RequestCertificate(
+      number: _text(map['number']),
+      filename: _text(map['filename']),
+      issuedOn: _text(map['issued_on']),
+    );
+  }
+
+  final String number, filename, issuedOn;
+
+  @override
+  List<Object?> get props => [number, filename, issuedOn];
+}
+
+/// What happened after the approval (`execution` of `get_request`), kept apart
+/// from the approval status: an approved request is not an executed one.
+class RequestExecution extends Equatable {
+  const RequestExecution({
+    this.state = 'not_applicable',
+    this.label = '',
+    this.error = '',
+    this.executedOn = '',
+    this.executedByName = '',
+    this.reference = '',
+    this.canVoid = false,
+    this.canReissue = false,
+    this.voidReason = '',
+    this.voidByName = '',
+    this.voidOn = '',
+    this.voidBlocked = '',
+  });
+
+  factory RequestExecution.fromMap(Object? source) {
+    final map = _map(source);
+    return RequestExecution(
+      state: _text(map['state']).isEmpty
+          ? 'not_applicable'
+          : _text(map['state']),
+      label: _text(map['label']),
+      error: _text(map['error']),
+      executedOn: _text(map['executed_on']),
+      executedByName: _text(map['executed_by_name']),
+      reference: _text(map['reference']),
+      canVoid: map['can_void'] == true,
+      canReissue: map['can_reissue'] == true,
+      voidReason: _text(_map(map['void'])['reason']),
+      voidByName: _text(_map(map['void'])['by_name']),
+      voidOn: _text(_map(map['void'])['on']),
+      voidBlocked: _text(_map(map['void'])['reissue_blocked']),
+    );
+  }
+
+  /// `not_applicable`, `not_started`, `pending`, `succeeded`, `failed`,
+  /// `needs_review`, `not_connected` or `voided`.
+  final String state;
+  final String label, error, executedOn, executedByName, reference;
+
+  /// HR Manager actions the server allows now (`can_void`, `can_reissue`).
+  final bool canVoid, canReissue;
+
+  /// The last void (reason, who, when); only sent to System/HR Managers.
+  final String voidReason, voidByName, voidOn;
+
+  /// Why a reissue is impossible after this void (Persian); empty when it is possible.
+  final String voidBlocked;
+  bool get voided => state == 'voided';
+
+  bool get applicable => state != 'not_applicable';
+  bool get succeeded => state == 'succeeded';
+
+  /// The server label; a Persian sentence per state when it is missing.
+  String get sentence => label.isNotEmpty
+      ? label
+      : switch (state) {
+          'not_started' => 'تأیید شده، اجرا انجام نشده',
+          'pending' => 'در انتظار اجرا',
+          'succeeded' => 'اجرا انجام شد',
+          'failed' => 'اجرا ناموفق بود؛ درخواست تأیید شده است',
+          'needs_review' => 'نیازمند بررسی',
+          'not_connected' => 'اجرای خودکار برای این نوع درخواست متصل نیست',
+          'voided' => 'سند ابطال شد',
+          _ => '',
+        };
+
+  @override
+  List<Object?> get props =>
+      [
+        state,
+        label,
+        error,
+        executedOn,
+        executedByName,
+        reference,
+        canVoid,
+        canReissue,
+        voidReason,
+        voidByName,
+        voidOn,
+        voidBlocked,
+      ];
+}
+
 /// `get_request` (§4.7).
+/// One workflow step of a request, as returned in `get_request.stages`.
+class RequestStage extends Equatable {
+  const RequestStage({
+    required this.title,
+    required this.status,
+    this.assigneeNames = const [],
+    this.assignedOn = '',
+    this.completedOn = '',
+    this.result = '',
+    this.comment = '',
+  });
+
+  factory RequestStage.fromMap(Map<dynamic, dynamic> map) => RequestStage(
+        title: _text(map['title']),
+        status: _text(map['status']),
+        assigneeNames: [
+          for (final name in map['assignee_names'] as List? ?? const [])
+            _text(name)
+        ],
+        assignedOn: _text(map['assigned_on']),
+        completedOn: _text(map['completed_on']),
+        result: _text(map['result']),
+        comment: _text(map['comment']),
+      );
+
+  /// pending, active, done, rejected or returned.
+  final String title, status, assignedOn, completedOn, result, comment;
+  final List<String> assigneeNames;
+
+  @override
+  List<Object?> get props =>
+      [title, status, assigneeNames, assignedOn, completedOn, result, comment];
+}
+
 class RequestDetail extends Equatable {
   const RequestDetail({
     required this.name,
@@ -368,6 +515,9 @@ class RequestDetail extends Equatable {
     this.attachments = const [],
     this.fields = const [],
     this.native = const RequestNative(),
+    this.execution = const RequestExecution(),
+    this.certificate,
+    this.stages = const [],
     this.pendingSync = false,
     this.localPreview = false,
     this.isSample = false,
@@ -428,6 +578,12 @@ class RequestDetail extends Equatable {
           if (row is Map) WorkflowFormFieldDefinition.fromMap(row)
       ],
       native: RequestNative.fromMap(map['native']),
+      execution: RequestExecution.fromMap(map['execution']),
+      certificate: RequestCertificate.fromMap(map['certificate']),
+      stages: [
+        for (final row in map['stages'] as List? ?? const [])
+          if (row is Map) RequestStage.fromMap(row)
+      ],
       pendingSync: pendingSync,
       localPreview: _flag(map['local_preview']),
       isSample: _flag(map['is_sample']),
@@ -447,6 +603,9 @@ class RequestDetail extends Equatable {
   final List<RequestAttachment> attachments;
   final List<WorkflowFormFieldDefinition> fields;
   final RequestNative native;
+  final RequestExecution execution;
+  final RequestCertificate? certificate;
+  final List<RequestStage> stages;
   final Map<String, dynamic> raw;
 
   /// The rows of the request's «Item Table» field(s).
@@ -499,6 +658,7 @@ class RequestDetail extends Equatable {
         statusGroup,
         requestId,
         rejectionReason,
+        stages,
         canEdit,
         canCancel,
         itemCount,
@@ -508,6 +668,8 @@ class RequestDetail extends Equatable {
         attachments,
         fields,
         native,
+        execution,
+        certificate,
         pendingSync,
         localPreview,
         isSample,

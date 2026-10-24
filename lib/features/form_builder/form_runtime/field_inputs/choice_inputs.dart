@@ -22,16 +22,52 @@ Widget? buildChoiceInput({
     );
   }
   if (type == 'Boolean') {
-    return SwitchListTile(
-      title: Text(label),
-      value: value == true,
-      onChanged: onChanged,
+    // Material keeps the tile's ink visible inside a coloured section card.
+    return Material(
+      color: Colors.transparent,
+      child: SwitchListTile(
+        title: Text(label),
+        value: value == true,
+        onChanged: onChanged,
+      ),
     );
   }
   if (type == 'Select') {
     final options = choiceOptions(f);
     final selectedId = choiceOptionId(f, value) ?? '$value';
     final selectedExists = options.any((option) => option['id'] == selectedId);
+    if (f['style'] == 'radio') {
+      return FormField<String>(
+        initialValue: value is String ? selectedId : null,
+        validator: (v) => required && v == null ? 'انتخاب الزامی است.' : null,
+        builder: (state) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label),
+            RadioGroup<String>(
+              groupValue: selectedId,
+              onChanged: (id) {
+                state.didChange(id);
+                onChanged(id);
+              },
+              child: Column(children: [
+                for (final option in options)
+                  Material(
+                    type: MaterialType.transparency,
+                    child: RadioListTile<String>(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text('${option['label']}'),
+                      value: '${option['id']}',
+                    ),
+                  ),
+              ]),
+            ),
+            if (state.hasError)
+              Text(state.errorText!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+          ],
+        ),
+      );
+    }
     return DropdownButtonFormField<String>(
       key: ValueKey('$key:$value'),
       initialValue: value is String ? selectedId : null,

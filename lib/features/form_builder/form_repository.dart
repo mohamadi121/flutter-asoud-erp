@@ -7,6 +7,7 @@ import '../../core/config/app_config.dart';
 import '../../core/network/frappe_client.dart';
 import '../../core/network/api_exception.dart';
 import 'form_runtime/schema_migration.dart';
+import 'execution_contract.dart';
 
 typedef FormMap = Map<String, dynamic>;
 FormMap formMap(Object? value) =>
@@ -52,7 +53,11 @@ class FormRepository {
     return key;
   }
 
-  Future<dynamic> call(String method, [FormMap data = const {}]) async {
+  Future<dynamic> call(String method, [FormMap data = const {}]) async =>
+      (await callEnvelope(method, data))['data'];
+
+  /// The whole `success(data, meta)` envelope, for callers that need `meta`.
+  Future<FormMap> callEnvelope(String method, [FormMap data = const {}]) async {
     await scope();
     // Publication is deliberately not placed in the generic automatic retry queue.
     final response = await client.callMethod(
@@ -63,7 +68,36 @@ class FormRepository {
     if (envelope['ok'] != true) {
       throw const ApiException.protocol();
     }
-    return envelope['data'];
+    return envelope;
+  }
+
+  /// Rows `{name, label, extra}` of `forms.get_link_options` and `meta.reason`.
+  Future<({List<FormMap> rows, String? reason})> linkOptions(
+    FormMap args,
+  ) async {
+    final envelope = await callEnvelope('get_link_options', args);
+    return (
+      rows: formMaps(envelope['data']),
+      reason: formMap(envelope['meta'])['reason'] as String?,
+    );
+  }
+
+  Future<List<FormMap>> employeeSchedule({
+    required String fromDate,
+    required String toDate,
+    String? employee,
+    String? form,
+    String? field,
+  }) async {
+    if (!client.isAuthenticated) return const [];
+    return formMaps(await call('employee_schedule', {
+      'company': company,
+      'from_date': fromDate,
+      'to_date': toDate,
+      if (employee != null && employee.isNotEmpty) 'employee': employee,
+      if (employee != null && employee.isNotEmpty && form != null && form.isNotEmpty) 'form': form,
+      if (employee != null && employee.isNotEmpty && field != null && field.isNotEmpty) 'field': field,
+    }));
   }
 
   bool unavailable(Object error) =>
@@ -72,6 +106,11 @@ class FormRepository {
           error.kind == ApiFailureKind.timeout ||
           (error.kind == ApiFailureKind.server &&
               const [502, 503, 504].contains(error.statusCode)));
+
+  Future<List<FormMap>> executionKinds() async {
+    if (!client.isAuthenticated) return [];
+    return formMaps(await call('execution_kinds'));
+  }
 
   Future<List<FormMap>> drafts() async {
     final key = await scope();
@@ -136,6 +175,13 @@ class FormRepository {
       return {...prepared, 'local': true};
     }
     try {
+      final form = formMap(prepared['schema']);
+      final catalog = form['execution'] == null ? <FormMap>[] : await executionKinds();
+      final problems = executionProblems(form, catalog);
+      if (problems.isNotEmpty) {
+        throw ApiException(kind: ApiFailureKind.validation,
+            message: problems.join('\n'), statusCode: 417);
+      }
       final result = formMap(
         await call('save_form', {
           'company': company,

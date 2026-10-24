@@ -13,6 +13,7 @@ class WorkflowTask extends Equatable {
     this.reminderSentOn,
     this.escalatedOn,
     this.localOnly = false,
+    this.followup = '',
   });
 
   final String id;
@@ -23,6 +24,10 @@ class WorkflowTask extends Equatable {
   final DateTime? assignedOn;
   final DateTime? dueOn, reminderSentOn, escalatedOn;
   final bool localOnly;
+
+  /// Kind of the follow-up the task asks for (`confirm_receipt`), empty for an
+  /// ordinary workflow task (`followup` of `list_my_workflow_tasks`).
+  final String followup;
 
   @override
   List<Object?> get props => [
@@ -35,7 +40,8 @@ class WorkflowTask extends Equatable {
         dueOn,
         reminderSentOn,
         escalatedOn,
-        localOnly
+        localOnly,
+        followup
       ];
 }
 
@@ -46,11 +52,33 @@ class WorkflowTaskActivity extends Equatable {
     this.comment = '',
     this.createdOn,
     this.stageTitle = '',
+    this.actorName = '',
+    this.before = const {},
+    this.after = const {},
+    this.labels = const {},
   });
-  final String actor, action, comment, stageTitle;
+  final String actor, action, comment, stageTitle, actorName;
   final DateTime? createdOn;
+
+  /// Field values before and after an edit (`before`/`after` of an activity
+  /// row); empty for events that changed nothing.
+  final Map<String, dynamic> before, after;
+
+  /// Field labels of the changed keys (`labels` of an activity row), so the
+  /// change can be shown where the form is not loaded.
+  final Map<String, String> labels;
   @override
-  List<Object?> get props => [actor, action, comment, createdOn, stageTitle];
+  List<Object?> get props => [
+        actor,
+        action,
+        comment,
+        createdOn,
+        stageTitle,
+        actorName,
+        before,
+        after,
+        labels
+      ];
 }
 
 class WorkflowTaskDataValue extends Equatable {
@@ -91,7 +119,11 @@ class WorkflowTaskDetail extends Equatable {
     this.referenceDoctype = '',
     this.referenceName = '',
     this.documentValues = const [],
+    this.requestName = '',
+    this.requestCompany = '',
+    this.requestValues = const {},
   });
+  final String requestName, requestCompany;
   final WorkflowTask task;
   final String stageType;
   final List<WorkflowFormFieldDefinition> fields;
@@ -103,6 +135,7 @@ class WorkflowTaskDetail extends Equatable {
   final List<WorkflowTaskDataSection> previousData;
   final String referenceDoctype, referenceName;
   final List<WorkflowTaskDataValue> documentValues;
+  final Map<String, dynamic> requestValues;
   @override
   List<Object> get props => [
         task,
@@ -118,6 +151,9 @@ class WorkflowTaskDetail extends Equatable {
         referenceDoctype,
         referenceName,
         documentValues,
+        requestName,
+        requestCompany,
+        requestValues,
       ];
 }
 

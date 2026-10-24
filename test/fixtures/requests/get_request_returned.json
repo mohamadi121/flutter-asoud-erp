@@ -1,0 +1,151 @@
+{
+ "ok": true,
+ "data": {
+  "name": "REQ-00236",
+  "number": "REQ-00236",
+  "company": "Wind Power LLC",
+  "template_key": "",
+  "template_version": 0,
+  "workflow_definition": "req-f1716fd3",
+  "request_type": "درخواست آزمایشی f1716fd3",
+  "subject": "درخواست آزمایشی",
+  "priority": "Normal",
+  "required_by": "",
+  "project": "",
+  "department": "",
+  "owner": "asoud.employee@example.com",
+  "requester_name": "Employee",
+  "requester_employee": "HR-EMP-00002",
+  "creation": "2026-10-23 10:38:29.780977",
+  "workflow_instance": "WFI-2026-04139",
+  "status": "Running",
+  "display_status": "",
+  "status_key": "returned",
+  "status_label": "برگشت برای اصلاح",
+  "status_group": "pending",
+  "request_id": "request-72c5be61be94402e",
+  "rejection_reason": "",
+  "return_reason": "مبلغ را اصلاح کنید",
+  "can_edit": true,
+  "can_cancel": true,
+  "viewer": {
+   "is_requester": true,
+   "open_task": {
+    "name": "WFT-2026-04143",
+    "stage_title": "ثبت درخواست",
+    "stage_type": "User Task",
+    "approve_action": "Complete",
+    "allow_reject": false,
+    "allow_return": false,
+    "comment_required": false,
+    "reject_comment_required": true,
+    "has_form": true
+   }
+  },
+  "item_count": 0,
+  "attachment_count": 0,
+  "comment_count": 0,
+  "values": {
+   "requester": "asoud.employee@example.com",
+   "priority": null,
+   "reason": "دلیل اولیه",
+   "proof": null,
+   "items": null
+  },
+  "attachments": [],
+  "fields": [
+   {
+    "key": "requester",
+    "label": "درخواست‌کننده",
+    "type": "User",
+    "required": true,
+    "editable": false,
+    "default_source": "session_user"
+   },
+   {
+    "key": "priority",
+    "label": "اولویت",
+    "type": "Choice",
+    "options": [
+     "Normal",
+     "High",
+     "Urgent"
+    ],
+    "option_labels": {
+     "Normal": "عادی",
+     "High": "مهم",
+     "Urgent": "فوری"
+    },
+    "default_value": "Normal"
+   },
+   {
+    "key": "reason",
+    "label": "دلیل",
+    "type": "Long Text",
+    "max_length": 2000
+   },
+   {
+    "key": "proof",
+    "label": "مدرک",
+    "type": "Attachment"
+   },
+   {
+    "key": "items",
+    "label": "اقلام",
+    "type": "Item Table",
+    "row_options": {
+     "item_scope": "all",
+     "note": true,
+     "attachment": true,
+     "min_rows": 0,
+     "max_rows": 10
+    }
+   }
+  ],
+  "stages": [
+   {
+    "name": "rfoqdtrino",
+    "title": "ثبت درخواست",
+    "status": "active",
+    "assignee_names": [
+     "Employee"
+    ],
+    "assigned_on": "2026-10-23 10:38:29.899862",
+    "completed_on": "",
+    "result": "",
+    "comment": ""
+   },
+   {
+    "name": "rfofn00bdc",
+    "title": "تأیید 1",
+    "status": "done",
+    "assignee_names": [
+     "Approver"
+    ],
+    "assigned_on": "2026-10-23 10:38:29.957661",
+    "completed_on": "2026-10-23 10:38:29.992872",
+    "result": "Approve",
+    "comment": ""
+   },
+   {
+    "name": "rfoiut84uf",
+    "title": "تأیید 2",
+    "status": "returned",
+    "assignee_names": [
+     "Approver"
+    ],
+    "assigned_on": "2026-10-23 10:38:30.021956",
+    "completed_on": "2026-10-23 10:38:30.033533",
+    "result": "Return",
+    "comment": "مبلغ را اصلاح کنید"
+   }
+  ],
+  "native": {
+   "doctype": "",
+   "name": "",
+   "status": "",
+   "error": ""
+  }
+ },
+ "meta": {}
+}

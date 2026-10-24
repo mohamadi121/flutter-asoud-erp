@@ -1,5 +1,51 @@
 # Changelog
 
+## 0.29.0+50
+
+Pairs with backend 0.17.0 (leave, mission, overtime, certificate, receipt confirmation and void/reissue need it).
+
+- ابطال و صدور مجدد سند اجراشده: در منوی ⋮ جزئیات درخواست، مدیر منابع انسانی «ابطال سند» (با دلیل اجباری) و «صدور مجدد» (با تأیید) را می‌بیند؛ برای بقیهٔ کاربران پنهان است. نوار اجرا «سند ابطال شد» را با دلیل، ابطال‌کننده و زمان نشان می‌دهد و سوابق «ابطال سند» و «صدور مجدد سند» دارد. نیازمند بک‌اند با `void_native_document` و `reissue_native_document`.
+
+- Presets: new raw forms «درخواست مرخصی» (real Leave Type source, daily or half-day, sensitive description and attachments), «درخواست مأموریت» (destination, purpose, optional shift, no holiday option) and «درخواست اضافه‌کار» (date, start and end time with «روز بعد»). They replace the two generic leave and mission cards and carry no execution mapping; the administrator maps «اجرای پس از تأیید» in the editor. The runtime and editor gain the `Leave Type` link source and the additive keys `before_or_equal` (half day inside the range) and `time_after` (end after start, next-day aware); the switch field keeps its ink visible inside coloured sections. Needs the backend executors `leave_application`, `mission`, `overtime` and the `Leave Type` source.
+
+- Presets: the advance form (reason, description, notes, attachments), the settlement form (reason, description, notes) and the shift-change form (description, notes) mark those fields «اطلاعات حساس»; the server shows them only to the requester, workflow participants and HR/System managers, and never copies them into notification text, created documents or execution comments. The editor shows and keeps the flag. Needs the backend confidential-field change.
+
+- جزئیات درخواست: وقتی گواهی اشتغال صادر شده باشد کارت «گواهی صادرشده» با شماره و تاریخ صدور و دکمه «دانلود گواهی» نمایش داده می‌شود (فقط برای درخواست‌دهنده و مدیران منابع انسانی؛ سرور سایرین را رد می‌کند و پیام فارسی نمایش داده می‌شود). اجرای `certificate_issue` را مدیر در ویرایشگر فرم («اجرای پس از تأیید») تنظیم می‌کند؛ قالب‌های آماده خام می‌مانند.
+
+- کارتابل: وظیفهٔ «تأیید دریافت تجهیز» پس از ثبت پیش‌نویس تحویل تجهیز با نام تجهیز در «کارتابل من» دیده می‌شود؛ صفحهٔ وظیفه مشخصات تحویل را نشان می‌دهد و دو دکمهٔ «تأیید دریافت» و «عدم دریافت با ذکر علت» (علت اجباری) دارد. پیام‌های رد سرور (مثلاً حرکت لغوشده یا تأیید تکراری) همان‌گونه فارسی نمایش داده می‌شوند. نیازمند نقاط پایانی `request_followup` در سرور؛ بدون تغییر در دیگر وظیفه‌ها.
+
+- Request detail: a request returned for correction shows a «برای اصلاح بازگردانده شد» banner with the reviewer's reason; the owner can tap «اصلاح درخواست» (only when the server allows it) to edit and resubmit, and the history shows «اصلاح و ارسال مجدد» with the old and new values.
+
+- Request detail: a «عملیات اجرایی» card, a summary line, the requester message and the printout show whether the approved request was executed («تأیید شده، اجرا انجام نشده» until the server reports success); the history tab shows «مقدار قبلی ← مقدار جدید» for edits. Needs the backend `execution` block.
+- فیلدهای فرم اکنون می‌توانند به‌عنوان «اطلاعات حساس» علامت‌گذاری شوند؛ دلیل رد یا بازگشت همیشه الزامی است و اقدام تأیید درخواست برای مالک نمایش داده نمی‌شود.
+- Form editor: «اجرای پس از تأیید» loads execution kinds from the server and maps each field to a parameter. Workflow step forms use the same parameter picker; schema version and presets are unchanged. Requires the matching backend execution registry endpoint.
+- Cartable task: «مشاهده درخواست» opens the full request read-only (no edit, cancel or decision controls).
+- Request detail: a «وضعیت درخواست من» card for the requester and an «اقدام» card (approve, return, reject by the stage settings) for the user holding the open task.
+
+- نمایش برنامه شیفت همکار اکنون نام فرم و فیلد انتخاب همکار را به سرور می‌فرستد تا دسترسی بررسی شود.
+
+- فرم «درخواست تغییر شیفت» اکنون برنامه واقعی روزانه خود و همکار را نمایش می‌دهد و
+  شیفت‌های پیشنهادی را به‌صورت جدول تاریخ و نوع شیفت دریافت می‌کند.
+
+- Form builder: time comparison boxes, a «روز بعد» toggle for overnight traffic requests,
+  current-contract start defaults with an explicit joining-date fallback, and native HRMS
+  course, trainer, venue and attendee information in the training request template.
+- Workflow step forms can compare approved amounts and per-row quantities with the original request, require a reduction reason, and keep request-derived table rows read-only.
+
+- Form builder: record sources. New Link sources (attendance record, shift type, training event, assigned asset), «خود کاربر قابل انتخاب نباشد» on Employee links, read-only fields filled from the chosen record (`fetch_from`, picked in the editor as «مقدار از فیلد»), dependent links that reset when their filter field changes, `not_equal` («نباید برابر با فیلد») and unique table columns («تکراری مجاز نیست»), default sources «کد پرسنلی» and «شیفت پیش‌فرض». Needs the matching backend change (`forms.get_link_options` rows `{name, label, extra}` and `meta.reason`); the new lists are server-only and say so in the offline preview.
+- Request print/PDF: values are printed as the screen shows them (Jalali dates, choice labels), with the rejection or return reason, decision comments and actor full names.
+- Request detail: summary card plus three tabs «جزئیات | گردش کار | سوابق». The workflow tab lists every real step with its responsible person, referral and decision time; the history tab shows actors by full name. Empty attachments now read «پیوستی ثبت نشده است.». Needs the backend `stages` and `actor_name` fields (until then the old current-stage row is shown).
+- Cartable: an older server that answers with the plain list no longer breaks the cartable (the partial-list notice is shown); the offline-preview wrapper now forwards the complete-list capability so the notice disappears when every page was fetched.
+- Directive reminder: the time is sent with the device offset and converted to the organization time on the server; reminders are sent only while the server scheduler is running.
+- Form builder: section presentation, collapsible sections, radio choices, date ordering and repeatable-table validation are supported at runtime.
+- Ready HR request templates (settings → forms → create from template): traffic correction, salary advance, employment certificate, shift change, settlement, training, equipment delivery or return. Raw reusable forms only: applicant data comes from the signed-in user's Employee (`default_source`), no fixed approvers or workflow.
+- New request: a bottom sheet with module, subgroup, search and row descriptions; offline rows without a real form show a message instead of opening a wrong form.
+- Organization chart: employee photos load lazily and are cached per session.
+- HR request templates now use the record sources: traffic correction picks the real attendance record and shows the recorded time, shift change uses shift types and excludes the user from the colleague list, training picks a scheduled training event, equipment return picks assigned assets without repeats, settlement shows the personnel code automatically.
+- Organization workspace: native units (create, edit, move, safe delete with a dependency check first), visual chart report, Excel units sheet. Managing the structure now requires System Manager or HR Manager, matching the server.
+- Organization: one employee can no longer be seated in two positions (checked before saving, and the picker hides employees seated elsewhere); the units list is cached for offline use and loaded apart from personnel; the visual report still renders when units fail to load; employee photos load at most four at a time; position history shows employee names; a template unit whose title already exists is matched to that unit; failures name their kind in Persian.
+- Requires the backend change that accepts `designation` and `joining_date` as default sources (frappe-erp-next-2 PR #19).
+
 ## 0.28.0+49
 
 Form builder (settings → forms): a complete rewrite of the form designer, plus the gaps found in a line-by-line audit against the spec.

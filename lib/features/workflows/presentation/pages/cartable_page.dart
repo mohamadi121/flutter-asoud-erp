@@ -682,8 +682,17 @@ class _Item {
               task.status == 'Open' &&
               task.dueOn != null &&
               task.dueOn!.isBefore(DateTime.now())));
+  /// The open task asking the user to act on a piece of equipment, if any.
+  WorkflowTask? get _followupTask {
+    for (final task in tasks) {
+      if (task.status == 'Open' && task.followup.isNotEmpty) return task;
+    }
+    return null;
+  }
+
   String get title =>
       directiveData?['subject'] as String? ??
+      _followupTask?.title ??
       (summary?.subject.isNotEmpty == true
           ? summary!.subject
           : tasks.isNotEmpty

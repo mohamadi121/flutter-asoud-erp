@@ -6,7 +6,9 @@ import 'package:pdf/widgets.dart' as pw;
 
 import '../../../../core/utils/persian_format.dart';
 import '../../../../core/utils/persian_server_values.dart';
+import '../../domain/entities/request_models.dart';
 import '../../domain/entities/workflow_task.dart';
+import 'request_returned_banner.dart' show requestActivityComment;
 
 /// Persian labels of workflow activity actions, shared by screen and print.
 String requestActionLabel(String action) => switch (action) {
@@ -16,6 +18,7 @@ String requestActionLabel(String action) => switch (action) {
       'Return' => 'بازگشت برای اصلاح',
       'Cancelled' => 'لغو درخواست',
       'Edited' => 'ویرایش درخواست',
+      'Resubmitted' => 'اصلاح و ارسال مجدد',
       'System Action Succeeded' => 'اقدام خودکار',
       'System Action Failed' => 'خطای اقدام خودکار',
       'Condition True' || 'Condition False' => 'بررسی شرط',
@@ -30,6 +33,58 @@ List<Map<String, dynamic>> requestItemRows(Map<String, dynamic> values) => [
             if (row is Map && row['item_code'] != null)
               Map<String, dynamic>.from(row),
     ];
+
+/// Field rows of the printed «اطلاعات درخواست» table: the label and the text
+/// the screen shows ([formatted], from `RequestDetailView.format`); a value
+/// without a formatted text falls back to the generic formatting.
+List<List<String>> requestPrintFields(
+  Map<String, dynamic> values, {
+  Map<String, String> labels = const {},
+  Map<String, String> formatted = const {},
+}) =>
+    [
+      for (final entry in values.entries)
+        if (entry.value is! List ||
+            (entry.value as List).isEmpty ||
+            (entry.value as List).first is! Map)
+          [
+            persianDocumentFieldLabel(labels[entry.key] ?? entry.key),
+            formatted[entry.key] ??
+                (entry.value is List
+                    ? (entry.value as List).join('، ')
+                    : entry.value is bool
+                        ? (entry.value == true ? 'بله' : 'خیر')
+                        : isDurationMap(entry.value)
+                            ? formatPersianDuration(entry.value)
+                            : formatNumber(entry.value)),
+          ],
+    ];
+
+/// «علت رد» / «علت بازگشت» rows of a request: the rejection reason and the
+/// comment of a step that sent the request back for correction.
+List<List<String>> requestPrintReasons(Map<String, dynamic> request) {
+  final rejected = '${request['rejection_reason'] ?? ''}'.trim();
+  return [
+    if (rejected.isNotEmpty) ['علت رد', rejected],
+    for (final stage in request['stages'] as List? ?? const [])
+      if (stage is Map &&
+          stage['status'] == 'returned' &&
+          '${stage['comment'] ?? ''}'.trim().isNotEmpty)
+        ['علت بازگشت', '${stage['comment']}'.trim()],
+  ];
+}
+
+/// «وضعیت اجرا» rows of a request from `execution`; the raw error is never
+/// printed. Empty when the request has no execution.
+List<List<String>> requestPrintExecution(Map<String, dynamic> request) {
+  final execution = RequestExecution.fromMap(request['execution']);
+  if (!execution.applicable) return const [];
+  return [
+    ['وضعیت اجرا', execution.sentence],
+    if (execution.succeeded && execution.reference.isNotEmpty)
+      ['شماره سند اجرا', execution.reference],
+  ];
+}
 
 /// The PDF fonts have no glyph for the zero-width non-joiner (نیم‌فاصله).
 String _p(Object? value) => '${value ?? ''}'.replaceAll('\u200c', ' ');
@@ -48,6 +103,7 @@ Future<Uint8List> buildRequestPdf({
   required List<WorkflowTaskActivity> activities,
   Map<String, String> labels = const {},
   String statusLabel = '',
+  Map<String, String> formatted = const {},
 }) async {
   final regular =
       pw.Font.ttf(await rootBundle.load('assets/fonts/Vazirmatn-Regular.ttf'));
@@ -92,22 +148,10 @@ Future<Uint8List> buildRequestPdf({
             style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 12)),
       );
 
-  final fields = [
-    for (final entry in values.entries)
-      if (entry.value is! List ||
-          (entry.value as List).isEmpty ||
-          (entry.value as List).first is! Map)
-        [
-          persianDocumentFieldLabel(labels[entry.key] ?? entry.key),
-          entry.value is List
-              ? (entry.value as List).join('، ')
-              : entry.value is bool
-                  ? (entry.value == true ? 'بله' : 'خیر')
-                  : isDurationMap(entry.value)
-                      ? formatPersianDuration(entry.value)
-                      : formatNumber(entry.value),
-        ],
-  ];
+  final fields =
+      requestPrintFields(values, labels: labels, formatted: formatted);
+  final reasons = requestPrintReasons(request);
+  final execution = requestPrintExecution(request);
 
   doc.addPage(pw.MultiPage(
     pageFormat: PdfPageFormat.a4,
@@ -141,6 +185,7 @@ Future<Uint8List> buildRequestPdf({
             info('شماره درخواست', number),
             info('تاریخ ثبت', formatJalaliIso('${request['creation'] ?? ''}')),
             info('وضعیت', statusLabel),
+            for (final row in execution) info(row[0], row[1]),
             info('درخواست‌کننده', '${request['requester_name'] ?? ''}'),
             info('واحد', '${request['department'] ?? ''}'),
             info('عنوان', '${request['subject'] ?? ''}'),
@@ -157,6 +202,10 @@ Future<Uint8List> buildRequestPdf({
       if (fields.isNotEmpty) ...[
         title('اطلاعات درخواست'),
         table(['عنوان', 'مقدار'], fields),
+      ],
+      if (reasons.isNotEmpty) ...[
+        title('علت رد یا بازگشت'),
+        table(['عنوان', 'توضیح'], reasons),
       ],
       if (items.isNotEmpty) ...[
         title('اقلام درخواست'),
@@ -188,13 +237,25 @@ Future<Uint8List> buildRequestPdf({
           'مرحله',
           'اقدام‌کننده',
           'اقدام',
+          'توضیح',
           'تاریخ'
         ], [
           for (final activity in activities)
             [
               activity.stageTitle.isEmpty ? '—' : activity.stageTitle,
-              activity.actor,
+              activity.actorName.isNotEmpty
+                  ? activity.actorName
+                  : activity.actor.contains('@')
+                      ? activity.actor
+                      : persianRoleLabel(activity.actor),
               requestActionLabel(activity.action),
+              requestActivityComment(activity, labelOf: (key) => labels[key])
+                      .trim()
+                      .isEmpty
+                  ? '—'
+                  : requestActivityComment(activity,
+                          labelOf: (key) => labels[key])
+                      .trim(),
               activity.createdOn == null
                   ? '—'
                   : formatJalaliIso(activity.createdOn!.toIso8601String()),

@@ -52,15 +52,18 @@ class SheetBottomButtons extends StatelessWidget {
                       children: [
                         const Icon(Icons.check, size: 20, color: Colors.white),
                         const SizedBox(width: 8),
-                        Text(
+                        Flexible(
+                          child: Text(
                           isColumn
                               ? (isEditing ? 'ذخیره تغییرات مشخصه' : 'تأیید و افزودن مشخصه')
                               : (isEditing ? 'ذخیره تغییرات' : 'تأیید و افزودن'),
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
                           ),
+                        ),
                         ),
                       ],
                     ),

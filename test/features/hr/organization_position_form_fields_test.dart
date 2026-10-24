@@ -1,3 +1,4 @@
+import 'package:asoud_erp/core/network/api_exception.dart';
 import 'package:asoud_erp/core/network/frappe_client.dart';
 import 'package:asoud_erp/core/theme/asoud_theme.dart';
 import 'package:asoud_erp/core/widgets/app_fields.dart';
@@ -14,6 +15,7 @@ import '../../helpers/fake_local_record_store.dart';
 class _OrgClient extends Fake implements FrappeApiClient {
   _OrgClient({this.units = const []});
   final List<Map<String, dynamic>> units;
+  bool failUnits = false;
   Map<String, dynamic>? lastUnitPayload;
   final writes = <String>[];
   Map<String, dynamic>? lastSavePayload;
@@ -61,6 +63,10 @@ class _OrgClient extends Fake implements FrappeApiClient {
       return _envelope({'employees': <dynamic>[]});
     }
     if (method == 'asoud_erp.api.v1.organization.list_units') {
+      if (failUnits) {
+        throw const ApiException(
+            kind: ApiFailureKind.network, message: 'offline');
+      }
       return _envelope({'units': units, 'can_manage': true});
     }
     if (method == 'asoud_erp.api.v1.organization.save_unit') {
@@ -260,6 +266,29 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets('the visual report still renders when the units list fails',
+      (tester) async {
+    final client = _OrgClient()..failUnits = true;
+    await _openCreateForm(tester, client);
+    await tester.tap(find.text('انصراف'));
+    await tester.pumpAndSettle();
+    tester.view.physicalSize = const Size(390, 800);
+    await tester.pumpAndSettle();
+    final report = find.text('گزارش تصویری چارت');
+    for (var attempt = 0;
+        attempt < 20 && report.hitTestable().evaluate().isEmpty;
+        attempt++) {
+      await tester.drag(find.byType(TabBarView), const Offset(0, -200));
+      await tester.pumpAndSettle();
+    }
+    await tester.tap(report.hitTestable());
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('visual-units-unavailable')),
+        findsOneWidget);
+    expect(find.text('مدیرعامل'), findsWidgets);
+    expect(find.text('دریافت اطلاعات ناموفق بود؛ تلاش دوباره'), findsNothing);
+  });
 
   testWidgets('the position form uses AppTextField and AppSelectField',
       (tester) async {

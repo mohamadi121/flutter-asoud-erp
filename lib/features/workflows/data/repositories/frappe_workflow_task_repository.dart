@@ -6,14 +6,15 @@ import '../../domain/repositories/workflow_task_repository.dart';
 
 class FrappeWorkflowTaskRepository
     implements WorkflowTaskRepository, CompleteWorkflowLists {
-  const FrappeWorkflowTaskRepository(this._client);
+  FrappeWorkflowTaskRepository(this._client);
   final FrappeClient _client;
+  bool _complete = true;
 
   @override
   bool get isOfflinePreview => false;
 
   @override
-  bool get listsAreComplete => true;
+  bool get listsAreComplete => _complete;
 
   Future<List<dynamic>> _allPages(
       String method, Map<String, dynamic> filters) async {
@@ -26,9 +27,13 @@ class FrappeWorkflowTaskRepository
       }
       final response = await _client.callAsoudMethod(method,
           data: {...filters, 'start': cursor, 'paged': true});
+      if (response is List) {
+        // Older server without paging: the whole list is the answer.
+        _complete = false;
+        return response;
+      }
       if (response is! Map || response['items'] is! List) {
-        throw StateError(
-            'برای دریافت کامل کارتابل، سرویس گردش کار سرور باید به‌روزرسانی شود.');
+        throw StateError('پاسخ کارتابل از سرور معتبر نیست.');
       }
       rows.addAll(response['items'] as List);
       cursor = response['next_cursor']?.toString();
@@ -55,6 +60,7 @@ class FrappeWorkflowTaskRepository
         reminderSentOn:
             DateTime.tryParse(item['reminder_sent_on']?.toString() ?? ''),
         escalatedOn: DateTime.tryParse(item['escalated_on']?.toString() ?? ''),
+        followup: item['followup']?.toString() ?? '',
       );
     }).toList(growable: false);
   }
@@ -92,6 +98,19 @@ class FrappeWorkflowTaskRepository
                 createdOn:
                     DateTime.tryParse(activity['created_on']?.toString() ?? ''),
                 stageTitle: activity['stage_title']?.toString() ?? '',
+                actorName: activity['actor_name']?.toString() ?? '',
+                before: activity['before'] is Map
+                    ? Map<String, dynamic>.from(activity['before'] as Map)
+                    : const {},
+                after: activity['after'] is Map
+                    ? Map<String, dynamic>.from(activity['after'] as Map)
+                    : const {},
+                labels: activity['labels'] is Map
+                    ? {
+                        for (final entry in (activity['labels'] as Map).entries)
+                          '${entry.key}': '${entry.value}'
+                      }
+                    : const {},
               );
             }).toList(growable: false)
           : const [],
@@ -190,6 +209,8 @@ class FrappeWorkflowTaskRepository
           : const [],
       referenceDoctype: document['doctype']?.toString() ?? '',
       referenceName: document['name']?.toString() ?? '',
+      requestName: item['request_name']?.toString() ?? '',
+      requestCompany: item['request_company']?.toString() ?? '',
       documentValues: documentValues is List
           ? documentValues.whereType<Map>().map((raw) {
               final value = Map<String, dynamic>.from(raw);
@@ -200,6 +221,9 @@ class FrappeWorkflowTaskRepository
               );
             }).toList(growable: false)
           : const [],
+      requestValues: item['request_values'] is Map
+          ? Map<String, dynamic>.from(item['request_values'] as Map)
+          : const {},
     );
   }
 

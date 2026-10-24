@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../form_repository.dart';
+import '../execution_settings.dart';
 import 'editor_widgets.dart';
 
 class EditorInfoStep extends StatelessWidget {
@@ -8,9 +9,11 @@ class EditorInfoStep extends StatelessWidget {
     required this.schema,
     required this.options,
     required this.change,
+    this.repository,
     super.key,
   });
 
+  final FormRepository? repository;
   final FormMap schema;
   final FormMap options;
   final void Function(VoidCallback fn) change;
@@ -26,7 +29,17 @@ class EditorInfoStep extends StatelessWidget {
               'Request': 'درخواست',
               'Document': 'سند',
             },
-            (v) => change(() => schema['kind'] = v),
+            (v) => change(() {
+              schema['kind'] = v;
+              if (v != 'Request') {
+                schema.remove('execution');
+                for (final section in (schema['sections'] as List? ?? [])) {
+                  for (final field in (section['fields'] as List? ?? [])) {
+                    (field as Map).remove('execution_key');
+                  }
+                }
+              }
+            }),
           ),
           TextFormField(
             initialValue: '${schema['title'] ?? ''}',
@@ -61,6 +74,9 @@ class EditorInfoStep extends StatelessWidget {
               'فیلدها به اطلاعات سند نگاشت می‌شوند. قواعد اصلی سند تغییر نمی‌کنند و ثبت، پیش‌نویس سند می‌سازد.',
             ),
           ],
+          if (schema['kind'] == 'Request' && repository != null)
+            ExecutionSettings(repository: repository!, schema: schema,
+                onChanged: () => change(() {})),
           if (schema['kind'] == 'Request')
             ExpansionTile(
               title: const Text('اتصال به گردش‌کار (اختیاری)'),
