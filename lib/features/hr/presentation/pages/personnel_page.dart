@@ -7,6 +7,7 @@ import '../../../../core/auth/capabilities.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/network/frappe_client.dart';
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/failure_message.dart';
 import '../../../../core/utils/persian_format.dart';
 import '../../../../core/widgets/app_fields.dart';
 import '../../../../core/widgets/asoud_form.dart';
@@ -15,6 +16,7 @@ import '../../domain/personnel_file.dart';
 import '../../domain/personnel_record.dart';
 import '../../data/personnel_file_repository.dart';
 import '../../data/personnel_repository.dart';
+import '../../data/hr_onboarding_repository.dart';
 import '../cubit/personnel_cubit.dart';
 
 import '../../../parties/domain/entities/party_profile.dart';

@@ -71,6 +71,8 @@ const erpNextRoleLabels = <String, String>{
   'Payroll Manager': 'مدیر حقوق و دستمزد',
   'Payroll User': 'کارشناس حقوق و دستمزد',
   'Attendance Tool User': 'کاربر ابزار حضور و غیاب',
+  'ASOUD Office Creator': 'ایجادکننده دفتر کار',
+  'ASOUD Role Assigner': 'تخصیص‌دهنده نقش',
   'All': 'همه',
   'Guest': 'مهمان',
 };

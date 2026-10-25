@@ -7,6 +7,7 @@ import '../../../../core/auth/capabilities.dart';
 import '../../../../core/network/frappe_client.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/jalali_date.dart';
 import '../../../../core/utils/persian_server_values.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../../core/widgets/states.dart';
@@ -26,6 +27,7 @@ import '../../../workflows/presentation/pages/workflow_list_page.dart';
 import '../../../workflows/presentation/pages/cartable_page.dart';
 import '../../../workflows/presentation/pages/generic_request_page.dart';
 import '../../../workflows/presentation/pages/document_templates_page.dart';
+import '../../domain/home_action.dart';
 import '../widgets/dashboard_summary_sections.dart';
 import 'first_office_card.dart';
 import 'settings_dashboard_content.dart';
@@ -251,6 +253,14 @@ class _DashboardPageState extends State<DashboardPage> {
                     onTap: () => Navigator.pop(ctx, 'workflow')),
               if (access.canSeeAccounting)
                 ListTile(
+                    title: const Text('حسابداری'),
+                    subtitle: Text(office?.accountingSaved == false
+                        ? 'تنظیمات پایه کامل نیست؛ ادامه راه‌اندازی'
+                        : 'دفتر کل، اسناد و گزارش‌های مالی'),
+                    leading: const Icon(Icons.account_balance_outlined),
+                    onTap: () => Navigator.pop(ctx, 'accounting')),
+              if (access.canSeeAccounting)
+                ListTile(
                     title: const Text('گزارش‌ها'),
                     leading: const Icon(Icons.bar_chart),
                     onTap: () => Navigator.pop(ctx, 'reports')),
@@ -266,6 +276,22 @@ class _DashboardPageState extends State<DashboardPage> {
                   offlinePreview: offlinePreview,
                   onOfficeCreated: onOfficeCreated,
                   operationsOnly: true)));
+      return;
+    }
+    if (value == 'accounting') {
+      final action = resolveHomeAction(
+          state: office?.accountingSaved == false
+              ? ModuleState.needsSetup
+              : ModuleState.ready,
+          canUse: access.canSeeAccounting);
+      if (action == HomeActionKind.denied) return;
+      await Navigator.push(
+          context,
+          MaterialPageRoute<void>(
+              builder: (_) => action == HomeActionKind.openSetup
+                  ? BaseAccountingSetupPage(
+                      officeName: officeName, offlinePreview: offlinePreview)
+                  : AccountingHomePage(company: officeName)));
       return;
     }
     await Navigator.push(
@@ -312,6 +338,8 @@ class _DashboardPageState extends State<DashboardPage> {
                     if (office != null && office!.setupComplete != true)
                       _SetupProgress(
                         offline: offlinePreview,
+                        office: office,
+                        capabilities: _capabilities,
                         onTap: () => Navigator.of(context).push(
                           MaterialPageRoute<void>(
                               builder: (_) => BaseAccountingSetupPage(
@@ -333,7 +361,19 @@ class _DashboardPageState extends State<DashboardPage> {
                             const SizedBox(height: 10),
                           ],
                           if (!hasOffice && !loadError)
-                            FirstOfficeCard(onCreated: onOfficeCreated)
+                            FutureBuilder<Capabilities>(
+                                future: _capabilities,
+                                builder: (context, caps) => caps.data
+                                            ?.canCreateOffice ==
+                                        false
+                                    ? const Padding(
+                                        padding: EdgeInsets.all(24),
+                                        child: Text(
+                                            'هنوز دسترسی به دفتر کاری برای شما تعیین نشده است.',
+                                            key: Key('no_office_message'),
+                                            textAlign: TextAlign.center))
+                                    : FirstOfficeCard(
+                                        onCreated: onOfficeCreated))
                           else if (!hasOffice)
                             _EmptyOfficeDashboard(
                               loadError: loadError,
@@ -349,6 +389,8 @@ class _DashboardPageState extends State<DashboardPage> {
                             if (office?.setupComplete != true) ...[
                               _SetupProgress(
                                 offline: offlinePreview,
+                                office: office,
+                                capabilities: _capabilities,
                                 onTap: () => Navigator.of(context).push(
                                   MaterialPageRoute<void>(
                                     builder: (_) => BaseAccountingSetupPage(
@@ -727,48 +769,73 @@ class _ConnectionBanner extends StatelessWidget {
 }
 
 class _SetupProgress extends StatelessWidget {
-  const _SetupProgress({required this.offline, required this.onTap});
+  const _SetupProgress(
+      {required this.offline,
+      required this.onTap,
+      required this.capabilities,
+      this.office});
   final bool offline;
   final VoidCallback onTap;
+  final Future<Capabilities> capabilities;
+  final Office? office;
   @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(13),
-        decoration: BoxDecoration(
-            color: const Color(0xFFFFFAF0),
-            border: Border.all(color: const Color(0xFFF4B43C)),
-            borderRadius: BorderRadius.circular(14)),
-        child: Column(children: [
-          Row(children: [
-            const AsoudIconBox(
-                icon: Icons.priority_high_rounded,
-                color: AsoudColors.warning,
-                size: 32),
-            const SizedBox(width: 9),
-            const Expanded(
+  Widget build(BuildContext context) => FutureBuilder<Capabilities>(
+        future: capabilities,
+        builder: (context, snapshot) {
+          // Only people who may configure the office are asked to continue.
+          if (snapshot.data?.canSeeSettingsAdmin != true) {
+            return const SizedBox.shrink();
+          }
+          final done = office?.savedStepCount;
+          return Container(
+            padding: const EdgeInsets.all(13),
+            decoration: BoxDecoration(
+                color: const Color(0xFFFFFAF0),
+                border: Border.all(color: const Color(0xFFF4B43C)),
+                borderRadius: BorderRadius.circular(14)),
+            child: Column(children: [
+              Row(children: [
+                const AsoudIconBox(
+                    icon: Icons.rocket_launch_outlined,
+                    color: AsoudColors.warning,
+                    size: 32),
+                const SizedBox(width: 9),
+                const Expanded(
+                    child: Text('راه‌اندازی دفتر کار',
+                        style: TextStyle(
+                            color: Color(0xFFC26A00),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w900))),
+              ]),
+              const SizedBox(height: 4),
+              const Align(
+                alignment: AlignmentDirectional.centerStart,
                 child: Text('راه‌اندازی دفتر هنوز کامل نیست',
-                    style: TextStyle(
-                        color: Color(0xFFC26A00),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800))),
-          ]),
-          const Divider(height: 18),
-          Row(children: [
-            Expanded(
-                child: Text(
-                    offline
-                        ? '۳ مورد از ۳ مورد تکمیل شده است (نمایشی)'
-                        : 'وضعیت از سرور دریافت می‌شود',
-                    style: const TextStyle(
-                        fontSize: 9, color: AsoudColors.muted))),
-            FilledButton(
-                onPressed: onTap,
-                style: FilledButton.styleFrom(
-                    minimumSize: const Size(0, 36),
-                    padding: const EdgeInsets.symmetric(horizontal: 12)),
-                child: const Text('تکمیل تنظیمات پایه',
-                    style: TextStyle(fontSize: 9))),
-          ]),
-        ]),
+                    style: TextStyle(fontSize: 11, color: AsoudColors.muted)),
+              ),
+              const Divider(height: 18),
+              Row(children: [
+                Expanded(
+                    child: Text(
+                        offline
+                            ? 'پیش‌نمایش آفلاین؛ وضعیت واقعی پس از ورود نمایش داده می‌شود'
+                            : done == null
+                                ? 'وضعیت از سرور دریافت می‌شود'
+                                : '${toPersianDigits(done)} از ${toPersianDigits(3)} مرحله پایه تکمیل شده است',
+                        style: const TextStyle(
+                            fontSize: 10, color: AsoudColors.muted))),
+                FilledButton(
+                    key: const Key('continue_setup'),
+                    onPressed: onTap,
+                    style: FilledButton.styleFrom(
+                        minimumSize: const Size(0, 36),
+                        padding: const EdgeInsets.symmetric(horizontal: 12)),
+                    child: const Text('ادامه راه‌اندازی',
+                        style: TextStyle(fontSize: 11))),
+              ]),
+            ]),
+          );
+        },
       );
 }
 

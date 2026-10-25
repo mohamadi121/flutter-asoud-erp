@@ -2,6 +2,7 @@ import 'package:asoud_erp/core/network/frappe_client.dart';
 import 'package:asoud_erp/core/offline/local_record.dart';
 import 'package:asoud_erp/core/theme/asoud_theme.dart';
 import 'package:asoud_erp/features/auth/data/demo_choice_store.dart';
+import 'package:asoud_erp/features/auth/data/saved_credentials_store.dart';
 import 'package:asoud_erp/features/auth/data/demo_transfer_service.dart';
 import 'package:asoud_erp/features/auth/domain/entities/authenticated_user.dart';
 import 'package:asoud_erp/features/auth/domain/repositories/auth_repository.dart';
@@ -13,6 +14,7 @@ import 'package:asoud_erp/features/dashboard/presentation/pages/settings_dashboa
 import 'package:asoud_erp/features/office_setup/domain/repositories/office_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -127,6 +129,7 @@ Widget _app(Widget page,
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
+    FlutterSecureStorage.setMockInitialValues({});
   });
 
   testWidgets('splash without session always opens LoginPage', (tester) async {
@@ -175,7 +178,7 @@ void main() {
       (tester) async {
     final client = _FakeClient();
     final auth = _FakeAuth(client);
-    await tester.pumpWidget(_app(const LoginPage(showDemoButton: true),
+    await tester.pumpWidget(_app(LoginPage(credentials: SavedCredentialsStore(vault: MemoryCredentialVault()), showDemoButton: true),
         client: client, auth: auth));
     expect(find.text('ورود به نسخه نمایشی (آفلاین)'), findsOneWidget);
     expect(find.text('نام کاربری یا ایمیل'), findsOneWidget);
@@ -190,7 +193,7 @@ void main() {
       (tester) async {
     final client = _FakeClient();
     final auth = _FakeAuth(client);
-    await tester.pumpWidget(_app(const LoginPage(showDemoButton: false),
+    await tester.pumpWidget(_app(LoginPage(credentials: SavedCredentialsStore(vault: MemoryCredentialVault()), showDemoButton: false),
         client: client, auth: auth));
     expect(find.text('ورود به نسخه نمایشی (آفلاین)'), findsNothing);
     expect(find.text('نام کاربری یا ایمیل'), findsOneWidget);
@@ -199,7 +202,7 @@ void main() {
   testWidgets('login lets the server address be edited', (tester) async {
     final client = _FakeClient();
     final auth = _FakeAuth(client);
-    await tester.pumpWidget(_app(const LoginPage(showDemoButton: false),
+    await tester.pumpWidget(_app(LoginPage(credentials: SavedCredentialsStore(vault: MemoryCredentialVault()), showDemoButton: false),
         client: client, auth: auth));
 
     final server = find.widgetWithText(TextField, 'نشانی سرور');
@@ -215,6 +218,7 @@ void main() {
     final auth = _FakeAuth(client);
     await tester.pumpWidget(_app(
         LoginPage(
+            credentials: SavedCredentialsStore(vault: MemoryCredentialVault()),
             showDemoButton: true,
             transferService:
                 DemoTransferService(store: FakeLocalRecordStore())),
@@ -222,9 +226,11 @@ void main() {
         auth: auth));
 
     await tester.enterText(
+        find.byKey(const Key('server_field')), 'https://erp.example.com');
+    await tester.enterText(
         find.widgetWithText(TextField, 'نام کاربری یا ایمیل'), 'user');
     await tester.enterText(find.widgetWithText(TextField, 'رمز عبور'), 'pass');
-    await tester.tap(find.text('ورود'));
+    await tester.tap(find.text('ورود به آسود'));
     await tester.pumpAndSettle();
 
     expect(auth.signInCalls, 1);
@@ -242,6 +248,7 @@ void main() {
     final auth = _FakeAuth(client);
     await tester.pumpWidget(_app(
         LoginPage(
+            credentials: SavedCredentialsStore(vault: MemoryCredentialVault()),
             showDemoButton: true,
             transferService:
                 DemoTransferService(store: FakeLocalRecordStore())),
@@ -249,9 +256,11 @@ void main() {
         auth: auth));
 
     await tester.enterText(
+        find.byKey(const Key('server_field')), 'https://erp.example.com');
+    await tester.enterText(
         find.widgetWithText(TextField, 'نام کاربری یا ایمیل'), 'user');
     await tester.enterText(find.widgetWithText(TextField, 'رمز عبور'), 'pass');
-    await tester.tap(find.text('ورود'));
+    await tester.tap(find.text('ورود به آسود'));
     await tester.pumpAndSettle();
 
     expect(auth.signInCalls, 1);
@@ -352,7 +361,7 @@ void main() {
       addTearDown(() => tester.binding.setSurfaceSize(null));
       final client = _FakeClient();
       final auth = _FakeAuth(client);
-      await tester.pumpWidget(_app(const LoginPage(showDemoButton: true),
+      await tester.pumpWidget(_app(LoginPage(credentials: SavedCredentialsStore(vault: MemoryCredentialVault()), showDemoButton: true),
           client: client, auth: auth));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);

@@ -10,7 +10,10 @@ import '../demo/office_demo_data.dart';
 import '../models/office_model.dart';
 
 class ServerFirstOfficeRepository
-    implements OfficeRepository, LocalPreviewOfficeRepository {
+    implements
+        OfficeRepository,
+        LocalPreviewOfficeRepository,
+        FirstOfficeRepository {
   ServerFirstOfficeRepository(
     this._remote, {
     LocalRecordStore? local,
@@ -41,6 +44,17 @@ class ServerFirstOfficeRepository
     return _write(
       office,
       () => _remote.createOffice(office),
+    );
+  }
+
+  @override
+  Future<Office> createFirstOffice(Office office) {
+    final remote = _remote;
+    return _write(
+      office,
+      () => remote is FirstOfficeRepository
+          ? (remote as FirstOfficeRepository).createFirstOffice(office)
+          : remote.createOffice(office),
     );
   }
 

@@ -22,6 +22,7 @@ class UserAccessClient extends Fake implements FrappeApiClient {
   /// `ok`, `network` or `forbidden`: how `directory` fails.
   final String mode;
   final List<String> calls = [];
+  Map<String, dynamic>? lastApply;
 
   @override
   bool get isAuthenticated => true;
@@ -66,27 +67,56 @@ class UserAccessClient extends Fake implements FrappeApiClient {
             'doctype': 'Journal Entry',
             'title': 'سند حسابداری',
             'actions': ['read', 'create', 'write', 'delete'],
+            'advanced_actions': [
+              'submit', 'cancel', 'amend', 'print', 'email', 'export',
+              'report', 'share', 'import',
+            ],
+            'levels': {
+              'simple': ['read'],
+              'medium': ['read', 'create', 'write', 'delete'],
+              'advanced': [
+                'read', 'create', 'write', 'delete', 'submit', 'cancel',
+                'amend', 'print', 'email', 'export', 'report', 'share',
+                'import',
+              ],
+            },
           },
           {
             'module': 'مدیریت کاربران',
             'doctype': 'User',
             'title': 'کاربران',
             'actions': ['read'],
+            'advanced_actions': <String>[],
+            'levels': {
+              'simple': ['read'],
+              'medium': ['read'],
+              'advanced': ['read'],
+            },
           },
         ],
         'grants': {
           'Journal Entry': <String>[],
           'User': ['read'],
         },
+        'advanced_grants': {
+          'Journal Entry': <String>[],
+          'User': <String>[],
+        },
         'inherited': {
           'Journal Entry': <String>[],
           'User': ['read'],
         },
+        'inherited_advanced': {
+          'Journal Entry': <String>[],
+          'User': <String>[],
+        },
+        'levels': ['simple', 'medium', 'advanced'],
         'token': 'token-1',
         'base_roles': ['HR Manager'],
       });
     }
     if (method == 'asoud_erp.api.v1.user_access.apply') {
+      lastApply = Map<String, dynamic>.from(data!['payload'] as Map);
       return _envelope({'applied': true, 'affected_users': 1});
     }
     if (method == 'asoud_erp.api.v1.role_management.catalog') {

@@ -24,6 +24,8 @@ import '../features/base_setup/data/repositories/frappe_base_setup_repository.da
 import '../features/base_setup/data/repositories/server_first_base_setup_repository.dart';
 import '../features/base_setup/domain/repositories/base_setup_repository.dart';
 import '../features/auth/presentation/pages/splash_page.dart';
+import '../features/auth/data/account_repository.dart';
+import '../features/auth/data/saved_credentials_store.dart';
 import '../features/auth/data/repositories/frappe_auth_repository.dart';
 import '../features/auth/domain/repositories/auth_repository.dart';
 import '../features/parties/data/repositories/frappe_party_repository.dart';
@@ -110,6 +112,12 @@ class _AsoudErpAppState extends State<AsoudErpApp> {
           RepositoryProvider<OfflineSyncService>.value(value: syncService),
           RepositoryProvider<AuthRepository>.value(
             value: FrappeAuthRepository(client),
+          ),
+          RepositoryProvider<AccountRepository>.value(
+            value: FrappeAccountRepository(client),
+          ),
+          RepositoryProvider<SavedCredentialsStore>.value(
+            value: SavedCredentialsStore(),
           ),
           RepositoryProvider<OfficeRepository>.value(
             value: ServerFirstOfficeRepository(FrappeOfficeRepository(client),

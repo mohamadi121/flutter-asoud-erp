@@ -21,6 +21,9 @@ class FrappeSession {
   final String fullName;
 }
 
+/// Server method that revokes the current session (`session.logout`).
+const sessionLogoutMethod = 'asoud_erp.api.v1.session.logout';
+
 class FrappeUserContext {
   const FrappeUserContext({
     required this.userId,
@@ -362,7 +365,18 @@ class FrappeClient implements FrappeApiClient {
   @override
   Future<void> logout() async {
     try {
-      await _requestJson('POST', '/api/method/logout');
+      // `session.logout` revokes the server session row and audits it; it
+      // answers `{ok, data: {revoked}}`. Anything but `revoked: true` is
+      // reported so the user is told the server did not confirm it.
+      final body =
+          await _requestJson('POST', '/api/method/$sessionLogoutMethod');
+      final message = body['message'];
+      final data = message is Map ? message['data'] : null;
+      if (data is Map && data['revoked'] == false) {
+        throw const ApiException(
+            kind: ApiFailureKind.server,
+            message: 'باطل شدن نشست روی سرور تأیید نشد.');
+      }
     } on ApiException catch (error) {
       if (!error.isUnauthorized) rethrow;
     } finally {
@@ -714,13 +728,21 @@ class FrappeClient implements FrappeApiClient {
     }
     final statusCode = error.response?.statusCode;
     if (statusCode == 401) {
+      // Backend sentences are Persian; Frappe's own «Invalid login
+      // credentials» is English. A Persian reason on the login call (for
+      // example an expired temporary password) is shown as sent.
+      final server = isLoginRequest ? _serverMessage(error.response?.data) : null;
+      final persian = server != null &&
+          RegExp(r'[\u0600-\u06FF]').hasMatch(server.message);
       return ApiException(
         kind: isLoginRequest
             ? ApiFailureKind.invalidCredentials
             : ApiFailureKind.unauthenticated,
-        message: isLoginRequest
-            ? 'نام کاربری یا رمز عبور نادرست است.'
-            : 'نشست شما منقضی شده است. دوباره وارد شوید.',
+        message: persian
+            ? server.message
+            : isLoginRequest
+                ? 'نام کاربری یا رمز عبور نادرست است.'
+                : 'نشست شما منقضی شده است. دوباره وارد شوید.',
         statusCode: statusCode,
       );
     }

@@ -47,4 +47,58 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('دسته اصلی'), findsOneWidget);
   });
+
+  testWidgets(
+      'the administrator system role is listed as global with full permissions',
+      (tester) async {
+    final repository = _Repository();
+    when(() => repository.load()).thenAnswer((_) async => RoleCatalog.fromJson({
+          'system_roles': [
+            {
+              'code': 'SYSTEM_ADMIN',
+              'native_role': 'System Manager',
+              'title': 'مدیر کل سیستم',
+              'scope': 'global',
+              'scope_title': 'سراسری',
+              'system': true,
+              'editable': false,
+              'holders': ['owner@acme.ir'],
+            }
+          ],
+          'categories': [
+            {'code': 'c1', 'title': 'دسته اصلی', 'style': 'system'}
+          ],
+        }));
+    when(() => repository.systemAdminPermissions()).thenAnswer((_) async =>
+        SystemAdminPermissions.fromJson({
+          'code': 'SYSTEM_ADMIN',
+          'title': 'مدیر کل سیستم',
+          'scope': 'global',
+          'scope_title': 'سراسری',
+          'system': true,
+          'capabilities': [
+            {
+              'key': 'offices.create',
+              'module': 'دفترهای کار',
+              'title': 'ایجاد دفتر',
+              'granted': true
+            }
+          ],
+          'document_permissions': [
+            {
+              'doctype': 'Employee',
+              'actions': ['read', 'write', 'create', 'delete']
+            }
+          ],
+        }));
+    await pump(tester, repository);
+    expect(find.text('مدیر کل سیستم'), findsOneWidget);
+    expect(find.textContaining('سطح دسترسی: سراسری'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('system_role_SYSTEM_ADMIN')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('capability_offices.create')), findsOneWidget);
+    expect(find.text('ایجاد دفتر'), findsOneWidget);
+    verify(() => repository.systemAdminPermissions()).called(1);
+    verifyNever(() => repository.preview(any()));
+  });
 }

@@ -3,6 +3,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../network/frappe_client.dart';
 
+/// Native role the backend grants for «ایجاد دفتر کار» (independent of
+/// managing an office). `login_state.capabilities.create_office` is the
+/// authoritative flag; the role is the same fact as seen from `current_user`.
+const createOfficeRole = 'ASOUD Office Creator';
+
 /// Client-side presentation policy for authoritative ERPNext roles.
 ///
 /// Server endpoints still enforce these permissions. This object only prevents
@@ -24,11 +29,13 @@ class Capabilities {
     required this.canReadManagerViews,
     required this.canReadRoleCatalog,
     required this.canReadOrganization,
+    required this.canCreateOffice,
   });
 
   factory Capabilities.fromRoles(
     Iterable<String> roles, {
     bool offlinePreview = false,
+    Iterable<String> permissions = const [],
   }) {
     if (offlinePreview) return full;
     final names = roles.map((role) => role.trim()).toSet();
@@ -58,6 +65,10 @@ class Capabilities {
           system || accountsManager || accountsUser || hrManager,
       canReadRoleCatalog: system || hrManager,
       canReadOrganization: system || hrManager || hrUser,
+      // Creating an office is its own permission, not part of managing one.
+      canCreateOffice: system ||
+          names.contains(createOfficeRole) ||
+          permissions.contains('office.create'),
     );
   }
 
@@ -77,6 +88,7 @@ class Capabilities {
     canReadManagerViews: true,
     canReadRoleCatalog: true,
     canReadOrganization: true,
+    canCreateOffice: true,
   );
 
   final bool canManageWorkflows;
@@ -94,6 +106,7 @@ class Capabilities {
   final bool canReadManagerViews;
   final bool canReadRoleCatalog;
   final bool canReadOrganization;
+  final bool canCreateOffice;
 }
 
 Future<Capabilities> loadCapabilities(
