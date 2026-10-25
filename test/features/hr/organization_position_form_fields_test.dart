@@ -5,6 +5,7 @@ import 'package:asoud_erp/core/widgets/app_fields.dart';
 import 'package:asoud_erp/features/hr/data/organization_repository.dart';
 import 'package:asoud_erp/features/hr/presentation/pages/organization_page.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -13,9 +14,11 @@ import '../../helpers/fake_local_record_store.dart';
 /// Administrator client with the real backend envelope shapes; the write goes
 /// through [callAsoudMethod], exactly as [OrganizationRepository.save] calls it.
 class _OrgClient extends Fake implements FrappeApiClient {
-  _OrgClient({this.units = const []});
+  _OrgClient({List<Map<String, dynamic>> units = const [], this.positions}) : units = List.of(units);
   final List<Map<String, dynamic>> units;
+  final List<Map<String, dynamic>>? positions;
   bool failUnits = false;
+  bool rejectSave = false;
   Map<String, dynamic>? lastUnitPayload;
   final writes = <String>[];
   Map<String, dynamic>? lastSavePayload;
@@ -46,7 +49,7 @@ class _OrgClient extends Fake implements FrappeApiClient {
       {Map<String, dynamic>? data}) async {
     if (method == 'asoud_erp.api.v1.organization.get_chart') {
       return _envelope({
-        'rows': [
+        'rows': lastSavePayload?['rows'] ?? positions ?? [
           {
             'code': 'CEO',
             'title': 'مدیرعامل',
@@ -55,7 +58,7 @@ class _OrgClient extends Fake implements FrappeApiClient {
             'employee': 'EMP-001',
           }
         ],
-        'revision': 1,
+        'revision': lastSavePayload == null ? 1 : (lastSavePayload!['revision'] as int) + 1,
         'warnings': <dynamic>[],
       });
     }
@@ -71,8 +74,14 @@ class _OrgClient extends Fake implements FrappeApiClient {
     }
     if (method == 'asoud_erp.api.v1.organization.save_unit') {
       lastUnitPayload = Map<String, dynamic>.from(data!['payload'] as Map);
-      return _envelope({'name': lastUnitPayload!['name'] ?? 'NEW-UNIT'});
+      final id = lastUnitPayload!['name'] ?? 'NEW-UNIT';
+      units.removeWhere((u) => u['name'] == id);
+      units.add({'name': id, 'department_name': lastUnitPayload!['title'],
+        'parent_department': lastUnitPayload!['parent'], 'is_group': 1,
+        'disabled': 0, 'modified': '2026-10-25 10:00:00'});
+      return _envelope({'name': id, 'modified': '2026-10-25 10:00:00'});
     }
+    if (method == 'asoud_erp.api.v1.organization.employee_photo') return _envelope({'content': null});
     throw StateError('Unexpected organization read: $method');
   }
 
@@ -80,6 +89,7 @@ class _OrgClient extends Fake implements FrappeApiClient {
   Future<dynamic> callAsoudMethod(String method,
       {Map<String, dynamic>? data}) async {
     if (method == 'asoud_erp.api.v1.organization.save_chart') {
+      if (rejectSave) throw const ApiException(kind: ApiFailureKind.validation, message: 'ذخیره توسط سرور رد شد.');
       writes.add(method);
       final payload = Map<String, dynamic>.from(data!['payload'] as Map);
       lastSavePayload = payload;
@@ -135,6 +145,168 @@ void main() {
     'modified': '2026-10-22 10:00:00'
   };
 
+  testWidgets('focused organization reference render', (tester) async {
+    await (FontLoader('Vazirmatn')
+      ..addFont(rootBundle.load('assets/fonts/Vazirmatn-Regular.ttf'))
+      ..addFont(rootBundle.load('assets/fonts/Vazirmatn-Bold.ttf'))).load();
+    await (FontLoader('MaterialIcons')..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'))).load();
+    final client = _OrgClient(units: [
+      {...unit, 'name': 'SALES', 'department_name': 'فروش و بازاریابی'},
+      {...unit, 'name': 'MARKETING', 'department_name': 'بازاریابی', 'parent_department': 'SALES'},
+      for (final entry in {'DIGITAL': 'بازاریابی دیجیتال', 'PR': 'روابط عمومی', 'RESEARCH': 'تحقیقات بازار', 'ADS': 'تبلیغات'}.entries)
+        {...unit, 'name': entry.key, 'department_name': entry.value, 'parent_department': 'MARKETING'},
+    ], positions: [
+      {'code': 'CEO', 'title': 'مدیرعامل', 'parent': '', 'occupants': <String>[], 'capacity': 1},
+      {'code': 'MARKETER', 'title': 'مدیر بازاریابی', 'parent': 'CEO', 'department_id': 'MARKETING',
+        'department': 'بازاریابی', 'occupants': <String>[], 'capacity': 1, 'duties': 'برنامه‌ریزی و هماهنگی فعالیت‌های بازاریابی'},
+    ]);
+    await _openCreateForm(tester, client, openForm: false);
+    tester.view.physicalSize = const Size(390, 2400);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('focus-unit-MARKETING')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byTooltip('عملیات مدیر بازاریابی'));
+    await tester.tap(find.byTooltip('عملیات مدیر بازاریابی'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ویرایش جایگاه'));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byKey(const PageStorageKey('organization-focused-scroll')), const Offset(0, 2400));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await expectLater(find.byType(OrganizationPage), matchesGoldenFile('../../../build/organization-focus-reference.png'));
+  }, tags: 'golden', skip: !const bool.fromEnvironment('ORG_VISUAL'));
+
+  testWidgets('focused children paginate four at a time and retain native path', (tester) async {
+    final client = _OrgClient(units: [unit, for (var i = 0; i < 9; i++) {
+      ...unit, 'name': 'CHILD-$i', 'department_name': 'واحد $i', 'parent_department': 'HR-CO',
+    }]);
+    await _openCreateForm(tester, client, openForm: false);
+    expect(find.byKey(const ValueKey('focus-unit-CHILD-0')), findsOneWidget);
+    expect(find.byKey(const ValueKey('focus-unit-CHILD-3')), findsOneWidget);
+    expect(find.byKey(const ValueKey('focus-unit-CHILD-4')), findsNothing);
+    final first = tester.getRect(find.byKey(const ValueKey('focus-unit-CHILD-0')));
+    final second = tester.getRect(find.byKey(const ValueKey('focus-unit-CHILD-1')));
+    final third = tester.getRect(find.byKey(const ValueKey('focus-unit-CHILD-2')));
+    expect(first.top, second.top);
+    expect(third.top, greaterThan(first.bottom));
+    await tester.tap(find.byTooltip('صفحه بعد'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('focus-unit-CHILD-0')), findsNothing);
+    expect(find.byKey(const ValueKey('focus-unit-CHILD-7')), findsOneWidget);
+    await tester.tap(find.byTooltip('صفحه بعد'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('focus-unit-CHILD-8')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('focus-unit-HR-CO')), findsOneWidget);
+    expect(find.text('زیرواحدی تعریف نشده است.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('rejected inline save retains input and never announces success', (tester) async {
+    final client = _OrgClient(units: [unit])..rejectSave = true;
+    await _openCreateForm(tester, client, openForm: false);
+    await tester.tap(find.text('جایگاه جدید'));
+    await tester.pumpAndSettle();
+    final title = find.byKey(const ValueKey('focus-editor-title'));
+    await tester.enterText(title, 'کارشناس بررسی');
+    await tester.ensureVisible(find.text('ذخیره').last);
+    await tester.tap(find.text('ذخیره').last);
+    await tester.pumpAndSettle();
+    expect(tester.widget<AppTextField>(title).controller!.text, 'کارشناس بررسی');
+    expect(find.text('ذخیره توسط سرور رد شد.'), findsOneWidget);
+    expect(find.text('تغییرات ذخیره شد.'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('position selection and inline editing preserve occupants and unit path', (tester) async {
+    final client = _OrgClient(units: [unit], positions: [
+      {'code': 'CEO', 'title': 'مدیرعامل', 'parent': '', 'occupants': <String>[], 'capacity': 1},
+      {'code': 'P1', 'title': 'مدیر آموزش', 'parent': 'CEO', 'department_id': 'HR-CO',
+        'department': 'منابع انسانی', 'occupants': ['employee:A', 'employee:B'], 'capacity': 2,
+        'assignment_history': [{'employee': 'employee:A', 'started_at': null, 'ended_at': null}]},
+    ]);
+    await _openCreateForm(tester, client, openForm: false);
+    final card = find.byKey(const ValueKey('focus-position-P1'));
+    await tester.ensureVisible(card);
+    await tester.tap(card);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('focus-unit-HR-CO')), findsOneWidget);
+    expect(find.byKey(const ValueKey('focus-unit-P1')), findsNothing);
+    await tester.tap(find.byTooltip('عملیات مدیر آموزش'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ویرایش جایگاه'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const ValueKey('focus-editor-title')), 'مدیر یادگیری');
+    await tester.enterText(find.byKey(const ValueKey('focus-editor-capacity')), '۱');
+    await tester.ensureVisible(find.text('ذخیره تغییرات'));
+    await tester.tap(find.text('ذخیره تغییرات'));
+    await tester.pumpAndSettle();
+    expect(find.text('ظرفیت کمتر از تعداد متصدیان فعال مجاز نیست.'), findsOneWidget);
+    expect(client.lastSavePayload, isNull);
+    await tester.enterText(find.byKey(const ValueKey('focus-editor-capacity')), '۳');
+    await tester.tap(find.text('ذخیره تغییرات'));
+    await tester.pumpAndSettle();
+    final saved = (client.lastSavePayload!['rows'] as List).last as Map;
+    expect(saved['code'], 'P1');
+    expect(saved['department_id'], 'HR-CO');
+    expect(saved['occupants'], ['employee:A', 'employee:B']);
+    expect(saved['assignment_history'], hasLength(1));
+    expect(saved['title'], 'مدیر یادگیری');
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final width in [320.0, 390.0, 430.0]) {
+    testWidgets('focused inline position form saves native context at $width', (tester) async {
+      final client = _OrgClient(units: [unit]);
+      await _openCreateForm(tester, client, openForm: false);
+      tester.view.physicalSize = Size(width, 1800);
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('جایگاه جدید'));
+      await tester.tap(find.text('جایگاه جدید'));
+      await tester.pumpAndSettle();
+      final title = find.byKey(const ValueKey('focus-editor-title'));
+      expect(tester.widget<AppTextField>(title).controller!.text, isEmpty);
+      await tester.enterText(title, 'کارشناس توسعه');
+      await tester.enterText(find.byKey(const ValueKey('focus-editor-capacity')), '۲');
+      await tester.ensureVisible(find.text('ذخیره').last);
+      await tester.tap(find.text('ذخیره').last);
+      await tester.pumpAndSettle();
+      final saved = (client.lastSavePayload!['rows'] as List).last as Map;
+      expect(saved['department_id'], 'HR-CO');
+      expect(saved['occupants'], isEmpty);
+      expect(saved['capacity'], 2);
+      expect(find.byKey(const ValueKey('focus-unit-HR-CO')), findsOneWidget);
+      expect(find.byKey(const ValueKey('focus-editor-title')), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('unsaved inline subunit prompts before changing context and persists fixed parent', (tester) async {
+    final client = _OrgClient(units: [unit, {...unit, 'name': 'CHILD', 'department_name': 'آموزش', 'parent_department': 'HR-CO'}]);
+    await _openCreateForm(tester, client, openForm: false);
+    await tester.tap(find.text('زیرواحد جدید'));
+    await tester.pumpAndSettle();
+    final title = find.byKey(const ValueKey('focus-editor-title'));
+    await tester.enterText(title, 'پشتیبانی');
+    await tester.ensureVisible(find.byKey(const ValueKey('focus-unit-CHILD')));
+    await tester.tap(find.byKey(const ValueKey('focus-unit-CHILD')));
+    await tester.pumpAndSettle();
+    expect(find.text('تغییرات ذخیره‌نشده'), findsOneWidget);
+    await tester.tap(find.text('ادامه ویرایش'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<AppTextField>(title).controller!.text, 'پشتیبانی');
+    expect(client.lastUnitPayload, isNull);
+    await tester.ensureVisible(find.text('ذخیره').last);
+    await tester.tap(find.text('ذخیره').last);
+    await tester.pumpAndSettle();
+    expect(client.lastUnitPayload!['parent'], 'HR-CO');
+    expect(client.lastUnitPayload!.containsKey('name'), isFalse);
+    await tester.pump(const Duration(seconds: 4));
+    await tester.ensureVisible(find.byKey(const ValueKey('focus-unit-NEW-UNIT')));
+    expect(find.text('زیرواحدهای مستقیم منابع انسانی'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final width in [320.0, 390.0, 430.0]) {
     testWidgets('unit management keeps root and all direct children at $width', (tester) async {
       final client = _OrgClient(units: [unit, {
@@ -149,17 +321,21 @@ void main() {
       await tester.ensureVisible(find.text('منابع انسانی').first);
       await tester.tap(find.text('منابع انسانی').first);
       await tester.pumpAndSettle();
-      expect(find.text('مدیریت ساختار سازمانی'), findsOneWidget);
+      // Selection now expands in place, without the old management route.
+      expect(find.byKey(const ValueKey('focus-unit-HR-CO')), findsOneWidget);
       expect(find.text('مدیرعامل'), findsOneWidget);
       expect(find.text('آموزش'), findsOneWidget);
       expect(find.text('جذب'), findsOneWidget);
-      expect(find.text('پیش‌نمایش تغییر سلسله‌مراتب'), findsOneWidget);
-      expect(tester.widget<FilledButton>(find.byKey(const ValueKey('organization-management-submit'))).onPressed, isNull);
+      expect(find.text('زیرواحدهای مستقیم منابع انسانی'), findsOneWidget);
       expect(client.lastUnitPayload, isNull);
       await tester.tap(find.text('آموزش'));
       await tester.pumpAndSettle();
-      expect(find.text('این واحد زیرواحد ندارد.'), findsOneWidget);
+      expect(find.text('زیرواحدی تعریف نشده است.'), findsOneWidget);
       expect(find.text('جذب'), findsNothing);
+      expect(find.byKey(const ValueKey('focus-unit-HR-CO')), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('focus-unit-HR-CO')));
+      await tester.pumpAndSettle();
+      expect(find.text('جذب'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   }

@@ -141,6 +141,13 @@ void main() {
     expect(client.photoRequests, ['employee:EMP-1']);
   });
 
+  test('assignment or profile refresh invalidates the existing photo cache', () async {
+    await repository.employeePhoto('شرکت', 'employee:EMP-1');
+    repository.invalidateEmployeePhotos();
+    await repository.employeePhoto('شرکت', 'employee:EMP-1');
+    expect(client.photoRequests, ['employee:EMP-1', 'employee:EMP-1']);
+  });
+
   test('concurrent reads for one employee share a single request', () async {
     final results = await Future.wait([
       repository.employeePhoto('شرکت', 'employee:EMP-1'),

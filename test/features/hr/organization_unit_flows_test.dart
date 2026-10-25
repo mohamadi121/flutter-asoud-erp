@@ -163,22 +163,21 @@ void main() {
       (tester) async {
     final client = _Client();
     await _open(tester, client);
+    tester.view.physicalSize = const Size(390, 1600);
+    await tester.pumpAndSettle();
     await tester.tap(find.text('واحدها'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('منابع انسانی'));
     await tester.pumpAndSettle();
-    // The unit details page opens with its management panel already shown.
-    expect(find.text('مدیریت واحد'), findsNWidgets(2));
-    final deleteAction = find.text('حذف واحد');
+    final deleteAction = find.text('حذف واحد').last;
     await tester.ensureVisible(deleteAction);
     await tester.tap(deleteAction);
     await tester.pumpAndSettle();
-    final check = find.text('بررسی امکان حذف');
-    await tester.dragUntilVisible(check, find.byType(ListView).last, const Offset(0, -200));
-    await tester.pumpAndSettle();
+    final check = find.text('حذف با تأیید نهایی');
+    await tester.ensureVisible(check);
     await tester.tap(check);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('تأیید حذف واحد').last);
+    await tester.tap(find.text('تأیید حذف').last);
     await tester.pumpAndSettle();
     final preview = client.calls.indexOf('preview_delete_unit');
     final delete = client.calls.indexOf('delete_unit');
