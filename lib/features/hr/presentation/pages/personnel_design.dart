@@ -861,6 +861,62 @@ class _PersonnelAccessPageState extends State<_PersonnelAccessPage> {
     }
   }
 
+  /// `hr_onboarding.issue_temporary_password`: shown once; the person must
+  /// replace it at the first sign-in.
+  Future<void> issueTemporaryPassword() async {
+    final client = context.read<FrappeApiClient>();
+    final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+              title: const Text('صدور رمز موقت'),
+              content: const Text(
+                  'رمز موقت جدید ساخته می‌شود و فقط یک‌بار نمایش داده می‌شود. فرد باید هنگام اولین ورود آن را تغییر دهد.'),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    child: const Text('انصراف')),
+                FilledButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    child: const Text('صدور رمز')),
+              ],
+            ));
+    if (confirmed != true || !mounted) return;
+    setState(() {
+      saving = true;
+      error = null;
+    });
+    try {
+      final activation = await HrOnboardingRepository(client)
+          .issueTemporaryPassword('${widget.profile['id']}');
+      if (!mounted) return;
+      await showDialog<void>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+                title: const Text('رمز موقت'),
+                content: Column(mainAxisSize: MainAxisSize.min, children: [
+                  SelectableText(activation.temporaryPassword ?? '—',
+                      key: const Key('temporary_password_value'),
+                      textDirection: TextDirection.ltr,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w900, fontSize: 18)),
+                  const SizedBox(height: 8),
+                  Text(
+                      'اعتبار ${activation.expiresInHours ?? 72} ساعت؛ این رمز دیگر نمایش داده نمی‌شود و باید در اولین ورود تغییر کند.',
+                      style: const TextStyle(fontSize: 12)),
+                ]),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('بستن'))
+                ],
+              ));
+    } catch (e) {
+      if (mounted) setState(() => error = failureDetail(e));
+    } finally {
+      if (mounted) setState(() => saving = false);
+    }
+  }
+
   Future<void> selectRoles() async {
     final result = await Navigator.push<Set<String>>(
         context,
@@ -919,6 +975,12 @@ class _PersonnelAccessPageState extends State<_PersonnelAccessPage> {
                   padding: const EdgeInsets.only(top: 12),
                   child: Text(error!,
                       style: const TextStyle(color: Color(0xFFD83B55)))),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+                key: const Key('issue_temporary_password'),
+                onPressed: saving || loading ? null : issueTemporaryPassword,
+                icon: const Icon(Icons.password_rounded),
+                label: const Text('صدور رمز موقت')),
             const SizedBox(height: 12),
             const _AccessNotice(),
           ])));

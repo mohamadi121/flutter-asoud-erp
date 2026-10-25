@@ -9,6 +9,7 @@ import 'package:asoud_erp/features/dashboard/presentation/pages/settings_dashboa
 import 'package:asoud_erp/features/dashboard/presentation/pages/sync_queue_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -19,6 +20,7 @@ class _MockAuthRepo extends Mock implements AuthRepository {}
 class _MockAddressStore extends Mock implements ServerAddressStore {}
 
 void main() {
+  setUp(() => FlutterSecureStorage.setMockInitialValues({}));
   group('T3 regressions', () {
     test(
         'persianSyncErrorMessage maps failure kinds to Persian sentences without raw Dart text',

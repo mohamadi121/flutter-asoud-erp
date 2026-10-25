@@ -9,8 +9,9 @@ import '../../../../core/utils/jalali_date.dart';
 import '../../../../core/utils/persian_server_values.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../auth/data/unsent_offline_count.dart';
-import '../../../auth/domain/repositories/auth_repository.dart';
+import '../../../auth/presentation/pages/account_security_page.dart';
 import '../../../auth/presentation/pages/login_page.dart';
+import '../../../auth/presentation/pages/sign_out.dart';
 import '../../../base_setup/presentation/pages/base_accounting_setup_page.dart';
 import '../../../base_setup/presentation/pages/roles_setup_page.dart';
 import '../../../hr/presentation/pages/hr_home_page.dart';
@@ -102,16 +103,7 @@ class _SettingsDashboardContentState extends State<SettingsDashboardContent> {
       ),
     );
     if (leave != true || !mounted) return;
-    final client = context.read<FrappeApiClient>();
-    final serverUrl = client is FrappeClient ? client.serverIdentity : null;
-    await context.read<AuthRepository>().signOut();
-    if (!mounted) return;
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute<void>(
-        builder: (_) => LoginPage(initialServerUrl: serverUrl),
-      ),
-      (_) => false,
-    );
+    await signOutToLogin(context);
   }
 
   @override
@@ -437,7 +429,17 @@ class _SettingsDashboardContentState extends State<SettingsDashboardContent> {
                   label: const Text('ورود به حساب سازمانی'),
                 ),
               )
-            else
+            else ...[
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  key: const Key('open_account_security'),
+                  onPressed: () => _open(const AccountSecurityPage()),
+                  icon: const Icon(Icons.shield_outlined),
+                  label: const Text('امنیت حساب'),
+                ),
+              ),
+              const SizedBox(height: 8),
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
@@ -446,6 +448,7 @@ class _SettingsDashboardContentState extends State<SettingsDashboardContent> {
                   label: const Text('خروج از حساب'),
                 ),
               ),
+            ],
           ],
         ),
       ),

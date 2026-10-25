@@ -8,12 +8,18 @@ import 'office_form_page.dart';
 class OfficeTypePage extends StatelessWidget {
   const OfficeTypePage({
     this.allowOfflinePreview = AppConfig.offlineDemoMode,
+    this.onCreated,
+    this.firstOffice = false,
     super.key,
   });
   final bool allowOfflinePreview;
+  final void Function(BuildContext context, Office office)? onCreated;
+  final bool firstOffice;
   @override
   Widget build(BuildContext context) => OfficeFormPage(
         officeType: OfficeType.personal,
         allowOfflinePreview: allowOfflinePreview,
+        onCreated: onCreated,
+        firstOffice: firstOffice,
       );
 }

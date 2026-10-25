@@ -19,6 +19,7 @@ class OfficeFormBloc extends Bloc<OfficeFormEvent, OfficeFormState> {
     required OfficeRepository repository,
     Office? office,
     this.allowOfflinePreview = AppConfig.offlineDemoMode,
+    this.firstOffice = false,
   })  : _repository = repository,
         _originalOffice = office,
         super(OfficeFormState(
@@ -85,6 +86,9 @@ class OfficeFormBloc extends Bloc<OfficeFormEvent, OfficeFormState> {
   final Office? _originalOffice;
   final bool allowOfflinePreview;
 
+  /// True only in the first-login flow of the administrator.
+  final bool firstOffice;
+
   void _fieldChanged(OfficeFieldChanged event, Emitter<OfficeFormState> emit) {
     var next = switch (event.field) {
       'officeName' => state.copyWith(officeName: event.value as String),
@@ -115,6 +119,17 @@ class OfficeFormBloc extends Bloc<OfficeFormEvent, OfficeFormState> {
       next = next.copyWith(errors: errors);
     }
     emit(next);
+  }
+
+  /// The administrator's first office goes through
+  /// `onboarding.create_first_office`; every other new office through
+  /// `setup.save_office`.
+  Future<Office> _create(Office draft) {
+    final repository = _repository;
+    if (firstOffice && repository is FirstOfficeRepository) {
+      return (repository as FirstOfficeRepository).createFirstOffice(draft);
+    }
+    return repository.createOffice(draft);
   }
 
   Future<void> _submit(
@@ -155,7 +170,7 @@ class OfficeFormBloc extends Bloc<OfficeFormEvent, OfficeFormState> {
         description: state.description.trim(),
       );
       final office = _originalOffice == null
-          ? await _repository.createOffice(draft)
+          ? await _create(draft)
           : await _repository.updateOffice(_originalOffice.name, draft);
       final Object repository = _repository;
       final local = repository is LocalPreviewOfficeRepository &&

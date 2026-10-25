@@ -14,6 +14,7 @@ class _RoleFormState extends State<_RoleForm> {
   late final TextEditingController _title, _code, _description;
   late String _category, _parent;
   late bool _enabled;
+  late String _scope;
   ManagedRole? _baseline;
   @override
   void initState() {
@@ -25,6 +26,7 @@ class _RoleFormState extends State<_RoleForm> {
     _category = widget.role?.category ?? widget.category ?? '';
     _parent = widget.role?.parent ?? widget.parent ?? '';
     _enabled = widget.role?.enabled ?? true;
+    _scope = widget.role?.scope.isNotEmpty == true ? widget.role!.scope : 'global';
   }
 
   @override
@@ -143,6 +145,28 @@ class _RoleFormState extends State<_RoleForm> {
                                 ]),
                         onChanged: (value) =>
                             setState(() => _category = value)),
+                    const SizedBox(height: 16),
+                    const Text('سطح دسترسی نقش',
+                        style: TextStyle(fontWeight: FontWeight.w800)),
+                    const SizedBox(height: 6),
+                    SegmentedButton<String>(
+                      key: const Key('role_scope'),
+                      segments: const [
+                        ButtonSegment(value: 'global', label: Text('سراسری')),
+                        ButtonSegment(
+                            value: 'office', label: Text('مخصوص دفتر')),
+                      ],
+                      selected: {_scope},
+                      onSelectionChanged: busy
+                          ? null
+                          : (value) => setState(() => _scope = value.first),
+                    ),
+                    const Padding(
+                        padding: EdgeInsets.only(top: 4),
+                        child: Text(
+                            'نقش سراسری برای کل استقرار تخصیص می‌یابد؛ نقش مخصوص دفتر برای هر دفتر جدا.',
+                            style: TextStyle(
+                                fontSize: 11, color: AsoudColors.muted))),
                     const SizedBox(height: 16),
                     AppSelectField(
                         key: ValueKey('parent-$_parent'),
@@ -278,6 +302,7 @@ class _RoleFormState extends State<_RoleForm> {
       _category = latest.category;
       _parent = latest.parent;
       _enabled = latest.enabled;
+      if (latest.scope.isNotEmpty) _scope = latest.scope;
     });
   }
 
@@ -291,6 +316,7 @@ class _RoleFormState extends State<_RoleForm> {
           parent: _parent,
           description: _description.text.trim(),
           enabled: _enabled,
+          scope: _scope,
           baseRoles: _baseline?.baseRoles ?? const [],
           modified: _baseline?.modified,
           profileModified: _baseline?.profileModified,

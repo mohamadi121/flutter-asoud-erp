@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/network/frappe_client.dart';
+import '../../core/utils/failure_message.dart';
 import '../directives/data/directive_repository.dart';
 import '../directives/domain/directive_models.dart';
 import '../directives/presentation/directive_pages.dart';
@@ -25,11 +26,14 @@ Future<void> showAsoudCreateMenu(BuildContext context, String company) async {
                       leading: const Icon(Icons.assignment_outlined),
                       title: const Text('صدور دستور'),
                       subtitle: Text(snapshot.hasError
-                          ? 'دسترسی یا سرویس دستورات در دسترس نیست.'
+                          ? failureMessage(snapshot.error)
                           : snapshot.data?.allowedActions.contains('issue') ==
                                   true
                               ? 'ابلاغ به زیرمجموعه مجاز'
-                              : 'بررسی دسترسی صدور دستور'),
+                              : snapshot.connectionState ==
+                                      ConnectionState.done
+                                  ? 'گیرنده مجاز یا مجوز صدور دستور برای شما تعریف نشده است.'
+                                  : 'بررسی دسترسی صدور دستور'),
                       enabled:
                           snapshot.data?.allowedActions.contains('issue') ==
                               true,

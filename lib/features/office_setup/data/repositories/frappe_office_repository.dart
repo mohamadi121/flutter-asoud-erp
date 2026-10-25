@@ -4,7 +4,7 @@ import '../../domain/entities/office.dart';
 import '../../domain/repositories/office_repository.dart';
 import '../models/office_model.dart';
 
-class FrappeOfficeRepository implements OfficeRepository {
+class FrappeOfficeRepository implements OfficeRepository, FirstOfficeRepository {
   const FrappeOfficeRepository(this._client);
 
   final FrappeApiClient _client;
@@ -24,6 +24,31 @@ class FrappeOfficeRepository implements OfficeRepository {
     );
     if (data is! Map) throw const ApiException.protocol();
     return OfficeModel.fromSetup(Map<String, dynamic>.from(data));
+  }
+
+  /// `onboarding.create_first_office`: same arguments as `save_office`, answer
+  /// `{created, already_exists, office}`. Online only (never queued), and
+  /// idempotent: an existing office is returned instead of a second one.
+  @override
+  Future<Office> createFirstOffice(Office office) async {
+    final body = await _client.callMethod(
+      'asoud_erp.api.v1.onboarding.create_first_office',
+      data: {
+        'office_type': office.type == OfficeType.legal ? 'Legal' : 'Personal',
+        'company_name': office.name,
+        'national_id': office.nationalId,
+        'economic_code': office.economicCode,
+        'auto_generate_detail_code': office.generateDetailCode ? 1 : 0,
+        ..._details(office),
+      },
+    );
+    final envelope = body['message'];
+    final data = envelope is Map ? envelope['data'] : null;
+    final saved = data is Map ? data['office'] : null;
+    if (envelope is! Map || envelope['ok'] != true || saved is! Map) {
+      throw const ApiException.protocol();
+    }
+    return OfficeModel.fromSetup(Map<String, dynamic>.from(saved));
   }
 
   @override

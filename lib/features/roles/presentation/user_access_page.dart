@@ -1,11 +1,75 @@
 part of 'roles_page.dart';
 
+/// The four operations of the medium matrix.
 const _accessActions = {
   'read': 'مشاهده',
   'create': 'ایجاد',
   'write': 'ویرایش',
   'delete': 'حذف'
 };
+
+/// Every operation the advanced mode can show, in display order. The server
+/// decides which of them each resource supports (`actions` of a catalog row).
+const _allAccessActions = {
+  ..._accessActions,
+  'submit': 'ثبت قطعی',
+  'cancel': 'لغو سند',
+  'amend': 'اصلاح سند',
+  'print': 'چاپ',
+  'email': 'ارسال ایمیل',
+  'export': 'برون‌بری',
+  'import': 'درون‌ریزی',
+  'share': 'اشتراک‌گذاری',
+  'report': 'گزارش‌گیری',
+};
+
+String _accessActionLabel(String action) =>
+    _allAccessActions[action] ?? 'عملیات ویژه';
+
+/// Every operation a catalog row supports in the advanced level. The server
+/// sends the medium list in `actions` and what only advanced adds in
+/// `advanced_actions` (`submit/cancel/amend` for submittable DocTypes,
+/// `print/email/export/report/share/import`); `levels.advanced` is the same
+/// union.
+List<String> allActionsOf(Map<String, dynamic> row) {
+  final levels = row['levels'];
+  final advanced = levels is Map ? levels['advanced'] : null;
+  if (advanced is List && advanced.isNotEmpty) {
+    return advanced.map((e) => '$e').toList(growable: false);
+  }
+  return <String>{
+    ...((row['actions'] as List?) ?? const []).map((e) => '$e'),
+    ...((row['advanced_actions'] as List?) ?? const []).map((e) => '$e'),
+  }.toList(growable: false);
+}
+
+/// Merges the editor's medium and advanced maps (`grants` +
+/// `advanced_grants`, `inherited` + `inherited_advanced`) per DocType.
+Map<String, Set<String>> mergeAccessMaps(dynamic medium, dynamic advanced) {
+  final result = <String, Set<String>>{};
+  for (final source in [medium, advanced]) {
+    if (source is! Map) continue;
+    source.forEach((key, value) {
+      result.putIfAbsent('$key', () => <String>{}).addAll(
+          (value as List).map((e) => '$e'));
+    });
+  }
+  return result;
+}
+
+/// Splits the wizard's merged grants back into the two request maps the
+/// server's `apply` expects.
+({Map<String, List<String>> grants, Map<String, List<String>> advanced})
+    splitAccessGrants(Map<String, Set<String>> merged) {
+  const medium = {'read', 'create', 'write', 'delete'};
+  final grants = <String, List<String>>{};
+  final advanced = <String, List<String>>{};
+  merged.forEach((doctype, values) {
+    grants[doctype] = values.where(medium.contains).toList();
+    advanced[doctype] = values.where((a) => !medium.contains(a)).toList();
+  });
+  return (grants: grants, advanced: advanced);
+}
 
 /// Thin, injectable wrapper over the bounded user-access API
 /// (`asoud_erp.api.v1.user_access`). The page never calls the raw client so a
@@ -22,14 +86,15 @@ class UserAccessRepository {
         Map<String, dynamic>.from(envelope), (value) => value).data;
   }
 
-  Future<dynamic> call(String method, Map<String, dynamic> data) async {
+  Future<dynamic> call(String method, Map<String, dynamic> data,
+      {String module = 'user_access'}) async {
     if (!client.isAuthenticated) {
       throw const ApiException(
           kind: ApiFailureKind.unauthenticated,
           message: 'برای مدیریت دسترسی وارد حساب مدیر شوید.');
     }
     return _unwrap(
-        client.callMethod('asoud_erp.api.v1.user_access.$method', data: data));
+        client.callMethod('asoud_erp.api.v1.$module.$method', data: data));
   }
 
   Future<List<Map<String, dynamic>>> directory(String code,
@@ -59,6 +124,35 @@ class UserAccessRepository {
         .whereType<Map>()
         .map((row) => ManagedRole.fromJson(Map<String, dynamic>.from(row)))
         .toList();
+  }
+
+  /// `role_access.list_office_roles(user)` -> `{user, assignments:
+  /// [{company, role, granted_by, granted_on}]}`.
+  Future<List<OfficeRoleAssignment>> officeRoles(String user) async {
+    final data = await call('list_office_roles', {'user': user}, module: 'role_access');
+    final rows = data is Map ? data['assignments'] : null;
+    return ((rows as List?) ?? const [])
+        .whereType<Map>()
+        .map((e) => OfficeRoleAssignment.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
+  }
+
+  /// `role_access.assign_role` / `unassign_role`. Office-scoped roles need
+  /// the office (`company`); global roles must not send one.
+  Future<RoleAssignmentResult> setAssignment(
+      {required bool assign,
+      required String user,
+      required String role,
+      String? company}) async {
+    final data = await call(
+        assign ? 'assign_role' : 'unassign_role',
+        {
+          'user': user,
+          'role': role,
+          if (company != null && company.isNotEmpty) 'company': company,
+        },
+        module: 'role_access');
+    return RoleAssignmentResult.fromJson(Map<String, dynamic>.from(data as Map));
   }
 
   Future<String> draftKey(String code, String user) async {
@@ -278,6 +372,16 @@ class _RoleUsersViewState extends State<_RoleUsersView> {
                                   ? AsoudColors.success
                                   : AsoudColors.muted)),
                       IconButton(
+                          key: Key('assign_${user['name']}'),
+                          tooltip: 'تخصیص نقش به دفتر',
+                          onPressed: () => _userAccessRoute<void>(
+                              context,
+                              _RoleAssignment(
+                                  role: widget.role,
+                                  user: user,
+                                  repository: widget.repository)),
+                          icon: const Icon(Icons.apartment_outlined, size: 18)),
+                      IconButton(
                           tooltip: 'ویرایش اطلاعات کاربر',
                           onPressed: () => editUser(user),
                           icon: const Icon(Icons.edit_outlined, size: 18)),
@@ -395,8 +499,9 @@ class _AccessWizardState extends State<_AccessWizard> {
         catalog = (data['catalog'] as List)
             .map((e) => Map<String, dynamic>.from(e as Map))
             .toList();
-        grants = decode(data['grants']);
-        inherited = decode(data['inherited']);
+        grants = mergeAccessMaps(data['grants'], data['advanced_grants']);
+        inherited =
+            mergeAccessMaps(data['inherited'], data['inherited_advanced']);
         saved = _copy(grants);
         baseRoles = List<String>.from(data['base_roles'] as List);
         token = data['token'] as String;
@@ -463,7 +568,7 @@ class _AccessWizardState extends State<_AccessWizard> {
           catalog.any((row) {
             final values = restored[row['doctype']];
             return values == null ||
-                values.any((a) => !(row['actions'] as List).contains(a)) ||
+                values.any((a) => !allActionsOf(row).contains(a)) ||
                 (values.isNotEmpty && !values.contains('read'));
           })) {
         throw StateError('invalid draft');
@@ -488,12 +593,14 @@ class _AccessWizardState extends State<_AccessWizard> {
       error = null;
     });
     try {
+      final split = splitAccessGrants(grants);
       final result = await widget.repository.call('apply', {
         'payload': {
           'code': widget.role.code,
           'user': user?['name'] ?? '',
           'token': token,
-          'grants': grants.map((key, value) => MapEntry(key, value.toList()))
+          'grants': split.grants,
+          'advanced_grants': split.advanced,
         }
       });
       if (result is! Map || result['applied'] != true) {
@@ -550,6 +657,49 @@ class _AccessWizardState extends State<_AccessWizard> {
           }).toList(),
         ),
       );
+
+  /// Advanced mode: one card per resource listing every operation the
+  /// resource supports, each independently addable and removable.
+  Widget advancedList(List<Map<String, dynamic>> rows) => Column(children: [
+        for (final row in rows)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Container(
+              key: Key('advanced-${row['doctype']}'),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                  border: Border.all(color: AsoudColors.border),
+                  borderRadius: BorderRadius.circular(12)),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('${row['title']}',
+                        style: const TextStyle(fontWeight: FontWeight.w800)),
+                    for (final a in allActionsOf(row))
+                      CheckboxListTile(
+                        key: Key('op-${row['doctype']}-$a'),
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        controlAffinity: ListTileControlAffinity.leading,
+                        title: Text(_accessActionLabel(a),
+                            style: const TextStyle(fontSize: 12.5)),
+                        subtitle: inherited[row['doctype']]!.contains(a)
+                            ? const Text('از نقش دیگر؛ قفل',
+                                style: TextStyle(fontSize: 10))
+                            : null,
+                        value: grants[row['doctype']]!.contains(a) ||
+                            inherited[row['doctype']]!.contains(a),
+                        onChanged: busy ||
+                                inherited[row['doctype']]!.contains(a)
+                            ? null
+                            : (value) =>
+                                toggle(row['doctype'] as String, a, value!),
+                      ),
+                  ]),
+            ),
+          ),
+      ]);
+
   @override
   Widget build(BuildContext context) {
     final modules = catalog.map((e) => e['module'] as String).toSet();
@@ -645,7 +795,7 @@ class _AccessWizardState extends State<_AccessWizard> {
                         child: Text(['ساده', 'متوسط', 'پیشرفته'][i])))
             ]),
             const Text(
-                'قفل‌ها از نقش‌های دیگر هستند. تغییر حالت، دسترسی بیشتری فعال نمی‌کند. حالت ساده فقط مشاهده را اضافه می‌کند؛ مجوز ثبت قطعی، لغو سند و اشتراک‌گذاری خارج از این ماتریس است.',
+                'قفل‌ها از نقش‌های دیگر هستند. تغییر حالت، دسترسی بیشتری فعال نمی‌کند. ساده: فقط مشاهده هر بخش. متوسط: مشاهده، ایجاد، ویرایش و حذف. پیشرفته: فهرست کامل همه عملیات هر منبع، از جمله ثبت قطعی، لغو، چاپ و اشتراک‌گذاری.',
                 style: TextStyle(fontSize: 11, color: AsoudColors.muted)),
             for (final module in modules)
               if (mode == 0)
@@ -677,8 +827,14 @@ class _AccessWizardState extends State<_AccessWizard> {
                         key: ValueKey('$module-$mode'),
                         title: Text(module),
                         children: [
-                      matrix(
-                          catalog.where((r) => r['module'] == module).toList())
+                      if (mode == 2)
+                        advancedList(catalog
+                            .where((r) => r['module'] == module)
+                            .toList())
+                      else
+                        matrix(catalog
+                            .where((r) => r['module'] == module)
+                            .toList())
                     ])),
             Wrap(children: [
               TextButton(
@@ -708,7 +864,7 @@ class _AccessWizardState extends State<_AccessWizard> {
                   subtitle: Text({
                     ...grants[row['doctype']]!,
                     ...inherited[row['doctype']]!
-                  }.map((a) => _accessActions[a]).join('، '))),
+                  }.map(_accessActionLabel).join('، '))),
             const Text(
                 'ارسال، مجوزهای این بخش را تغییر می‌دهد؛ دسترسی نقش‌های دیگر حذف نمی‌شود.'),
             if (!changed)

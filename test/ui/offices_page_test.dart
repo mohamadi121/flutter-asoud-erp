@@ -141,7 +141,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('حالت موقت آفلاین'), findsOneWidget);
 
-    final setupButton = find.text('تکمیل تنظیمات پایه');
+    final setupButton = find.text('ادامه راه‌اندازی');
     await tester.ensureVisible(setupButton);
     await tester.tap(setupButton);
     await tester.pumpAndSettle();
