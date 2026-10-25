@@ -35,6 +35,7 @@ class OrganizationRepository {
   }
   final FrappeApiClient client;
   final LocalRecordStore local;
+  void invalidateEmployeePhotos() => _photos.clear();
   Future<Map<String, dynamic>> previewImport(
       String company, Map<String, dynamic> payload) async {
     final (_, epoch) = await _scope(company, write: true);
@@ -135,11 +136,19 @@ class OrganizationRepository {
     return data;
   }
 
-  Future<void> saveUnit(String company, Map<String, dynamic> payload) async {
+  Future<Map<String, dynamic>> saveUnit(String company, Map<String, dynamic> payload) async {
     final (_, epoch) = await _scope(company, write: true);
     // Explicit online writes only: do not report a queued unit as created.
-    await _call('save_unit', {'company': company, 'payload': payload});
+    final result = await _call('save_unit', {'company': company, 'payload': payload});
     _check(epoch);
+    return result;
+  }
+
+  Future<Map<String, dynamic>> previewDeletePosition(String company, String code, int revision) async {
+    final (_, epoch) = await _scope(company, write: true);
+    final result = await _call('preview_delete_position', {'company': company, 'code': code, 'revision': revision});
+    _check(epoch);
+    return result;
   }
 
   Future<Map<String, dynamic>> previewDeleteUnit(

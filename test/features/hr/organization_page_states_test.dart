@@ -23,6 +23,7 @@ void main() {
     when(() => repository.dispose()).thenAnswer((_) async {});
     when(() => repository.units(any()))
         .thenAnswer((_) async => {'units': <dynamic>[], 'can_manage': true});
+    when(() => repository.employees(any())).thenAnswer((_) async => []);
     await tester.pumpWidget(MaterialApp(
         home: OrganizationPage(company: 'شرکت', repository: repository)));
     await tester.pumpAndSettle();

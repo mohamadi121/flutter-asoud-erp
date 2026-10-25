@@ -173,11 +173,11 @@ void main() {
     await tester.ensureVisible(deleteAction);
     await tester.tap(deleteAction);
     await tester.pumpAndSettle();
-    final check = find.byKey(const ValueKey('organization-management-submit'));
+    final check = find.text('حذف با تأیید نهایی');
     await tester.ensureVisible(check);
     await tester.tap(check);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('تأیید حذف واحد').last);
+    await tester.tap(find.text('تأیید حذف').last);
     await tester.pumpAndSettle();
     final preview = client.calls.indexOf('preview_delete_unit');
     final delete = client.calls.indexOf('delete_unit');

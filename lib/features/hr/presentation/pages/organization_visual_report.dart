@@ -298,7 +298,7 @@ class _OrganizationVisualReportState extends State<_OrganizationVisualReport> {
 }
 
 class _OrganizationAvatar extends StatefulWidget {
-  const _OrganizationAvatar({this.employee});
+  const _OrganizationAvatar({super.key, this.employee});
   final String? employee;
   @override
   State<_OrganizationAvatar> createState() => _OrganizationAvatarState();

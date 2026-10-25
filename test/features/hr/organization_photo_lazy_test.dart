@@ -48,6 +48,9 @@ void main() {
     await tester.tap(find.text('جایگاه‌ها'));
     await tester.pumpAndSettle();
     expect(visualReport, findsOneWidget);
+    // The focused structure now shows photos on its first four real root
+    // positions too. Measure the report's own lazy construction separately.
+    clearInteractions(repository);
     return repository;
   }
 
