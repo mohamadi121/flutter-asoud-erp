@@ -34,6 +34,7 @@ part 'organization_unit_management.dart';
 part 'organization_unit_details.dart';
 part 'organization_focus.dart';
 part 'organization_focus_editor.dart';
+part 'organization_setup_flow.dart';
 
 String _assignmentDate(dynamic value) => value == null
     ? 'نامشخص (سابقه قبلی)'
@@ -172,13 +173,22 @@ class _OrganizationEntryState extends State<_OrganizationEntry> {
 }
 
 class _OrganizationSetup extends StatelessWidget {
-  const _OrganizationSetup({this.canManage = true});
+  const _OrganizationSetup({this.canManage = true, this.returnToWorkspace = false});
+  final bool returnToWorkspace;
+
+  Future<void> _open(BuildContext context, Widget page) async {
+    final saved = await _openOrganizationPage<bool>(context, _OrgSheetTheme(child: page));
+    if (saved == true && returnToWorkspace && context.mounted) {
+      Navigator.pop(context);
+    }
+  }
 
   /// Read-only roles (HR User) keep the chart but no create/import entry.
   final bool canManage;
 
   @override
   Widget build(BuildContext context) => Scaffold(
+        backgroundColor: _orgCanvas,
         appBar: const AsoudHeader(
             title: 'ایجاد ساختار سازمانی',
             subtitle: 'روش ایجاد ساختار سازمانی را انتخاب کنید'),
@@ -187,7 +197,7 @@ class _OrganizationSetup extends StatelessWidget {
           builder: (context, state) => ListView(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
             children: [
-              const _OrganizationStatus(),
+              const _OrganizationStatus(showWarnings: false),
               if (state.snapshot.rows.isNotEmpty)
                 const _OrgNotice(
                   icon: Icons.info_outline,
@@ -202,8 +212,7 @@ class _OrganizationSetup extends StatelessWidget {
                   borderRadius: BorderRadius.circular(14),
                   onTap: state.busy
                       ? null
-                      : () => _openOrganizationPage<void>(
-                          context, const _OrganizationTemplates()),
+                      : () => _open(context, const _OrganizationTemplates()),
                   child: const Padding(
                     padding: EdgeInsets.all(14),
                     child: Row(children: [
@@ -233,7 +242,7 @@ class _OrganizationSetup extends StatelessWidget {
                 )),
               if (canManage) const SizedBox(height: 12),
               if (canManage)
-                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                IntrinsicHeight(child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                   Expanded(
                       child: _OrgChoice(
                     icon: Icons.add_rounded,
@@ -243,8 +252,7 @@ class _OrganizationSetup extends StatelessWidget {
                     action: 'شروع ایجاد ساختار',
                     onTap: state.busy
                         ? null
-                        : () => _openOrganizationPage<void>(context,
-                            const _OrganizationWorkspace(canManage: true)),
+                        : () => _open(context, const _OrganizationManualSetup()),
                   )),
                   const SizedBox(width: 10),
                   Expanded(
@@ -253,17 +261,12 @@ class _OrganizationSetup extends StatelessWidget {
                     color: AsoudColors.warning,
                     title: 'ورود از اکسل',
                     subtitle: 'ساختار سازمانی را از فایل اکسل وارد کنید',
-                    action: 'انتخاب فایل اکسل',
-                    secondary: TextButton.icon(
-                        onPressed: state.busy
-                            ? null
-                            : () => _downloadOrganizationTemplate(context),
-                        icon: const Icon(Icons.download_outlined, size: 18),
-                        label: const Text('دریافت الگوی اکسل',
-                            style: TextStyle(fontSize: 10))),
-                    onTap: state.busy ? null : () => _importExcel(context),
+                    action: 'ورود به صفحه اکسل',
+                    onTap: state.busy
+                        ? null
+                        : () => _open(context, const _OrganizationExcelImport()),
                   )),
-                ]),
+                ])),
               const SizedBox(height: 28),
               const _OrgNotice(
                 icon: Icons.visibility_outlined,
@@ -277,131 +280,7 @@ class _OrganizationSetup extends StatelessWidget {
         )),
       );
 
-  Future<void> _importExcel(BuildContext context) async {
-    final proceed = await showDialog<bool>(
-        context: context,
-        builder: (c) => AlertDialog(
-              title: const Text('ورود ساختار از اکسل'),
-              content: const Text(
-                  'فایل xlsx با ستون‌های code و title الزامی است. ستون‌های parent، department و employee اختیاری هستند. parent کد جایگاه بالادست و employee شناسه ثبت‌شده پرسنل است.\nردیف‌ها پس از پیش‌نمایش به ساختار فعلی اضافه می‌شوند؛ کد تکراری پذیرفته نمی‌شود.'),
-              actions: [
-                TextButton(
-                    onPressed: () => Navigator.pop(c, false),
-                    child: const Text('انصراف')),
-                FilledButton(
-                    onPressed: () => Navigator.pop(c, true),
-                    child: const Text('انتخاب فایل')),
-              ],
-            ));
-    if (proceed != true || !context.mounted) return;
-    final cubit = context.read<OrganizationCubit>();
-    List<OrgPosition> imported;
-    List<Map<String, dynamic>> importedUnits = [];
-    try {
-      final file = await FilePicker.platform.pickFiles(
-          type: FileType.custom, allowedExtensions: ['xlsx'], withData: true);
-      if (file == null || !context.mounted) return;
-      final data = file.files.single.bytes;
-      if (data == null) throw const FormatException('خواندن فایل ممکن نشد.');
-      final workbook = xls.Excel.decodeBytes(data);
-      final sheets =
-          workbook.tables.values.where((sheet) => sheet.rows.isNotEmpty);
-      if (sheets.isEmpty) throw const FormatException('فایل خالی است.');
-      final table = (workbook.tables['positions'] ?? sheets.first).rows;
-      final unitTable = workbook.tables['units']?.rows;
-      if (unitTable != null && unitTable.length > 1) {
-        final unitHeaders = unitTable.first
-            .map((e) => e?.value.toString().trim().toLowerCase() ?? '')
-            .toList();
-        if (!unitHeaders.contains('code') ||
-            !unitHeaders.contains('title') ||
-            unitHeaders.where((h) => h.isNotEmpty).toSet().length !=
-                unitHeaders.where((h) => h.isNotEmpty).length) {
-          throw const FormatException(
-              'ستون‌های واحدها باید code و title داشته باشند و تکراری نباشند.');
-        }
-        for (final cells in unitTable.skip(1)) {
-          if (cells.every((c) => c?.value.toString().trim().isEmpty ?? true)) {
-            continue;
-          }
-          importedUnits.add({
-            for (var i = 0; i < unitHeaders.length; i++)
-              if (unitHeaders[i].isNotEmpty)
-                unitHeaders[i]: i < cells.length
-                    ? cells[i]?.value.toString().trim() ?? ''
-                    : ''
-          });
-        }
-      }
-      final headers = table.first
-          .map((e) => e?.value.toString().trim().toLowerCase() ?? '')
-          .toList();
-      if (!headers.contains('code') || !headers.contains('title')) {
-        throw const FormatException('ستون‌های code و title الزامی هستند.');
-      }
-      final names = headers.where((h) => h.isNotEmpty).toList();
-      if (names.toSet().length != names.length) {
-        throw const FormatException('نام ستون‌های فایل نباید تکراری باشد.');
-      }
-      imported = [];
-      for (final row in table.skip(1)) {
-        if (row
-            .every((cell) => cell?.value.toString().trim().isEmpty ?? true)) {
-          continue;
-        }
-        final record = <String, dynamic>{};
-        for (var i = 0; i < headers.length; i++) {
-          record[headers[i]] =
-              i < row.length ? row[i]?.value.toString().trim() ?? '' : '';
-        }
-        if (record.containsKey('capacity')) {
-          final capacity =
-              int.tryParse(_normalizedOrgCode('${record['capacity']}'));
-          if (capacity == null || capacity < 1) {
-            throw const FormatException('ظرفیت اکسل باید عدد صحیح مثبت باشد.');
-          }
-          record['capacity'] = capacity;
-          record['occupants'] = '${record['employee'] ?? ''}'.isEmpty
-              ? <String>[]
-              : ['${record['employee']}'];
-        }
-        imported.add(OrgPosition.fromJson(record));
-      }
-      if (imported.isEmpty && importedUnits.isEmpty) {
-        throw const FormatException('فایل جایگاهی برای ورود ندارد.');
-      }
-      validateOrganization([...cubit.state.snapshot.rows, ...imported]);
-    } catch (e) {
-      if (context.mounted) {
-        _orgMessage(context,
-            e is FormatException ? e.message : 'فایل اکسل قابل پردازش نیست.');
-      }
-      return;
-    }
-    if (context.mounted) {
-      if (importedUnits.isNotEmpty) {
-        final saved = await _openOrganizationPage<bool>(
-            context,
-            _OrganizationImportReview(payload: {
-              'units': importedUnits,
-              'rows': imported.map((r) => r.toJson()).toList()
-            }));
-        if (saved == true && context.mounted) {
-          _openOrganizationPage<void>(
-              context, const _OrganizationWorkspace(canManage: true));
-        }
-        return;
-      }
-      final saved = await _openOrganizationPage<bool>(
-          context,
-          _OrganizationPreview(
-              title: 'پیش‌نمایش ورود اکسل', additions: imported));
-      if (saved == true && context.mounted) {
-        _openOrganizationPage<void>(
-            context, const _OrganizationWorkspace(canManage: true));
-      }
-    }
-  }
+
 }
 
 Future<void> _downloadOrganizationTemplate(BuildContext context) async {
@@ -437,12 +316,13 @@ Future<void> _downloadOrganizationTemplate(BuildContext context) async {
 }
 
 class _OrganizationStatus extends StatelessWidget {
-  const _OrganizationStatus();
+  const _OrganizationStatus({this.showWarnings = true});
+  final bool showWarnings;
   @override
   Widget build(BuildContext context) =>
       BlocBuilder<OrganizationCubit, OrganizationState>(
         builder: (context, state) => Column(children: [
-          for (final warning in state.snapshot.warnings)
+          for (final warning in showWarnings ? state.snapshot.warnings : <String>[])
             _OrgNotice(
                 icon: Icons.warning_amber,
                 color: AsoudColors.warning,
@@ -574,7 +454,6 @@ class _OrgNotice extends StatelessWidget {
         ]),
       );
 }
-
 class _OrgChoice extends StatelessWidget {
   const _OrgChoice(
       {required this.icon,
@@ -582,9 +461,7 @@ class _OrgChoice extends StatelessWidget {
       required this.title,
       required this.subtitle,
       required this.action,
-      this.secondary,
       this.onTap});
-  final Widget? secondary;
   final IconData icon;
   final Color color;
   final String title, subtitle, action;
@@ -603,15 +480,14 @@ class _OrgChoice extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: const TextStyle(fontWeight: FontWeight.w800)),
               const SizedBox(height: 4),
-              Text(subtitle,
+              Expanded(child: Text(subtitle,
                   textAlign: TextAlign.center,
                   style:
-                      const TextStyle(fontSize: 10, color: Color(0xff526079))),
+                      const TextStyle(fontSize: 10, color: Color(0xff526079)))),
               const SizedBox(height: 9),
               Text(action,
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 10, color: color)),
-              if (secondary != null) secondary!,
             ])),
       ));
 }
@@ -683,57 +559,11 @@ class _OrganizationTemplatesState extends State<_OrganizationTemplates> {
                           payload: templateOrganizationPayload(template,
                               existingUnits: existing)));
                   if (saved == true && context.mounted) {
-                    _openOrganizationPage<void>(
-                        context, const _OrganizationWorkspace(canManage: true));
+                    Navigator.pop(context, true);
                   }
                 },
               )),
           ])),
         ]),
-      );
-}
-
-class _OrganizationPreview extends StatelessWidget {
-  const _OrganizationPreview({required this.title, required this.additions});
-  final String title;
-  final List<OrgPosition> additions;
-  @override
-  Widget build(BuildContext context) =>
-      BlocBuilder<OrganizationCubit, OrganizationState>(
-        builder: (context, state) {
-          return Scaffold(
-            appBar: AsoudHeader(
-                title: title, subtitle: 'پیش‌نمایش ساختار قبل از ثبت'),
-            body: ListView(padding: const EdgeInsets.all(16), children: [
-              const _OrganizationStatus(),
-              _OrgNotice(
-                  icon: Icons.visibility_outlined,
-                  color: AsoudColors.primary,
-                  text:
-                      'تا پیش از تأیید، هیچ جایگاهی ثبت نمی‌شود. تمام جایگاه‌ها پس از ذخیره قابل ویرایش هستند.'),
-              const SizedBox(height: 16),
-              _OrganizationTree(
-                  rows: additions,
-                  preview: true,
-                  knownRows: [...state.snapshot.rows, ...additions]),
-            ]),
-            bottomNavigationBar: AsoudBottomActions(
-              primaryLabel:
-                  state.busy ? 'در حال ذخیره…' : 'تأیید و ایجاد ساختار',
-              onPrimary: state.busy
-                  ? null
-                  : () async {
-                      final cubit = context.read<OrganizationCubit>();
-                      final saved = await cubit
-                          .save([...cubit.state.snapshot.rows, ...additions]);
-                      if (saved && context.mounted) {
-                        Navigator.pop(context, true);
-                      }
-                    },
-              secondaryLabel: 'انصراف',
-              onSecondary: state.busy ? null : () => Navigator.pop(context),
-            ),
-          );
-        },
       );
 }

@@ -38,8 +38,9 @@ Map<String, dynamic> templateOrganizationPayload(OrganizationTemplate template,
 }
 
 class _OrganizationImportReview extends StatefulWidget {
-  const _OrganizationImportReview({required this.payload});
+  const _OrganizationImportReview({required this.payload, this.unitLabels = const {}});
   final Map<String, dynamic> payload;
+  final Map<String, String> unitLabels;
   @override
   State<_OrganizationImportReview> createState() =>
       _OrganizationImportReviewState();
@@ -60,6 +61,7 @@ class _OrganizationImportReviewState extends State<_OrganizationImportReview> {
     setState(() {
       busy = true;
       error = null;
+      preview = null;
     });
     try {
       final c = context.read<OrganizationCubit>();
@@ -94,7 +96,11 @@ class _OrganizationImportReviewState extends State<_OrganizationImportReview> {
       await c.repository.applyImport(
           c.company, widget.payload, (preview!['revision'] as num).toInt());
       await c.load();
-      if (mounted) Navigator.pop(context, true);
+      if (mounted) {
+        setState(() => busy = false);
+        await WidgetsBinding.instance.endOfFrame;
+        if (mounted) Navigator.pop(context, true);
+      }
     } catch (e) {
       if (mounted) {
         setState(() => error = e is ApiException
@@ -159,17 +165,16 @@ class _OrganizationImportReviewState extends State<_OrganizationImportReview> {
                 const Text(
                     'این نمایش خلاصه واحدهاست؛ فهرست کامل جایگاه‌ها در پایین آمده است.'),
               ],
+              Text('${formatCount((preview!["units"] as List).length, "واحد بررسی‌شده")} · ${formatCount((preview!["additions"] as List).length, "جایگاه جدید")}'),
               for (final unit in preview!['units'] as List)
                 ListTile(
                     title: Text('${unit['title']}'),
-                    subtitle: Text(unit['action'] == 'match'
-                        ? 'تطبیق با شناسه موجود'
-                        : 'ایجاد واحد جدید')),
+                    subtitle: Text('${unit['action'] == 'match' ? 'واحد موجود' : 'واحد جدید'} · بالادستی: ${_unitLabel('${unit['parent'] ?? ''}')}')),
               for (final row in preview!['additions'] as List)
                 ListTile(
                     title: Text('${row['title']}'),
                     subtitle: Text(
-                        'کد: ${row['code']} · بالادست: ${row['parent']}\nواحد: ${row['department'] ?? ''}')),
+                        'بالادست: ${_positionLabel('${row['parent'] ?? ''}')}\nواحد: ${row['department'] == '' || row['department'] == null ? 'بدون واحد' : row['department']} · ظرفیت: ${toPersianDigits('${row['capacity'] ?? 1}')}')),
             ],
             TextButton(
                 onPressed: busy ? null : _preview,
@@ -180,8 +185,21 @@ class _OrganizationImportReviewState extends State<_OrganizationImportReview> {
                 child: const Text('تأیید و ایجاد ساختار')),
             TextButton(
                 onPressed: busy ? null : () => Navigator.pop(context),
-                child: const Text('انصراف')),
+                child: const Text('بازگشت و ویرایش')),
           ])));
+
+  String _unitLabel(String id) => id.isEmpty
+      ? 'بدون بالادستی / واحد اصلی'
+      : (preview?['units'] as List? ?? [])
+              .where((u) => u['name'] == id)
+              .map((u) => '${u['title']}').firstOrNull ??
+          widget.unitLabels[id] ?? 'واحد موجود (نام در دسترس نیست)';
+
+  String _positionLabel(String code) => code.isEmpty
+      ? 'بدون جایگاه بالادستی'
+      : (preview?['rows'] as List? ?? [])
+              .where((p) => p['code'] == code)
+              .map((p) => '${p['title']}').firstOrNull ?? 'جایگاه در دسترس نیست';
 }
 
 Future<String?> _pickOrganizationEmployee(
@@ -307,7 +325,7 @@ class _OrganizationWorkspace extends StatelessWidget {
                                         : () async {
                                             await _openOrganizationPage<void>(
                                                 context,
-                                                const _OrganizationSetup());
+                                                const _OrganizationSetup(returnToWorkspace: true));
                                             if (!context.mounted) return;
                                             await context
                                                 .read<OrganizationCubit>()
