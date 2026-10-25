@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/auth/capabilities.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
@@ -43,8 +44,24 @@ class OfficesPage extends StatelessWidget {
       );
 }
 
-class _OfficesView extends StatelessWidget {
+class _OfficesView extends StatefulWidget {
   const _OfficesView();
+
+  @override
+  State<_OfficesView> createState() => _OfficesViewState();
+}
+
+class _OfficesViewState extends State<_OfficesView> {
+  /// «ایجاد دفتر کار» is its own permission; hidden unless the server grants it.
+  bool _canCreate = true;
+
+  @override
+  void initState() {
+    super.initState();
+    capabilitiesOf(context).then((caps) {
+      if (mounted) setState(() => _canCreate = caps.canCreateOffice);
+    });
+  }
 
   @override
   Widget build(BuildContext context) =>
@@ -70,12 +87,13 @@ class _OfficesView extends StatelessWidget {
                   context.read<OfficesCubit>().retry();
                 }
               },
-              itemBuilder: (_) => const [
-                PopupMenuItem(
-                  value: 'create',
-                  child: Text('ایجاد دفتر کار جدید'),
-                ),
-                PopupMenuItem(
+              itemBuilder: (_) => [
+                if (_canCreate)
+                  const PopupMenuItem(
+                    value: 'create',
+                    child: Text('ایجاد دفتر کار جدید'),
+                  ),
+                const PopupMenuItem(
                   value: 'refresh',
                   child: Text('به‌روزرسانی فهرست'),
                 ),
@@ -115,9 +133,11 @@ class _OfficesView extends StatelessWidget {
       return EmptyState(
         icon: Icons.business_outlined,
         title: 'هنوز دفتری ندارید',
-        description: 'برای شروع، اولین دفتر کاری خود را ایجاد کنید.',
-        primaryActionLabel: 'ایجاد دفتر کار جدید',
-        onPrimaryAction: () => _create(context),
+        description: _canCreate
+            ? 'برای شروع، اولین دفتر کاری خود را ایجاد کنید.'
+            : 'هنوز دسترسی به دفتر کاری برای شما تعیین نشده است.',
+        primaryActionLabel: _canCreate ? 'ایجاد دفتر کار جدید' : null,
+        onPrimaryAction: _canCreate ? () => _create(context) : null,
       );
     }
     return ListView(
@@ -158,20 +178,22 @@ class _OfficesView extends StatelessWidget {
           ),
           const SizedBox(height: 10),
         ],
-        SizedBox(
-          height: 52,
-          child: OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-              side: const BorderSide(color: AsoudColors.primary, width: 1.4),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
+        if (_canCreate) ...[
+          SizedBox(
+            height: 52,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: AsoudColors.primary, width: 1.4),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: () => _create(context),
+              icon: const Icon(Icons.add_circle_outline_rounded),
+              label: const Text('ایجاد دفتر کار جدید'),
             ),
-            onPressed: () => _create(context),
-            icon: const Icon(Icons.add_circle_outline_rounded),
-            label: const Text('ایجاد دفتر کار جدید'),
           ),
-        ),
-        const SizedBox(height: 22),
+          const SizedBox(height: 22),
+        ],
         const AsoudSectionTitle(title: 'دفترهای موجود'),
         SizedBox(
           height: 42,

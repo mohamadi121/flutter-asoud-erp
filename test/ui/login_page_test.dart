@@ -3,6 +3,7 @@ import 'package:asoud_erp/features/auth/presentation/pages/login_page.dart';
 import 'package:asoud_erp/features/office_setup/domain/repositories/office_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -11,6 +12,7 @@ import '../helpers/fake_office_repository.dart';
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
+    FlutterSecureStorage.setMockInitialValues({});
   });
   testWidgets('صفحه ورود همیشه فعال است و نسخه نمایشی را پیشنهاد می‌دهد',
       (tester) async {
@@ -23,7 +25,7 @@ void main() {
       ),
     ));
 
-    expect(find.text('ورود'), findsOneWidget);
+    expect(find.text('ورود به آسود'), findsOneWidget);
     expect(find.text('نام کاربری یا ایمیل'), findsOneWidget);
     expect(find.text('ورود به نسخه نمایشی (آفلاین)'), findsOneWidget);
     expect(tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
@@ -41,7 +43,7 @@ void main() {
       ),
     ));
 
-    expect(find.text('ورود'), findsOneWidget);
+    expect(find.text('ورود به آسود'), findsOneWidget);
     expect(find.text('ورود به نسخه نمایشی (آفلاین)'), findsNothing);
   });
 
@@ -62,7 +64,7 @@ void main() {
       find.widgetWithText(TextField, 'نشانی سرور'),
     );
     expect(server.controller!.text, isEmpty);
-    expect(server.decoration!.hintText, 'http://آدرس-سرور:پورت');
+    expect(server.decoration!.hintText, 'https://آدرس-سرور');
   });
 
   testWidgets('ادامه موقت ابتدا داشبورد خام را باز می‌کند', (tester) async {

@@ -9,6 +9,8 @@ import '../../../../core/widgets/asoud_ui.dart';
 import '../../../../core/widgets/states.dart';
 import '../../../../core/utils/persian_server_values.dart';
 import '../../../../core/utils/persian_format.dart';
+import '../../../../core/utils/failure_message.dart';
+import '../../data/work_report_submission_repository.dart';
 import '../../domain/hr_models.dart';
 import 'organization_page.dart';
 import '../../domain/hr_repository.dart';
@@ -433,7 +435,13 @@ class WorkReportsPage extends StatelessWidget {
                           builder: (context, state) => ListView(
                                 padding:
                                     const EdgeInsets.fromLTRB(16, 12, 16, 90),
-                                children: state.reports.isEmpty
+                                children: state.status == HrStatus.failure &&
+                                        state.reports.isEmpty
+                                    ? [
+                                        _Empty(state.message ??
+                                            'دریافت گزارش‌های کار ممکن نشد.')
+                                      ]
+                                    : state.reports.isEmpty
                                     ? const [
                                         _Empty('هنوز گزارش کاری ثبت نشده است')
                                       ]
@@ -448,15 +456,45 @@ class WorkReportsPage extends StatelessWidget {
                                                     report.date
                                                         .toIso8601String())),
                                                 subtitle: Text(
-                                                    '${report.totalMinutes} دقیقه • ${_hrLabel(report.status)}'))))
+                                                    '${report.totalMinutes} دقیقه • ${_hrLabel(report.status)}'),
+                                                trailing: report.id.isNotEmpty &&
+                                                        report.activities
+                                                            .isNotEmpty &&
+                                                        !report.id
+                                                            .startsWith('local-') &&
+                                                        (report.status == 'Draft' ||
+                                                            report.status ==
+                                                                'Returned')
+                                                    ? TextButton(
+                                                        key: Key(
+                                                            'send_report_${report.id}'),
+                                                        onPressed: () =>
+                                                            _send(context, report),
+                                                        child: const Text(
+                                                            'ارسال به مافوق'))
+                                                    : null)))
                                         .toList(),
                               )),
                     ))),
       );
+  Future<void> _send(BuildContext context, WorkReport report) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final cubit = context.read<HrCubit>();
+    try {
+      final sent =
+          await WorkReportSubmissionRepository(context.read<FrappeApiClient>())
+              .send(report);
+      messenger.showSnackBar(SnackBar(content: Text(sent.message)));
+      await cubit.loadReports();
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(failureDetail(e))));
+    }
+  }
+
   Future<void> _add(BuildContext context) async {
     final title = TextEditingController();
     final duration = TextEditingController();
-    final result = await showModalBottomSheet<WorkActivity>(
+    final result = await showModalBottomSheet<(WorkActivity, bool)>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
@@ -475,27 +513,53 @@ class WorkReportsPage extends StatelessWidget {
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(labelText: 'مدت به دقیقه')),
           const SizedBox(height: 12),
-          SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: () => title.text.trim().isEmpty
-                    ? null
-                    : Navigator.pop(
-                        context,
-                        WorkActivity(
-                            title: title.text.trim(),
-                            durationMinutes: int.tryParse(duration.text) ?? 0)),
-                child: const Text('ذخیره پیش‌نویس'),
-              )),
+          Row(children: [
+            Expanded(
+                child: OutlinedButton(
+              key: const Key('save_report_draft'),
+              onPressed: () => title.text.trim().isEmpty
+                  ? null
+                  : Navigator.pop(context, (_activity(title, duration), false)),
+              child: const Text('ذخیره پیش‌نویس'),
+            )),
+            const SizedBox(width: 8),
+            Expanded(
+                child: FilledButton(
+              key: const Key('send_report_now'),
+              onPressed: () => title.text.trim().isEmpty
+                  ? null
+                  : Navigator.pop(context, (_activity(title, duration), true)),
+              child: const Text('ارسال به مافوق'),
+            )),
+          ]),
         ]),
       ),
     );
     if (result != null && context.mounted) {
-      await context
-          .read<HrCubit>()
-          .saveReport(WorkReport(date: DateTime.now(), activities: [result]));
+      final messenger = ScaffoldMessenger.of(context);
+      final report = WorkReport(date: DateTime.now(), activities: [result.$1]);
+      try {
+        if (result.$2) {
+          // Same server method as a draft (`hr.save_report`), status Submitted.
+          final sent = await WorkReportSubmissionRepository(
+                  context.read<FrappeApiClient>())
+              .send(report);
+          messenger.showSnackBar(SnackBar(content: Text(sent.message)));
+          if (context.mounted) await context.read<HrCubit>().loadReports();
+        } else {
+          await context.read<HrCubit>().saveReport(report);
+        }
+      } catch (e) {
+        messenger.showSnackBar(SnackBar(content: Text(failureDetail(e))));
+      }
     }
   }
+
+  WorkActivity _activity(
+          TextEditingController title, TextEditingController duration) =>
+      WorkActivity(
+          title: title.text.trim(),
+          durationMinutes: int.tryParse(duration.text) ?? 0);
 }
 
 class HrCommunicationsPage extends StatelessWidget {

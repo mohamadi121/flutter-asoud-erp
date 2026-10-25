@@ -60,6 +60,13 @@ class _RemoteRoleRepository {
         .timeout(const Duration(seconds: 30));
   }
 
+  Future<SystemAdminPermissions> systemAdminPermissions() async {
+    final value = await _call('$_api.system_admin_permissions')
+        .timeout(const Duration(seconds: 20));
+    return SystemAdminPermissions.fromJson(
+        Map<String, dynamic>.from(value as Map));
+  }
+
   Future<List<RolePermissionRow>> preview(List<String> roles) async {
     final value =
         await _call('$_api.permission_preview', data: {'roles': roles})
@@ -162,7 +169,20 @@ class RoleRepository {
             .map((e) => {
                   ...e.toJson(),
                   'enabled': e.enabled,
-                  'assigned_users': e.assignedUsers
+                  'assigned_users': e.assignedUsers,
+                  'system': e.system,
+                })
+            .toList(),
+        'system_roles': catalog.systemRoles
+            .map((e) => {
+                  'code': e.code,
+                  'title': e.title,
+                  'description': e.description,
+                  'scope': e.scope,
+                  'scope_title': e.scopeTitle,
+                  'native_role': e.nativeRole,
+                  'system': e.system,
+                  'holders': e.holders,
                 })
             .toList(),
         'base_roles': catalog.baseRoles
@@ -630,6 +650,9 @@ class RoleRepository {
 
   Future<List<RolePermissionRow>> preview(List<String> roles) =>
       _remote.preview(roles);
+
+  Future<SystemAdminPermissions> systemAdminPermissions() =>
+      _remote.systemAdminPermissions();
 
   Future<void> discardDrafts() async {
     await _identify();

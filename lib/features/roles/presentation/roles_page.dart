@@ -18,6 +18,8 @@ import '../../../core/widgets/app_fields.dart';
 import '../../../core/widgets/asoud_ui.dart';
 import '../../../core/widgets/states.dart';
 import '../data/role_repository.dart';
+import '../../auth/data/account_repository.dart';
+import '../../auth/domain/entities/login_state.dart';
 import '../domain/role_catalog.dart';
 import 'role_cubit.dart';
 
@@ -26,6 +28,7 @@ part 'role_templates_page.dart';
 part 'role_setup_page.dart';
 part 'role_excel_page.dart';
 part 'user_access_page.dart';
+part 'role_permissions_page.dart';
 
 class RolesPage extends StatelessWidget {
   const RolesPage({this.repository, super.key});
@@ -178,6 +181,11 @@ class _RolesViewState extends State<_RolesView> {
                     primaryActionLabel: 'پاک‌کردن جستجو',
                     onPrimaryAction: () => setState(() => _query = ''),
                   ),
+                for (final role in state.catalog.systemRoles)
+                  if (_query.isEmpty ||
+                      role.title.contains(_query) ||
+                      role.code.toLowerCase().contains(_query.toLowerCase()))
+                    _systemRoleCard(role),
                 for (final category in state.catalog.categories)
                   if (matches(category)) _category(category, state, enabled),
                 const SizedBox(height: 14),
@@ -202,6 +210,29 @@ class _RolesViewState extends State<_RolesView> {
       _roleRoute<bool>(context, const _RoleForm());
     }
   }
+
+  /// A protected role of `catalog.system_roles` («مدیر کل سیستم»): global,
+  /// never edited here, its full permission list is one tap away.
+  Widget _systemRoleCard(ManagedRole role) => Card(
+        child: ListTile(
+          key: Key('system_role_${role.code}'),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          leading: const AsoudIconBox(
+              icon: Icons.verified_user_outlined,
+              color: AsoudColors.purple,
+              size: 44),
+          title: Text(role.title,
+              style: const TextStyle(fontWeight: FontWeight.w800)),
+          subtitle: Text([
+            'سطح دسترسی: ${role.scopeLabel.isEmpty ? 'سراسری' : role.scopeLabel}',
+            'دسترسی کامل',
+            if (role.holders.isNotEmpty) formatCount(role.holders.length, 'دارنده'),
+          ].join(' · ')),
+          trailing: const Icon(Icons.chevron_left),
+          onTap: () => _roleRoute<void>(context, _RolePermissions(role: role)),
+        ),
+      );
 
   Widget _category(RoleCategory category, RoleState state, bool enabled) {
     final style = _roleStyle(category.style);
@@ -298,6 +329,7 @@ class _RolesViewState extends State<_RolesView> {
           title: Text(persianRoleLabel(role.title.isNotEmpty ? role.title : role.code)),
           subtitle: Text(
               [
+                if (role.scope.isNotEmpty) 'سطح دسترسی: ${role.scopeLabel}',
                 if (role.description.isNotEmpty)
                   role.description
                 else if (persianRoleLabel(role.code) != persianRoleLabel(role.title))
@@ -311,11 +343,14 @@ class _RolesViewState extends State<_RolesView> {
               Icon(_expanded.contains('role:${role.code}')
                   ? Icons.expand_less
                   : Icons.expand_more),
-            if (widget.canManage)
+            if (widget.canManage || role.system)
               PopupMenuButton<String>(
                   enabled: enabled,
                   tooltip: 'عملیات نقش',
                 itemBuilder: (_) => [
+                      const PopupMenuItem(
+                          value: 'permissions', child: Text('مشاهده مجوزها')),
+                      if (!role.system) ...[
                       const PopupMenuItem(
                           value: 'child', child: Text('افزودن زیرمجموعه')),
                       const PopupMenuItem(
@@ -327,9 +362,12 @@ class _RolesViewState extends State<_RolesView> {
                           child: Text(role.enabled
                               ? 'غیرفعال‌کردن نقش'
                               : 'فعال‌کردن نقش')),
+                      ],
                     ],
                 onSelected: (action) {
-                  if (action == 'child') {
+                  if (action == 'permissions') {
+                    _roleRoute<void>(context, _RolePermissions(role: role));
+                  } else if (action == 'child') {
                     _roleRoute<bool>(context,
                         _RoleForm(category: role.category, parent: role.code));
                   } else if (action == 'edit') {
@@ -355,7 +393,7 @@ class _RolesViewState extends State<_RolesView> {
                 _expanded.remove('role:${role.code}');
               }
             });
-            if (!hasChildren && enabled && widget.canManage) {
+            if (!hasChildren && enabled && widget.canManage && !role.system) {
               _roleRoute<bool>(context, _RoleForm(role: role));
             }
           },

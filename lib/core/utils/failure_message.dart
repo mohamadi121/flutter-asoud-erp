@@ -65,3 +65,16 @@ bool failureCanRetry(Object? failure) {
         ApiFailureKind.cancelled,
       }.contains(failure.kind);
 }
+
+/// Like [failureMessage], but keeps the server's own Persian sentence for
+/// validation and conflict answers (HTTP 417 / 409 from `frappe.throw`), so a
+/// form can tell the user exactly what to fix.
+String failureDetail(Object? failure) {
+  if (failure is ApiException &&
+      (failure.kind == ApiFailureKind.validation ||
+          failure.kind == ApiFailureKind.conflict) &&
+      failure.message.trim().isNotEmpty) {
+    return failure.message.trim();
+  }
+  return failureMessage(failure);
+}

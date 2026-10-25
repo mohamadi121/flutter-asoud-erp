@@ -8,6 +8,7 @@ import '../../../../core/widgets/asoud_ui.dart';
 import '../../../hr/data/personnel_file_repository.dart';
 import '../../../calendar/calendar_navigation.dart';
 import '../../../hr/presentation/pages/hr_home_page.dart';
+import '../../../auth/presentation/pages/account_security_page.dart';
 import 'my_info_page.dart';
 import '../../../workflows/presentation/pages/generic_request_page.dart';
 import '../../../workflows/presentation/pages/workflow_notifications_page.dart';
@@ -168,6 +169,12 @@ class _MoreTab extends StatelessWidget {
         Icons.notifications_none_rounded,
         AsoudColors.primary,
         () => push(const WorkflowNotificationsPage())
+      ),
+      (
+        'حساب کاربری · امنیت حساب',
+        Icons.shield_outlined,
+        AsoudColors.cyan,
+        () => push(const AccountSecurityPage())
       ),
       (
         'اطلاعیه‌ها',

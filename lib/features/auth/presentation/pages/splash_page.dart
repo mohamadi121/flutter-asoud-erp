@@ -8,6 +8,7 @@ import '../../../../core/theme/asoud_colors.dart';
 import '../../../dashboard/presentation/pages/dashboard_page.dart';
 import '../../data/demo_choice_store.dart';
 import 'login_page.dart';
+import 'post_login_page.dart';
 
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key, this.restoreSession, this.hasDemoChoice});
@@ -46,7 +47,7 @@ class _SplashPageState extends State<SplashPage> {
       if (!mounted) return;
       if (restored) {
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute<void>(builder: (_) => const DashboardLandingPage()),
+          MaterialPageRoute<void>(builder: (_) => const PostLoginPage()),
         );
         return;
       }

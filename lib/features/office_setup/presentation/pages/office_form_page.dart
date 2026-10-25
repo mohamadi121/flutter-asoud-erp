@@ -18,11 +18,18 @@ class OfficeFormPage extends StatelessWidget {
     required this.officeType,
     this.office,
     this.allowOfflinePreview = AppConfig.offlineDemoMode,
+    this.onCreated,
+    this.firstOffice = false,
     super.key,
   });
   final OfficeType officeType;
+  final bool firstOffice;
   final Office? office;
   final bool allowOfflinePreview;
+
+  /// Replaces the default "open the dashboard" step after a new office is
+  /// saved. The first-login flow uses it to continue with the admin profile.
+  final void Function(BuildContext context, Office office)? onCreated;
   @override
   Widget build(BuildContext context) => BlocProvider(
         create: (context) => OfficeFormBloc(
@@ -30,14 +37,16 @@ class OfficeFormPage extends StatelessWidget {
           repository: context.read<OfficeRepository>(),
           office: office,
           allowOfflinePreview: allowOfflinePreview,
+          firstOffice: firstOffice,
         ),
-        child: _OfficeFormView(editing: office != null),
+        child: _OfficeFormView(editing: office != null, onCreated: onCreated),
       );
 }
 
 class _OfficeFormView extends StatefulWidget {
-  const _OfficeFormView({required this.editing});
+  const _OfficeFormView({required this.editing, this.onCreated});
   final bool editing;
+  final void Function(BuildContext context, Office office)? onCreated;
   @override
   State<_OfficeFormView> createState() => _OfficeFormViewState();
 }
@@ -80,6 +89,11 @@ class _OfficeFormViewState extends State<_OfficeFormView> {
               state.createdOffice != null) {
             if (widget.editing) {
               Navigator.of(context).pop(state.createdOffice);
+              return;
+            }
+            if (widget.onCreated != null &&
+                state.status == OfficeFormStatus.success) {
+              widget.onCreated!(context, state.createdOffice!);
               return;
             }
             final offline = state.status == OfficeFormStatus.offlinePreview;
