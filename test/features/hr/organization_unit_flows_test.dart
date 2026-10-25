@@ -167,13 +167,16 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('منابع انسانی'));
     await tester.pumpAndSettle();
-    final manage = find.text('مدیریت واحد');
-    await tester.ensureVisible(manage);
-    await tester.tap(manage);
+    // The unit details page opens with its management panel already shown.
+    expect(find.text('مدیریت واحد'), findsNWidgets(2));
+    final deleteAction = find.text('حذف واحد');
+    await tester.ensureVisible(deleteAction);
+    await tester.tap(deleteAction);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('حذف ایمن واحد'));
+    final check = find.text('بررسی امکان حذف');
+    await tester.dragUntilVisible(check, find.byType(ListView).last, const Offset(0, -200));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('بررسی وابستگی‌ها'));
+    await tester.tap(check);
     await tester.pumpAndSettle();
     await tester.tap(find.text('تأیید حذف واحد').last);
     await tester.pumpAndSettle();
