@@ -69,8 +69,13 @@ void main() {
       // The positions step exists independently; a unit is still required before
       // saving a position. No old TabBarView or legacy button label is assumed.
       final positionsStep = find.widgetWithText(TextButton, '۲. جایگاه‌ها');
-      await tester.scrollUntilVisible(positionsStep, -100, scrollable: pageScroll);
-      await tester.tap(positionsStep);
+      // ensureVisible's default alignment can put this cached child behind the
+      // fixed app bar at narrow widths. Restore the real top of the viewport.
+      final position = tester.state<ScrollableState>(pageScroll).position;
+      position.jumpTo(position.minScrollExtent);
+      await tester.pumpAndSettle();
+      expect(positionsStep.hitTestable(), findsOneWidget);
+      await tester.tap(positionsStep.hitTestable());
       await tester.pumpAndSettle();
       final addPosition = find.widgetWithText(FilledButton, 'افزودن جایگاه به پیش‌نویس');
       await tester.scrollUntilVisible(addPosition, 100, scrollable: pageScroll);
