@@ -16,10 +16,12 @@ class _OrganizationFocus extends StatefulWidget {
       {required this.units,
       required this.canManage,
       this.initialUnit,
+      this.initialError,
       this.initialAction});
   final List<Map<String, dynamic>> units;
   final bool canManage;
   final String? initialUnit;
+  final String? initialError;
   final _OrgEdit? initialAction;
   @override
   State<_OrganizationFocus> createState() => _OrganizationFocusState();
@@ -27,12 +29,11 @@ class _OrganizationFocus extends StatefulWidget {
 
 class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKeepAliveClientMixin {
   @override
-  bool get wantKeepAlive => action != null;
+  bool get wantKeepAlive => action != null || assigningPosition != null;
   late List<Map<String, dynamic>> units = widget.units;
-  late String? selected = widget.initialUnit ??
-      (nav.children(null).length == 1
-          ? '${nav.children(null).single['name']}'
-          : null);
+  late String? selected = widget.initialUnit;
+  bool branchOpen = true;
+  OrgPosition? assigningPosition;
   String? position;
   int page = 0, positionPage = 0, photoVersion = 0;
   bool busy = false, canPop = false;
@@ -40,9 +41,10 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
   late _OrgEdit? action = widget.initialAction;
   OrgPosition? editingPosition;
   final editor = GlobalKey<_OrganizationInlineEditorState>();
+  final rootEditor = GlobalKey<_OrganizationCreateFormState>();
   final actionAnchor = GlobalKey();
   late Future<List<OrganizationEmployee>> people;
-  String? loadError;
+  late String? loadError = widget.initialError;
   String? highlighted;
   Timer? highlightTimer;
   bool restored = false;
@@ -69,13 +71,8 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
     super.didChangeDependencies();
     if (restored) return;
     restored = true;
-    final saved = PageStorage.maybeOf(context)
-        ?.readState(context, identifier: 'focus:${cubit.company}');
-    if (widget.initialUnit == null &&
-        saved is String &&
-        nav.byId(saved) != null) {
-      selected = saved;
-    }
+    // Entry always starts at the real root. Selection survives refresh within
+    // this mounted page by native ID, not by restoring another visit's branch.
   }
 
   @override
@@ -89,7 +86,7 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
 
   Future<bool> leaveEditor() async {
     if (busy || editor.currentState?.saving == true) return false;
-    if (editor.currentState?.dirty != true) return true;
+    if (editor.currentState?.dirty != true && rootEditor.currentState?.dirty != true) return true;
     final answer = await showDialog<String>(
         context: context,
         builder: (dialog) => AlertDialog(
@@ -109,16 +106,25 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
               ],
             ));
     if (!mounted) return false;
-    if (answer == 'save') return await editor.currentState?.submit() ?? false;
+    if (answer == 'save') {
+      if (rootEditor.currentState != null) {
+        await rootEditor.currentState!.save();
+        return action == null;
+      }
+      return await editor.currentState?.submit() ?? false;
+    }
     return answer == 'discard';
   }
 
   Future<void> selectUnit(String? id) async {
     if (!await leaveEditor() || !mounted) return;
+    final same = selected == id;
     setState(() {
       selected = id;
+      branchOpen = id != null && same ? !branchOpen : true;
       position = null;
       action = null;
+      assigningPosition = null;
       page = 0;
       positionPage = 0;
       highlighted = null;
@@ -130,6 +136,7 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
     if (!canManage || !await leaveEditor() || !mounted) return;
     setState(() {
       action = null;
+      assigningPosition = null;
     });
     // Replace the form state even when opening the same action for another row.
     await WidgetsBinding.instance.endOfFrame;
@@ -159,6 +166,7 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
           selected = nav.byId(fallback) == null ? null : fallback;
         }
         if (newUnit != null) {
+          branchOpen = true;
           final index =
               nav.children(selected).indexWhere((u) => u['name'] == newUnit);
           if (index >= 0) page = index ~/ 4;
@@ -181,15 +189,15 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
 
   Future<void> assign(OrgPosition row) async {
     if (!await leaveEditor() || !mounted) return;
-    setState(() => action = null);
-    await _openOrganizationPage<void>(context,
-        _OrganizationAssignments(code: row.code, canManage: canManage));
-    if (!mounted) return;
-    cubit.repository.invalidateEmployeePhotos();
     setState(() {
-      photoVersion++;
-      people = loadPeople();
+      action = null;
+      assigningPosition = row;
     });
+    await WidgetsBinding.instance.endOfFrame;
+    if (mounted && actionAnchor.currentContext != null) {
+      await Scrollable.ensureVisible(actionAnchor.currentContext!,
+          duration: const Duration(milliseconds: 180), alignment: .1);
+    }
   }
 
   Future<void> reload() async {
@@ -222,12 +230,13 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
         final visiblePositionPage = math.min(positionPage, math.max(0, (positions.length - 1) ~/ 10));
         final locked = busy || state.busy;
         return PopScope(
-          canPop: canPop || (!busy && action == null),
+          canPop: canPop || (!busy && action == null && assigningPosition == null),
           onPopInvokedWithResult: (didPop, result) async {
             if (didPop || !await leaveEditor() || !mounted) return;
             setState(() {
               canPop = true;
               action = null;
+              assigningPosition = null;
             });
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted) Navigator.pop(context);
@@ -239,145 +248,140 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
               children: [
                 _OrgPanel(children: [
                   Row(children: [
-                    const Expanded(
-                        child: Text('ساختار فعلی سازمان',
-                            style: TextStyle(fontWeight: FontWeight.bold))),
-                    IconButton(tooltip: 'بازخوانی ساختار و تصاویر', onPressed: locked ? null : reload, icon: const Icon(Icons.refresh, size: 20)),
-                    TextButton(
-                        onPressed: locked ? null : () => selectUnit(null),
-                        child: const Text('انتخاب ریشه'))
+                    const Expanded(child: Text('ساختار فعلی سازمان',
+                        style: TextStyle(fontWeight: FontWeight.bold))),
+                    Text(formatCount(units.length, 'واحد'),
+                        style: const TextStyle(fontSize: 10, color: AsoudColors.muted)),
+                    PopupMenuButton<String>(
+                      tooltip: 'ابزارهای ساختار',
+                      enabled: !locked,
+                      icon: const Icon(Icons.more_horiz, size: 20),
+                      onSelected: (value) async {
+                        if (!await leaveEditor() || !context.mounted) return;
+                        if (value == 'reload') { await reload(); return; }
+                        await _openOrganizationPage<void>(context,
+                          value == 'units'
+                            ? _OrgDetailPage(title: 'واحدهای سازمانی', children: [
+                                SizedBox(height: MediaQuery.sizeOf(context).height * .7,
+                                  child: _OrganizationUnits(canManage: canManage))])
+                            : value == 'positions'
+                              ? _OrgDetailPage(title: 'جایگاه‌های سازمانی', children: [
+                                  SizedBox(height: MediaQuery.sizeOf(context).height * .7,
+                                    child: _PositionList(canManage: canManage))])
+                              : value == 'summary'
+                                ? const _OrgDetailPage(title: 'خلاصه ساختار', children: [_OrganizationSummary()])
+                                : const _OrganizationSetup(returnToWorkspace: true));
+                        if (mounted) await reload();
+                      },
+                      itemBuilder: (_) => [
+                        const PopupMenuItem(value: 'reload', child: Text('بازخوانی ساختار')),
+                        const PopupMenuItem(value: 'units', child: Text('واحدها')),
+                        const PopupMenuItem(value: 'positions', child: Text('جایگاه‌ها')),
+                        const PopupMenuItem(value: 'summary', child: Text('خلاصه ساختار')),
+                        if (canManage) const PopupMenuItem(value: 'setup',
+                          child: Text('انتخاب روش ایجاد: قالب، اکسل یا دستی')),
+                      ]),
                   ]),
-                  // Roots of the position graph are explicitly separate, not fake units.
-                  for (final root in roots.take(4))
-                    Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: Material(
-                          color: const Color(0xff283f70),
-                          borderRadius: BorderRadius.circular(14),
-                          child: InkWell(
-                              onTap: locked
-                                  ? null
-                                  : () async {
-                                      if (!await leaveEditor() ||
-                                          !context.mounted) {
-                                        return;
-                                      }
-                                      await _openOrganizationPage<void>(
-                                          context,
-                                          _PositionDetails(
-                                              code: root.code,
-                                              canManage: canManage));
-                                    },
-                              child: Padding(
-                                  padding: const EdgeInsets.all(12),
-                                  child: Column(children: [
-                                    Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                                      if (root.activeEmployees.isEmpty) const _OrganizationAvatar(),
-                                      for (final employee in root.activeEmployees.take(2))
-                                        _OrganizationAvatar(key: ValueKey('root:$employee:$photoVersion'), employee: employee),
-                                    ]),
-                                    Text(root.displayTitle,
-                                        style: const TextStyle(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.bold)),
-                                    FutureBuilder<List<OrganizationEmployee>>(future: people,
-                                      builder: (_, snapshot) => Text(_occupantLabel(root, snapshot.data ?? []),
-                                        style: const TextStyle(color: Colors.white70, fontSize: 10))),
-                                    const Text(
-                                        'جایگاه ریشه · مستقل از سلسله‌مراتب واحدها',
-                                        style: TextStyle(
-                                            color: Colors.white70,
-                                            fontSize: 10)),
-                                  ]))),
-                        )),
-                  if (roots.length > 4) TextButton(onPressed: locked ? null : () async {
-                    if (!await leaveEditor() || !context.mounted) return;
-                    await _openOrganizationPage<void>(context, _OrganizationChart(canManage: canManage));
-                  }, child: Text('مشاهده همه جایگاه‌های ریشه (${formatCount(roots.length)})')),
-                  for (final ancestor in path) ...[
-                    _unitCard(ancestor,
-                        active: true,
-                        current: ancestor['name'] == selected,
-                        onTap: locked
-                            ? null
-                            : () => selectUnit('${ancestor['name']}')),
-                    Center(
-                        child: Container(
-                            width: 2,
-                            height: 18,
-                            color: const Color(0xffbdcde5))),
+                  // Actual root positions only: never synthesize a Department.
+                  for (final root in roots) ...[
+                    Material(
+                      color: const Color(0xff283f70),
+                      borderRadius: BorderRadius.circular(12),
+                      child: InkWell(
+                        key: ValueKey('focus-root-${root.code}'),
+                        onTap: locked ? null : () => selectUnit(null),
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(width: double.infinity,
+                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+                          child: Column(children: [
+                            const Icon(Icons.person_outline, size: 19, color: Colors.white),
+                            const SizedBox(height: 4),
+                            Text(root.displayTitle, textAlign: TextAlign.center,
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                          ])))),
+                    _connector(),
                   ],
-                  Text(
-                      unit == null
-                          ? 'واحدهای ریشه'
-                          : 'زیرواحدهای مستقیم ${organizationUnitLabel(unit!)}',
+                  if (roots.isEmpty) const Padding(
+                    padding: EdgeInsets.all(10),
+                    child: Text('جایگاه ریشه در چارت ثبت نشده است؛ واحدها از ساختار واقعی نمایش داده می‌شوند.',
+                      style: TextStyle(fontSize: 11, color: AsoudColors.muted))),
+                  for (final ancestor in path) ...[
+                    Padding(padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: _unitCard(ancestor, active: true,
+                        current: ancestor['name'] == selected,
+                        onTap: locked ? null : () => selectUnit('${ancestor['name']}'))),
+                    _connector(),
+                  ],
+                  Center(child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                    decoration: BoxDecoration(color: _orgTints[0],
+                      borderRadius: BorderRadius.circular(20)),
+                    child: Text(unit == null
+                        ? 'زیرواحدهای مستقیم ${roots.length == 1 ? roots.single.displayTitle : 'ریشه سازمان'}'
+                        : 'زیرواحدهای مستقیم ${organizationUnitLabel(unit!)}',
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
-                          fontSize: 12, color: Color(0xff6781a8))),
-                  const SizedBox(height: 12),
-                  if (children.isEmpty)
-                    const Padding(
-                        padding: EdgeInsets.all(14),
-                        child: Text('زیرواحدی تعریف نشده است.',
-                            textAlign: TextAlign.center)),
-                  if (units.isEmpty) const Text('هنوز واحدی تعریف نشده است.'),
-                  if (unit == null && canManage) Wrap(spacing: 8, children: [
-                    FilledButton(onPressed: locked ? null : () async {
-                      await _openOrganizationPage<bool>(context, const _OrganizationCreateForm(position: false));
-                      if (mounted) await refresh();
-                    }, child: const Text('افزودن واحد')),
-                    OutlinedButton(onPressed: locked ? null : () async {
-                      await _openOrganizationPage<bool>(context, const _OrganizationCreateForm(position: true));
-                      if (mounted) await refresh();
-                    }, child: const Text('افزودن جایگاه')),
-                  ]),
-                  LayoutBuilder(
-                      builder: (context, bounds) =>
-                          Wrap(spacing: 8, runSpacing: 8, children: [
-                            for (final child in nav.page(selected, page))
-                              SizedBox(
-                                  width: (bounds.maxWidth - 8) / 2,
-                                  child: _unitCard(child,
-                                      index: children.indexOf(child),
-                                      onTap: locked
-                                          ? null
-                                          : () =>
-                                              selectUnit('${child['name']}'))),
+                      style: TextStyle(fontSize: 11, color: _orgAccents[0])))),
+                  _connector(height: 12),
+                  if (branchOpen && children.isEmpty)
+                    Container(width: double.infinity, padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(color: _orgTints[0], borderRadius: BorderRadius.circular(12)),
+                      child: const Text('هنوز زیرواحدی تعریف نشده است.', textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 12))),
+                  if (branchOpen && children.isNotEmpty)
+                    LayoutBuilder(builder: (context, bounds) {
+                      final shown = nav.page(selected, page);
+                      return Column(children: [
+                        for (var offset = 0; offset < shown.length; offset += 2) ...[
+                          CustomPaint(painter: _OrganizationChildConnector(
+                              paired: offset + 1 < shown.length),
+                            child: const SizedBox(width: double.infinity, height: 12)),
+                          IntrinsicHeight(child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                            for (var i = offset; i < math.min(offset + 2, shown.length); i++) ...[
+                              if (i > offset) const SizedBox(width: 8),
+                              Expanded(child: _unitCard(shown[i],
+                                index: children.indexOf(shown[i]),
+                                onTap: locked ? null : () => selectUnit('${shown[i]['name']}'))),
+                            ],
+                            if (offset + 1 >= shown.length) ...[
+                              const SizedBox(width: 8), const Expanded(child: SizedBox())],
                           ])),
-                  if (children.length > 4)
+                          if (offset + 2 < shown.length) _connector(height: 8),
+                        ],
+                      ]);
+                    }),
+                  if (branchOpen && children.length > 4)
                     Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      IconButton(
-                          tooltip: 'صفحه قبل',
-                          onPressed: locked || page == 0
-                              ? null
-                              : () => setState(() => page--),
-                          icon: const Icon(Icons.chevron_right)),
-                      Text(
-                          '${formatCount(page + 1)} از ${formatCount((children.length / 4).ceil())}'),
-                      IconButton(
-                          tooltip: 'صفحه بعد',
-                          onPressed: locked || (page + 1) * 4 >= children.length
-                              ? null
-                              : () => setState(() => page++),
-                          icon: const Icon(Icons.chevron_left)),
+                      IconButton(tooltip: 'صفحه قبل',
+                        onPressed: locked || page == 0 ? null : () => setState(() => page--),
+                        icon: const Icon(Icons.chevron_right)),
+                      Text('${formatCount(page + 1)} از ${formatCount((children.length / 4).ceil())}'),
+                      IconButton(tooltip: 'صفحه بعد',
+                        onPressed: locked || (page + 1) * 4 >= children.length ? null : () => setState(() => page++),
+                        icon: const Icon(Icons.chevron_left)),
                     ]),
-                  if (canManage && unit != null) ...[
-                    const SizedBox(height: 12),
+                  if (!branchOpen) const Padding(padding: EdgeInsets.all(12),
+                    child: Text('شاخه بسته است؛ برای بازکردن، کارت انتخاب‌شده را لمس کنید.',
+                      textAlign: TextAlign.center, style: TextStyle(fontSize: 11))),
+                  if (canManage) ...[
+                    const SizedBox(height: 10),
                     Row(children: [
-                      Expanded(
-                          child: FilledButton.icon(
-                              onPressed:
-                                  locked ? null : () => open(_OrgEdit.addUnit),
-                              icon: const Icon(Icons.add, size: 18),
-                              label: const Text('زیرواحد جدید'))),
+                      Expanded(child: OutlinedButton.icon(
+                        key: const ValueKey('focus-add-unit'),
+                        onPressed: locked ? null : () async {
+                          if (unit != null) { await open(_OrgEdit.addUnit); return; }
+                          await open(_OrgEdit.addUnit);
+                        },
+                        style: _slimButton(),
+                        icon: const Icon(Icons.add, size: 15), label: const Text('افزودن واحد'))),
                       const SizedBox(width: 8),
-                      Expanded(
-                          child: OutlinedButton.icon(
-                              onPressed: locked
-                                  ? null
-                                  : () => open(_OrgEdit.addPosition),
-                              icon: const Icon(Icons.add, size: 18),
-                              label: const Text('جایگاه جدید'))),
+                      Expanded(child: OutlinedButton.icon(
+                        key: const ValueKey('focus-add-position'),
+                        onPressed: locked ? null : () async {
+                          if (unit != null) { await open(_OrgEdit.addPosition); return; }
+                          await open(_OrgEdit.addPosition);
+                        },
+                        style: _slimButton(),
+                        icon: const Icon(Icons.add, size: 15), label: const Text('افزودن جایگاه'))),
                     ]),
                   ],
                 ]),
@@ -388,6 +392,23 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
                         onPressed: () => refresh(),
                         child: const Text('تلاش دوباره'))
                   ]),
+                if (assigningPosition != null)
+                  Padding(key: actionAnchor, padding: const EdgeInsets.only(top: 12),
+                    child: _OrgPanel(children: [_OrganizationAssignments(
+                      key: ValueKey('inline-assignment-${assigningPosition!.code}'),
+                      code: assigningPosition!.code, canManage: canManage, embedded: true,
+                      onBusy: (value) { if (mounted) setState(() => busy = value); },
+                      onClose: () => setState(() => assigningPosition = null))])),
+                if (action != null && unit == null)
+                  Padding(key: actionAnchor, padding: const EdgeInsets.only(top: 12),
+                    child: _OrgPanel(children: [_OrganizationCreateForm(
+                      key: rootEditor, embedded: true, position: action == _OrgEdit.addPosition,
+                      onBusy: (value) { if (mounted) setState(() => busy = value); },
+                      onCancel: () => setState(() => action = null),
+                      onSaved: (id) async {
+                        await refresh(newUnit: id);
+                        if (mounted) setState(() => action = null);
+                      })])),
                 if (action != null && unit != null)
                   Padding(
                       key: actionAnchor,
@@ -439,10 +460,16 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
                                       child: Text('حذف ایمن واحد')),
                                 ]),
                     ]),
-                    _detail('عنوان واحد', organizationUnitLabel(unit!)),
-                    _detail('واحد بالادستی', _parentLabel(unit!)),
-                    _detail('زیرواحدهای مستقیم', formatCount(children.length)),
-                    _detail('جایگاه‌های مستقیم', formatCount(positions.length)),
+                    Container(padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(color: const Color(0xfff4f6fb), borderRadius: BorderRadius.circular(12)),
+                      child: Column(children: [
+                        _detail('عنوان واحد', organizationUnitLabel(unit!)),
+                        _detail('واحد بالادستی', _parentLabel(unit!)),
+                        _detail('زیرواحدهای مستقیم', formatCount(children.length)),
+                        _detail('جایگاه‌های مستقیم', formatCount(positions.length)),
+                        if ('${unit!['description'] ?? ''}'.trim().isNotEmpty)
+                          _detail('توضیحات', '${unit!['description']}'),
+                      ])),
                   ]),
                   const SizedBox(height: 12),
                   _OrgPanel(children: [
@@ -469,9 +496,7 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
                                 Padding(
                                     padding: const EdgeInsets.only(top: 8),
                                     child: Material(
-                                      color: row.code == position
-                                          ? const Color(0xff283f70)
-                                          : const Color(0xfff4f6fb),
+                                      color: const Color(0xfff4f6fb),
                                       borderRadius: BorderRadius.circular(14),
                                       child: ListTile(
                                         key: ValueKey(
@@ -504,23 +529,28 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
                                         title: Text(row.displayTitle,
                                             style: TextStyle(
                                                 fontSize: 13,
-                                                color: row.code == position
-                                                    ? Colors.white
-                                                    : _orgInk)),
+                                                color: _orgInk)),
                                         subtitle: Text(
                                             '${_occupantLabel(row, snapshot.data ?? [])}\nظرفیت ${formatCount(row.capacity)} · خالی ${formatCount(row.capacity - row.activeEmployees.length)}',
                                             style: TextStyle(
                                                 fontSize: 11,
-                                                color: row.code == position
-                                                    ? Colors.white70
-                                                    : const Color(0xff737e90))),
+                                                color: const Color(0xff737e90))),
                                         trailing: canManage
-                                            ? PopupMenuButton<String>(
+                                            ? Row(mainAxisSize: MainAxisSize.min, children: [
+                                              IconButton(tooltip: 'ویرایش ${row.displayTitle}',
+                                                constraints: const BoxConstraints.tightFor(width: 34, height: 40),
+                                                padding: EdgeInsets.zero,
+                                                onPressed: locked ? null : () => open(_OrgEdit.editPosition, row),
+                                                icon: const Icon(Icons.edit_outlined, size: 17)),
+                                              IconButton(tooltip: 'انتساب ${row.displayTitle}',
+                                                constraints: const BoxConstraints.tightFor(width: 34, height: 40),
+                                                padding: EdgeInsets.zero,
+                                                onPressed: locked ? null : () => assign(row),
+                                                icon: const Icon(Icons.person_add_alt, size: 17)),
+                                              PopupMenuButton<String>(
                                                 tooltip: 'عملیات ${row.displayTitle}',
                                                 enabled: !locked,
-                                                iconColor: row.code == position
-                                                    ? Colors.white
-                                                    : _orgInk,
+                                                iconColor: _orgInk,
                                                 onSelected: (v) => v == 'assign'
                                                     ? assign(row)
                                                     : open(
@@ -545,7 +575,7 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
                                                               'deletePosition',
                                                           child: Text(
                                                               'حذف ایمن جایگاه')),
-                                                    ])
+                                                    ])])
                                             : null,
                                         onTap: locked
                                             ? null
@@ -625,6 +655,15 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
         );
       });
 
+  ButtonStyle _slimButton() => OutlinedButton.styleFrom(
+      minimumSize: const Size(0, 42), padding: const EdgeInsets.symmetric(horizontal: 6),
+      foregroundColor: _orgInk, backgroundColor: Colors.white,
+      textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(fontSize: 12), shape: const StadiumBorder(),
+      side: const BorderSide(color: Color(0xffe2e8f2)));
+
+  Widget _connector({double height = 16}) => Center(child: Container(
+      width: 1, height: height, color: const Color(0xffbdcde5)));
+
   String _occupantLabel(OrgPosition row, List<OrganizationEmployee> employees) {
     if (row.activeEmployees.isEmpty) return 'بدون متصدی';
     if (row.activeEmployees.length > 1) {
@@ -675,14 +714,14 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
             borderRadius: BorderRadius.circular(14),
             child: Container(
                 width: double.infinity,
-                constraints: const BoxConstraints(minHeight: 90),
-                padding: const EdgeInsets.all(12),
+                constraints: BoxConstraints(minHeight: active ? 76 : 100),
+                padding: const EdgeInsets.all(10),
                 child: Column(children: [
                   CircleAvatar(
-                      radius: 14,
+                      radius: active ? 10 : 14,
                       backgroundColor: Colors.transparent,
                       child: Icon(Icons.business_outlined,
-                          size: 22,
+                          size: active ? 18 : 22,
                           color: active
                               ? Colors.white
                               : _orgAccents[index % _orgAccents.length])),
@@ -704,6 +743,26 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
                           color: active
                               ? Colors.white70
                               : _orgAccents[index % _orgAccents.length])),
+                  if (!active || current) Icon(
+                    active && branchOpen ? Icons.expand_less : Icons.expand_more,
+                    size: 16, color: active ? Colors.white70 : _orgAccents[index % _orgAccents.length]),
                 ]))),
       );
+}
+
+class _OrganizationChildConnector extends CustomPainter {
+  const _OrganizationChildConnector({required this.paired});
+  final bool paired;
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = const Color(0xffbdcde5)..strokeWidth = 1;
+    final center = size.width / 2;
+    final right = size.width * .75 + 2;
+    canvas.drawLine(Offset(center, 0), Offset(center, 5), paint);
+    canvas.drawLine(Offset(paired ? size.width * .25 - 2 : right, 5), Offset(right, 5), paint);
+    canvas.drawLine(Offset(right, 5), Offset(right, size.height), paint);
+    if (paired) canvas.drawLine(Offset(size.width * .25 - 2, 5), Offset(size.width * .25 - 2, size.height), paint);
+  }
+  @override
+  bool shouldRepaint(covariant _OrganizationChildConnector oldDelegate) => oldDelegate.paired != paired;
 }

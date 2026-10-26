@@ -1,9 +1,13 @@
 part of 'organization_page.dart';
 
 class _OrganizationAssignments extends StatefulWidget {
-  const _OrganizationAssignments({required this.code, required this.canManage});
+  const _OrganizationAssignments({super.key, required this.code, required this.canManage,
+    this.embedded = false, this.onClose, this.onBusy});
   final String code;
   final bool canManage;
+  final bool embedded;
+  final VoidCallback? onClose;
+  final ValueChanged<bool>? onBusy;
   @override
   State<_OrganizationAssignments> createState() =>
       _OrganizationAssignmentsState();
@@ -23,6 +27,7 @@ class _OrganizationAssignmentsState extends State<_OrganizationAssignments> {
   void _loadPeople() {
     final c = context.read<OrganizationCubit>();
     people = c.repository.employees(c.company);
+    people.ignore();
   }
 
   Future<void> _change(OrgPosition original, List<String> occupants) async {
@@ -46,7 +51,9 @@ class _OrganizationAssignmentsState extends State<_OrganizationAssignments> {
       return;
     }
     setState(() => saving = true);
+    widget.onBusy?.call(true);
     final saved = await c.save(rows);
+    widget.onBusy?.call(false);
     if (!mounted) return;
     setState(() => saving = false);
     _orgMessage(
@@ -85,14 +92,7 @@ class _OrganizationAssignmentsState extends State<_OrganizationAssignments> {
           builder: (context, state) {
         final row =
             state.snapshot.rows.where((r) => r.code == code).firstOrNull;
-        return PopScope(
-            canPop: !saving,
-            child: _OrgSheetTheme(
-                child: Scaffold(
-              backgroundColor: _orgCanvas,
-              appBar: const _OrganizationReferenceHeader(
-                  title: 'انتساب پرسنل', form: true),
-              body: row == null
+        final body = row == null
                   ? Center(child: Text('جایگاه در دسترس نیست.'))
                   : FutureBuilder<List<OrganizationEmployee>>(
                       future: people,
@@ -103,7 +103,7 @@ class _OrganizationAssignmentsState extends State<_OrganizationAssignments> {
                                 .where((p) => p.id == id)
                                 .map((p) => p.displayName)
                                 .firstOrNull ??
-                            id.replaceFirst('employee:', '');
+                            'پرسنل منتسب';
                         String personnelCode(String id) =>
                             employees
                                 .where((p) => p.id == id)
@@ -115,6 +115,8 @@ class _OrganizationAssignmentsState extends State<_OrganizationAssignments> {
                             state.snapshot.pending ||
                             state.snapshot.rejected;
                         return ListView(
+                            shrinkWrap: widget.embedded,
+                            physics: widget.embedded ? const NeverScrollableScrollPhysics() : null,
                             padding: const EdgeInsets.all(16),
                             children: [
                               Container(
@@ -129,7 +131,7 @@ class _OrganizationAssignmentsState extends State<_OrganizationAssignments> {
                                         label: 'جایگاه شغلی',
                                         value: code,
                                         displayValue: row.displayTitle,
-                                        enabled: !saving,
+                                        enabled: !saving && !widget.embedded,
                                         onPick: () => showAppOptionSheet(
                                                 context,
                                                 title: 'انتخاب جایگاه',
@@ -367,10 +369,18 @@ class _OrganizationAssignmentsState extends State<_OrganizationAssignments> {
                                                 style: TextStyle(fontSize: 12)),
                                         ],
                                       ])),
-                              const _OrgTabFooter(),
+                              if (widget.embedded) ...[
+                                const Text('تاریخ شروع و پایان واقعی را سرور هنگام ثبت و پایان انتساب نگه می‌دارد؛ تعیین بازهٔ دلخواه در API فعلی پشتیبانی نمی‌شود.',
+                                  style: TextStyle(fontSize: 11, color: AsoudColors.muted)),
+                                OutlinedButton(onPressed: saving ? null : widget.onClose, child: const Text('بستن انتساب')),
+                              ] else const _OrgTabFooter(),
                             ]);
-                      }),
-            )));
+                      });
+        if (widget.embedded) return body;
+        return PopScope(canPop: !saving, child: _OrgSheetTheme(child: Scaffold(
+          backgroundColor: _orgCanvas,
+          appBar: const _OrganizationReferenceHeader(title: 'انتساب پرسنل', form: true),
+          body: body)));
       });
 }
 

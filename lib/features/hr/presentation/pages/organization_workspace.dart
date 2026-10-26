@@ -305,59 +305,11 @@ class _OrganizationWorkspace extends StatelessWidget {
   const _OrganizationWorkspace({required this.canManage});
   final bool canManage;
   @override
-  Widget build(BuildContext context) => DefaultTabController(
-      length: 3,
-      child: Scaffold(
-          backgroundColor: _orgCanvas,
-          appBar: const _OrganizationReferenceHeader(),
-          body: NestedScrollView(
-              headerSliverBuilder: (context, innerScrolled) => [
-                    const SliverToBoxAdapter(child: _OrganizationSummary()),
-                    if (canManage)
-                      SliverToBoxAdapter(
-                          child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
-                              child: BlocBuilder<OrganizationCubit,
-                                  OrganizationState>(builder: (context, state) {
-                                return OutlinedButton.icon(
-                                    onPressed: state.busy
-                                        ? null
-                                        : () async {
-                                            await _openOrganizationPage<void>(
-                                                context,
-                                                const _OrganizationSetup(returnToWorkspace: true));
-                                            if (!context.mounted) return;
-                                            await context
-                                                .read<OrganizationCubit>()
-                                                .load();
-                                          },
-                                    icon: const Icon(Icons.add_chart_outlined),
-                                    label: const Text(
-                                        'انتخاب روش ایجاد: قالب، اکسل یا دستی'));
-                              }))),
-                    SliverToBoxAdapter(
-                        child: Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                            child: TabBar(
-                                dividerColor: Colors.transparent,
-                                indicatorSize: TabBarIndicatorSize.tab,
-                                indicator: BoxDecoration(
-                                    color: const Color(0xffeeeeef),
-                                    borderRadius: BorderRadius.circular(28)),
-                                labelColor: const Color(0xff24252b),
-                                unselectedLabelColor: const Color(0xff777982),
-                                labelPadding: EdgeInsets.zero,
-                                tabs: const [
-                                  Tab(text: 'چارت سازمانی'),
-                                  Tab(text: 'واحدها'),
-                                  Tab(text: 'جایگاه‌ها')
-                                ]))),
-                  ],
-              body: TabBarView(children: [
-                _OrganizationUnits(canManage: canManage, hierarchy: true),
-                _OrganizationUnits(canManage: canManage),
-                _PositionList(canManage: canManage),
-              ]))));
+  Widget build(BuildContext context) => Scaffold(
+      backgroundColor: _orgCanvas,
+      appBar: const _OrganizationReferenceHeader(
+          title: 'مدیریت ساختار سازمانی', compact: true, form: true),
+      body: _OrganizationUnits(canManage: canManage, hierarchy: true));
 }
 
 class _PositionList extends StatefulWidget {
@@ -581,6 +533,10 @@ class _OrganizationUnitsState extends State<_OrganizationUnits> {
               future: data,
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
+                  if (widget.hierarchy) {
+                    return _OrganizationFocus(units: const [], canManage: false,
+                        initialError: failureMessage(snapshot.error));
+                  }
                   return Center(
                       child: Padding(
                           padding: const EdgeInsets.all(24),

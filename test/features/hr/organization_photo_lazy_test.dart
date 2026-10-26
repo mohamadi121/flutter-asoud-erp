@@ -12,6 +12,20 @@ class _Repository extends Mock implements OrganizationRepository {}
 
 Finder get visualReport => find.textContaining('گزارش تصویری');
 
+
+Future<void> _openStructureTool(WidgetTester tester, String label) async {
+  final scroll = find.byKey(const PageStorageKey('organization-focused-scroll'));
+  if (scroll.evaluate().isNotEmpty) {
+    final state = tester.state<ScrollableState>(find.descendant(of: scroll, matching: find.byType(Scrollable)).first);
+    state.position.jumpTo(state.position.minScrollExtent);
+    await tester.pumpAndSettle();
+  }
+  await tester.tap(find.byTooltip('ابزارهای ساختار'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(label).last);
+  await tester.pumpAndSettle();
+}
+
 void main() {
   setUpAll(() {
     registerFallbackValue(const OrganizationSnapshot([], 0, false));
@@ -45,7 +59,7 @@ void main() {
     await tester.pumpWidget(MaterialApp(
         home: OrganizationPage(company: 'شرکت', repository: repository)));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('جایگاه‌ها'));
+    await _openStructureTool(tester, 'جایگاه‌ها');
     await tester.pumpAndSettle();
     expect(visualReport, findsOneWidget);
     // The focused structure now shows photos on its first four real root

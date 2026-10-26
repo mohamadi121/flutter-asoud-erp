@@ -104,7 +104,7 @@ class _OrgClient extends Fake implements FrappeApiClient {
 }
 
 Future<void> _openCreateForm(WidgetTester tester, _OrgClient client,
-    {bool openForm = true}) async {
+    {bool openForm = true, bool focusFirst = true}) async {
   tester.view.physicalSize = const Size(390, 1600);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
@@ -126,8 +126,18 @@ Future<void> _openCreateForm(WidgetTester tester, _OrgClient client,
   ));
   await tester.pumpAndSettle();
 
-  if (!openForm) return;
-  await tester.tap(find.text('جایگاه‌ها'));
+  if (!openForm) {
+    if (focusFirst && client.units.isNotEmpty) {
+      final ids = client.units.map((u) => u['name']).toSet();
+      final roots = client.units.where((u) => !ids.contains(u['parent_department'])).toList();
+      if (roots.length == 1) {
+        await tester.tap(find.byKey(ValueKey('focus-unit-${roots.single['name']}')));
+        await tester.pumpAndSettle();
+      }
+    }
+    return;
+  }
+  await _openStructureTool(tester, 'جایگاه‌ها');
   await tester.pumpAndSettle();
   await tester.tap(find.byTooltip('عملیات جایگاه'));
   await tester.pumpAndSettle();
@@ -135,7 +145,80 @@ Future<void> _openCreateForm(WidgetTester tester, _OrgClient client,
   await tester.pumpAndSettle();
 }
 
+
+Future<void> _openStructureTool(WidgetTester tester, String label) async {
+  final scroll = find.byKey(const PageStorageKey('organization-focused-scroll'));
+  if (scroll.evaluate().isNotEmpty) {
+    final state = tester.state<ScrollableState>(find.descendant(of: scroll, matching: find.byType(Scrollable)).first);
+    state.position.jumpTo(state.position.minScrollExtent);
+    await tester.pumpAndSettle();
+  }
+  await tester.tap(find.byTooltip('ابزارهای ساختار'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(label).last);
+  await tester.pumpAndSettle();
+}
+
 void main() {
+  for (final width in [320.0, 390.0, 430.0]) {
+    testWidgets('root entry, path selection and branch toggle at $width', (tester) async {
+      final client = _OrgClient(units: [
+        {'name': 'A', 'department_name': 'فروش', 'parent_department': null, 'is_group': 1, 'disabled': 0},
+        {'name': 'B', 'department_name': 'مالی', 'parent_department': null, 'is_group': 1, 'disabled': 0},
+        {'name': 'A1', 'department_name': 'بازاریابی', 'parent_department': 'A', 'is_group': 1, 'disabled': 0},
+        {'name': 'A2', 'department_name': 'توزیع', 'parent_department': 'A', 'is_group': 1, 'disabled': 0},
+        {'name': 'A11', 'department_name': 'دیجیتال', 'parent_department': 'A1', 'is_group': 1, 'disabled': 0},
+      ], positions: [
+        {'code': 'CEO', 'title': 'مدیرعامل', 'parent': '', 'occupants': <String>[], 'capacity': 1},
+        {'code': 'P1', 'title': 'مدیر بازاریابی', 'parent': 'CEO', 'department_id': 'A1',
+          'department': 'بازاریابی', 'occupants': <String>[], 'capacity': 2},
+      ]);
+      await _openCreateForm(tester, client, openForm: false, focusFirst: false);
+      tester.view.physicalSize = Size(width, 1400);
+      await tester.pumpAndSettle();
+      Finder card(String id) => find.byKey(ValueKey('focus-unit-$id'));
+      Future<void> choose(String id) async {
+        await Scrollable.ensureVisible(tester.element(card(id)), alignment: .5);
+        await tester.pumpAndSettle();
+        expect(card(id).hitTestable(), findsOneWidget);
+        await tester.tap(card(id).hitTestable());
+        await tester.pumpAndSettle();
+      }
+      expect(find.byType(TabBar), findsNothing);
+      expect(find.text('انتخاب ریشه'), findsNothing);
+      expect(card('A'), findsOneWidget);
+      expect(card('B'), findsOneWidget);
+      expect(card('A1'), findsNothing);
+      await choose('A');
+      expect(card('B'), findsNothing);
+      expect(card('A1'), findsOneWidget);
+      expect(card('A2'), findsOneWidget);
+      await choose('A1');
+      expect(card('A'), findsOneWidget);
+      expect(card('A2'), findsNothing);
+      expect(card('A11'), findsOneWidget);
+      final add = find.byKey(const ValueKey('focus-add-unit'));
+      expect(tester.getTopLeft(add).dy, greaterThan(tester.getBottomLeft(card('A11')).dy));
+      await choose('A1');
+      expect(card('A11'), findsNothing);
+      expect(find.textContaining('شاخه بسته است'), findsOneWidget);
+      await choose('A1');
+      expect(card('A11'), findsOneWidget);
+      await choose('A');
+      expect(card('A2'), findsOneWidget);
+      expect(card('A11'), findsNothing);
+      await Scrollable.ensureVisible(tester.element(find.byKey(const ValueKey('focus-root-CEO'))), alignment: .5);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('focus-root-CEO')));
+      await tester.pumpAndSettle();
+      expect(card('B'), findsOneWidget);
+      expect(card('A1'), findsNothing);
+      expect(client.lastSavePayload, isNull);
+      expect(client.lastUnitPayload, isNull);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   const unit = {
     'name': 'HR-CO',
     'department_name': 'منابع انسانی',
@@ -144,6 +227,48 @@ void main() {
     'disabled': 0,
     'modified': '2026-10-22 10:00:00'
   };
+
+  testWidgets('root creates a real top-level unit inline, without a fabricated parent', (tester) async {
+    final client = _OrgClient(units: [unit]);
+    await _openCreateForm(tester, client, openForm: false, focusFirst: false);
+    final add = find.byKey(const ValueKey('focus-add-unit'));
+    await tester.ensureVisible(add);
+    await tester.tap(add);
+    await tester.pumpAndSettle();
+    expect(find.byType(Scaffold), findsOneWidget);
+    final title = find.byType(TextFormField).first;
+    await tester.enterText(title, 'واحد مستقل جدید');
+    final save = find.byKey(const ValueKey('organization-compact-create-submit'));
+    await tester.ensureVisible(save);
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+    expect(client.lastUnitPayload!['title'], 'واحد مستقل جدید');
+    expect(client.lastUnitPayload!['parent'], '');
+    expect(client.lastUnitPayload!.containsKey('name'), isFalse);
+    expect(find.byKey(const ValueKey('focus-unit-NEW-UNIT')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('assignment opens inline for the selected position and preserves history', (tester) async {
+    final client = _OrgClient(units: [unit], positions: [
+      {'code': 'CEO', 'title': 'مدیرعامل', 'parent': '', 'capacity': 1, 'occupants': <String>[]},
+      {'code': 'P1', 'title': 'کارشناس منابع انسانی', 'parent': 'CEO', 'department_id': 'HR-CO',
+        'department': 'منابع انسانی', 'capacity': 2, 'occupants': <String>[],
+        'assignment_history': [{'employee': 'employee:OLD', 'started_at': null, 'ended_at': '2026-01-01'}]},
+    ]);
+    await _openCreateForm(tester, client, openForm: false);
+    final assign = find.byTooltip('انتساب کارشناس منابع انسانی');
+    await tester.ensureVisible(assign);
+    await tester.tap(assign);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('inline-assignment-P1')), findsOneWidget);
+    expect(find.byType(Scaffold), findsOneWidget);
+    expect(find.text('ظرفیت کل'), findsOneWidget);
+    expect(find.text('سوابق انتساب'), findsOneWidget);
+    expect(client.writes, isEmpty);
+    expect(client.positions!.last['assignment_history'], hasLength(1));
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('focused organization reference render', (tester) async {
     await (FontLoader('Vazirmatn')
@@ -176,6 +301,29 @@ void main() {
     await expectLater(find.byType(OrganizationPage), matchesGoldenFile('../../../build/organization-focus-reference.png'));
   }, tags: 'golden', skip: !const bool.fromEnvironment('ORG_VISUAL'));
 
+  testWidgets('approved management layout reference render', (tester) async {
+    await (FontLoader('Vazirmatn')
+      ..addFont(rootBundle.load('assets/fonts/Vazirmatn-Regular.ttf'))
+      ..addFont(rootBundle.load('assets/fonts/Vazirmatn-Bold.ttf'))).load();
+    await (FontLoader('MaterialIcons')..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'))).load();
+    final client = _OrgClient(units: [
+      {...unit, 'name': 'SALES', 'department_name': 'فروش و بازاریابی'},
+      {...unit, 'name': 'MARKETING', 'department_name': 'بازاریابی', 'parent_department': 'SALES'},
+      {...unit, 'name': 'DIRECT', 'department_name': 'فروش مستقیم', 'parent_department': 'SALES'},
+    ], positions: [
+      {'code': 'CEO', 'title': 'مدیرعامل', 'parent': '', 'occupants': <String>[], 'capacity': 1},
+      {'code': 'SALES-MANAGER', 'title': 'مدیر فروش', 'parent': 'CEO', 'department_id': 'SALES',
+        'department': 'فروش و بازاریابی', 'occupants': <String>[], 'capacity': 1},
+    ]);
+    await _openCreateForm(tester, client, openForm: false, focusFirst: false);
+    tester.view.physicalSize = const Size(390, 1200);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('focus-unit-SALES')));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await expectLater(find.byType(OrganizationPage), matchesGoldenFile('../../../build/organization-management-reference.png'));
+  }, tags: 'golden', skip: !const bool.fromEnvironment('ORG_VISUAL'));
+
   testWidgets('focused children paginate four at a time and retain native path', (tester) async {
     final client = _OrgClient(units: [unit, for (var i = 0; i < 9; i++) {
       ...unit, 'name': 'CHILD-$i', 'department_name': 'واحد $i', 'parent_department': 'HR-CO',
@@ -198,14 +346,14 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('focus-unit-CHILD-8')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('focus-unit-HR-CO')), findsOneWidget);
-    expect(find.text('زیرواحدی تعریف نشده است.'), findsOneWidget);
+    expect(find.text('هنوز زیرواحدی تعریف نشده است.'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
   testWidgets('rejected inline save retains input and never announces success', (tester) async {
     final client = _OrgClient(units: [unit])..rejectSave = true;
     await _openCreateForm(tester, client, openForm: false);
-    await tester.tap(find.text('جایگاه جدید'));
+    await tester.tap(find.text('افزودن جایگاه'));
     await tester.pumpAndSettle();
     final title = find.byKey(const ValueKey('focus-editor-title'));
     await tester.enterText(title, 'کارشناس بررسی');
@@ -261,8 +409,8 @@ void main() {
       await _openCreateForm(tester, client, openForm: false);
       tester.view.physicalSize = Size(width, 1800);
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('جایگاه جدید'));
-      await tester.tap(find.text('جایگاه جدید'));
+      await tester.ensureVisible(find.text('افزودن جایگاه'));
+      await tester.tap(find.text('افزودن جایگاه'));
       await tester.pumpAndSettle();
       final title = find.byKey(const ValueKey('focus-editor-title'));
       expect(tester.widget<AppTextField>(title).controller!.text, isEmpty);
@@ -284,7 +432,7 @@ void main() {
   testWidgets('unsaved inline subunit prompts before changing context and persists fixed parent', (tester) async {
     final client = _OrgClient(units: [unit, {...unit, 'name': 'CHILD', 'department_name': 'آموزش', 'parent_department': 'HR-CO'}]);
     await _openCreateForm(tester, client, openForm: false);
-    await tester.tap(find.text('زیرواحد جدید'));
+    await tester.tap(find.text('افزودن واحد'));
     await tester.pumpAndSettle();
     final title = find.byKey(const ValueKey('focus-editor-title'));
     await tester.enterText(title, 'پشتیبانی');
@@ -314,7 +462,7 @@ void main() {
       }, {
         ...unit, 'name': 'CHILD-B', 'department_name': 'جذب', 'parent_department': 'HR-CO',
       }]);
-      await _openCreateForm(tester, client, openForm: false);
+      await _openCreateForm(tester, client, openForm: false, focusFirst: false);
       tester.view.physicalSize = Size(width, 1600);
       await tester.pumpAndSettle();
       expect(find.text('مدیرعامل'), findsOneWidget);
@@ -330,7 +478,7 @@ void main() {
       expect(client.lastUnitPayload, isNull);
       await tester.tap(find.text('آموزش'));
       await tester.pumpAndSettle();
-      expect(find.text('زیرواحدی تعریف نشده است.'), findsOneWidget);
+      expect(find.text('هنوز زیرواحدی تعریف نشده است.'), findsOneWidget);
       expect(find.text('جذب'), findsNothing);
       expect(find.byKey(const ValueKey('focus-unit-HR-CO')), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('focus-unit-HR-CO')));
@@ -344,7 +492,7 @@ void main() {
       (tester) async {
     final client = _OrgClient(units: [unit]);
     await _openCreateForm(tester, client, openForm: false);
-    await tester.tap(find.text('واحدها'));
+    await _openStructureTool(tester, 'واحدها');
     await tester.pumpAndSettle();
     await tester.tap(find.text('منابع انسانی'));
     await tester.pumpAndSettle();
@@ -367,7 +515,7 @@ void main() {
       (tester) async {
     final client = _OrgClient(units: [unit]);
     await _openCreateForm(tester, client, openForm: false);
-    await tester.tap(find.text('واحدها'));
+    await _openStructureTool(tester, 'واحدها');
     await tester.pumpAndSettle();
     await tester.tap(find.text('منابع انسانی'));
     await tester.pumpAndSettle();
@@ -394,7 +542,7 @@ void main() {
       (tester) async {
     final client = _OrgClient(units: [unit]);
     await _openCreateForm(tester, client, openForm: false);
-    await tester.tap(find.text('واحدها'));
+    await _openStructureTool(tester, 'واحدها');
     await tester.pumpAndSettle();
     await tester.tap(find.text('منابع انسانی'));
     await tester.pumpAndSettle();
@@ -429,7 +577,7 @@ void main() {
       'assignment page shows real capacity and retains assignment history tab',
       (tester) async {
     await _openCreateForm(tester, _OrgClient(), openForm: false);
-    await tester.tap(find.text('جایگاه‌ها'));
+    await _openStructureTool(tester, 'جایگاه‌ها');
     await tester.pumpAndSettle();
     await tester.tap(find.text('مدیرعامل'));
     await tester.pumpAndSettle();
@@ -453,17 +601,18 @@ void main() {
       await _openCreateForm(tester, client);
       await tester.tap(find.text('انصراف'));
       await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('بازگشت').first);
+      await tester.pumpAndSettle();
       tester.view.physicalSize = Size(width, 800);
       await tester.pumpAndSettle();
-      expect(find.text('واحدها'), findsOneWidget);
-      expect(find.text('جایگاه‌ها'), findsOneWidget);
-      await tester.tap(find.text('واحدها'));
-      await tester.pumpAndSettle();
+      expect(find.byType(TabBar), findsNothing);
+      await _openStructureTool(tester, 'واحدها');
       expect(find.text('هنوز واحدی تعریف نشده است.'), findsOneWidget);
-      await tester.tap(find.text('جایگاه‌ها'));
+      await tester.tap(find.byTooltip('بازگشت').first);
       await tester.pumpAndSettle();
-      expect(find.text('جایگاه‌های سازمانی'), findsOneWidget);
-      await tester.tap(find.text('چارت سازمانی'));
+      await _openStructureTool(tester, 'جایگاه‌ها');
+      expect(find.text('جایگاه‌های سازمانی'), findsWidgets);
+      await tester.tap(find.byTooltip('بازگشت').first);
       await tester.pumpAndSettle();
       final report = find.text('گزارش تصویری چارت');
       // A cached child can exist below the viewport in NestedScrollView.
@@ -472,7 +621,7 @@ void main() {
       for (var attempt = 0;
           attempt < 20 && report.hitTestable().evaluate().isEmpty;
           attempt++) {
-        await tester.drag(find.byType(TabBarView), const Offset(0, -200));
+        await tester.drag(find.byKey(const PageStorageKey('organization-focused-scroll')), const Offset(0, -200));
         await tester.pumpAndSettle();
       }
       expect(report.hitTestable(), findsOneWidget);
@@ -488,16 +637,14 @@ void main() {
   testWidgets('the visual report still renders when the units list fails',
       (tester) async {
     final client = _OrgClient()..failUnits = true;
-    await _openCreateForm(tester, client);
-    await tester.tap(find.text('انصراف'));
-    await tester.pumpAndSettle();
+    await _openCreateForm(tester, client, openForm: false, focusFirst: false);
     tester.view.physicalSize = const Size(390, 800);
     await tester.pumpAndSettle();
     final report = find.text('گزارش تصویری چارت');
     for (var attempt = 0;
         attempt < 20 && report.hitTestable().evaluate().isEmpty;
         attempt++) {
-      await tester.drag(find.byType(TabBarView), const Offset(0, -200));
+      await tester.drag(find.byKey(const PageStorageKey('organization-focused-scroll')), const Offset(0, -200));
       await tester.pumpAndSettle();
     }
     await tester.tap(report.hitTestable());

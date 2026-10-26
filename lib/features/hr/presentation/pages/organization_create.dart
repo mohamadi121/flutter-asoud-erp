@@ -2,9 +2,14 @@ part of 'organization_page.dart';
 
 /// Compact creation views share the existing native unit API and chart save.
 class _OrganizationCreateForm extends StatefulWidget {
-  const _OrganizationCreateForm({required this.position, this.parent});
+  const _OrganizationCreateForm({super.key, required this.position, this.parent,
+    this.embedded = false, this.onSaved, this.onCancel, this.onBusy});
   final bool position;
   final OrgPosition? parent;
+  final bool embedded;
+  final Future<void> Function(String?)? onSaved;
+  final VoidCallback? onCancel;
+  final ValueChanged<bool>? onBusy;
   @override
   State<_OrganizationCreateForm> createState() =>
       _OrganizationCreateFormState();
@@ -12,6 +17,9 @@ class _OrganizationCreateForm extends StatefulWidget {
 
 class _OrganizationCreateFormState extends State<_OrganizationCreateForm> {
   final title = TextEditingController();
+  final capacity = TextEditingController(text: '1');
+  final duties = TextEditingController();
+  late String parentPosition = widget.parent?.code ?? '';
   final formKey = GlobalKey<FormState>();
   late final String code;
   List<Map<String, dynamic>> units = [];
@@ -19,7 +27,8 @@ class _OrganizationCreateFormState extends State<_OrganizationCreateForm> {
   String? error;
   bool loading = true, saving = false, allowClose = false;
   bool ready = false;
-  bool get dirty => title.text.isNotEmpty || selected.isNotEmpty;
+  bool get dirty => title.text.isNotEmpty || selected.isNotEmpty ||
+      capacity.text != '1' || duties.text.isNotEmpty || parentPosition.isNotEmpty;
   @override
   void initState() {
     super.initState();
@@ -37,6 +46,8 @@ class _OrganizationCreateFormState extends State<_OrganizationCreateForm> {
   @override
   void dispose() {
     title.dispose();
+    capacity.dispose();
+    duties.dispose();
     super.dispose();
   }
 
@@ -73,7 +84,7 @@ class _OrganizationCreateFormState extends State<_OrganizationCreateForm> {
     if (dirty && !await _confirmOrgDiscard(context)) return;
     if (!mounted) return;
     setState(() => allowClose = true);
-    Navigator.pop(context);
+    if (widget.embedded) { widget.onCancel?.call(); } else { Navigator.pop(context); }
   }
 
   Future<void> save() async {
@@ -89,16 +100,20 @@ class _OrganizationCreateFormState extends State<_OrganizationCreateForm> {
       saving = true;
       error = null;
     });
+    widget.onBusy?.call(true);
+    String? createdId;
     try {
       if (widget.position) {
         final unit = units.firstWhere((u) => u['name'] == selected);
         final row = OrgPosition(
             code: code,
             title: title.text.trim(),
-            parent: widget.parent?.code ?? '',
+            parent: parentPosition,
             departmentId: selected,
             department: '${unit['department_name']}',
-            occupants: const []);
+            occupants: const [],
+            capacity: int.tryParse(toLatinDigits(capacity.text.trim())) ?? 1,
+            duties: duties.text.trim());
         // Replace only this form's technical identifier when retrying a retained draft.
         final rows = [
           ...c.state.snapshot.rows.where((r) => r.code != code),
@@ -114,11 +129,15 @@ class _OrganizationCreateFormState extends State<_OrganizationCreateForm> {
               context, 'جایگاه روی دستگاه ذخیره شد و منتظر همگام‌سازی است.');
         }
       } else {
-        await c.repository.saveUnit(c.company,
+        final result = await c.repository.saveUnit(c.company,
             {'title': title.text.trim(), 'parent': selected, 'is_group': true});
+        createdId = result['name']?.toString();
         await c.load();
       }
-      if (mounted) Navigator.pop(context, true);
+      if (mounted) {
+        if (widget.embedded) { await widget.onSaved?.call(createdId); }
+        else { Navigator.pop(context, true); }
+      }
     } catch (e) {
       if (mounted) {
         setState(() => error = e is ApiException
@@ -128,6 +147,7 @@ class _OrganizationCreateFormState extends State<_OrganizationCreateForm> {
                 : 'ذخیره تأیید نشد؛ دوباره بررسی کنید.');
       }
     } finally {
+      widget.onBusy?.call(false);
       if (mounted) setState(() => saving = false);
     }
   }
@@ -145,7 +165,7 @@ class _OrganizationCreateFormState extends State<_OrganizationCreateForm> {
           borderSide: const BorderSide(color: Color(0xffdcdce1))));
 
   @override
-  Widget build(BuildContext context) => PopScope(
+  Widget build(BuildContext context) => widget.embedded ? _content() : PopScope(
       canPop: !saving && (allowClose || !dirty),
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop) close();
@@ -156,8 +176,12 @@ class _OrganizationCreateFormState extends State<_OrganizationCreateForm> {
               form: true,
               title:
                   widget.position ? 'ایجاد جایگاه شغلی' : 'ایجاد واحد سازمانی'),
-          body: SafeArea(
-              child: ListView(padding: const EdgeInsets.all(20), children: [
+          body: _content()));
+
+  Widget _content() => SafeArea(
+              child: ListView(shrinkWrap: widget.embedded,
+                  physics: widget.embedded ? const NeverScrollableScrollPhysics() : null,
+                  padding: const EdgeInsets.all(20), children: [
             Container(
                 decoration: _orgWhiteCard(),
                 padding: const EdgeInsets.all(18),
@@ -350,6 +374,23 @@ class _OrganizationCreateFormState extends State<_OrganizationCreateForm> {
                                       fontSize: 12,
                                       height: 1.9,
                                       color: Color(0xff677080)))),
+                          if (widget.embedded && widget.position) ...[
+                            const SizedBox(height: 14),
+                            AppSelectField(label: 'جایگاه بالادستی', value: parentPosition,
+                              displayValue: context.read<OrganizationCubit>().state.snapshot.rows
+                                  .where((r) => r.code == parentPosition).firstOrNull?.displayTitle ?? 'بدون جایگاه بالادستی',
+                              enabled: !saving,
+                              onPick: () => showAppOptionSheet(context, title: 'جایگاه بالادستی',
+                                current: parentPosition, options: [const AppOption('', 'بدون جایگاه بالادستی'),
+                                  ...context.read<OrganizationCubit>().state.snapshot.rows.map((r) => AppOption(r.code, r.displayTitle))]),
+                              onChanged: (v) => setState(() => parentPosition = v)),
+                            const SizedBox(height: 14),
+                            AppTextField(controller: capacity, label: 'ظرفیت جایگاه', required: true,
+                              keyboardType: TextInputType.number, enabled: !saving,
+                              validator: (v) => (int.tryParse(toLatinDigits(v ?? '')) ?? 0) < 1 ? 'ظرفیت باید عدد صحیح مثبت باشد.' : null),
+                            const SizedBox(height: 14),
+                            AppTextField(controller: duties, label: 'شرح وظایف', maxLines: 3, enabled: !saving),
+                          ],
                           const SizedBox(height: 20),
                           FilledButton.icon(
                               key: const ValueKey(
@@ -378,5 +419,5 @@ class _OrganizationCreateFormState extends State<_OrganizationCreateForm> {
                                   minimumSize: const Size(0, 48)),
                               child: const Text('انصراف')),
                         ]))),
-          ]))));
+          ]));
 }

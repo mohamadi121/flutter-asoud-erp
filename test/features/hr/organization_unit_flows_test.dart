@@ -130,6 +130,20 @@ Future<void> _open(WidgetTester tester, _Client client) async {
   await tester.pumpAndSettle();
 }
 
+
+Future<void> _openStructureTool(WidgetTester tester, String label) async {
+  final scroll = find.byKey(const PageStorageKey('organization-focused-scroll'));
+  if (scroll.evaluate().isNotEmpty) {
+    final state = tester.state<ScrollableState>(find.descendant(of: scroll, matching: find.byType(Scrollable)).first);
+    state.position.jumpTo(state.position.minScrollExtent);
+    await tester.pumpAndSettle();
+  }
+  await tester.tap(find.byTooltip('ابزارهای ساختار'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(label).last);
+  await tester.pumpAndSettle();
+}
+
 void main() {
   testWidgets('units tab tells a network failure from a forbidden one',
       (tester) async {
@@ -137,7 +151,7 @@ void main() {
       ..unitsFailure = const ApiException(
           kind: ApiFailureKind.forbidden, message: 'forbidden');
     await _open(tester, client);
-    await tester.tap(find.text('واحدها'));
+    await _openStructureTool(tester, 'واحدها');
     await tester.pumpAndSettle();
     final shown = tester
         .widget<Text>(find.byKey(const ValueKey('organization-units-error')))
@@ -149,7 +163,7 @@ void main() {
   testWidgets('position history shows the employee name, not the id',
       (tester) async {
     await _open(tester, _Client());
-    await tester.tap(find.text('جایگاه‌ها'));
+    await _openStructureTool(tester, 'جایگاه‌ها');
     await tester.pumpAndSettle();
     await tester.tap(find.text('مدیرعامل').first);
     await tester.pumpAndSettle();
@@ -165,7 +179,7 @@ void main() {
     await _open(tester, client);
     tester.view.physicalSize = const Size(390, 1600);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('واحدها'));
+    await _openStructureTool(tester, 'واحدها');
     await tester.pumpAndSettle();
     await tester.tap(find.text('منابع انسانی'));
     await tester.pumpAndSettle();
