@@ -5,6 +5,7 @@ import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/failure_message.dart';
 import '../../../dashboard/presentation/pages/dashboard_page.dart';
 import '../../../office_setup/presentation/pages/office_type_page.dart';
+import '../../../office_setup/presentation/pages/first_office_setup_page.dart';
 import '../../../../core/network/frappe_client.dart';
 import '../../data/account_repository.dart';
 import '../../domain/repositories/auth_repository.dart';
@@ -100,7 +101,9 @@ class _PostLoginPageState extends State<PostLoginPage> {
         _replace(OfficeTypePage(
             allowOfflinePreview: false,
             firstOffice: true,
-            onCreated: (ctx, office) => _replace(const PostLoginPage())));
+            onCreated: (ctx, office) => _replace(FirstOfficeSetupPage(company: office.name))));
+      case LoginStep.setupFirstOffice:
+        _replace(FirstOfficeSetupPage(company: route.office!));
       case LoginStep.completeAdminProfile:
         var profile = state.profile;
         try {

@@ -1,3 +1,5 @@
+import '../../../core/utils/organization_labels.dart';
+
 class OrgPosition {
   factory OrgPosition.fromJson(Map<String, dynamic> row) => OrgPosition(
       code: row['code']?.toString().trim() ?? '',
@@ -25,6 +27,8 @@ class OrgPosition {
       this.history = const [],
       this.employee = ''});
   final String code, title, parent, department, employee;
+  String get displayTitle => organizationLabel(title);
+  String get displayDepartment => organizationLabel(department);
   final String departmentId, duties;
   final List<String>? occupants;
   final int capacity;

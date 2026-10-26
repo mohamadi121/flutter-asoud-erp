@@ -231,7 +231,7 @@ class _OrganizationUnitListState extends State<_OrganizationUnitList> {
   @override
   Widget build(BuildContext context) {
     final matches = widget.units
-        .where((u) => '${u['department_name']}'.contains(query))
+        .where((u) => organizationUnitLabel(u).contains(query))
         .toList();
     return ListView(padding: const EdgeInsets.all(16), children: [
       _OrgTabHeading(
@@ -289,12 +289,12 @@ class _OrganizationUnitListState extends State<_OrganizationUnitList> {
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                    Text('${unit['department_name']}',
+                                    Text(organizationUnitLabel(unit),
                                         style: const TextStyle(
                                             fontSize: 16, color: _orgInk)),
                                     const SizedBox(height: 10),
                                     Text(
-                                        'بالادستی: ${widget.units.where((u) => u['name'] == unit['parent_department']).map((u) => u['department_name']).firstOrNull ?? 'ریشه ساختار'}',
+                                        'بالادستی: ${widget.units.where((u) => u['name'] == unit['parent_department']).map((u) => organizationUnitLabel(u)).firstOrNull ?? 'ریشه ساختار'}',
                                         style: const TextStyle(
                                             fontSize: 11,
                                             color: Color(0xff777d87))),

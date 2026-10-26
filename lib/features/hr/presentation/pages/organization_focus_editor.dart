@@ -26,11 +26,11 @@ class _OrganizationInlineEditorState extends State<_OrganizationInlineEditor> {
   final form = GlobalKey<FormState>();
   late final sourceUnit = Map<String, dynamic>.of(widget.unit);
   late final title = TextEditingController(
-      text: widget.position?.title ??
+      text: widget.position?.displayTitle ??
           (widget.action == _OrgEdit.addUnit ||
                   widget.action == _OrgEdit.addPosition
               ? ''
-              : '${sourceUnit['department_name']}'));
+              : organizationUnitLabel(sourceUnit)));
   late final capacity =
       TextEditingController(text: '${widget.position?.capacity ?? 1}');
   late final duties =
@@ -118,7 +118,7 @@ class _OrganizationInlineEditorState extends State<_OrganizationInlineEditor> {
                   title:
                       Text(isPosition ? 'تأیید حذف جایگاه' : 'تأیید حذف واحد'),
                   content: Text(
-                      '«${widget.position?.title ?? sourceUnit['department_name']}» حذف شود؟ سوابق مرتبط حذف نمی‌شوند.'),
+                      '«${widget.position?.displayTitle ?? organizationUnitLabel(sourceUnit)}» حذف شود؟ سوابق مرتبط حذف نمی‌شوند.'),
                   actions: [
                     TextButton(
                         onPressed: () => Navigator.pop(dialog, false),
@@ -160,7 +160,7 @@ class _OrganizationInlineEditorState extends State<_OrganizationInlineEditor> {
                 department: '${sourceUnit['department_name']}',
                 occupants: const []);
         final updated = base.copyWith(
-          title: title.text.trim(),
+          title: organizationEditedTitle(title.text, widget.position?.title ?? ''),
           parent: parent,
           capacity: int.parse(toLatinDigits(capacity.text.trim())),
           duties: duties.text.trim(),
@@ -186,7 +186,7 @@ class _OrganizationInlineEditorState extends State<_OrganizationInlineEditor> {
         final saved = await cubit.repository.saveUnit(cubit.company, {
           if (!adding) 'name': sourceUnit['name'],
           if (!adding) 'modified': sourceUnit['modified'],
-          'title': title.text.trim(),
+          'title': organizationEditedTitle(title.text, adding ? '' : '${sourceUnit['department_name']}'),
           'parent': adding
               ? sourceUnit['name']
               : moving
@@ -247,7 +247,7 @@ class _OrganizationInlineEditorState extends State<_OrganizationInlineEditor> {
               onPressed: saving ? null : widget.onCancel,
               icon: const Icon(Icons.close, size: 18)),
         ]),
-        Text(widget.position?.title ?? '${sourceUnit['department_name']}',
+        Text(widget.position?.displayTitle ?? organizationUnitLabel(sourceUnit),
             style: const TextStyle(fontSize: 12, color: Color(0xff7d8798))),
         const SizedBox(height: 14),
         if (deleting)
@@ -300,16 +300,14 @@ class _OrganizationInlineEditorState extends State<_OrganizationInlineEditor> {
                     ],
                     if (isPosition) ...[
                       if (moving) ...[
-                        _fixed('واحد مبدأ', '${sourceUnit['department_name']}'),
+                        _fixed('واحد مبدأ', organizationUnitLabel(sourceUnit)),
                         const SizedBox(height: 14),
                       ],
                       if (moving)
                         AppSelectField(
                             value: destination,
                             label: 'واحد مقصد',
-                            displayValue: nav
-                                    .byId(destination)?['department_name']
-                                    ?.toString() ??
+                            displayValue: _nullableOrgUnitLabel(nav.byId(destination)) ??
                                 'واحد در دسترس نیست',
                             enabled: !saving,
                             onPick: () => showAppOptionSheet(context,
@@ -321,13 +319,13 @@ class _OrganizationInlineEditorState extends State<_OrganizationInlineEditor> {
                                         '${u['name']}',
                                         nav
                                             .path('${u['name']}')
-                                            .map((v) => v['department_name'])
+                                            .map((v) => organizationUnitLabel(v))
                                             .join(' / ')))
                                     .toList()),
                             onChanged: (v) => setState(() => destination = v))
                       else
                         _fixed('واحد سازمانی مربوط',
-                            '${sourceUnit['department_name']}'),
+                            organizationUnitLabel(sourceUnit)),
                       const SizedBox(height: 14),
                       AppSelectField(
                           value: parent,
@@ -336,7 +334,7 @@ class _OrganizationInlineEditorState extends State<_OrganizationInlineEditor> {
                           displayValue: cubit.state.snapshot.rows
                                   .where((r) => r.code == parent)
                                   .firstOrNull
-                                  ?.title ??
+                                  ?.displayTitle ??
                               (parent.isEmpty
                                   ? 'بدون بالادست'
                                   : 'جایگاه در دسترس نیست'),
@@ -349,7 +347,7 @@ class _OrganizationInlineEditorState extends State<_OrganizationInlineEditor> {
                                         .where((r) =>
                                             !excludedPositions.contains(r.code))
                                         .map((r) => AppOption(r.code,
-                                            '${r.title} — ${r.department.isEmpty ? 'واحد تعیین نشده' : r.department}')),
+                                            '${r.displayTitle} — ${r.department.isEmpty ? 'واحد تعیین نشده' : r.displayDepartment}')),
                                   ]),
                           onChanged: (v) => setState(() => parent = v)),
                       if (moving)
@@ -389,19 +387,15 @@ class _OrganizationInlineEditorState extends State<_OrganizationInlineEditor> {
                     ] else if (moving) ...[
                       _fixed(
                           'واحد بالادستی فعلی',
-                          nav
-                                  .byId(sourceUnit['parent_department']
-                                      as String?)?['department_name']
-                                  ?.toString() ??
+                          _nullableOrgUnitLabel(nav.byId(sourceUnit['parent_department']
+                                      as String?)) ??
                               'ریشه بالادستی'),
                       const SizedBox(height: 14),
                       AppSelectField(
                           value: parent,
                           label: 'واحد بالادستی جدید',
                           enabled: !saving,
-                          displayValue: nav
-                                  .byId(parent)?['department_name']
-                                  ?.toString() ??
+                          displayValue: _nullableOrgUnitLabel(nav.byId(parent)) ??
                               (parent.isEmpty
                                   ? 'سطح اصلی سازمان'
                                   : 'ریشه بالادستی'),
@@ -422,8 +416,7 @@ class _OrganizationInlineEditorState extends State<_OrganizationInlineEditor> {
                                             '${u['name']}',
                                             nav
                                                 .path('${u['name']}')
-                                                .map(
-                                                    (v) => v['department_name'])
+                                                .map((v) => organizationUnitLabel(v))
                                                 .join(' / '))),
                                   ]),
                           onChanged: (v) => setState(() => parent = v)),
@@ -435,10 +428,8 @@ class _OrganizationInlineEditorState extends State<_OrganizationInlineEditor> {
                       _fixed(
                           adding ? 'واحد بالادستی ثابت' : 'واحد بالادستی',
                           adding
-                              ? '${sourceUnit['department_name']}'
-                              : nav
-                                      .byId(parent)?['department_name']
-                                      ?.toString() ??
+                              ? organizationUnitLabel(sourceUnit)
+                              : _nullableOrgUnitLabel(nav.byId(parent)) ??
                                   'ریشه بالادستی'),
                       if (!adding)
                         SwitchListTile(

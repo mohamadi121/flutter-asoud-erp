@@ -237,11 +237,11 @@ class _OrganizationManualSetupState extends State<_OrganizationManualSetup> {
   String unitLabel(String id) =>
       allUnits
           .where((u) => u['name'] == id)
-          .map((u) => '${u['department_name']}')
+          .map((u) => organizationUnitLabel(u))
           .firstOrNull ??
       (id.isEmpty ? 'بدون بالادستی / واحد اصلی' : 'واحد در دسترس نیست');
   String positionLabel(String id) =>
-      allPositions.where((p) => p.code == id).firstOrNull?.title ??
+      allPositions.where((p) => p.code == id).firstOrNull?.displayTitle ??
       (id.isEmpty ? 'بدون جایگاه بالادستی' : 'جایگاه در دسترس نیست');
 
   @override
@@ -325,7 +325,8 @@ class _OrganizationManualSetupState extends State<_OrganizationManualSetup> {
   }
 
   void saveUnit() {
-    final title = unitTitle.text.trim();
+    final original = units.where((u) => u['code'] == editUnit).firstOrNull;
+    final title = organizationEditedTitle(unitTitle.text, '${original?['title'] ?? ''}');
     if (unitParent.isNotEmpty &&
         !allUnits.any((u) =>
             u['name'] == unitParent &&
@@ -390,10 +391,10 @@ class _OrganizationManualSetupState extends State<_OrganizationManualSetup> {
     }
     final row = OrgPosition(
         code: editPosition ?? nextCode('POS'),
-        title: positionTitle.text.trim(),
+        title: organizationEditedTitle(positionTitle.text, positions.where((p) => p.code == editPosition).firstOrNull?.title ?? ''),
         parent: positionParent,
         departmentId: positionUnit,
-        department: unitLabel(positionUnit),
+        department: '${allUnits.firstWhere((u) => u['name'] == positionUnit)['department_name']}',
         capacity: count,
         occupants: const [],
         duties: duties.text.trim());
@@ -427,7 +428,7 @@ class _OrganizationManualSetupState extends State<_OrganizationManualSetup> {
     final saved = await _openOrganizationPage<bool>(
         context,
         _OrganizationImportReview(unitLabels: {
-          for (final u in allUnits) '${u['name']}': '${u['department_name']}'
+          for (final u in allUnits) '${u['name']}': organizationUnitLabel(u)
         }, payload: {
           'units': [
             for (final u in units)
@@ -518,7 +519,7 @@ class _OrganizationManualSetupState extends State<_OrganizationManualSetup> {
                               u['disabled'] != 1 &&
                               u['is_group'] == 1)
                           .map((u) => AppOption(
-                              '${u['name']}', '${u['department_name']}')),
+                              '${u['name']}', organizationUnitLabel(u))),
                     ],
                     (v) => unitParent = v),
                 const Text(
@@ -541,7 +542,7 @@ class _OrganizationManualSetupState extends State<_OrganizationManualSetup> {
                       child: Text('هنوز واحدی تعریف نشده است.')),
                 for (final u in allUnits)
                   ListTile(
-                      title: Text('${u['department_name']}'),
+                      title: Text(organizationUnitLabel(u)),
                       subtitle: Text(
                           'بالادستی: ${unitLabel('${u['parent_department'] ?? ''}')}'),
                       trailing: units.any((d) => d['code'] == u['name'])
@@ -571,7 +572,7 @@ class _OrganizationManualSetupState extends State<_OrganizationManualSetup> {
                                   if (!mounted) return;
                                   setState(() {
                                     editUnit = '${u['name']}';
-                                    unitTitle.text = '${u['department_name']}';
+                                    unitTitle.text = organizationUnitLabel(u);
                                     unitParent =
                                         '${u['parent_department'] ?? ''}';
                                   });
@@ -602,7 +603,7 @@ class _OrganizationManualSetupState extends State<_OrganizationManualSetup> {
                     positionUnit,
                     [
                       ...allUnits.where((u) => u['disabled'] != 1).map((u) =>
-                          AppOption('${u['name']}', '${u['department_name']}')),
+                          AppOption('${u['name']}', organizationUnitLabel(u))),
                     ],
                     (v) => positionUnit = v),
                 select(
@@ -612,7 +613,7 @@ class _OrganizationManualSetupState extends State<_OrganizationManualSetup> {
                       const AppOption('', 'بدون جایگاه بالادستی'),
                       ...allPositions
                           .where((p) => p.code != editPosition)
-                          .map((p) => AppOption(p.code, p.title)),
+                          .map((p) => AppOption(p.code, p.displayTitle)),
                     ],
                     (v) => positionParent = v),
                 AppTextField(
@@ -638,7 +639,7 @@ class _OrganizationManualSetupState extends State<_OrganizationManualSetup> {
                 Text(formatCount(positions.length, 'جایگاه جدید')),
                 for (final p in positions)
                   ListTile(
-                      title: Text(p.title),
+                      title: Text(p.displayTitle),
                       subtitle: Text(
                           '${unitLabel(p.departmentId)} · بالادست: ${positionLabel(p.parent)}'),
                       trailing: PopupMenuButton<String>(
@@ -662,7 +663,7 @@ class _OrganizationManualSetupState extends State<_OrganizationManualSetup> {
                               if (!mounted) return;
                               setState(() {
                                 editPosition = p.code;
-                                positionTitle.text = p.title;
+                                positionTitle.text = p.displayTitle;
                                 positionUnit = p.departmentId;
                                 positionParent = p.parent;
                                 capacity.text = '${p.capacity}';
@@ -686,12 +687,12 @@ class _OrganizationManualSetupState extends State<_OrganizationManualSetup> {
                     '${formatCount(units.length, 'واحد جدید')} · ${formatCount(positions.length, 'جایگاه جدید')}'),
                 for (final u in units)
                   ListTile(
-                      title: Text('${u['title']}'),
+                      title: Text(organizationLabel('${u['title']}')),
                       subtitle:
                           Text('بالادستی: ${unitLabel('${u['parent']}')}')),
                 for (final p in positions)
                   ListTile(
-                      title: Text(p.title),
+                      title: Text(p.displayTitle),
                       subtitle: Text(
                           'واحد: ${unitLabel(p.departmentId)}\nبالادست: ${positionLabel(p.parent)} · ظرفیت: ${toPersianDigits('${p.capacity}')}')),
                 const Text(

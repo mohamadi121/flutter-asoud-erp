@@ -32,7 +32,7 @@ class _OrganizationPositionFormState extends State<_OrganizationPositionForm> {
 
   String get _parentCode => _selectedParent;
   bool get _dirty =>
-      _title.text != (widget.item?.title ?? '') ||
+      _title.text != (widget.item?.displayTitle ?? '') ||
       _code.text != (widget.item?.code ?? '') ||
       _departmentId != (widget.item?.departmentId ?? widget.unitId) ||
       _duties.text != (widget.item?.duties ?? '') ||
@@ -53,7 +53,7 @@ class _OrganizationPositionFormState extends State<_OrganizationPositionForm> {
     super.initState();
     _selectedParent = widget.item?.parent ?? '';
     _code = TextEditingController(text: widget.item?.code ?? '');
-    _title = TextEditingController(text: widget.item?.title ?? '');
+    _title = TextEditingController(text: widget.item?.displayTitle ?? '');
     _department = TextEditingController(
         text: widget.item?.department ??
             (widget.unitTitle.isNotEmpty ? widget.unitTitle : ''));
@@ -123,7 +123,7 @@ class _OrganizationPositionFormState extends State<_OrganizationPositionForm> {
               ? 'جایگاه اصلی'
               : parents.isEmpty
                   ? _parentCode
-                  : parents.first.title;
+                  : parents.first.displayTitle;
           final seatedElsewhere = {
             for (final row in state.snapshot.rows)
               if (row.code != _editingCode) ...row.activeEmployees
@@ -150,7 +150,7 @@ class _OrganizationPositionFormState extends State<_OrganizationPositionForm> {
                 child: ListView(padding: const EdgeInsets.all(16), children: [
                   const _OrganizationStatus(),
                   _OrgDetailIdentity(
-                      title: widget.item?.title ?? 'جایگاه جدید',
+                      title: widget.item?.displayTitle ?? 'جایگاه جدید',
                       subtitle: _parentCode.isEmpty
                           ? 'اطلاعات جایگاه اصلی'
                           : 'زیرمجموعه $parentTitle',
@@ -211,7 +211,7 @@ class _OrganizationPositionFormState extends State<_OrganizationPositionForm> {
                                 value: _departmentId,
                                 displayValue: _department.text.isEmpty
                                     ? 'انتخاب واحد'
-                                    : _department.text,
+                                    : organizationLabel(_department.text),
                                 label: 'واحد سازمانی',
                                 enabled:
                                     !busy && !_loadingPeople && !_unitsError,
@@ -224,7 +224,7 @@ class _OrganizationPositionFormState extends State<_OrganizationPositionForm> {
                                       ..._units
                                           .where((u) => u['disabled'] != 1)
                                           .map((u) => AppOption('${u['name']}',
-                                              '${u['department_name']}')),
+                                              organizationUnitLabel(u))),
                                     ]),
                                 onChanged: (value) => setState(() {
                                   _departmentId = value;
@@ -280,7 +280,7 @@ class _OrganizationPositionFormState extends State<_OrganizationPositionForm> {
                                                 .where((r) =>
                                                     r.code != _editingCode)
                                                 .map((r) =>
-                                                    AppOption(r.code, r.title))
+                                                    AppOption(r.code, r.displayTitle))
                                           ]),
                                   onChanged: (v) =>
                                       setState(() => _selectedParent = v)),
@@ -459,7 +459,7 @@ class _OrganizationPositionFormState extends State<_OrganizationPositionForm> {
       final original = _savedDraft ?? widget.item!;
       final matchesOriginal =
           jsonEncode(latest.toJson()) == jsonEncode(original.toJson());
-      final matchesDraft = latest.title == _title.text.trim() &&
+      final matchesDraft = latest.title == organizationEditedTitle(_title.text, widget.item?.title ?? '') &&
           latest.parent == _parentCode &&
           latest.department == _department.text.trim() &&
           latest.departmentId == _departmentId &&
@@ -478,7 +478,7 @@ class _OrganizationPositionFormState extends State<_OrganizationPositionForm> {
     }
     final position = OrgPosition(
         code: widget.item?.code ?? _normalizedOrgCode(_code.text.trim()),
-        title: _title.text.trim(),
+        title: organizationEditedTitle(_title.text, widget.item?.title ?? ''),
         parent: _parentCode,
         department: _department.text.trim(),
         departmentId: _departmentId,

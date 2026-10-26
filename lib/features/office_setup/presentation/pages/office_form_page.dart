@@ -8,6 +8,7 @@ import '../../../../core/config/app_config.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/widgets/app_fields.dart';
 import '../../../../core/widgets/asoud_ui.dart';
+import '../../../auth/presentation/pages/sign_out.dart';
 import '../../../dashboard/presentation/pages/dashboard_page.dart';
 import '../../domain/entities/office.dart';
 import '../../domain/repositories/office_repository.dart';
@@ -53,6 +54,23 @@ class _OfficeFormView extends StatefulWidget {
 
 class _OfficeFormViewState extends State<_OfficeFormView> {
   final _scrollController = ScrollController();
+  bool _allowClose = false;
+  bool _confirmingClose = false;
+  late final OfficeFormState _initialState;
+
+  @override
+  void initState() {
+    super.initState();
+    _initialState = context.read<OfficeFormBloc>().state;
+  }
+
+  bool _dirty(OfficeFormState state) {
+    final a = state.inputValues, b = _initialState.inputValues;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return true;
+    }
+    return false;
+  }
   static const _locations = {
     'تهران': ['تهران', 'ری', 'شمیرانات'],
     'اصفهان': ['اصفهان', 'کاشان', 'نجف‌آباد'],
@@ -71,7 +89,7 @@ class _OfficeFormViewState extends State<_OfficeFormView> {
   Widget build(BuildContext context) =>
       BlocConsumer<OfficeFormBloc, OfficeFormState>(
         listenWhen: (a, b) => a.status != b.status || a.message != b.message,
-        listener: (context, state) {
+        listener: (context, state) async {
           if (state.status == OfficeFormStatus.invalid) {
             _scrollController.animateTo(0,
                 duration: const Duration(milliseconds: 350),
@@ -88,7 +106,7 @@ class _OfficeFormViewState extends State<_OfficeFormView> {
                   state.status == OfficeFormStatus.offlinePreview) &&
               state.createdOffice != null) {
             if (widget.editing) {
-              Navigator.of(context).pop(state.createdOffice);
+              await _finishEditing(state.createdOffice!);
               return;
             }
             if (widget.onCreated != null &&
@@ -110,7 +128,7 @@ class _OfficeFormViewState extends State<_OfficeFormView> {
           }
         },
         builder: (context, state) => PopScope(
-          canPop: !state.isDirty,
+          canPop: _allowClose || (!_dirty(state) && state.status != OfficeFormStatus.submitting),
           onPopInvokedWithResult: (didPop, _) {
             if (!didPop) _cancel();
           },
@@ -147,8 +165,6 @@ class _OfficeFormViewState extends State<_OfficeFormView> {
                   const SizedBox(height: 10),
                   _ContactSection(state: state, locations: _locations),
                   const SizedBox(height: 10),
-                  _FinancialSection(state: state),
-                  const SizedBox(height: 10),
                   _LogoSection(state: state, onPick: _pickLogo),
                   const SizedBox(height: 10),
                   _DescriptionSection(state: state),
@@ -165,7 +181,7 @@ class _OfficeFormViewState extends State<_OfficeFormView> {
                       .read<OfficeFormBloc>()
                       .add(const OfficeFormSubmitted()),
               secondaryLabel: 'انصراف',
-              onSecondary: _cancel,
+              onSecondary: state.status == OfficeFormStatus.submitting ? null : _cancel,
             ),
           ),
         ),
@@ -190,28 +206,45 @@ class _OfficeFormViewState extends State<_OfficeFormView> {
         .add(OfficeLogoChanged(name: file.name, bytes: bytes));
   }
 
+  Future<void> _finishEditing(Office office) async {
+    setState(() => _allowClose = true);
+    await WidgetsBinding.instance.endOfFrame;
+    if (mounted) Navigator.of(context).pop(office);
+  }
+
   Future<void> _cancel() async {
     final state = context.read<OfficeFormBloc>().state;
-    if (!state.isDirty) {
-      if (Navigator.of(context).canPop()) Navigator.of(context).pop();
-      return;
-    }
-    final leave = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
+    if (_confirmingClose || state.status == OfficeFormStatus.submitting) return;
+    _confirmingClose = true;
+    final root = !Navigator.of(context).canPop();
+    try {
+      if (_dirty(state) || root) {
+        final leave = await showDialog<bool>(
+            context: context,
+            builder: (c) => AlertDialog(
               title: const Text('انصراف از ایجاد دفتر؟'),
-              content: const Text('اطلاعات واردشده ذخیره نشده‌اند.'),
+              content: Text(root
+                  ? 'دفتر ایجاد نمی‌شود و به صفحه ورود برمی‌گردید. اطلاعات ثبت‌نشده کنار گذاشته می‌شوند.'
+                  : 'اطلاعات واردشده ذخیره نشده‌اند.'),
               actions: [
-                TextButton(
-                    onPressed: () => Navigator.pop(context, false),
+                TextButton(onPressed: () => Navigator.pop(c, false),
                     child: const Text('ادامه ویرایش')),
-                FilledButton(
-                    onPressed: () => Navigator.pop(context, true),
-                    child: const Text('خروج'))
+                FilledButton(onPressed: () => Navigator.pop(c, true),
+                    child: Text(root ? 'خروج از حساب' : 'خروج')),
               ],
             ));
-    if (leave == true && mounted && Navigator.of(context).canPop()) {
-      Navigator.of(context).pop();
+        if (leave != true || !mounted) return;
+      }
+      setState(() => _allowClose = true);
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) return;
+      if (root) {
+        await signOutToLogin(context);
+      } else {
+        Navigator.of(context).pop();
+      }
+    } finally {
+      _confirmingClose = false;
     }
   }
 }
@@ -335,19 +368,19 @@ class _ContactSection extends StatelessWidget {
   final Map<String, List<String>> locations;
   @override
   Widget build(BuildContext context) => _SectionCard(
-          number: '۳',
+          number: '۲',
           title: 'اطلاعات تماس و نشانی',
           icon: Icons.location_on_outlined,
           children: [
             _ResponsivePair(children: [
-              _field(context, 'phone', 'شماره موبایل یا تلفن', state.phone,
+              _field(context, 'phone', 'شماره موبایل', state.phone,
                   numeric: true),
               _field(context, 'email', 'ایمیل', state.email,
                   keyboard: TextInputType.emailAddress)
             ]),
             const SizedBox(height: 8),
             _field(context, 'website', 'وب‌سایت (اختیاری)', state.website,
-                keyboard: TextInputType.url),
+                keyboard: TextInputType.emailAddress),
             const SizedBox(height: 8),
             _ResponsivePair(children: [
               _select(context, 'province', 'استان', state.province,
@@ -364,56 +397,13 @@ class _ContactSection extends StatelessWidget {
           ]);
 }
 
-class _FinancialSection extends StatelessWidget {
-  const _FinancialSection({required this.state});
-  final OfficeFormState state;
-  @override
-  Widget build(BuildContext context) => _SectionCard(
-          number: '۴',
-          title: 'تنظیمات مالی و کدینگ',
-          icon: Icons.tune_rounded,
-          children: [
-            _ResponsivePair(children: [
-              _select(context, 'fiscalYear', 'سال مالی', state.fiscalYear,
-                  const ['۱۴۰۵', '۱۴۰۶']),
-              _select(
-                  context,
-                  'chartTemplate',
-                  'الگوی کدینگ',
-                  state.chartTemplate,
-                  const ['استاندارد ایران', 'خدماتی', 'بازرگانی', 'تولیدی'])
-            ]),
-            const SizedBox(height: 8),
-            Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                    color: const Color(0xFFF3F7FF),
-                    border: Border.all(color: const Color(0xFFD9E5F5)),
-                    borderRadius: BorderRadius.circular(10)),
-                child: const Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(Icons.info_outline_rounded,
-                          color: AsoudColors.primary, size: 18),
-                      SizedBox(width: 8),
-                      Expanded(
-                          child: Text(
-                              'راهنما\nالگوی کدینگ بر اساس نوع فعالیت انتخاب می‌شود؛ تولید کد نهایی فقط در سرور انجام خواهد شد.',
-                              style: TextStyle(
-                                  fontSize: 9,
-                                  height: 1.6,
-                                  color: AsoudColors.muted)))
-                    ])),
-          ]);
-}
-
 class _LogoSection extends StatelessWidget {
   const _LogoSection({required this.state, required this.onPick});
   final OfficeFormState state;
   final VoidCallback onPick;
   @override
   Widget build(BuildContext context) => _SectionCard(
-          number: '۵',
+          number: '۳',
           title: 'بارگذاری لوگو',
           icon: Icons.image_outlined,
           children: [
@@ -478,7 +468,7 @@ class _DescriptionSection extends StatelessWidget {
   final OfficeFormState state;
   @override
   Widget build(BuildContext context) => _SectionCard(
-          number: '۶',
+          number: '۴',
           title: 'توضیحات',
           icon: Icons.description_outlined,
           children: [
@@ -558,6 +548,9 @@ Widget _field(BuildContext context, String key, String label, String value,
     maxLines: maxLines,
     maxLength: maxLength,
     keyboardType: type,
+    hintLocales: numeric || keyboard != null
+        ? const [Locale('en')] : const [Locale('fa', 'IR')],
+    enabled: state.status != OfficeFormStatus.submitting,
     ltr: type == TextInputType.emailAddress ||
         type == TextInputType.url ||
         type == TextInputType.number,

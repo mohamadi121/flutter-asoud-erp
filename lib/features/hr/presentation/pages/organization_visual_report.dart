@@ -163,9 +163,10 @@ class _OrganizationVisualReportState extends State<_OrganizationVisualReport> {
                               Row(children: [
                                 Expanded(
                                     child: TextButton(
-                                        onPressed: () =>
-                                            const _OrganizationSetup()
-                                                ._importExcel(context),
+                                        onPressed: () async {
+                                          await _openOrganizationPage<bool>(context, const _OrganizationExcelImport());
+                                          if (mounted) setState(_reload);
+                                        },
                                         child: const Text('ورود از اکسل'))),
                                 Expanded(
                                     child: TextButton(
@@ -189,7 +190,7 @@ class _OrganizationVisualReportState extends State<_OrganizationVisualReport> {
                                 ListTile(
                                     leading: Icon(Icons.business_outlined,
                                         color: _unitColor('${d['name']}')),
-                                    title: Text('${d['department_name']}'),
+                                    title: Text(organizationUnitLabel(d)),
                                     onTap: () async {
                                       await _orgSheet<void>(
                                           context,
@@ -201,8 +202,8 @@ class _OrganizationVisualReportState extends State<_OrganizationVisualReport> {
                                     }),
                               for (final p in rows)
                                 ListTile(
-                                    title: Text(p.title),
-                                    subtitle: Text(p.department),
+                                    title: Text(p.displayTitle),
+                                    subtitle: Text(p.displayDepartment),
                                     onTap: () => _position(p)),
                             ] else ...[
                               if (rows.isEmpty && departments.isEmpty)
@@ -246,7 +247,7 @@ class _OrganizationVisualReportState extends State<_OrganizationVisualReport> {
                                             : d['parent_department'] == parent)
                                         .toList(),
                                     (d) => _card(
-                                        '${d['department_name']}',
+                                        organizationUnitLabel(d),
                                         'واحد سازمانی',
                                         '${d['name']}', () async {
                                       setState(() {

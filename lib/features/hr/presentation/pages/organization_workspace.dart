@@ -154,7 +154,7 @@ class _OrganizationImportReviewState extends State<_OrganizationImportReview> {
                             child: Center(
                                 child: Padding(
                                     padding: const EdgeInsets.all(8),
-                                    child: Text('${unit['title']}',
+                                    child: Text(organizationLabel('${unit['title']}'),
                                         textAlign: TextAlign.center)))),
                     ]),
                 TextButton(
@@ -168,13 +168,13 @@ class _OrganizationImportReviewState extends State<_OrganizationImportReview> {
               Text('${formatCount((preview!["units"] as List).length, "واحد بررسی‌شده")} · ${formatCount((preview!["additions"] as List).length, "جایگاه جدید")}'),
               for (final unit in preview!['units'] as List)
                 ListTile(
-                    title: Text('${unit['title']}'),
+                    title: Text(organizationLabel('${unit['title']}')),
                     subtitle: Text('${unit['action'] == 'match' ? 'واحد موجود' : 'واحد جدید'} · بالادستی: ${_unitLabel('${unit['parent'] ?? ''}')}')),
               for (final row in preview!['additions'] as List)
                 ListTile(
-                    title: Text('${row['title']}'),
+                    title: Text(organizationLabel('${row['title']}')),
                     subtitle: Text(
-                        'بالادست: ${_positionLabel('${row['parent'] ?? ''}')}\nواحد: ${row['department'] == '' || row['department'] == null ? 'بدون واحد' : row['department']} · ظرفیت: ${toPersianDigits('${row['capacity'] ?? 1}')}')),
+                        'بالادست: ${_positionLabel('${row['parent'] ?? ''}')}\nواحد: ${row['department'] == '' || row['department'] == null ? 'بدون واحد' : organizationLabel('${row['department']}')} · ظرفیت: ${toPersianDigits('${row['capacity'] ?? 1}')}')),
             ],
             TextButton(
                 onPressed: busy ? null : _preview,
@@ -192,14 +192,14 @@ class _OrganizationImportReviewState extends State<_OrganizationImportReview> {
       ? 'بدون بالادستی / واحد اصلی'
       : (preview?['units'] as List? ?? [])
               .where((u) => u['name'] == id)
-              .map((u) => '${u['title']}').firstOrNull ??
-          widget.unitLabels[id] ?? 'واحد موجود (نام در دسترس نیست)';
+              .map((u) => organizationLabel('${u['title']}')).firstOrNull ??
+          (widget.unitLabels[id] == null ? 'واحد موجود (نام در دسترس نیست)' : organizationLabel(widget.unitLabels[id]));
 
   String _positionLabel(String code) => code.isEmpty
       ? 'بدون جایگاه بالادستی'
       : (preview?['rows'] as List? ?? [])
               .where((p) => p['code'] == code)
-              .map((p) => '${p['title']}').firstOrNull ?? 'جایگاه در دسترس نیست';
+              .map((p) => organizationLabel('${p['title']}')).firstOrNull ?? 'جایگاه در دسترس نیست';
 }
 
 Future<String?> _pickOrganizationEmployee(
@@ -426,10 +426,10 @@ class _PositionDetails extends StatelessWidget {
         }
         return _OrgDetailPage(title: 'جزئیات جایگاه', children: [
           _OrgDetailIdentity(
-              title: row.title,
+              title: row.displayTitle,
               position: true,
               subtitle:
-                  'واحد: ${row.department}\nبالادست: ${state.snapshot.rows.where((r) => r.code == row.parent).map((r) => r.title).firstOrNull ?? 'بدون بالادست'}'),
+                  'واحد: ${row.displayDepartment}\nبالادست: ${state.snapshot.rows.where((r) => r.code == row.parent).map((r) => r.displayTitle).firstOrNull ?? 'بدون بالادست'}'),
           Text(
               'ظرفیت: ${row.capacity} · ظرفیت خالی: ${row.capacity - row.activeEmployees.length}'),
           if (row.duties.isNotEmpty) Text(row.duties),
@@ -469,7 +469,7 @@ class _PositionDetails extends StatelessWidget {
           for (final child
               in state.snapshot.rows.where((r) => r.parent == code))
             _OrgDetailRow(
-                title: child.title,
+                title: child.displayTitle,
                 position: true,
                 onTap: () => _orgSheet<void>(context,
                     _PositionDetails(code: child.code, canManage: canManage))),
@@ -726,7 +726,7 @@ class _UnitFormState extends State<_UnitForm> {
                 enabled: !busy && widget.parent.isEmpty,
                 displayValue: widget.units
                         .where((u) => u['name'] == parent)
-                        .map((u) => '${u['department_name']}')
+                        .map((u) => organizationUnitLabel(u))
                         .firstOrNull ??
                     (parent.isEmpty
                         ? 'ریشه ساختار / بدون واحد بالادستی'
@@ -742,7 +742,7 @@ class _UnitFormState extends State<_UnitForm> {
                                   u['disabled'] != 1 &&
                                   u['is_group'] == 1)
                               .map((u) => AppOption(
-                                  '${u['name']}', '${u['department_name']}'))
+                                  '${u['name']}', organizationUnitLabel(u)))
                         ]),
                 onChanged: (v) => setState(() => parent = v)),
             SwitchListTile(

@@ -35,6 +35,7 @@ abstract final class AppFieldStyle {
     Widget? prefixIcon,
     Widget? suffixIcon,
     String? counterText,
+    double borderRadius = 12,
   }) {
     final mark = required && !label.endsWith(' *') ? ' *' : '';
     return InputDecoration(
@@ -56,23 +57,23 @@ abstract final class AppFieldStyle {
       fillColor: AsoudColors.surface,
       contentPadding: contentPadding,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(borderRadius),
         borderSide: const BorderSide(color: AsoudColors.border),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(borderRadius),
         borderSide: const BorderSide(color: AsoudColors.border),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(borderRadius),
         borderSide: const BorderSide(color: AsoudColors.primary, width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(borderRadius),
         borderSide: const BorderSide(color: AsoudColors.danger),
       ),
       focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(borderRadius),
         borderSide: const BorderSide(color: AsoudColors.danger, width: 1.5),
       ),
     );
@@ -98,10 +99,12 @@ class AppTextField extends StatelessWidget {
     this.readOnly = false,
     this.enabled = true,
     this.obscureText = false,
+    this.rounded = false,
     this.maxLines = 1,
     this.minLines,
     this.maxLength,
     this.keyboardType,
+    this.hintLocales,
     this.textInputAction,
     this.counterText,
     this.counterBuilder,
@@ -118,10 +121,12 @@ class AppTextField extends StatelessWidget {
   final String? hint, helperText, errorText;
   final FormFieldValidator<String>? validator;
   final bool required, ltr, readOnly, enabled, obscureText;
+  final bool rounded;
   final int maxLines;
   final int? maxLength;
   final int? minLines;
   final TextInputType? keyboardType;
+  final List<Locale>? hintLocales;
   final TextInputAction? textInputAction;
   final String? counterText;
   final InputCounterWidgetBuilder? counterBuilder;
@@ -131,7 +136,8 @@ class AppTextField extends StatelessWidget {
   final Widget? prefixIcon, suffixIcon;
 
   @override
-  Widget build(BuildContext context) => TextFormField(
+  Widget build(BuildContext context) {
+    final input = TextFormField(
         controller: controller,
         initialValue: controller == null ? initialValue : null,
         validator: validator,
@@ -139,10 +145,13 @@ class AppTextField extends StatelessWidget {
         enabled: enabled,
         readOnly: readOnly,
         obscureText: obscureText,
+        enableSuggestions: !obscureText,
+        autocorrect: !obscureText,
         maxLines: maxLines,
         minLines: minLines,
         maxLength: maxLength,
         keyboardType: keyboardType,
+        hintLocales: hintLocales,
         textDirection: ltr ? TextDirection.ltr : null,
         textInputAction: textInputAction,
         onChanged: onChanged,
@@ -150,8 +159,9 @@ class AppTextField extends StatelessWidget {
         autofocus: autofocus,
         buildCounter: counterBuilder,
         decoration: AppFieldStyle.decoration(
-          label: label,
-          required: required,
+          label: rounded ? '' : label,
+          required: !rounded && required,
+          borderRadius: rounded ? 28 : 12,
           hint: hint,
           helperText: helperText,
           errorText: errorText,
@@ -161,6 +171,13 @@ class AppTextField extends StatelessWidget {
           counterText: counterText,
         ),
       );
+    if (!rounded) return input;
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Text('$label${required ? ' *' : ''}', style: const TextStyle(fontSize: 14, color: AsoudColors.muted)),
+      const SizedBox(height: 8),
+      input,
+    ]);
+  }
 }
 
 /// A tappable value box in the same visual language as [AppTextField]; the
@@ -173,6 +190,7 @@ class AppSelectField extends StatelessWidget {
     super.key,
     required this.label,
     this.value,
+    this.rounded = false,
     this.displayValue,
     this.hint,
     this.helperText,
@@ -190,6 +208,7 @@ class AppSelectField extends StatelessWidget {
   final String label;
   final String? value, displayValue, hint, helperText, errorText;
   final bool required, enabled;
+  final bool rounded;
 
   /// Opens the existing picker and resolves to the chosen value (null = kept).
   final Future<String?> Function()? onPick;
@@ -205,14 +224,15 @@ class AppSelectField extends StatelessWidget {
         autovalidateMode: autovalidateMode,
         builder: (field) {
           final empty = (value ?? '').isEmpty;
-          return InkWell(
+          final input = InkWell(
             onTap: enabled ? () => _pick(field) : null,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(rounded ? 28 : 12),
             child: InputDecorator(
               isEmpty: empty,
               decoration: AppFieldStyle.decoration(
-                label: label,
-                required: required,
+                label: rounded ? '' : label,
+                required: !rounded && required,
+                borderRadius: rounded ? 28 : 12,
                 hint: hint,
                 helperText: helperText,
                 errorText: field.errorText ?? errorText,
@@ -235,6 +255,12 @@ class AppSelectField extends StatelessWidget {
               ),
             ),
           );
+          if (!rounded) return input;
+          return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Text('$label${required ? ' *' : ''}', style: const TextStyle(fontSize: 14, color: AsoudColors.muted)),
+            const SizedBox(height: 8),
+            input,
+          ]);
         },
       );
 

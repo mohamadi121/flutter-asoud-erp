@@ -8,6 +8,7 @@ import '../../../../core/config/app_config.dart';
 import '../../../../core/offline/offline_failure.dart';
 import '../../../../core/offline/queued_offline_exception.dart';
 import '../../domain/entities/office.dart';
+import '../../domain/office_input_validation.dart';
 import '../../domain/repositories/office_repository.dart';
 
 part 'office_form_event.dart';
@@ -152,19 +153,19 @@ class OfficeFormBloc extends Bloc<OfficeFormEvent, OfficeFormState> {
         name: state.officeName.trim(),
         type: state.officeType,
         fiscalYearStart: DateTime(DateTime.now().year, 1),
-        nationalId: state.nationalId.trim(),
+        nationalId: OfficeInputValidation.digits(state.nationalId),
         ownerFullName: state.ownerFullName.trim(),
-        registrationNumber: state.registrationNumber.trim(),
+        registrationNumber: OfficeInputValidation.digits(state.registrationNumber),
         activityType: state.activityType.trim(),
         companyType: state.companyType.trim(),
         parentOffice: state.parentOffice.trim(),
-        phone: state.phone.trim(),
+        phone: OfficeInputValidation.digits(state.phone),
         email: state.email.trim(),
-        website: state.website.trim(),
+        website: OfficeInputValidation.website(state.website) ?? '',
         province: state.province.trim(),
         city: state.city.trim(),
         address: state.address.trim(),
-        postalCode: state.postalCode.trim(),
+        postalCode: OfficeInputValidation.digits(state.postalCode),
         fiscalYear: state.fiscalYear.trim(),
         chartTemplate: state.chartTemplate.trim(),
         description: state.description.trim(),
@@ -212,19 +213,19 @@ class OfficeFormBloc extends Bloc<OfficeFormEvent, OfficeFormState> {
         name: state.officeName.trim(),
         type: state.officeType,
         fiscalYearStart: DateTime(DateTime.now().year, 1),
-        nationalId: state.nationalId.trim(),
+        nationalId: OfficeInputValidation.digits(state.nationalId),
         ownerFullName: state.ownerFullName.trim(),
-        registrationNumber: state.registrationNumber.trim(),
+        registrationNumber: OfficeInputValidation.digits(state.registrationNumber),
         activityType: state.activityType.trim(),
         companyType: state.companyType.trim(),
         parentOffice: state.parentOffice.trim(),
-        phone: state.phone.trim(),
+        phone: OfficeInputValidation.digits(state.phone),
         email: state.email.trim(),
-        website: state.website.trim(),
+        website: OfficeInputValidation.website(state.website) ?? '',
         province: state.province.trim(),
         city: state.city.trim(),
         address: state.address.trim(),
-        postalCode: state.postalCode.trim(),
+        postalCode: OfficeInputValidation.digits(state.postalCode),
         fiscalYear: state.fiscalYear.trim(),
         chartTemplate: state.chartTemplate.trim(),
         description: state.description.trim(),
@@ -237,26 +238,20 @@ class OfficeFormBloc extends Bloc<OfficeFormEvent, OfficeFormState> {
     }
 
     required('officeName', s.officeName);
-    final digits = s.nationalId.replaceAll(RegExp(r'\D'), '');
-    if (digits.isNotEmpty &&
-        digits.length != (s.officeType == OfficeType.legal ? 11 : 10)) {
-      e['nationalId'] = 'تعداد ارقام معتبر نیست.';
-    }
-    if (s.phone.isNotEmpty && !RegExp(r'^0\d{9,10}$').hasMatch(s.phone)) {
-      e['phone'] = 'شماره تماس معتبر نیست.';
-    }
+    final identityError = OfficeInputValidation.nationalId(s.nationalId,
+        legal: s.officeType == OfficeType.legal);
+    if (identityError != null) e['nationalId'] = identityError;
+    final phoneError = OfficeInputValidation.mobile(s.phone);
+    if (phoneError != null) e['phone'] = phoneError;
     if (s.email.isNotEmpty &&
         !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(s.email)) {
       e['email'] = 'ایمیل معتبر نیست.';
     }
-    if (s.website.isNotEmpty &&
-        Uri.tryParse(s.website)?.hasAbsolutePath != true) {
+    if (OfficeInputValidation.website(s.website) == null) {
       e['website'] = 'نشانی وب معتبر نیست.';
     }
-    if (s.postalCode.isNotEmpty &&
-        !RegExp(r'^\d{10}$').hasMatch(s.postalCode)) {
-      e['postalCode'] = 'کد پستی باید ۱۰ رقم باشد.';
-    }
+    final postalError = OfficeInputValidation.postalCode(s.postalCode);
+    if (postalError != null) e['postalCode'] = postalError;
     return e;
   }
 }

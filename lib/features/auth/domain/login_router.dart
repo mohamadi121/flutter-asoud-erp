@@ -5,6 +5,7 @@ enum LoginStep {
   accountDisabled,
   changePassword,
   createFirstOffice,
+  setupFirstOffice,
   completeAdminProfile,
   selectOffice,
   noOfficeAccess,
@@ -54,6 +55,11 @@ LoginRoute decideLoginRoute(LoginState state) {
       return const LoginRoute(LoginStep.changePassword);
     case 'create-first-office':
       return const LoginRoute(LoginStep.createFirstOffice);
+    case 'setup-first-office':
+      if (!state.isSystemAdmin || next.office == null || next.office!.isEmpty) {
+        return const LoginRoute(LoginStep.noOfficeAccess);
+      }
+      return LoginRoute(LoginStep.setupFirstOffice, office: next.office);
     case 'complete-admin-profile':
       return const LoginRoute(LoginStep.completeAdminProfile);
     case 'office-select':

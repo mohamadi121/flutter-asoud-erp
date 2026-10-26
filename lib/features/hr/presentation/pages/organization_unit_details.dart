@@ -12,10 +12,10 @@ class _UnitDetails extends StatefulWidget {
 
 class _UnitDetailsState extends State<_UnitDetails> {
   late Map<String, dynamic> unit = Map.of(widget.unit);
-  late final title = TextEditingController(text: '${unit['department_name']}');
+  late final title = TextEditingController(text: organizationUnitLabel(unit));
   bool management = true, editing = false, busy = false;
   String? error;
-  bool get dirty => editing && title.text.trim() != unit['department_name'];
+  bool get dirty => editing && title.text.trim() != organizationUnitLabel(unit);
 
   @override
   void dispose() {
@@ -34,7 +34,7 @@ class _UnitDetailsState extends State<_UnitDetails> {
       await c.repository.saveUnit(c.company, {
         'name': unit['name'],
         'modified': unit['modified'],
-        'title': title.text.trim(),
+        'title': organizationEditedTitle(title.text, '${unit['department_name']}'),
         'parent': unit['parent_department'] ?? '',
         'is_group': unit['is_group'] == 1,
       });
@@ -75,7 +75,7 @@ class _UnitDetailsState extends State<_UnitDetails> {
     final parent = widget.units
         .where((u) => u['name'] == unit['parent_department'])
         .firstOrNull;
-    final parentLabel = parent?['department_name'] ??
+    final parentLabel = parent != null ? organizationUnitLabel(parent) :
         ((unit['parent_department'] ?? '').toString().isEmpty
             ? 'مدیرعامل'
             : 'واحد بالادستی خارج از فهرست');
@@ -117,7 +117,7 @@ class _UnitDetailsState extends State<_UnitDetails> {
                       child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                        Text('${unit['department_name']}',
+                        Text(organizationUnitLabel(unit),
                             style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 15,
@@ -138,7 +138,7 @@ class _UnitDetailsState extends State<_UnitDetails> {
                                 ? null
                                 : () => setState(() {
                                       editing = !editing;
-                                      title.text = '${unit['department_name']}';
+                                      title.text = organizationUnitLabel(unit);
                                     }),
                             icon: const Icon(Icons.edit_outlined, size: 15),
                             label: const Text('ویرایش مشخصات',
@@ -238,7 +238,7 @@ class _UnitDetailsState extends State<_UnitDetails> {
                 for (final child in widget.units
                     .where((u) => u['parent_department'] == unit['name']))
                   _OrgDetailRow(
-                      title: '${child['department_name']}',
+                      title: organizationUnitLabel(child),
                       onTap: () => _openOrganizationPage<void>(
                           context,
                           _OrgSheetTheme(

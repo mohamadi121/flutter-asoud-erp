@@ -59,9 +59,9 @@ class _OrganizationChartState extends State<_OrganizationChart> {
               final parent = parents.isEmpty ? null : parents.first;
               final children = _sortedPositions(rows.where((row) =>
                   row.parent == (parent?.code ?? '') &&
-                  (row.title.contains(_query) ||
+                  (row.displayTitle.contains(_query) ||
                       row.code.contains(_query) ||
-                      row.department.contains(_query))));
+                      row.displayDepartment.contains(_query))));
               return ListView(
                   padding: const EdgeInsets.fromLTRB(16, 10, 16, 30),
                   children: [
@@ -111,7 +111,7 @@ class _OrganizationChartState extends State<_OrganizationChart> {
                             child: Text(
                                 parent == null
                                     ? 'جایگاه‌های اصلی'
-                                    : 'زیرمجموعه‌های ${parent.title}',
+                                    : 'زیرمجموعه‌های ${parent.displayTitle}',
                                 style: const TextStyle(
                                     fontWeight: FontWeight.w800))),
                       ]),
@@ -140,11 +140,11 @@ class _OrganizationChartState extends State<_OrganizationChart> {
                               start: 12, end: 2),
                           leading: const Icon(Icons.folder_outlined,
                               color: AsoudColors.primary),
-                          title: Text(row.title,
+                          title: Text(row.displayTitle,
                               style:
                                   const TextStyle(fontWeight: FontWeight.w800)),
                           subtitle: Text([
-                            if (row.department.isNotEmpty) row.department,
+                            if (row.displayDepartment.isNotEmpty) row.displayDepartment,
                             row.activeEmployees.isEmpty
                                 ? 'جایگاه خالی'
                                 : 'پرسنل: ${row.activeEmployees.length}'
@@ -235,9 +235,9 @@ class _OrganizationTreeState extends State<_OrganizationTree> {
     }
     final matches = <String>{};
     for (final row in widget.rows) {
-      if (row.title.contains(widget.query) ||
+      if (row.displayTitle.contains(widget.query) ||
           row.code.contains(widget.query) ||
-          row.department.contains(widget.query)) {
+          row.displayDepartment.contains(widget.query)) {
         var cursor = row;
         final seen = <String>{};
         while (seen.add(cursor.code)) {
@@ -296,13 +296,13 @@ class _OrganizationTreeState extends State<_OrganizationTree> {
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
                                         children: [
-                                          Text(row.title,
+                                          Text(row.displayTitle,
                                               style: const TextStyle(
                                                   fontSize: 16,
                                                   color: _orgInk)),
-                                          if (row.department.isNotEmpty) ...[
+                                          if (row.displayDepartment.isNotEmpty) ...[
                                             const SizedBox(height: 8),
-                                            Text(row.department,
+                                            Text(row.displayDepartment,
                                                 style: const TextStyle(
                                                     fontSize: 12,
                                                     color: Color(0xff777d87))),
@@ -364,7 +364,7 @@ class _OrganizationTreeState extends State<_OrganizationTree> {
                       child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                        Text(row.title,
+                        Text(row.displayTitle,
                             style: TextStyle(
                                 fontWeight: depth == 0
                                     ? FontWeight.w800
@@ -373,7 +373,7 @@ class _OrganizationTreeState extends State<_OrganizationTree> {
                             row.parent.isNotEmpty &&
                             !byCode.containsKey(row.parent))
                           Text(
-                              'زیرمجموعه: ${parentNames.isEmpty ? row.parent : parentNames.first.title}',
+                              'زیرمجموعه: ${parentNames.isEmpty ? row.parent : parentNames.first.displayTitle}',
                               style: const TextStyle(
                                   fontSize: 10, color: AsoudColors.muted)),
                       ])),
@@ -468,7 +468,7 @@ class _OrganizationMenu extends StatelessWidget {
                   context: context,
                   builder: (c) => AlertDialog(
                         title: const Text('حذف جایگاه'),
-                        content: Text('جایگاه «${position.title}» حذف شود؟'),
+                        content: Text('جایگاه «${position.displayTitle}» حذف شود؟'),
                         actions: [
                           TextButton(
                               onPressed: () => Navigator.pop(c, false),
@@ -511,7 +511,7 @@ class _OrganizationMenu extends StatelessWidget {
     final parent = await showDialog<String>(
         context: context,
         builder: (context) => SimpleDialog(
-              title: Text('انتقال «${position.title}» و زیرمجموعه‌هایش'),
+              title: Text('انتقال «${position.displayTitle}» و زیرمجموعه‌هایش'),
               children: [
                 const Padding(
                     padding: EdgeInsets.all(16),
@@ -524,7 +524,7 @@ class _OrganizationMenu extends StatelessWidget {
                     rows.where((row) => !blocked.contains(row.code))))
                   SimpleDialogOption(
                       onPressed: () => Navigator.pop(context, row.code),
-                      child: Text('${row.code} — ${row.title}')),
+                      child: Text('${row.code} — ${row.displayTitle}')),
               ],
             ));
     if (parent == null || !context.mounted || cubit.state.busy) return;

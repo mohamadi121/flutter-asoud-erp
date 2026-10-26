@@ -276,7 +276,7 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
                                       for (final employee in root.activeEmployees.take(2))
                                         _OrganizationAvatar(key: ValueKey('root:$employee:$photoVersion'), employee: employee),
                                     ]),
-                                    Text(root.title,
+                                    Text(root.displayTitle,
                                         style: const TextStyle(
                                             color: Colors.white,
                                             fontWeight: FontWeight.bold)),
@@ -310,7 +310,7 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
                   Text(
                       unit == null
                           ? 'واحدهای ریشه'
-                          : 'زیرواحدهای مستقیم ${unit!['department_name']}',
+                          : 'زیرواحدهای مستقیم ${organizationUnitLabel(unit!)}',
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                           fontSize: 12, color: Color(0xff6781a8))),
@@ -439,7 +439,7 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
                                       child: Text('حذف ایمن واحد')),
                                 ]),
                     ]),
-                    _detail('عنوان واحد', '${unit!['department_name']}'),
+                    _detail('عنوان واحد', organizationUnitLabel(unit!)),
                     _detail('واحد بالادستی', _parentLabel(unit!)),
                     _detail('زیرواحدهای مستقیم', formatCount(children.length)),
                     _detail('جایگاه‌های مستقیم', formatCount(positions.length)),
@@ -501,7 +501,7 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
                                                             row.activeEmployees[
                                                                 i])),
                                             ])),
-                                        title: Text(row.title,
+                                        title: Text(row.displayTitle,
                                             style: TextStyle(
                                                 fontSize: 13,
                                                 color: row.code == position
@@ -516,7 +516,7 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
                                                     : const Color(0xff737e90))),
                                         trailing: canManage
                                             ? PopupMenuButton<String>(
-                                                tooltip: 'عملیات ${row.title}',
+                                                tooltip: 'عملیات ${row.displayTitle}',
                                                 enabled: !locked,
                                                 iconColor: row.code == position
                                                     ? Colors.white
@@ -563,16 +563,16 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
                   if (selectedPosition != null) ...[
                     const SizedBox(height: 12),
                     _OrgPanel(children: [
-                      Text('جزئیات جایگاه: ${selectedPosition.title}',
+                      Text('جزئیات جایگاه: ${selectedPosition.displayTitle}',
                           style: const TextStyle(fontWeight: FontWeight.bold)),
-                      _detail('واحد سازمانی', '${unit!['department_name']}'),
+                      _detail('واحد سازمانی', organizationUnitLabel(unit!)),
                       _detail(
                           'جایگاه بالادستی',
                           state.snapshot.rows
                                   .where(
                                       (r) => r.code == selectedPosition.parent)
                                   .firstOrNull
-                                  ?.title ??
+                                  ?.displayTitle ??
                               (selectedPosition.parent.isEmpty
                                   ? 'بدون بالادست'
                                   : 'جایگاه در دسترس نیست')),
@@ -638,9 +638,7 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
   }
 
   String _parentLabel(Map<String, dynamic> row) =>
-      nav
-          .byId(row['parent_department'] as String?)?['department_name']
-          ?.toString() ??
+      _nullableOrgUnitLabel(nav.byId(row['parent_department'] as String?)) ??
       ((row['parent_department'] ?? '').toString().isEmpty
           ? 'ریشه سازمان'
           : 'ریشه بالادستی خارج از فهرست');
@@ -689,7 +687,7 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
                               ? Colors.white
                               : _orgAccents[index % _orgAccents.length])),
                   const SizedBox(height: 6),
-                  Text('${row['department_name']}',
+                  Text(organizationUnitLabel(row),
                       textAlign: TextAlign.center,
                       style: TextStyle(
                           fontSize: 13,

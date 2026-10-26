@@ -53,6 +53,13 @@ class OfficeFormState extends Equatable {
   final String? message;
   final Office? createdOffice;
 
+  List<Object?> get inputValues => [
+    officeType, officeName, ownerFullName, registrationNumber, nationalId,
+    activityType, companyType, hasIndependentPersonality, parentOffice,
+    phone, email, website, province, city, address, postalCode,
+    fiscalYear, chartTemplate, description, logoName, logoBytes,
+  ];
+
   bool get isDirty =>
       [
         officeName,

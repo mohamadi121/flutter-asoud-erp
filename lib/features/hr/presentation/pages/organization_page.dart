@@ -13,6 +13,7 @@ import '../../../../core/network/frappe_client.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/failure_message.dart';
+import '../../../../core/utils/organization_labels.dart';
 import '../../../../core/utils/persian_format.dart';
 import '../../../../core/widgets/app_fields.dart';
 import '../../../../core/widgets/asoud_ui.dart';
@@ -39,6 +40,8 @@ part 'organization_setup_flow.dart';
 String _assignmentDate(dynamic value) => value == null
     ? 'نامشخص (سابقه قبلی)'
     : formatJalaliDateTimeIso(value.toString());
+
+String? _nullableOrgUnitLabel(Map? unit) => unit == null ? null : organizationUnitLabel(unit);
 
 class OrganizationPage extends StatelessWidget {
   const OrganizationPage({required this.company, this.repository, super.key});
@@ -370,7 +373,7 @@ class _OrganizationStatus extends StatelessWidget {
     final codes = {...localRows.keys, ...remoteRows.keys}.toList()..sort();
     String describe(OrgPosition? row) => row == null
         ? 'وجود ندارد'
-        : '${row.title} | بالادست: ${row.parent.isEmpty ? 'ریشه' : row.parent} | واحد: ${row.department} (${row.departmentId}) | ظرفیت: ${row.capacity} | پرسنل: ${row.activeEmployees.join('، ')} | وظایف: ${row.duties}';
+        : '${row.displayTitle} | بالادست: ${row.parent.isEmpty ? 'ریشه' : row.parent} | واحد: ${row.displayDepartment} (${row.departmentId}) | ظرفیت: ${row.capacity} | پرسنل: ${row.activeEmployees.join('، ')} | وظایف: ${row.duties}';
     final differences = codes
         .where(
             (code) => describe(localRows[code]) != describe(remoteRows[code]))

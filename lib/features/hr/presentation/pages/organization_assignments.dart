@@ -122,13 +122,13 @@ class _OrganizationAssignmentsState extends State<_OrganizationAssignments> {
                                   padding: const EdgeInsets.all(16),
                                   child: Column(children: [
                                     _OrgDetailIdentity(
-                                        title: row.title,
-                                        subtitle: row.department,
+                                        title: row.displayTitle,
+                                        subtitle: row.displayDepartment,
                                         position: true),
                                     AppSelectField(
                                         label: 'جایگاه شغلی',
                                         value: code,
-                                        displayValue: row.title,
+                                        displayValue: row.displayTitle,
                                         enabled: !saving,
                                         onPick: () => showAppOptionSheet(
                                                 context,
@@ -137,7 +137,7 @@ class _OrganizationAssignmentsState extends State<_OrganizationAssignments> {
                                                 options: [
                                                   for (final r
                                                       in state.snapshot.rows)
-                                                    AppOption(r.code, r.title)
+                                                    AppOption(r.code, r.displayTitle)
                                                 ]),
                                         onChanged: (v) =>
                                             setState(() => code = v)),
@@ -485,7 +485,7 @@ class _UnitPositionsState extends State<_UnitPositions> {
                         text: 'هنوز جایگاه شغلی تعریف نشده است.'),
                   for (final row in rows)
                     _OrgDetailRow(
-                        title: row.title,
+                        title: row.displayTitle,
                         position: true,
                         onTap: () => _orgSheet<void>(
                             context,

@@ -619,6 +619,7 @@ class FrappeClient implements FrappeApiClient {
       );
 
   static bool isReadOnlyMethod(String method) {
+    if (method == 'asoud_erp.api.v1.first_office_setup.status') return true;
     final action = method.split('.').last;
     if (action == 'execution_kinds' ||
         action == 'options' ||

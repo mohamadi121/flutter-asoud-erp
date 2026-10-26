@@ -293,7 +293,7 @@ class _OrganizationCreateFormState extends State<_OrganizationCreateForm> {
                                                                           1))
                                                               .map((u) => AppOption(
                                                                   '${u['name']}',
-                                                                  '${u['department_name']}')),
+                                                                  organizationUnitLabel(u))),
                                                         ]);
                                                     if (value == null ||
                                                         !mounted) {
@@ -319,7 +319,7 @@ class _OrganizationCreateFormState extends State<_OrganizationCreateForm> {
                                                                   u['name'] ==
                                                                   selected)
                                                               .map((u) =>
-                                                                  '${u['department_name']}')
+                                                                  organizationUnitLabel(u))
                                                               .firstOrNull ??
                                                           (widget.position
                                                               ? 'انتخاب واحد سازمانی'
