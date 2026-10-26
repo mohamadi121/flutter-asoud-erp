@@ -206,15 +206,11 @@ class _OrganizationTree extends StatefulWidget {
   const _OrganizationTree(
       {required this.rows,
       this.query = '',
-      this.preview = false,
       this.cardStyle = false,
-      this.knownRows,
       this.canManage = true,
       this.onClearSearch});
   final List<OrgPosition> rows;
-  final List<OrgPosition>? knownRows;
   final String query;
-  final bool preview;
   final bool cardStyle;
   final bool canManage;
   final VoidCallback? onClearSearch;
@@ -254,13 +250,10 @@ class _OrganizationTreeState extends State<_OrganizationTree> {
       for (final row in _sortedPositions(items)) {
         if (!visited.add(row.code) || !matches.contains(row.code)) continue;
         final descendants = children[row.code] ?? const <OrgPosition>[];
-        final open = widget.preview ||
-            widget.query.isNotEmpty ||
+        final open = widget.query.isNotEmpty ||
             (widget.cardStyle
                 ? !_collapsed.contains(row.code)
                 : _expanded.contains(row.code));
-        final parentNames = (widget.knownRows ?? widget.rows)
-            .where((e) => e.code == row.parent);
         if (widget.cardStyle) {
           final color =
               _orgAccents[widget.rows.indexOf(row) % _orgAccents.length];
@@ -369,20 +362,13 @@ class _OrganizationTreeState extends State<_OrganizationTree> {
                                 fontWeight: depth == 0
                                     ? FontWeight.w800
                                     : FontWeight.w500)),
-                        if (widget.preview &&
-                            row.parent.isNotEmpty &&
-                            !byCode.containsKey(row.parent))
-                          Text(
-                              'زیرمجموعه: ${parentNames.isEmpty ? row.parent : parentNames.first.displayTitle}',
-                              style: const TextStyle(
-                                  fontSize: 10, color: AsoudColors.muted)),
                       ])),
                   if (descendants.isNotEmpty)
                     Icon(open ? Icons.expand_more : Icons.chevron_left,
                         size: 18, color: AsoudColors.muted),
                   const SizedBox(width: 6),
                   SizedBox(
-                      width: widget.preview ? 70 : 58,
+                      width: 58,
                       child: Text(row.code,
                           textDirection: TextDirection.ltr,
                           textAlign: TextAlign.center,
@@ -390,7 +376,7 @@ class _OrganizationTreeState extends State<_OrganizationTree> {
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                               fontSize: 16, fontWeight: FontWeight.w700))),
-                  if (!widget.preview && widget.canManage)
+                  if (widget.canManage)
                     _OrganizationMenu(position: row),
                 ])),
           ),
