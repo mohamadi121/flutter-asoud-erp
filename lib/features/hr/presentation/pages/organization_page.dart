@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
@@ -18,6 +19,7 @@ import '../../../../core/widgets/asoud_ui.dart';
 import '../../../../core/widgets/states.dart';
 import '../../data/organization_repository.dart';
 import '../../domain/organization_chart.dart';
+import '../../domain/organization_unit_navigation.dart';
 import '../../domain/organization_templates.dart';
 import '../cubit/organization_cubit.dart';
 
@@ -30,6 +32,8 @@ part 'organization_create.dart';
 part 'organization_assignments.dart';
 part 'organization_unit_management.dart';
 part 'organization_unit_details.dart';
+part 'organization_focus.dart';
+part 'organization_focus_editor.dart';
 
 String _assignmentDate(dynamic value) => value == null
     ? 'نامشخص (سابقه قبلی)'
@@ -184,6 +188,13 @@ class _OrganizationSetup extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
             children: [
               const _OrganizationStatus(),
+              if (state.snapshot.rows.isNotEmpty)
+                const _OrgNotice(
+                  icon: Icons.info_outline,
+                  color: AsoudColors.primary,
+                  text:
+                      'ساختار فعلی شما حفظ می‌شود. برای تکمیل آن از ورود اکسل یا ایجاد دستی استفاده کنید. قالب آماده فقط روی ساختار بدون جایگاه اعمال می‌شود و جایگزین اطلاعات موجود نیست.',
+                ),
               if (canManage) const SizedBox(height: 18),
               if (canManage)
                 Card(
@@ -632,7 +643,7 @@ class _OrganizationTemplatesState extends State<_OrganizationTemplates> {
                 icon: Icons.info_outline,
                 color: AsoudColors.primary,
                 text:
-                    'قالب‌ها نقطه شروع پیشنهادی با جایگاه‌های خالی هستند و پس از ایجاد قابل ویرایش‌اند. برای حفظ اطلاعات، قالب فقط روی ساختار خالی اعمال می‌شود.'),
+                    'نام واحدها و جایگاه‌های این قالب‌ها فارسی است. قالب‌ها نقطه شروع پیشنهادی با جایگاه‌های خالی هستند و پس از ایجاد قابل ویرایش‌اند. برای حفظ اطلاعات، قالب فقط روی ساختار خالی اعمال می‌شود.'),
             const SizedBox(height: 16),
             for (final template in organizationTemplates
                 .where((t) => '${t.title} ${t.description}'.contains(query)))

@@ -295,6 +295,28 @@ class _OrganizationWorkspace extends StatelessWidget {
           body: NestedScrollView(
               headerSliverBuilder: (context, innerScrolled) => [
                     const SliverToBoxAdapter(child: _OrganizationSummary()),
+                    if (canManage)
+                      SliverToBoxAdapter(
+                          child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              child: BlocBuilder<OrganizationCubit,
+                                  OrganizationState>(builder: (context, state) {
+                                return OutlinedButton.icon(
+                                    onPressed: state.busy
+                                        ? null
+                                        : () async {
+                                            await _openOrganizationPage<void>(
+                                                context,
+                                                const _OrganizationSetup());
+                                            if (!context.mounted) return;
+                                            await context
+                                                .read<OrganizationCubit>()
+                                                .load();
+                                          },
+                                    icon: const Icon(Icons.add_chart_outlined),
+                                    label: const Text(
+                                        'انتخاب روش ایجاد: قالب، اکسل یا دستی'));
+                              }))),
                     SliverToBoxAdapter(
                         child: Padding(
                             padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
@@ -531,13 +553,6 @@ class _OrganizationUnitsState extends State<_OrganizationUnits> {
     data = c.repository.units(c.company);
   }
 
-  Future<void> _edit(List<Map<String, dynamic>> units,
-      {Map<String, dynamic>? unit, String parent = ''}) async {
-    final saved = await _orgSheet<bool>(
-        context, _UnitForm(units: units, unit: unit, parent: parent));
-    if (saved == true && mounted) setState(_reload);
-  }
-
   @override
   Widget build(BuildContext context) =>
       BlocListener<OrganizationCubit, OrganizationState>(
@@ -572,17 +587,8 @@ class _OrganizationUnitsState extends State<_OrganizationUnits> {
                 final manage =
                     widget.canManage && snapshot.data!['can_manage'] == true;
                 if (widget.hierarchy) {
-                  return _OrganizationHierarchyPanel(
-                      units: units,
-                      canManage: manage,
-                      onCreateUnit: () => _edit(units),
-                      onOpenUnit: (unit) async {
-                        await _openOrganizationPage<void>(
-                            context,
-                            _OrganizationUnitManagement(
-                                unit: unit, units: units, canManage: manage));
-                        if (mounted) setState(_reload);
-                      });
+                  return _OrgSheetTheme(child: _OrganizationFocus(
+                      units: units, canManage: manage));
                 }
                 return _OrganizationUnitList(
                     units: units,
@@ -600,10 +606,8 @@ class _OrganizationUnitsState extends State<_OrganizationUnits> {
 class _UnitForm extends StatefulWidget {
   const _UnitForm(
       {required this.units,
-      this.unit,
       this.parent = ''});
   final List<Map<String, dynamic>> units;
-  final Map<String, dynamic>? unit;
   final String parent;
   @override
   State<_UnitForm> createState() => _UnitFormState();
@@ -617,22 +621,9 @@ class _UnitFormState extends State<_UnitForm> {
   bool allowClose = false;
   late String initialParent;
   late bool initialGroup;
-  Set<String> get _excludedParents {
-    final ids = <String>{if (widget.unit != null) '${widget.unit!['name']}'};
-    var changed = true;
-    while (changed) {
-      final before = ids.length;
-      for (final u in widget.units) {
-        if (ids.contains(u['parent_department'])) ids.add('${u['name']}');
-      }
-      changed = before != ids.length;
-    }
-    return ids;
-  }
-
   String? error;
   bool get dirty =>
-      title.text != (widget.unit?['department_name'] ?? '') ||
+      title.text.isNotEmpty ||
       parent != initialParent ||
       group != initialGroup;
   Future<void> discard() async {
@@ -646,10 +637,9 @@ class _UnitFormState extends State<_UnitForm> {
   @override
   void initState() {
     super.initState();
-    title = TextEditingController(
-        text: widget.unit?['department_name'] as String? ?? '');
-    parent = widget.unit?['parent_department'] as String? ?? widget.parent;
-    group = widget.unit == null || widget.unit!['is_group'] == 1;
+    title = TextEditingController();
+    parent = widget.parent;
+    group = true;
     initialParent = parent;
     initialGroup = group;
     title.addListener(() {
@@ -676,8 +666,6 @@ class _UnitFormState extends State<_UnitForm> {
     try {
       final c = context.read<OrganizationCubit>();
       await c.repository.saveUnit(c.company, {
-        if (widget.unit != null) 'name': widget.unit!['name'],
-        if (widget.unit != null) 'modified': widget.unit!['modified'],
         'title': title.text.trim(),
         'parent': parent,
         'is_group': group
@@ -704,11 +692,7 @@ class _UnitFormState extends State<_UnitForm> {
       child: Scaffold(
           appBar: _OrganizationReferenceHeader(
               form: true,
-              title: widget.unit == null
-                      ? (widget.parent.isEmpty
-                          ? 'ایجاد واحد سازمانی'
-                          : 'افزودن زیرواحد')
-                      : 'ویرایش مشخصات واحد'),
+              title: widget.parent.isEmpty ? 'ایجاد واحد سازمانی' : 'افزودن زیرواحد'),
           body: ListView(padding: const EdgeInsets.all(16), children: [
             if (error != null)
               Text(error!, style: const TextStyle(color: AsoudColors.danger)),
@@ -721,7 +705,7 @@ class _UnitFormState extends State<_UnitForm> {
             AppSelectField(
                 value: parent.isEmpty ? '__root__' : parent,
                 label: 'واحد بالادستی',
-                enabled: !busy && widget.unit == null,
+                enabled: !busy && widget.parent.isEmpty,
                 displayValue: widget.units
                         .where((u) => u['name'] == parent)
                         .map((u) => '${u['department_name']}')
@@ -737,7 +721,6 @@ class _UnitFormState extends State<_UnitForm> {
                               '', 'ریشه ساختار / بدون واحد بالادستی'),
                           ...widget.units
                               .where((u) =>
-                                  !_excludedParents.contains(u['name']) &&
                                   u['disabled'] != 1 &&
                                   u['is_group'] == 1)
                               .map((u) => AppOption(
@@ -749,22 +732,14 @@ class _UnitFormState extends State<_UnitForm> {
                   subtitle: const Text(
                       'واحد گروهی در ERPNext؛ برای واحد دارای زیرواحد قابل غیرفعال‌کردن نیست.'),
                   value: group,
-                  onChanged: busy ||
-                          widget.units.any((u) =>
-                              u['parent_department'] == widget.unit?['name'])
-                      ? null
+                  onChanged: busy ? null
                       : (v) => setState(() => group = v)),
-            if (widget.unit != null)
-              const Text(
-                  'برای تغییر واحد بالادستی از مدیریت واحد ← جابه‌جایی استفاده کنید.'),
             FilledButton(
                 key: const ValueKey('organization-unit-submit'),
                 onPressed: busy ? null : _save,
                 child: Text(busy
                     ? 'در حال ثبت…'
-                    : widget.unit == null
-                            ? 'افزودن واحد'
-                            : 'ثبت تغییرات')),
+                    : 'افزودن واحد')),
             TextButton(
                 onPressed: busy ? null : discard, child: const Text('انصراف')),
           ])));

@@ -272,6 +272,7 @@ class _UnitDetailsState extends State<_UnitDetails> {
                     ? const Color(0xffffd5d1)
                     : const Color(0xffdce5f3))),
         child: ListTile(
+            key: ValueKey(delete ? 'organization-unit-delete-action' : 'organization-unit-move-action'),
             dense: true,
             leading: AsoudIconBox(
                 icon: icon,
