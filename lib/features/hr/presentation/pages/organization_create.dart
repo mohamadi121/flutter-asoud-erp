@@ -130,7 +130,8 @@ class _OrganizationCreateFormState extends State<_OrganizationCreateForm> {
         }
       } else {
         final result = await c.repository.saveUnit(c.company,
-            {'title': title.text.trim(), 'parent': selected, 'is_group': true});
+            {'title': title.text.trim(), 'parent': selected, 'is_group': true,
+              'description': duties.text.trim()});
         createdId = result['name']?.toString();
         await c.load();
       }
@@ -374,6 +375,12 @@ class _OrganizationCreateFormState extends State<_OrganizationCreateForm> {
                                       fontSize: 12,
                                       height: 1.9,
                                       color: Color(0xff677080)))),
+                          if (widget.embedded && !widget.position) ...[
+                            const SizedBox(height: 14),
+                            AppTextField(controller: duties, label: 'توضیحات واحد',
+                              hint: 'توضیحات را وارد کنید', minLines: 3, maxLines: 5, enabled: !saving,
+                              validator: (v) => (v ?? '').runes.length > 2000 ? 'توضیحات واحد حداکثر ۲۰۰۰ نویسه است.' : null),
+                          ],
                           if (widget.embedded && widget.position) ...[
                             const SizedBox(height: 14),
                             AppSelectField(label: 'جایگاه بالادستی', value: parentPosition,

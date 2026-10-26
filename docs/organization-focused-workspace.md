@@ -28,10 +28,10 @@ history UI are reused. No native records, IDs, assignments or history are migrat
 
 ## Explicit backend gaps (not simulated)
 
-The current `organization.save_unit` accepts title, parent and group status;
-`list_units` does not return a description field. No editable description is
-offered as if it could be saved. The UI can display one if a future authorized
-response supplies it.
+`organization.save_unit` now accepts optional `description`; `list_units` returns
+it. The matching backend stores it on native Department.asoud_description after
+`bench migrate`. Existing clients omitting it preserve the original value. New
+description writes fail explicitly before migration rather than discard text.
 
 Current chart assignment writes only change active occupant IDs. Start/end
 timestamps are stamped and preserved by the server when assignments start/end.
@@ -45,11 +45,21 @@ Adding those features requires an agreed backend contract and implementation.
 - Related tests cover 320/390/430 RTL navigation, current-node toggling, root
   return, four-child pagination, unchanged native IDs, dirty-form protection,
   create/edit validation, deletion blockers and personnel/photo/history flows.
-- Final targeted run: 39 tests passed; two explicit visual-render cases passed.
+- Final targeted run: 42 tests passed; five explicit visual-render cases passed,
+  including create-subunit, create-position and inline-position-edit forms.
 - The explicit ORG_VISUAL render writes disposable PNGs under `build/` only;
   main golden baselines are not updated. Rendered output was inspected.
 - Full non-golden suite attempt: 1555 passed, 10 failed (nine offline queue/
   ordering/temp-file tests, plus `new_request_sheet_golden_test.dart`). These
   files were not changed here; the whole application is not reported green.
 - No production/installed-site writes, migrations or emulator sign-in checks
-  were performed. This frontend-only change has not been committed or pushed.
+  were performed. The first focused-workspace phase was pushed as `729ce2c`;
+  subsequent form styling adds a paired backend metadata migration.
+
+## Deployment for the inline form refinements
+
+Deploy the matching backend and run `bench --site <site> migrate` before using
+unit-description writes in the updated app. This adds only an optional custom
+field to native Department. Native permissions, parent IDs, modified checks and
+position capacity/assignment rules remain authoritative. Installed-site Frappe
+integration and HTTP tests were added but could not be executed without a bench.

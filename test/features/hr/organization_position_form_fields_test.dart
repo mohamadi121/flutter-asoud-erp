@@ -78,7 +78,7 @@ class _OrgClient extends Fake implements FrappeApiClient {
       units.removeWhere((u) => u['name'] == id);
       units.add({'name': id, 'department_name': lastUnitPayload!['title'],
         'parent_department': lastUnitPayload!['parent'], 'is_group': 1,
-        'disabled': 0, 'modified': '2026-10-25 10:00:00'});
+        'disabled': 0, 'description': lastUnitPayload!['description'] ?? '', 'modified': '2026-10-25 10:00:00'});
       return _envelope({'name': id, 'modified': '2026-10-25 10:00:00'});
     }
     if (method == 'asoud_erp.api.v1.organization.employee_photo') return _envelope({'content': null});
@@ -257,9 +257,11 @@ void main() {
         'assignment_history': [{'employee': 'employee:OLD', 'started_at': null, 'ended_at': '2026-01-01'}]},
     ]);
     await _openCreateForm(tester, client, openForm: false);
-    final assign = find.byTooltip('انتساب کارشناس منابع انسانی');
+    final assign = find.byTooltip('عملیات کارشناس منابع انسانی');
     await tester.ensureVisible(assign);
     await tester.tap(assign);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('مدیریت انتصاب پرسنل'));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('inline-assignment-P1')), findsOneWidget);
     expect(find.byType(Scaffold), findsOneWidget);
@@ -324,6 +326,38 @@ void main() {
     await expectLater(find.byType(OrganizationPage), matchesGoldenFile('../../../build/organization-management-reference.png'));
   }, tags: 'golden', skip: !const bool.fromEnvironment('ORG_VISUAL'));
 
+  for (final variant in ['unit', 'position', 'edit']) {
+    testWidgets('inline $variant form visual reference', (tester) async {
+      await (FontLoader('Vazirmatn')
+        ..addFont(rootBundle.load('assets/fonts/Vazirmatn-Regular.ttf'))
+        ..addFont(rootBundle.load('assets/fonts/Vazirmatn-Bold.ttf'))).load();
+      await (FontLoader('MaterialIcons')..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'))).load();
+      final client = _OrgClient(units: [
+        {...unit, 'name': 'SALES', 'department_name': 'فروش و بازاریابی'},
+        {...unit, 'name': 'MARKETING', 'department_name': 'بازاریابی', 'parent_department': 'SALES'},
+        {...unit, 'name': 'DIRECT', 'department_name': 'فروش مستقیم', 'parent_department': 'SALES'},
+      ], positions: [
+        {'code': 'CEO', 'title': 'مدیرعامل', 'parent': '', 'occupants': <String>[], 'capacity': 1},
+        {'code': 'SALES-MANAGER', 'title': 'مدیر فروش', 'parent': 'CEO', 'department_id': 'SALES',
+          'department': 'فروش و بازاریابی', 'occupants': <String>[], 'capacity': 1},
+      ]);
+      await _openCreateForm(tester, client, openForm: false);
+      tester.view.physicalSize = const Size(390, 2000);
+      await tester.pumpAndSettle();
+      final control = variant == 'edit' ? find.byTooltip('ویرایش مدیر فروش')
+        : find.byKey(ValueKey(variant == 'unit' ? 'focus-add-unit' : 'focus-add-position'));
+      await tester.ensureVisible(control);
+      await tester.tap(control);
+      await tester.pumpAndSettle();
+      final scroll = find.byKey(const PageStorageKey('organization-focused-scroll'));
+      final state = tester.state<ScrollableState>(find.descendant(of: scroll, matching: find.byType(Scrollable)).first);
+      state.position.jumpTo(state.position.minScrollExtent);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      await expectLater(find.byType(OrganizationPage), matchesGoldenFile('../../../build/organization-$variant-form.png'));
+    }, tags: 'golden', skip: !const bool.fromEnvironment('ORG_VISUAL'));
+  }
+
   testWidgets('focused children paginate four at a time and retain native path', (tester) async {
     final client = _OrgClient(units: [unit, for (var i = 0; i < 9; i++) {
       ...unit, 'name': 'CHILD-$i', 'department_name': 'واحد $i', 'parent_department': 'HR-CO',
@@ -353,12 +387,12 @@ void main() {
   testWidgets('rejected inline save retains input and never announces success', (tester) async {
     final client = _OrgClient(units: [unit])..rejectSave = true;
     await _openCreateForm(tester, client, openForm: false);
-    await tester.tap(find.text('افزودن جایگاه'));
+    await tester.tap(find.text('جایگاه جدید'));
     await tester.pumpAndSettle();
     final title = find.byKey(const ValueKey('focus-editor-title'));
     await tester.enterText(title, 'کارشناس بررسی');
-    await tester.ensureVisible(find.text('ذخیره').last);
-    await tester.tap(find.text('ذخیره').last);
+    await tester.ensureVisible(find.text('ثبت جدید').last);
+    await tester.tap(find.text('ثبت جدید').last);
     await tester.pumpAndSettle();
     expect(tester.widget<AppTextField>(title).controller!.text, 'کارشناس بررسی');
     expect(find.text('ذخیره توسط سرور رد شد.'), findsOneWidget);
@@ -409,15 +443,15 @@ void main() {
       await _openCreateForm(tester, client, openForm: false);
       tester.view.physicalSize = Size(width, 1800);
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('افزودن جایگاه'));
-      await tester.tap(find.text('افزودن جایگاه'));
+      await tester.ensureVisible(find.text('جایگاه جدید'));
+      await tester.tap(find.text('جایگاه جدید'));
       await tester.pumpAndSettle();
       final title = find.byKey(const ValueKey('focus-editor-title'));
       expect(tester.widget<AppTextField>(title).controller!.text, isEmpty);
       await tester.enterText(title, 'کارشناس توسعه');
       await tester.enterText(find.byKey(const ValueKey('focus-editor-capacity')), '۲');
-      await tester.ensureVisible(find.text('ذخیره').last);
-      await tester.tap(find.text('ذخیره').last);
+      await tester.ensureVisible(find.text('ثبت جدید').last);
+      await tester.tap(find.text('ثبت جدید').last);
       await tester.pumpAndSettle();
       final saved = (client.lastSavePayload!['rows'] as List).last as Map;
       expect(saved['department_id'], 'HR-CO');
@@ -432,10 +466,13 @@ void main() {
   testWidgets('unsaved inline subunit prompts before changing context and persists fixed parent', (tester) async {
     final client = _OrgClient(units: [unit, {...unit, 'name': 'CHILD', 'department_name': 'آموزش', 'parent_department': 'HR-CO'}]);
     await _openCreateForm(tester, client, openForm: false);
-    await tester.tap(find.text('افزودن واحد'));
+    await tester.tap(find.text('زیرواحد جدید'));
     await tester.pumpAndSettle();
     final title = find.byKey(const ValueKey('focus-editor-title'));
     await tester.enterText(title, 'پشتیبانی');
+    final description = find.byKey(const ValueKey('focus-editor-description'));
+    expect(tester.widget<AppTextField>(description).controller!.text, isEmpty);
+    await tester.enterText(description, 'پاسخ‌گویی به مشتریان و هماهنگی خدمات');
     await tester.ensureVisible(find.byKey(const ValueKey('focus-unit-CHILD')));
     await tester.tap(find.byKey(const ValueKey('focus-unit-CHILD')));
     await tester.pumpAndSettle();
@@ -448,12 +485,38 @@ void main() {
     await tester.tap(find.text('ذخیره').last);
     await tester.pumpAndSettle();
     expect(client.lastUnitPayload!['parent'], 'HR-CO');
+    expect(client.lastUnitPayload!['description'], 'پاسخ‌گویی به مشتریان و هماهنگی خدمات');
     expect(client.lastUnitPayload!.containsKey('name'), isFalse);
     await tester.pump(const Duration(seconds: 4));
     await tester.ensureVisible(find.byKey(const ValueKey('focus-unit-NEW-UNIT')));
     expect(find.text('زیرواحدهای مستقیم منابع انسانی'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  for (final width in [320.0, 390.0, 430.0]) {
+    testWidgets('pencil opens one editor below position list at $width', (tester) async {
+      final client = _OrgClient(units: [unit], positions: [
+        {'code': 'CEO', 'title': 'مدیرعامل', 'parent': '', 'capacity': 1, 'occupants': <String>[]},
+        {'code': 'P1', 'title': 'مدیر فروش', 'parent': 'CEO', 'department_id': 'HR-CO',
+          'department': 'منابع انسانی', 'capacity': 2, 'occupants': <String>[]},
+      ]);
+      await _openCreateForm(tester, client, openForm: false);
+      tester.view.physicalSize = Size(width, 2000);
+      await tester.pumpAndSettle();
+      final pencil = find.byTooltip('ویرایش مدیر فروش');
+      await tester.ensureVisible(pencil);
+      await tester.tap(pencil);
+      await tester.pumpAndSettle();
+      expect(find.byType(Scaffold), findsOneWidget);
+      final field = find.byKey(const ValueKey('focus-editor-title'));
+      expect(tester.widget<AppTextField>(field).controller!.text, 'مدیر فروش');
+      expect(tester.getTopLeft(field).dy, greaterThan(tester.getBottomLeft(find.byKey(const ValueKey('focus-position-P1'))).dy));
+      expect(tester.getTopLeft(find.text('جزئیات واحد انتخاب‌شده')).dy,
+        greaterThan(tester.getBottomLeft(find.byKey(const ValueKey('focus-editor-save'))).dy));
+      expect(find.byKey(const ValueKey('focus-editor-title')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   for (final width in [320.0, 390.0, 430.0]) {
     testWidgets('unit management keeps root and all direct children at $width', (tester) async {
@@ -465,13 +528,13 @@ void main() {
       await _openCreateForm(tester, client, openForm: false, focusFirst: false);
       tester.view.physicalSize = Size(width, 1600);
       await tester.pumpAndSettle();
-      expect(find.text('مدیرعامل'), findsOneWidget);
+      expect(find.byKey(const ValueKey('focus-root-CEO')), findsOneWidget);
       await tester.ensureVisible(find.text('منابع انسانی').first);
       await tester.tap(find.text('منابع انسانی').first);
       await tester.pumpAndSettle();
       // Selection now expands in place, without the old management route.
       expect(find.byKey(const ValueKey('focus-unit-HR-CO')), findsOneWidget);
-      expect(find.text('مدیرعامل'), findsOneWidget);
+      expect(find.byKey(const ValueKey('focus-root-CEO')), findsOneWidget);
       expect(find.text('آموزش'), findsOneWidget);
       expect(find.text('جذب'), findsOneWidget);
       expect(find.text('زیرواحدهای مستقیم منابع انسانی'), findsOneWidget);

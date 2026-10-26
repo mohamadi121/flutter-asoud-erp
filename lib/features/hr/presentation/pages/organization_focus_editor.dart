@@ -35,8 +35,10 @@ class _OrganizationInlineEditorState extends State<_OrganizationInlineEditor> {
       TextEditingController(text: '${widget.position?.capacity ?? 1}');
   late final duties =
       TextEditingController(text: widget.position?.duties ?? '');
+  late final description = TextEditingController(text: widget.action == _OrgEdit.addUnit ? '' : '${sourceUnit['description'] ?? ''}');
   late String parent = isPosition
-      ? widget.position?.parent ?? ''
+      ? widget.position?.parent ?? (cubit.state.snapshot.rows.where((r) => r.parent.isEmpty).length == 1
+          ? cubit.state.snapshot.rows.singleWhere((r) => r.parent.isEmpty).code : '')
       : '${sourceUnit['parent_department'] ?? ''}';
   late String destination =
       widget.position?.departmentId ?? '${sourceUnit['name']}';
@@ -59,7 +61,7 @@ class _OrganizationInlineEditorState extends State<_OrganizationInlineEditor> {
       widget.action == _OrgEdit.addUnit ||
       widget.action == _OrgEdit.addPosition;
   String get fingerprint => jsonEncode(
-      [title.text, capacity.text, duties.text, parent, destination, group]);
+      [title.text, capacity.text, duties.text, description.text, parent, destination, group]);
   bool get dirty => !deleting && fingerprint != initial;
   OrganizationCubit get cubit => context.read<OrganizationCubit>();
   OrganizationUnitNavigation get nav =>
@@ -93,6 +95,7 @@ class _OrganizationInlineEditorState extends State<_OrganizationInlineEditor> {
     title.dispose();
     capacity.dispose();
     duties.dispose();
+    description.dispose();
     super.dispose();
   }
 
@@ -187,6 +190,7 @@ class _OrganizationInlineEditorState extends State<_OrganizationInlineEditor> {
           if (!adding) 'name': sourceUnit['name'],
           if (!adding) 'modified': sourceUnit['modified'],
           'title': organizationEditedTitle(title.text, adding ? '' : '${sourceUnit['department_name']}'),
+          if (!moving) 'description': description.text.trim(),
           'parent': adding
               ? sourceUnit['name']
               : moving
@@ -235,12 +239,12 @@ class _OrganizationInlineEditorState extends State<_OrganizationInlineEditor> {
   }
 
   @override
-  Widget build(BuildContext context) => _OrgPanel(children: [
+  Widget build(BuildContext context) => _OrgPanel(form: true, children: [
         Row(children: [
-          const Icon(Icons.edit_outlined, size: 20, color: Color(0xff448fff)),
+          const AsoudIconBox(icon: Icons.edit_outlined, size: 34, color: Color(0xff448fff)),
           const SizedBox(width: 8),
           Expanded(
-              child: Text(labels[widget.action]!,
+              child: Text(widget.action == _OrgEdit.addUnit ? 'ایجاد زیرواحد' : widget.action == _OrgEdit.addPosition ? 'افزودن جایگاه' : labels[widget.action]!,
                   style: const TextStyle(fontWeight: FontWeight.bold))),
           IconButton(
               tooltip: 'بستن فرم',
@@ -290,6 +294,9 @@ class _OrganizationInlineEditorState extends State<_OrganizationInlineEditor> {
                       AppTextField(
                           key: const ValueKey('focus-editor-title'),
                           controller: title,
+                          hintLocales: const [Locale('fa')],
+                          rounded: true,
+                          hint: 'عنوان را وارد کنید',
                           enabled: !saving,
                           label: isPosition ? 'عنوان جایگاه' : 'عنوان واحد',
                           required: true,
@@ -327,7 +334,8 @@ class _OrganizationInlineEditorState extends State<_OrganizationInlineEditor> {
                         _fixed('واحد سازمانی مربوط',
                             organizationUnitLabel(sourceUnit)),
                       const SizedBox(height: 14),
-                      AppSelectField(
+                      if (!adding) AppSelectField(
+                          rounded: true,
                           value: parent,
                           label: 'جایگاه بالادستی',
                           enabled: !saving,
@@ -360,6 +368,8 @@ class _OrganizationInlineEditorState extends State<_OrganizationInlineEditor> {
                         AppTextField(
                             key: const ValueKey('focus-editor-capacity'),
                             controller: capacity,
+                            hintLocales: const [Locale('en')],
+                            rounded: true,
                             enabled: !saving,
                             keyboardType: TextInputType.number,
                             label: 'ظرفیت جایگاه',
@@ -379,10 +389,13 @@ class _OrganizationInlineEditorState extends State<_OrganizationInlineEditor> {
                         const SizedBox(height: 14),
                         AppTextField(
                             controller: duties,
+                            labelOutside: true,
+                            hintLocales: const [Locale('fa')],
                             enabled: !saving,
                             minLines: 3,
                             maxLines: 5,
-                            label: 'شرح وظایف (اختیاری)'),
+                            label: 'توضیحات یا شرح وظایف (اختیاری)',
+                            hint: 'توضیحات را وارد کنید'),
                       ],
                     ] else if (moving) ...[
                       _fixed(
@@ -426,7 +439,7 @@ class _OrganizationInlineEditorState extends State<_OrganizationInlineEditor> {
                               'کل زیرشاخه همراه واحد منتقل می‌شود. جایگاه‌ها، انتساب‌ها و سوابق حفظ می‌شوند و روابط گزارش‌دهی جایگاه‌ها تغییر نمی‌کند.')),
                     ] else ...[
                       _fixed(
-                          adding ? 'واحد بالادستی ثابت' : 'واحد بالادستی',
+                          'واحد بالادستی',
                           adding
                               ? organizationUnitLabel(sourceUnit)
                               : _nullableOrgUnitLabel(nav.byId(parent)) ??
@@ -445,21 +458,33 @@ class _OrganizationInlineEditorState extends State<_OrganizationInlineEditor> {
                       if (adding && sourceUnit['is_group'] != 1)
                         const Text(
                             'برای افزودن زیرواحد، ابتدا پذیرش زیرواحد را در مشخصات واحد بالادستی فعال کنید.'),
+                      const SizedBox(height: 14),
+                      AppTextField(key: const ValueKey('focus-editor-description'),
+                        labelOutside: true,
+                        hintLocales: const [Locale('fa')],
+                        controller: description, enabled: !saving, label: 'توضیحات واحد',
+                        hint: 'توضیحات را وارد کنید', minLines: 3, maxLines: 5,
+                        validator: (value) => (value ?? '').runes.length > 2000 ? 'توضیحات واحد حداکثر ۲۰۰۰ نویسه است.' : null),
                     ],
                     const SizedBox(height: 16),
                     Row(children: [
                       Expanded(
-                          child: FilledButton(
+                          child: FilledButton.icon(
+                              key: const ValueKey('focus-editor-save'),
                               onPressed: saving ? null : submit,
-                              child: Text(saving
+                              style: FilledButton.styleFrom(backgroundColor: const Color(0xff111111),
+                                  minimumSize: const Size(0, 44), shape: const StadiumBorder()),
+                              icon: const Icon(Icons.check, size: 17),
+                              label: Text(saving
                                   ? 'در حال ذخیره…'
                                   : adding
-                                      ? 'ذخیره'
+                                      ? (isPosition ? 'ثبت جدید' : 'ذخیره')
                                       : 'ذخیره تغییرات'))),
                       const SizedBox(width: 8),
                       Expanded(
                           child: OutlinedButton(
                               onPressed: saving ? null : widget.onCancel,
+                              style: OutlinedButton.styleFrom(minimumSize: const Size(0, 44), shape: const StadiumBorder()),
                               child: const Text('انصراف')))
                     ]),
                   ])),
@@ -470,20 +495,13 @@ class _OrganizationInlineEditorState extends State<_OrganizationInlineEditor> {
                   style: const TextStyle(color: AsoudColors.danger))),
       ]);
 
-  Widget _fixed(String label, String value) => Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-          color: const Color(0xfff2f5fa),
-          borderRadius: BorderRadius.circular(12)),
-      child: Row(children: [
-        Expanded(
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(label,
-              style: const TextStyle(fontSize: 11, color: Color(0xff7d8798))),
-          const SizedBox(height: 6),
-          Text(value)
-        ])),
-        const Icon(Icons.lock_outline, size: 16, color: Color(0xff9facbf))
-      ]));
+  Widget _fixed(String label, String value) => Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text(label, style: const TextStyle(fontSize: 12, color: Color(0xff7d8798))),
+        const SizedBox(height: 6),
+        Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          decoration: BoxDecoration(color: const Color(0xfff2f5fa), borderRadius: BorderRadius.circular(12)),
+          child: Row(children: [Expanded(child: Text(value, style: const TextStyle(fontSize: 12))),
+            const Icon(Icons.lock_outline, size: 14, color: Color(0xff9facbf))])),
+      ]);
 }

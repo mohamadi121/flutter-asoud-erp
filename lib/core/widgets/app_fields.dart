@@ -100,6 +100,7 @@ class AppTextField extends StatelessWidget {
     this.enabled = true,
     this.obscureText = false,
     this.rounded = false,
+    this.labelOutside = false,
     this.maxLines = 1,
     this.minLines,
     this.maxLength,
@@ -122,6 +123,7 @@ class AppTextField extends StatelessWidget {
   final FormFieldValidator<String>? validator;
   final bool required, ltr, readOnly, enabled, obscureText;
   final bool rounded;
+  final bool labelOutside;
   final int maxLines;
   final int? maxLength;
   final int? minLines;
@@ -159,8 +161,8 @@ class AppTextField extends StatelessWidget {
         autofocus: autofocus,
         buildCounter: counterBuilder,
         decoration: AppFieldStyle.decoration(
-          label: rounded ? '' : label,
-          required: !rounded && required,
+          label: rounded || labelOutside ? '' : label,
+          required: !rounded && !labelOutside && required,
           borderRadius: rounded ? 28 : 12,
           hint: hint,
           helperText: helperText,
@@ -171,7 +173,7 @@ class AppTextField extends StatelessWidget {
           counterText: counterText,
         ),
       );
-    if (!rounded) return input;
+    if (!rounded && !labelOutside) return input;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Text('$label${required ? ' *' : ''}', style: const TextStyle(fontSize: 14, color: AsoudColors.muted)),
       const SizedBox(height: 8),
