@@ -6,6 +6,19 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../../helpers/fake_office_repository.dart';
 
+// Synthetic fixture with a valid checksum; not a verified personal identity.
+const _validNationalId = '0012345679';
+
+class _RecordingOfficeRepository extends FakeOfficeRepository {
+  int createCalls = 0;
+
+  @override
+  Future<Office> createOffice(Office office) async {
+    createCalls++;
+    return super.createOffice(office);
+  }
+}
+
 void main() {
   group('OfficeFormBloc', () {
     blocTest<OfficeFormBloc, OfficeFormState>(
@@ -37,7 +50,7 @@ void main() {
         ..add(const OfficeFieldChanged('officeName', 'دفتر آفلاین'))
         ..add(const OfficeFieldChanged('ownerFullName', 'علی محمدی'))
         ..add(const OfficeFieldChanged('activityType', 'خدمات'))
-        ..add(const OfficeFieldChanged('nationalId', '0012345678'))
+        ..add(const OfficeFieldChanged('nationalId', _validNationalId))
         ..add(const OfficeFieldChanged('phone', '09121234567'))
         ..add(const OfficeFieldChanged('province', 'تهران'))
         ..add(const OfficeFieldChanged('city', 'تهران'))
@@ -73,7 +86,7 @@ void main() {
         ..add(const OfficeFieldChanged('officeName', 'دفتر مرکزی'))
         ..add(const OfficeFieldChanged('ownerFullName', 'علی محمدی'))
         ..add(const OfficeFieldChanged('activityType', 'خدمات'))
-        ..add(const OfficeFieldChanged('nationalId', '0012345678'))
+        ..add(const OfficeFieldChanged('nationalId', _validNationalId))
         ..add(const OfficeFieldChanged('phone', '09121234567'))
         ..add(const OfficeFieldChanged('province', 'تهران'))
         ..add(const OfficeFieldChanged('city', 'تهران'))
@@ -86,6 +99,25 @@ void main() {
         expect(bloc.state.errors, isEmpty);
         expect(bloc.state.status, OfficeFormStatus.success);
         expect(bloc.state.createdOffice?.name, 'دفتر مرکزی');
+      },
+    );
+    late _RecordingOfficeRepository invalidRepository;
+    blocTest<OfficeFormBloc, OfficeFormState>(
+      'کد ملی با رقم کنترل نامعتبر قبل از فراخوانی repository رد می‌شود',
+      build: () {
+        invalidRepository = _RecordingOfficeRepository();
+        return OfficeFormBloc(officeType: OfficeType.personal,
+            repository: invalidRepository);
+      },
+      act: (bloc) => bloc
+        ..add(const OfficeFieldChanged('officeName', 'دفتر آزمون اعتبارسنجی'))
+        ..add(const OfficeFieldChanged('nationalId', '0012345678'))
+        ..add(const OfficeFormSubmitted()),
+      verify: (bloc) {
+        expect(bloc.state.status, OfficeFormStatus.invalid);
+        expect(bloc.state.errors, contains('nationalId'));
+        expect(bloc.state.createdOffice, isNull);
+        expect(invalidRepository.createCalls, 0);
       },
     );
   });

@@ -13,8 +13,8 @@ void main() {
   });
 
   Future<void> pump(
-      WidgetTester tester, OrganizationRepository repository) async {
-    tester.view.physicalSize = const Size(390, 780);
+      WidgetTester tester, OrganizationRepository repository, {double width = 390}) async {
+    tester.view.physicalSize = Size(width, 780);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -45,24 +45,38 @@ void main() {
     verify(() => repository.load('شرکت')).called(2);
   });
 
-  testWidgets('empty organization chart explains how to add positions',
-      (tester) async {
-    final repository = _Repository();
-    when(() => repository.load(any()))
-        .thenAnswer((_) async => const OrganizationSnapshot([], 0, false));
-    await pump(tester, repository);
-    expect(find.text('ایجاد ساختار سازمانی'), findsOneWidget);
-    expect(find.text('مشاهده و تکمیل ساختار سازمانی'), findsNothing);
-    await tester.tap(find.text('ایجاد ساختار دستی'));
-    await tester.pumpAndSettle();
-    expect(find.text('هنوز واحدی تعریف نشده است.'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('افزودن واحد'), 200,
-        scrollable: find
-            .descendant(
-                of: find.byType(TabBarView), matching: find.byType(Scrollable))
-            .last);
-    expect(find.text('افزودن واحد'), findsOneWidget);
-    expect(find.text('افزودن جایگاه'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
+  for (final width in [320.0, 390.0, 430.0]) {
+    testWidgets('empty organization chart explains how to add positions at $width',
+        (tester) async {
+      final repository = _Repository();
+      when(() => repository.load(any()))
+          .thenAnswer((_) async => const OrganizationSnapshot([], 0, false));
+      await pump(tester, repository, width: width);
+      expect(find.text('ایجاد ساختار سازمانی'), findsOneWidget);
+      expect(find.text('مشاهده و تکمیل ساختار سازمانی'), findsNothing);
+      await tester.tap(find.text('ایجاد ساختار دستی'));
+      await tester.pumpAndSettle();
+      expect(find.text('هنوز واحدی تعریف نشده است.'), findsOneWidget);
+      final pageScroll = find.descendant(
+          of: find.byType(ListView), matching: find.byType(Scrollable)).first;
+      final addUnit = find.widgetWithText(FilledButton, 'افزودن واحد به پیش‌نویس');
+      await tester.scrollUntilVisible(addUnit, 100, scrollable: pageScroll);
+      expect(addUnit, findsOneWidget);
+      final next = find.widgetWithText(FilledButton, 'ادامه: تعریف جایگاه‌های شغلی');
+      await tester.scrollUntilVisible(next, 100, scrollable: pageScroll);
+      expect(tester.widget<FilledButton>(next).onPressed, isNull);
+
+      // The positions step exists independently; a unit is still required before
+      // saving a position. No old TabBarView or legacy button label is assumed.
+      final positionsStep = find.widgetWithText(TextButton, '۲. جایگاه‌ها');
+      await tester.scrollUntilVisible(positionsStep, -100, scrollable: pageScroll);
+      await tester.tap(positionsStep);
+      await tester.pumpAndSettle();
+      final addPosition = find.widgetWithText(FilledButton, 'افزودن جایگاه به پیش‌نویس');
+      await tester.scrollUntilVisible(addPosition, 100, scrollable: pageScroll);
+      expect(addPosition, findsOneWidget);
+      expect(find.text('جایگاه بدون انتساب پرسنل ساخته می‌شود.'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
 }
