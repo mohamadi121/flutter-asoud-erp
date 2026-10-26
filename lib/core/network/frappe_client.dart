@@ -631,6 +631,10 @@ class FrappeClient implements FrappeApiClient {
         action == 'components' ||
         action == 'run_financial_report' ||
         action == 'tree' ||
+        // Directive reads whose names do not start with a read verb.
+        action == 'reports' ||
+        action == 'history' ||
+        action == 'download_attachment' ||
         action.endsWith('_options') ||
         action.endsWith('_fields') ||
         action.endsWith('_tree') ||
