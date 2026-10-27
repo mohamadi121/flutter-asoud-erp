@@ -82,6 +82,21 @@ class _FirstOfficeSetupPageState extends State<FirstOfficeSetupPage> {
     }
   }
 
+  Future<void> enterHomeWithoutCompletion() async {
+    if (loading || saving || hrBusy || saved == null) return;
+    setState(() => hrBusy = true);
+    try {
+      // Defer the server completion marker; navigation grants no permissions.
+      await Navigator.of(context).pushAndRemoveUntil<void>(
+          MaterialPageRoute(builder: (_) => const DashboardLandingPage()),
+          (_) => false);
+    } catch (e) {
+      if (mounted) setState(() => hrError = failureDetail(e));
+    } finally {
+      if (mounted) setState(() => hrBusy = false);
+    }
+  }
+
   Future<void> finish() async {
     if (hrBusy ||
         hrLoading ||
@@ -509,14 +524,22 @@ class _FirstOfficeSetupPageState extends State<FirstOfficeSetupPage> {
                     const SizedBox(height: 14),
                     FilledButton(
                         onPressed:
-                            busy || hrLoading || hrNeedsReload ? null : finish,
+                            busy ? null : enterHomeWithoutCompletion,
                         style: FilledButton.styleFrom(
                             backgroundColor: const Color(0xff111111),
                             minimumSize: const Size.fromHeight(48),
                             shape: const StadiumBorder()),
                         child: Text(hrBusy
-                            ? 'در حال تأیید…'
-                            : 'تأیید نهایی و ورود به خانه  ←')),
+                            ? 'در حال انتقال…'
+                            : 'عبور از بررسی نهایی و ورود به خانه  ←')),
+                    const SizedBox(height: 10),
+                    const Text(
+                        'با عبور از این مرحله، تأیید نهایی راه‌اندازی در سرور ثبت نمی‌شود و ممکن است در ورود بعدی دوباره نمایش داده شود.',
+                        style: TextStyle(fontSize: 11, color: AsoudColors.muted)),
+                    const SizedBox(height: 8),
+                    OutlinedButton(
+                        onPressed: busy || hrLoading || hrNeedsReload ? null : finish,
+                        child: const Text('ثبت تأیید نهایی در سرور و ورود به خانه')),
                   ],
                 ], selected: saved != null),
                 Container(
