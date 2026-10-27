@@ -13,9 +13,8 @@ import '../../../base_setup/data/repositories/frappe_base_setup_repository.dart'
 import '../../../base_setup/domain/repositories/base_setup_repository.dart';
 import '../../../dashboard/presentation/pages/dashboard_page.dart';
 import '../../data/repositories/first_office_bootstrap_repository.dart';
-import 'first_hr_lead_form.dart';
 
-/// Three server-backed steps: fiscal year, first HR account, final confirmation.
+/// Server-backed fiscal year and final confirmation; HR provisioning is deferred.
 class FirstOfficeSetupPage extends StatefulWidget {
   const FirstOfficeSetupPage({required this.company, super.key});
   final String company;
@@ -74,7 +73,7 @@ class _FirstOfficeSetupPageState extends State<FirstOfficeSetupPage> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          hrError = failureMessage(e);
+          hrError = failureDetail(e);
           hrNeedsReload = true;
         });
       }
@@ -83,46 +82,11 @@ class _FirstOfficeSetupPageState extends State<FirstOfficeSetupPage> {
     }
   }
 
-  Future<bool> createLead(
-      String fullName, String username, String contact, String password) async {
-    if (hrBusy || hrLoading || hrNeedsReload || saved == null) return false;
-    setState(() {
-      hrBusy = true;
-      hrError = null;
-    });
-    try {
-      final result = await bootstrapRepository.create(
-          company: widget.company,
-          fullName: fullName,
-          username: username,
-          contact: contact,
-          temporaryPassword: password);
-      if (!mounted) return false;
-      setState(() => bootstrap = result);
-      if (!result.hrReady) {
-        setState(() => hrError =
-            'حساب ثبت شده، اما دسترسی آن نیاز به بررسی مدیر سیستم دارد.');
-      }
-      return result.fullName != null;
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          hrError = failureMessage(e);
-          hrNeedsReload = true;
-        });
-      }
-      return false;
-    } finally {
-      if (mounted) setState(() => hrBusy = false);
-    }
-  }
-
   Future<void> finish() async {
     if (hrBusy ||
         hrLoading ||
         hrNeedsReload ||
-        saved == null ||
-        bootstrap?.hrReady != true) {
+        saved == null) {
       return;
     }
     setState(() {
@@ -142,7 +106,7 @@ class _FirstOfficeSetupPageState extends State<FirstOfficeSetupPage> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          hrError = failureMessage(e);
+          hrError = failureDetail(e);
           hrNeedsReload = true;
         });
       }
@@ -344,12 +308,10 @@ class _FirstOfficeSetupPageState extends State<FirstOfficeSetupPage> {
   Widget build(BuildContext context) {
     final busy = loading || saving || hrBusy;
     final completed = bootstrap?.completed == true
-        ? 3
+        ? 2
         : saved == null
             ? 0
-            : bootstrap?.hrReady == true
-                ? 2
-                : 1;
+            : 1;
     final last = saved == null ? end : DateTime.tryParse(saved!.endDate);
     return Directionality(
         textDirection: TextDirection.rtl,
@@ -395,7 +357,7 @@ class _FirstOfficeSetupPageState extends State<FirstOfficeSetupPage> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                            '${toPersianDigits((completed * 100 / 3).round())}٪',
+                            '${toPersianDigits((completed * 100 / 2).round())}٪',
                             style: const TextStyle(
                                 color: AsoudColors.primary,
                                 fontWeight: FontWeight.bold)),
@@ -404,11 +366,11 @@ class _FirstOfficeSetupPageState extends State<FirstOfficeSetupPage> {
                       ]),
                   const SizedBox(height: 14),
                   Row(children: [
-                    for (var i = 0; i < 3; i++)
+                    for (var i = 0; i < 2; i++)
                       Expanded(
                           child: Padding(
                               padding: EdgeInsetsDirectional.only(
-                                  end: i < 2 ? 6 : 0),
+                                  end: i < 1 ? 6 : 0),
                               child: ClipRRect(
                                   borderRadius: BorderRadius.circular(8),
                                   child: LinearProgressIndicator(
@@ -513,40 +475,20 @@ class _FirstOfficeSetupPageState extends State<FirstOfficeSetupPage> {
                   ],
                 ], selected: expanded),
                 card([
-                  heading(
-                      '۲. معرفی اولین مسئول منابع انسانی',
-                      'ایجاد حساب اولیه مسئول منابع انسانی',
-                      Icons.people_outline,
-                      completed: bootstrap?.hrReady == true,
-                      color: AsoudColors.success),
-                  if (hrLoading)
-                    const Padding(
-                        padding: EdgeInsets.only(top: 12),
-                        child: LinearProgressIndicator()),
-                  if (hrError != null) ...[
-                    const SizedBox(height: 12),
-                    Text(hrError!,
-                        style: const TextStyle(color: AsoudColors.danger)),
-                    TextButton(
-                        onPressed: busy || hrLoading ? null : loadBootstrap,
-                        child: const Text('دریافت دوباره وضعیت حساب')),
-                  ],
-                  if (saved != null &&
-                      bootstrap != null &&
-                      bootstrap!.fullName == null)
-                    FirstHrLeadForm(
-                        busy: busy || hrLoading || hrNeedsReload,
-                        onSubmit: createLead),
-                  if (bootstrap?.fullName != null && bootstrap?.hrReady != true)
-                    const Text(
-                        'مسئول قبلاً ثبت شده است. وضعیت فعال بودن حساب، نقش و دسترسی دفتر را در مدیریت کاربران بررسی کنید؛ حساب دیگری ساخته نمی‌شود.'),
-                ], selected: saved != null && bootstrap?.hrReady != true),
-                card([
-                  heading('۳. بررسی نهایی', 'کنترل تنظیمات و ورود به آسود',
+                  heading('۲. بررسی نهایی', 'کنترل تنظیمات و ورود به آسود',
                       Icons.assignment_turned_in_outlined,
                       completed: bootstrap?.completed == true,
                       color: AsoudColors.warning),
-                  if (saved != null && bootstrap?.hrReady == true) ...[
+                  if (hrLoading)
+                    const Padding(padding: EdgeInsets.only(top: 12),
+                        child: LinearProgressIndicator()),
+                  if (hrError != null) ...[
+                    const SizedBox(height: 12),
+                    Text(hrError!, style: const TextStyle(color: AsoudColors.danger)),
+                    TextButton(onPressed: busy || hrLoading ? null : loadBootstrap,
+                        child: const Text('دریافت دوباره وضعیت راه‌اندازی')),
+                  ],
+                  if (saved != null) ...[
                     const Divider(height: 32),
                     Container(
                         padding: const EdgeInsets.all(14),
@@ -558,15 +500,11 @@ class _FirstOfficeSetupPageState extends State<FirstOfficeSetupPage> {
                           reviewLine('تاریخ شروع', display(start)),
                           reviewLine('تاریخ پایان',
                               last == null ? '—' : display(last)),
-                          reviewLine(
-                              'مسئول منابع انسانی', bootstrap!.fullName!),
-                          reviewLine('نام کاربری', bootstrap!.username!),
-                          reviewLine('نقش', 'مسئول منابع انسانی'),
+                          if (bootstrap?.fullName != null)
+                            reviewLine('مسئول منابع انسانی', bootstrap!.fullName!),
                         ])),
-                    reviewNotice('اطلاعات ورود حساب',
-                        'ورود با نام کاربری و رمز موقت ثبت‌شده است. رمز را امن تحویل دهید؛ در اولین ورود باید تغییر کند. کد دعوت آزمایشی یا غیرواقعی تولید نشده است.'),
                     reviewNotice('مراحل اولیه آمادهٔ تأیید هستند',
-                        'سال مالی و مسئول منابع انسانی ثبت شده‌اند. سایر کاربران، نقش‌ها، ساختار سازمانی و گردش کار بعد از ورود به خانهٔ آسود تنظیم می‌شوند.',
+                        'سال مالی ثبت شده است. معرفی مسئول منابع انسانی در این مرحله الزامی نیست؛ کاربران، نقش‌ها، ساختار سازمانی و گردش کار بعد از ورود به خانهٔ آسود تنظیم می‌شوند.',
                         success: true),
                     const SizedBox(height: 14),
                     FilledButton(
@@ -580,7 +518,7 @@ class _FirstOfficeSetupPageState extends State<FirstOfficeSetupPage> {
                             ? 'در حال تأیید…'
                             : 'تأیید نهایی و ورود به خانه  ←')),
                   ],
-                ], selected: saved != null && bootstrap?.hrReady == true),
+                ], selected: saved != null),
                 Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
