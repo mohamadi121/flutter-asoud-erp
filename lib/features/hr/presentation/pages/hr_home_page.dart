@@ -21,6 +21,9 @@ import '../../data/personnel_repository.dart';
 import '../../../employee/data/self_service_repository.dart';
 import '../../../employee/presentation/pages/my_attendance_page.dart';
 import '../../../request_templates/presentation/pages/request_list_pages.dart';
+import '../../data/hr_contracts_repository.dart';
+import '../../data/hr_contract_template_repository.dart';
+import 'contracts/hr_contracts_page.dart';
 
 Future<Capabilities> _hrCapabilities(BuildContext context) async {
   try {
@@ -127,6 +130,23 @@ class _HrHome extends StatelessWidget {
                   () => _push(context, PersonnelPage(company: company)),
                 ),
                 _Action(
+                  'قراردادهای پرسنلی',
+                  'صدور، پیگیری و چاپ قراردادهای کار',
+                  Icons.badge_outlined,
+                  AsoudColors.primary,
+                  () => _push(
+                    context,
+                    HrContractsPage(
+                      company: company,
+                      repository: ServerHrContractsRepository(
+                          context.read<FrappeApiClient>()),
+                      templateRepository: ServerHrContractTemplateRepository(
+                          context.read<FrappeApiClient>()),
+                      canManageTemplate: data.managerAccess,
+                    ),
+                  ),
+                ),
+                _Action(
                   'تیم و ساختار سازمانی',
                   'همکاران، واحدها و مسیر سازمانی',
                   Icons.account_tree_outlined,
@@ -217,6 +237,22 @@ class _ManagerHrHome extends StatelessWidget {
               Icons.people_alt_outlined,
               AsoudColors.warning,
               () => _push(context, PersonnelPage(company: company))),
+          _Action(
+              'قراردادهای پرسنلی',
+              'صدور، پیگیری و چاپ قراردادهای کار',
+              Icons.badge_outlined,
+              AsoudColors.primary,
+              () => _push(
+                    context,
+                    HrContractsPage(
+                      company: company,
+                      repository: ServerHrContractsRepository(
+                          context.read<FrappeApiClient>()),
+                      templateRepository: ServerHrContractTemplateRepository(
+                          context.read<FrappeApiClient>()),
+                      canManageTemplate: true,
+                    ),
+                  )),
           _Action(
               'درخواست‌های مرخصی',
               'مشاهده درخواست‌ها و وضعیت مرخصی',
