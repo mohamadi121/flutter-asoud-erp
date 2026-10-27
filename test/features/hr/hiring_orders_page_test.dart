@@ -1,3 +1,4 @@
+import 'package:asoud_erp/core/auth/capabilities.dart';
 import 'package:asoud_erp/features/hr/data/hiring_order_repository.dart';
 import 'package:asoud_erp/features/hr/presentation/pages/hiring_orders_page.dart';
 import 'package:flutter/material.dart';
@@ -13,7 +14,7 @@ void main() {
     repository = _Repository();
   });
 
-  Widget createWidget({required double width}) {
+  Widget createWidget({required double width, Capabilities? capabilities}) {
     return MaterialApp(
       builder: (context, child) => Directionality(
         textDirection: TextDirection.rtl,
@@ -25,6 +26,7 @@ void main() {
       home: HiringOrdersPage(
         company: 'شرکت تست',
         repository: repository,
+        capabilities: capabilities,
       ),
     );
   }
@@ -187,5 +189,27 @@ void main() {
           company: 'شرکت تست',
           revision: any(named: 'revision'),
         )).called(1);
+  });
+
+  testWidgets('hides template builder button for non-designer HR user',
+      (tester) async {
+    when(() => repository.listOrders(
+          company: 'شرکت تست',
+          search: any(named: 'search'),
+          status: any(named: 'status'),
+        )).thenAnswer((_) async => []);
+    when(() => repository.getTemplate(company: 'شرکت تست'))
+        .thenAnswer((_) async => null);
+    when(() => repository.people(company: 'شرکت تست'))
+        .thenAnswer((_) async => []);
+
+    final hrUserCaps = Capabilities.fromRoles(const ['HR User']);
+
+    await tester.binding.setSurfaceSize(const Size(390, 800));
+    await tester.pumpWidget(createWidget(width: 390, capabilities: hrUserCaps));
+    await tester.pumpAndSettle();
+
+    expect(find.text('＋ حکم جدید'), findsOneWidget);
+    expect(find.text('قالب حکم استخدام'), findsNothing);
   });
 }

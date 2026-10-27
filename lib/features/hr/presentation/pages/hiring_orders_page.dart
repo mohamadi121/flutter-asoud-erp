@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/auth/capabilities.dart';
 import '../../../../core/network/frappe_client.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/jalali_date.dart';
@@ -16,11 +17,13 @@ class HiringOrdersPage extends StatelessWidget {
   const HiringOrdersPage({
     required this.company,
     this.repository,
+    this.capabilities,
     super.key,
   });
 
   final String company;
   final HiringOrderRepository? repository;
+  final Capabilities? capabilities;
 
   @override
   Widget build(BuildContext context) {
@@ -30,15 +33,16 @@ class HiringOrdersPage extends StatelessWidget {
         repository: repo,
         company: company,
       )..load()..loadPeople(),
-      child: _HiringOrdersView(company: company),
+      child: _HiringOrdersView(company: company, capabilities: capabilities),
     );
   }
 }
 
 class _HiringOrdersView extends StatefulWidget {
-  const _HiringOrdersView({required this.company});
+  const _HiringOrdersView({required this.company, this.capabilities});
 
   final String company;
+  final Capabilities? capabilities;
 
   @override
   State<_HiringOrdersView> createState() => _HiringOrdersViewState();
@@ -244,70 +248,79 @@ class _HiringOrdersViewState extends State<_HiringOrdersView> {
   // --- 1. LIST VIEW -----------------------------------------------------------
 
   Widget _buildListView(BuildContext context, HiringOrdersState state) {
-    return RefreshIndicator(
-      onRefresh: () => context.read<HiringOrdersCubit>().load(refresh: true),
-      child: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          // Management card
-          Container(
+    return FutureBuilder<Capabilities>(
+      future: widget.capabilities != null
+          ? Future.value(widget.capabilities)
+          : capabilitiesOf(context),
+      builder: (context, capsSnapshot) {
+        final caps = capsSnapshot.data ?? widget.capabilities ?? Capabilities.full;
+        final canManageTemplates = caps.canManageHiringTemplates;
+
+        return RefreshIndicator(
+          onRefresh: () => context.read<HiringOrdersCubit>().load(refresh: true),
+          child: ListView(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AsoudColors.border),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const AsoudSectionTitle(
-                  title: 'مدیریت احکام پرسنلی',
-                  subtitle: 'ایجاد، پیگیری و چاپ احکام استخدام',
+            children: [
+              // Management card
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AsoudColors.border),
                 ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AsoudColors.primary,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      ),
-                      onPressed: _openNewForm,
-                      icon: const Icon(Icons.add, size: 18),
-                      label: const Text(
-                        '＋ حکم جدید',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
+                    const AsoudSectionTitle(
+                      title: 'مدیریت احکام پرسنلی',
+                      subtitle: 'ایجاد، پیگیری و چاپ احکام استخدام',
                     ),
-                    OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AsoudColors.primary,
-                        side: const BorderSide(color: AsoudColors.border),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AsoudColors.primary,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          ),
+                          onPressed: _openNewForm,
+                          icon: const Icon(Icons.add, size: 18),
+                          label: const Text(
+                            '＋ حکم جدید',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
                         ),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          _mode = _HiringViewMode.templateBuilder;
-                        });
-                      },
-                      icon: const Icon(Icons.tune, size: 18),
-                      label: const Text('قالب حکم استخدام'),
+                        if (canManageTemplates)
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AsoudColors.primary,
+                              side: const BorderSide(color: AsoudColors.border),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _mode = _HiringViewMode.templateBuilder;
+                              });
+                            },
+                            icon: const Icon(Icons.tune, size: 18),
+                            label: const Text('قالب حکم استخدام'),
+                          ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
+              ),
+              const SizedBox(height: 16),
 
           // Search & Filter card
           Container(
@@ -401,6 +414,8 @@ class _HiringOrdersViewState extends State<_HiringOrdersView> {
             ...state.orders.map((order) => _buildOrderCard(context, order)),
         ],
       ),
+    );
+      },
     );
   }
 
