@@ -20,6 +20,7 @@ class Capabilities {
     required this.canManageRoles,
     required this.canManageOrganization,
     required this.canManageDocumentTemplates,
+    this.canManageContractTemplates = false,
     required this.canWritePersonnel,
     required this.canManageUserAccess,
     required this.canWriteHrRecords,
@@ -55,6 +56,7 @@ class Capabilities {
       canManageRoles: system,
       canManageOrganization: system || hrManager,
       canManageDocumentTemplates: system || accountsManager || purchaseManager,
+      canManageContractTemplates: system || hrManager,
       canWritePersonnel: system,
       canManageUserAccess: system,
       canWriteHrRecords: system,
@@ -79,6 +81,7 @@ class Capabilities {
     canManageRoles: true,
     canManageOrganization: true,
     canManageDocumentTemplates: true,
+    canManageContractTemplates: true,
     canWritePersonnel: true,
     canManageUserAccess: true,
     canWriteHrRecords: true,
@@ -97,6 +100,7 @@ class Capabilities {
   final bool canManageRoles;
   final bool canManageOrganization;
   final bool canManageDocumentTemplates;
+  final bool canManageContractTemplates;
   final bool canWritePersonnel;
   final bool canManageUserAccess;
   final bool canWriteHrRecords;
