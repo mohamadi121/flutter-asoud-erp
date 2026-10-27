@@ -21,6 +21,7 @@ import '../../data/personnel_repository.dart';
 import '../../../employee/data/self_service_repository.dart';
 import '../../../employee/presentation/pages/my_attendance_page.dart';
 import '../../../request_templates/presentation/pages/request_list_pages.dart';
+import 'personnel_introduction_letters_page.dart';
 
 Future<Capabilities> _hrCapabilities(BuildContext context) async {
   try {
@@ -217,6 +218,12 @@ class _ManagerHrHome extends StatelessWidget {
               Icons.people_alt_outlined,
               AsoudColors.warning,
               () => _push(context, PersonnelPage(company: company))),
+          _Action(
+              'معرفی‌نامه‌های پرسنلی',
+              'صدور، مشاهده و چاپ معرفی‌نامه‌ها',
+              Icons.assignment_ind_outlined,
+              AsoudColors.primary,
+              () => _push(context, PersonnelIntroductionLettersPage(company: company))),
           _Action(
               'درخواست‌های مرخصی',
               'مشاهده درخواست‌ها و وضعیت مرخصی',
