@@ -16,6 +16,7 @@ import 'organization_page.dart';
 import '../../domain/hr_repository.dart';
 import '../cubit/hr_cubit.dart';
 import 'personnel_page.dart';
+import 'hiring_orders_page.dart';
 import '../../../../core/network/frappe_client.dart';
 import '../../data/personnel_repository.dart';
 import '../../../employee/data/self_service_repository.dart';
@@ -217,6 +218,12 @@ class _ManagerHrHome extends StatelessWidget {
               Icons.people_alt_outlined,
               AsoudColors.warning,
               () => _push(context, PersonnelPage(company: company))),
+          _Action(
+              'احکام استخدام',
+              'صدور، پیگیری و چاپ احکام کارگزینی',
+              Icons.assignment_outlined,
+              AsoudColors.primary,
+              () => _push(context, HiringOrdersPage(company: company))),
           _Action(
               'درخواست‌های مرخصی',
               'مشاهده درخواست‌ها و وضعیت مرخصی',
