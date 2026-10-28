@@ -151,7 +151,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('پیش‌نویس ـ فاقد اعتبار نهایی'), findsOneWidget);
-    expect(find.text('🖨 چاپ حکم'), findsOneWidget);
+    expect(find.text('چاپ حکم'), findsOneWidget);
     expect(find.text('جمع مبالغ ماهانه'), findsOneWidget);
   });
 
