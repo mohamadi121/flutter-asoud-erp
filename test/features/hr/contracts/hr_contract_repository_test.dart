@@ -8,6 +8,10 @@ import 'package:mocktail/mocktail.dart';
 class _Client extends Mock implements FrappeApiClient {}
 
 void main() {
+  test('contract preparation is a read and must never enter the mutation queue', () {
+    expect(FrappeClient.isReadOnlyMethod('asoud_erp.api.v1.employment_contracts.prepare_contract'), isTrue);
+    expect(FrappeClient.isReadOnlyMethod('asoud_erp.api.v1.employment_contracts.save_contract_draft'), isFalse);
+  });
   const prefix = 'asoud_erp.api.v1.employment_contracts.';
   late _Client client;
   late ServerHrContractsRepository repository;
