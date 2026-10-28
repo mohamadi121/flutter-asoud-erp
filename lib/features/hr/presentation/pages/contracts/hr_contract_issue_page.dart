@@ -254,22 +254,33 @@ class _HrContractIssuePageState extends State<HrContractIssuePage> {
     }
   }
 
-  void _openPrintPreview() {
+  Future<void> _openPrintPreview() async {
+    if (saving) return;
     if (selectedEmployee == null) {
       setState(() => errorMessage = 'برای پیش‌نمایش، ابتدا پرسنل را انتخاب کنید.');
       return;
     }
     final record = _buildContractRecord(
         status: widget.initialDraft?.status ?? 'پیش‌نویس');
+    setState(() => saving = true);
+    try {
+    final saved = await widget.repository.saveDraftContract(company: widget.company, draft: record);
+    if (!mounted) return;
     Navigator.push(
       context,
       MaterialPageRoute<void>(
         builder: (_) => HrContractPrintPage(
-          contract: record,
+          contract: saved,
           template: template,
+          loadPayload: () => widget.repository.getPrintPayload(company: widget.company, id: saved.id),
         ),
       ),
     );
+    } catch (error) {
+      if (mounted) setState(() => errorMessage = 'دریافت پیش‌نمایش قرارداد ممکن نشد.');
+    } finally {
+      if (mounted) setState(() => saving = false);
+    }
   }
 
   @override

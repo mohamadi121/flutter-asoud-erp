@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:printing/printing.dart';
+import 'package:pdf/pdf.dart';
+import 'package:asoud_erp/core/utils/failure_message.dart';
 
 import 'package:asoud_erp/core/theme/asoud_colors.dart';
 import 'package:asoud_erp/core/utils/jalali_date.dart';
@@ -9,14 +12,19 @@ class HrContractPrintPage extends StatelessWidget {
   const HrContractPrintPage({
     required this.contract,
     this.template,
+    this.loadPayload,
     super.key,
   });
 
   final HrContractRecord contract;
   final HrContractTemplate? template;
+  final Future<Map<String, dynamic>> Function()? loadPayload;
 
   @override
   Widget build(BuildContext context) {
+    if (loadPayload != null) {
+      return _ServerContractPrint(loadPayload: loadPayload!);
+    }
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -62,6 +70,47 @@ class HrContractPrintPage extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ServerContractPrint extends StatefulWidget {
+  const _ServerContractPrint({required this.loadPayload});
+  final Future<Map<String, dynamic>> Function() loadPayload;
+
+  @override
+  State<_ServerContractPrint> createState() => _ServerContractPrintState();
+}
+
+class _ServerContractPrintState extends State<_ServerContractPrint> {
+  late Future<Map<String, dynamic>> payload = widget.loadPayload();
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: const AsoudHeader(title: 'پیش‌نمایش چاپ قرارداد'),
+    body: FutureBuilder<Map<String, dynamic>>(
+      future: payload,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text(failureMessage(snapshot.error!)),
+            TextButton(onPressed: () => setState(() { payload = widget.loadPayload(); }), child: const Text('تلاش دوباره')),
+          ]));
+        }
+        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+        final data = snapshot.data!;
+        return Column(children: [
+          if (data['draft_banner'] != null) Text('${data['draft_banner']}'),
+          Expanded(child: PdfPreview(
+            initialPageFormat: PdfPageFormat.a4,
+            canChangePageFormat: false,
+            canChangeOrientation: false,
+            // The server HTML owns the letterhead, footer and rendered snapshot.
+            // ignore: deprecated_member_use
+            build: (format) => Printing.convertHtml(html: data['html'] as String, format: format),
+          )),
+        ]);
+      },
+    ),
+  );
 }
 
 class HrContractPrintLayout extends StatelessWidget {

@@ -181,6 +181,7 @@ class _HrContractsPageState extends State<HrContractsPage> {
       MaterialPageRoute<void>(
         builder: (_) => HrContractPrintPage(
           contract: contract,
+          loadPayload: () => repository.getPrintPayload(company: widget.company, id: contract.id),
         ),
       ),
     );

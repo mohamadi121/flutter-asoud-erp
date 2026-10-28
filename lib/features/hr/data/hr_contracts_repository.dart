@@ -26,6 +26,7 @@ class EmployeeOption {
 }
 
 abstract class HrContractsRepository {
+  Future<Map<String, dynamic>> getPrintPayload({required String company, required String id});
   Future<List<HrContractRecord>> listContracts({
     required String company,
     String? query,
@@ -60,6 +61,14 @@ abstract class HrContractsRepository {
 }
 
 class FakeHrContractsRepository implements HrContractsRepository {
+  @override
+  Future<Map<String, dynamic>> getPrintPayload({required String company, required String id}) async {
+    final record = await getContract(company: company, id: id);
+    return {
+      'draft_banner': record.isDraft ? '«پیش‌نویس ـ فاقد اعتبار نهایی»' : null,
+      'html': '<html dir="rtl"><body>${record.employeeName}</body></html>',
+    };
+  }
   FakeHrContractsRepository({List<HrContractRecord>? initial})
       : _records = initial ??
             [
@@ -247,6 +256,15 @@ class FakeHrContractsRepository implements HrContractsRepository {
 class ServerHrContractsRepository implements HrContractsRepository {
   ServerHrContractsRepository(this.client);
   final FrappeApiClient client;
+
+  @override
+  Future<Map<String, dynamic>> getPrintPayload({required String company, required String id}) async {
+    final result = await client.callAsoudMethod(
+      'asoud_erp.api.v1.employment_contracts.get_contract_print',
+      data: {'contract_id': id},
+    );
+    return Map<String, dynamic>.from(result as Map);
+  }
 
   @override
   Future<List<HrContractRecord>> listContracts({
