@@ -191,9 +191,10 @@ void main() {
 
     expect(find.text('پیش‌نویس ـ فاقد اعتبار نهایی'), findsOneWidget);
     expect(find.text('ارسال جهت بررسی و گردش‌کار'), findsOneWidget);
+    expect(find.text('جمع ماهانه'), findsOneWidget);
   });
 
-  testWidgets('template builder view displays 6 articles and publish button',
+  testWidgets('template builder view displays 6 articles, inline editor and preview tab',
       (tester) async {
     when(() => repository.listOrders(
           company: 'شرکت تابان',
@@ -226,6 +227,41 @@ void main() {
     expect(find.text('قالب حکم تغییر حقوق و مزایا'), findsWidgets);
     expect(find.text('ماده ۱: مشخصات پرسنل و مستند تغییر'), findsOneWidget);
     expect(find.text('ماده ۴: اقلام حقوق و مزایای قبلی و جدید'), findsOneWidget);
+
+    // Expand article 1 and test inline edit
+    await tester.tap(find.text('ماده ۱: مشخصات پرسنل و مستند تغییر'));
+    await tester.pumpAndSettle();
+    expect(find.text('ویرایش'), findsOneWidget);
+
+    await tester.tap(find.text('ویرایش'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('درج فیلد در متن ماده'), findsOneWidget);
+    expect(find.text('ذخیره تغییرات'), findsOneWidget);
+
+    // Open field picker drawer
+    await tester.tap(find.text('درج فیلد در متن ماده'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('انتخاب فیلد موجود جهت درج در ماده'), findsOneWidget);
+    expect(find.text('پرسنل'), findsOneWidget);
+    expect(find.text('شرکت'), findsOneWidget);
+    expect(find.text('حکم'), findsOneWidget);
+    expect(find.text('حقوق'), findsOneWidget);
+
+    await tester.tap(find.text('[نام و نام خانوادگی پرسنل]'));
+    await tester.pumpAndSettle();
+
+    // Switch to preview tab
+    await tester.tap(find.text('پیش‌نمایش سند'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('پیش‌نمایش قالب ـ فاقد اعتبار نهایی'), findsOneWidget);
+    expect(find.text('چاپ / ذخیره PDF پیش‌نمایش'), findsOneWidget);
+
+    // Switch back to editor tab
+    await tester.tap(find.text('بازگشت به ویرایش قالب'));
+    await tester.pumpAndSettle();
 
     await tester.scrollUntilVisible(
       find.text('انتشار نسخه نهایی قالب'),
