@@ -120,7 +120,7 @@ class FakeEmploymentCertificateRepository implements EmploymentCertificateReposi
       templateVersion: 1,
       renderedHtml: '<article><p>متن گواهی برای ${cert.employeeName}</p></article>',
       printHtml: '<article><p>متن چاپ برای ${cert.employeeName}</p></article>',
-      salaryRows: cert.status == 'Final' ? [{'title': 'حقوق پایه', 'amount': '۱۰۰,۰۰۰,۰۰۰'}] : [],
+      salaryRows: const [{'title': 'حقوق پایه', 'amount': 100000000, 'period': 'ماهانه'}],
       hasSalary: true,
       issueDate: cert.status == 'Final' ? '۱۴۰۵/۰۱/۱۵' : '',
     );
@@ -407,6 +407,66 @@ void main() {
       expect(publishFinder, findsOneWidget);
       final publishButton = tester.widget<ElevatedButton>(publishFinder);
       expect(publishButton.onPressed, isNull);
+    });
+
+    testWidgets('tapping "ویرایش" opens inline editor under clause and opens searchable drawer', (tester) async {
+      final repo = FakeEmploymentCertificateRepository();
+      await tester.binding.setSurfaceSize(const Size(390, 1200));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(_wrapWithRtl(
+        const EmploymentCertificateTemplateBuilderPage(company: 'شرکت نمونه', canManageTemplate: true),
+        repo: repo,
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ویرایش'), findsWidgets);
+      await tester.tap(find.text('ویرایش').first);
+      await tester.pumpAndSettle();
+
+      expect(find.text('ویرایش بند ۱'), findsOneWidget);
+      expect(find.text('عنوان بند'), findsOneWidget);
+      expect(find.text('متن بند'), findsOneWidget);
+      expect(find.text('ذخیره تغییرات'), findsOneWidget);
+      expect(find.text('انصراف'), findsWidgets);
+
+      // Tap insert field button to open drawer
+      await tester.tap(find.text('درج فیلد در متن بند').first);
+      await tester.pumpAndSettle();
+
+      expect(find.text('انتخاب فیلد موجود'), findsOneWidget);
+      expect(find.text('گروه فیلدها'), findsOneWidget);
+      expect(find.text('نام فیلد را جست‌وجو کنید...'), findsOneWidget);
+      expect(find.text('کد پرسنلی'), findsOneWidget);
+    });
+  });
+
+  group('Parity Audit additions', () {
+    testWidgets('EmploymentCertificatesPage displays status count boxes and chips', (tester) async {
+      final repo = FakeEmploymentCertificateRepository();
+      await tester.pumpWidget(_wrapWithRtl(
+        const EmploymentCertificatesPage(company: 'شرکت نمونه'),
+        repo: repo,
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('پیش‌نویس'), findsWidgets);
+      expect(find.text('نهایی'), findsWidgets);
+      expect(find.text('در جریان'), findsWidgets);
+    });
+
+    testWidgets('EmploymentCertificatePreviewPage shows draft watermark and totals row', (tester) async {
+      final repo = FakeEmploymentCertificateRepository();
+      await tester.pumpWidget(_wrapWithRtl(
+        const EmploymentCertificatePreviewPage(certificateName: 'CERT-DRAFT-1', company: 'شرکت نمونه'),
+        repo: repo,
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('پیش‌نویس ـ فاقد اعتبار نهایی'), findsOneWidget);
+      expect(find.text('عنوان قلم'), findsOneWidget);
+      expect(find.text('مبلغ (ریال)'), findsOneWidget);
+      expect(find.text('جمع اقلام ماهانه'), findsOneWidget);
     });
   });
 }

@@ -264,7 +264,7 @@ class _EmploymentCertificatePreviewPageState extends State<EmploymentCertificate
                                 children: const [
                                   Padding(padding: EdgeInsets.all(6), child: Text('عنوان قلم', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold))),
                                   Padding(padding: EdgeInsets.all(6), child: Text('دوره', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold))),
-                                  Padding(padding: EdgeInsets.all(6), child: Text('مبلغ', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold))),
+                                  Padding(padding: EdgeInsets.all(6), child: Text('مبلغ (ریال)', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold))),
                                 ],
                               ),
                               for (final row in cert.salaryRows) ...[
@@ -272,10 +272,44 @@ class _EmploymentCertificatePreviewPageState extends State<EmploymentCertificate
                                   children: [
                                     Padding(padding: const EdgeInsets.all(6), child: Text(row['title']?.toString() ?? '—', style: const TextStyle(fontSize: 10))),
                                     Padding(padding: const EdgeInsets.all(6), child: Text(row['period']?.toString() ?? 'ماهانه', style: const TextStyle(fontSize: 10))),
-                                    Padding(padding: const EdgeInsets.all(6), child: Text(row['amount']?.toString() ?? 'اطلاعات موجود نیست', style: const TextStyle(fontSize: 10))),
+                                    Padding(padding: const EdgeInsets.all(6), child: Text(row['amount'] != null ? '${toPersianDigits('${row['amount']}')} ریال' : 'اطلاعات موجود نیست', style: const TextStyle(fontSize: 10))),
                                   ],
                                 ),
                               ],
+                              TableRow(
+                                decoration: const BoxDecoration(color: Color(0xFFF8FAFC)),
+                                children: [
+                                  const Padding(padding: EdgeInsets.all(6), child: Text('جمع اقلام ماهانه', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold))),
+                                  const Padding(padding: EdgeInsets.all(6), child: Text('—', style: TextStyle(fontSize: 10))),
+                                  Padding(
+                                    padding: const EdgeInsets.all(6),
+                                    child: Builder(
+                                      builder: (context) {
+                                        final monthly = cert.salaryRows.where((r) => r['period']?.toString() == 'ماهانه' || r['period']?.toString() == 'monthly').toList();
+                                        int sum = 0;
+                                        bool valid = monthly.isNotEmpty;
+                                        for (final r in monthly) {
+                                          final amt = r['amount'];
+                                          final parsed = amt is num ? amt.toInt() : int.tryParse('$amt'.replaceAll(RegExp(r'[^0-9]'), ''));
+                                          if (parsed == null) {
+                                            valid = false;
+                                            break;
+                                          }
+                                          sum += parsed;
+                                        }
+                                        return Text(
+                                          valid ? '${toPersianDigits('$sum')} ریال' : 'ناقص',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            color: valid ? AsoudColors.primary : const Color(0xFFB45309),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ],
                           ),
                         ],

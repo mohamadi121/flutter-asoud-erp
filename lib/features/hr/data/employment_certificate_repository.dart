@@ -55,6 +55,19 @@ class SalaryRowDefinition {
   final String fieldRef;
   final String period;
 
+  SalaryRowDefinition copyWith({
+    String? id,
+    String? title,
+    String? fieldRef,
+    String? period,
+  }) =>
+      SalaryRowDefinition(
+        id: id ?? this.id,
+        title: title ?? this.title,
+        fieldRef: fieldRef ?? this.fieldRef,
+        period: period ?? this.period,
+      );
+
   Map<String, dynamic> toMap() => {
         'id': id,
         'title': title,
@@ -143,11 +156,39 @@ class EmploymentCertificate {
   final String purpose;
   final String issueDate;
 
-  String get statusLabel => switch (status) {
-        'Draft' => 'پیش‌نویس',
-        'Final' => 'نهایی',
-        _ => 'در جریان',
-      };
+  static String mapStatusToGroup(String raw) {
+    final s = raw.trim().toLowerCase();
+    if (s == 'draft' || s == 'پیش‌نویس') return 'پیش‌نویس';
+    if (s == 'in review' ||
+        s == 'in_review' ||
+        s == 'pending' ||
+        s == 'در جریان' ||
+        s == 'در انتظار بررسی') {
+      return 'در جریان';
+    }
+    if (s == 'final' ||
+        s == 'submitted' ||
+        s == 'active' ||
+        s == 'نهایی' ||
+        s == 'ارسال‌شده') {
+      return 'نهایی';
+    }
+    if (s == 'rejected' ||
+        s == 'cancelled' ||
+        s == 'canceled' ||
+        s == 'ردشده' ||
+        s == 'لغوشده') {
+      return 'ردشده';
+    }
+    return raw;
+  }
+
+  String get statusGroup => mapStatusToGroup(status);
+  String get statusLabel => statusGroup;
+  bool get isFinal => statusGroup == 'نهایی';
+  bool get isDraft => statusGroup == 'پیش‌نویس';
+  bool get isInReview => statusGroup == 'در جریان';
+  bool get isRejected => statusGroup == 'ردشده';
 }
 
 class EmploymentCertificateDetail {
@@ -224,12 +265,12 @@ class EmploymentCertificateDetail {
   final bool hasSalary;
   final String issueDate;
 
-  bool get isFinal => status == 'Final';
-  String get statusLabel => switch (status) {
-        'Draft' => 'پیش‌نویس',
-        'Final' => 'نهایی',
-        _ => 'در جریان',
-      };
+  bool get isFinal => statusGroup == 'نهایی';
+  bool get isDraft => statusGroup == 'پیش‌نویس';
+  bool get isInReview => statusGroup == 'در جریان';
+  bool get isRejected => statusGroup == 'ردشده';
+  String get statusGroup => EmploymentCertificate.mapStatusToGroup(status);
+  String get statusLabel => statusGroup;
 }
 
 class EmploymentCertificateRepository {
