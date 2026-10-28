@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:pdf/pdf.dart';
+import 'package:printing/printing.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/failure_message.dart';
@@ -29,6 +31,7 @@ class _EmploymentCertificatePreviewPageState extends State<EmploymentCertificate
   bool _loading = true;
   String? _error;
   bool _finalizing = false;
+  bool _printing = false;
   EmploymentCertificateDetail? _certificate;
 
   @override
@@ -108,10 +111,24 @@ class _EmploymentCertificatePreviewPageState extends State<EmploymentCertificate
     }
   }
 
-  void _printCertificate() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('دستور چاپ ارسال شد.')),
-    );
+  Future<void> _printCertificate() async {
+    final cert = _certificate;
+    if (_printing || cert == null) return;
+    if (cert.printHtml.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('خروجی چاپ گواهی موجود نیست. وضعیت را دوباره دریافت کنید.')));
+      return;
+    }
+    setState(() => _printing = true);
+    try {
+      final bytes = await Printing.convertHtml(html: cert.printHtml, format: PdfPageFormat.a4);
+      await Printing.layoutPdf(onLayout: (_) async => bytes, format: PdfPageFormat.a4);
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('چاپ گواهی انجام نشد. ${failureMessage(e)}')));
+    } finally {
+      if (mounted) setState(() => _printing = false);
+    }
   }
 
   @override
@@ -348,7 +365,7 @@ class _EmploymentCertificatePreviewPageState extends State<EmploymentCertificate
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
-              onPressed: _printCertificate,
+              onPressed: _printing ? null : _printCertificate,
             ),
             if (!isFinal) ...[
               const SizedBox(height: 8),

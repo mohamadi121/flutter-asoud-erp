@@ -220,6 +220,40 @@ Widget _wrapWithRtl(Widget child, {FakeEmploymentCertificateRepository? repo, do
 }
 
 void main() {
+  for (final width in [320.0, 390.0, 430.0]) {
+    testWidgets('prints server HTML once and recovers from failure at $width', (tester) async {
+      final original = PrintingPlatform.instance;
+      final printing = _CertificatePrinting();
+      PrintingPlatform.instance = printing;
+      addTearDown(() {
+        PrintingPlatform.instance = original;
+        tester.binding.setSurfaceSize(null);
+      });
+      await tester.binding.setSurfaceSize(Size(width, 844));
+      await tester.pumpWidget(_wrapWithRtl(const EmploymentCertificatePreviewPage(
+        company: 'شرکت نمونه', certificateName: 'CERT-DRAFT-1'), width: width));
+      await tester.pumpAndSettle();
+      final button = find.text('چاپ گواهی');
+      await tester.scrollUntilVisible(button, 400, scrollable: find.byType(Scrollable).first);
+      await tester.tap(button);
+      await tester.pump();
+      expect(printing.html, '<article><p>متن چاپ برای علی محمدی</p></article>');
+      expect(tester.widget<ElevatedButton>(find.ancestor(of: button,
+          matching: find.byType(ElevatedButton))).onPressed, isNull);
+      printing.pending.complete(Uint8List.fromList([37, 80, 68, 70]));
+      await tester.pumpAndSettle();
+      expect(printing.printed, [37, 80, 68, 70]);
+      expect(printing.layoutCalls, 1);
+      printing.pending = Completer<Uint8List>();
+      await tester.tap(button);
+      await tester.pump();
+      printing.pending.completeError(Exception('conversion failed'));
+      await tester.pumpAndSettle();
+      expect(find.text('چاپ گواهی انجام نشد. دریافت اطلاعات ممکن نشد. دوباره تلاش کنید.'), findsOneWidget);
+      expect(tester.widget<ElevatedButton>(find.ancestor(of: button,
+          matching: find.byType(ElevatedButton))).onPressed, isNotNull);
+    });
+  }
   group('EmploymentCertificate models', () {
     test('Template and clauses serialization roundtrip', () {
       final jsonMap = {
@@ -469,4 +503,34 @@ void main() {
       expect(find.text('جمع اقلام ماهانه'), findsOneWidget);
     });
   });
+}
+import 'dart:async';
+import 'dart:typed_data';
+import 'package:pdf/pdf.dart';
+import 'package:printing/printing.dart';
+import 'package:printing/src/interface.dart';
+
+class _CertificatePrinting extends PrintingPlatform {
+  Completer<Uint8List> pending = Completer<Uint8List>();
+  String? html;
+  Uint8List? printed;
+  int layoutCalls = 0;
+
+  @override
+  Future<Uint8List> convertHtml(String html, String? baseUrl, PdfPageFormat format) {
+    this.html = html;
+    return pending.future;
+  }
+
+  @override
+  Future<bool> layoutPdf(Printer? printer, LayoutCallback onLayout, String name,
+      PdfPageFormat format, bool dynamicLayout, bool usePrinterSettings,
+      OutputType outputType, bool forceCustomPrintPaper) async {
+    layoutCalls++;
+    printed = await onLayout(format);
+    return true;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
