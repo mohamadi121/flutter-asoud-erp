@@ -272,6 +272,22 @@ class _PersonnelIntroductionLetterPreviewPageState
 
   @override
   Widget build(BuildContext context) {
+    final s = _letter?.status.toLowerCase().trim() ?? '';
+    final isFinal = _letter?.isFinal ?? (s == 'final');
+    final isRejected = s == 'rejected' || s == 'cancelled' || s == 'failed';
+    final isDraft = s == 'draft';
+    final isPending = _letter != null && !isDraft && !isFinal && !isRejected;
+    final badgeBg = isFinal
+        ? AsoudColors.successSurface
+        : (isRejected
+            ? AsoudColors.dangerSurface
+            : (isPending ? AsoudColors.warningSurface : const Color(0xFFEDF0F4)));
+    final badgeColor = isFinal
+        ? AsoudColors.success
+        : (isRejected
+            ? AsoudColors.danger
+            : (isPending ? AsoudColors.warning : const Color(0xFF62768C)));
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -283,7 +299,7 @@ class _PersonnelIntroductionLetterPreviewPageState
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: _letter!.isFinal ? AsoudColors.successSurface : const Color(0xFFEDF0F4),
+                      color: badgeBg,
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
@@ -291,7 +307,7 @@ class _PersonnelIntroductionLetterPreviewPageState
                       style: TextStyle(
                         fontSize: 9,
                         fontWeight: FontWeight.bold,
-                        color: _letter!.isFinal ? AsoudColors.success : const Color(0xFF62768C),
+                        color: badgeColor,
                       ),
                     ),
                   ),
@@ -318,6 +334,19 @@ class _PersonnelIntroductionLetterPreviewPageState
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                margin: const EdgeInsets.only(bottom: 14),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF0F6FC),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: const Color(0xFFD8E7F5)),
+                                ),
+                                child: const Text(
+                                  'چاپ معرفی‌نامه غیرنهایی با عبارت «پیش‌نویس ـ فاقد اعتبار نهایی» انجام می‌شود.',
+                                  style: TextStyle(fontSize: 11, color: AsoudColors.muted),
+                                ),
+                              ),
                               _buildPaperContent(_letter!),
                               const SizedBox(height: 20),
                               if (_letter!.status == 'Draft') ...[
@@ -366,7 +395,15 @@ class _PersonnelIntroductionLetterPreviewPageState
                                   ),
                                 ),
                                 onPressed: () => Navigator.of(context).pop(),
-                                child: const Text('بازگشت'),
+                                child: const Text('بازگشت به فهرست'),
+                              ),
+                              const SizedBox(height: 12),
+                              const Center(
+                                child: Text(
+                                  'چاپ از مرورگر انجام می‌شود. این نمونه معرفی‌نامه رسمی صادر نمی‌کند.',
+                                  style: TextStyle(fontSize: 10, color: AsoudColors.muted),
+                                  textAlign: TextAlign.center,
+                                ),
                               ),
                               const SizedBox(height: 24),
                             ],

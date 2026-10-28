@@ -378,8 +378,20 @@ class _PersonnelIntroductionLettersPageState extends State<PersonnelIntroduction
                           separatorBuilder: (_, __) => const SizedBox(height: 10),
                           itemBuilder: (ctx, index) {
                             final row = items[index];
-                            final isDraft = row.status == 'Draft';
-                            final isFinal = row.status == 'Final';
+                            final s = row.status.toLowerCase().trim();
+                            final isFinal = row.status == 'Final' || s == 'final';
+                            final isRejected = s == 'rejected' || s == 'cancelled' || s == 'failed';
+                            final isDraft = row.status == 'Draft' || s == 'draft';
+                            final badgeBg = isFinal
+                                ? AsoudColors.successSurface
+                                : (isRejected
+                                    ? AsoudColors.dangerSurface
+                                    : (isDraft ? const Color(0xFFEDF0F4) : AsoudColors.warningSurface));
+                            final badgeText = isFinal
+                                ? AsoudColors.success
+                                : (isRejected
+                                    ? AsoudColors.danger
+                                    : (isDraft ? const Color(0xFF62768C) : AsoudColors.warning));
 
                             return Card(
                               elevation: 0.5,
@@ -406,11 +418,7 @@ class _PersonnelIntroductionLettersPageState extends State<PersonnelIntroduction
                                         Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                           decoration: BoxDecoration(
-                                            color: isFinal
-                                                ? AsoudColors.successSurface
-                                                : isDraft
-                                                    ? const Color(0xFFEDF0F4)
-                                                    : AsoudColors.warningSurface,
+                                            color: badgeBg,
                                             borderRadius: BorderRadius.circular(12),
                                           ),
                                           child: Text(
@@ -418,11 +426,7 @@ class _PersonnelIntroductionLettersPageState extends State<PersonnelIntroduction
                                             style: TextStyle(
                                               fontSize: 10,
                                               fontWeight: FontWeight.bold,
-                                              color: isFinal
-                                                  ? AsoudColors.success
-                                                  : isDraft
-                                                      ? const Color(0xFF62768C)
-                                                      : AsoudColors.warning,
+                                              color: badgeText,
                                             ),
                                           ),
                                         ),
