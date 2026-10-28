@@ -2,6 +2,7 @@ import 'package:asoud_erp/features/hr/data/hr_contract_template_repository.dart'
 import 'package:asoud_erp/features/hr/data/hr_contracts_repository.dart';
 import 'package:asoud_erp/features/hr/domain/hr_contract_models.dart';
 import 'package:asoud_erp/features/hr/presentation/pages/contracts/hr_contract_issue_page.dart';
+import 'package:asoud_erp/core/utils/jalali_date.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -30,6 +31,10 @@ void main() {
     await tester.tap(find.text('پرسنل نمونه ۱ (HR-101)').last);
     await tester.pumpAndSettle();
     final save = find.text('ذخیره پیش‌نویس');
+    final end = find.widgetWithText(TextFormField, 'پایان (شمسی)');
+    await tester.scrollUntilVisible(end, 300, scrollable: find.byType(Scrollable).first);
+    await tester.enterText(end, toPersianDigits(JalaliDate.fromDateTime(
+        DateTime.now().add(const Duration(days: 365))).format()));
     for (var attempt = 0; attempt < 2; attempt++) {
       await tester.scrollUntilVisible(save, 500, scrollable: find.byType(Scrollable).first);
       await tester.tap(save);

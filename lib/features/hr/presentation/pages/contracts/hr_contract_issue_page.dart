@@ -48,9 +48,9 @@ class _HrContractIssuePageState extends State<HrContractIssuePage> {
 
   String contractKind = 'مدت‌معین';
   final TextEditingController startDateController =
-      TextEditingController(text: '۱۴۰۵/۰۸/۰۱');
+      TextEditingController(text: toPersianDigits(JalaliDate.fromDateTime(DateTime.now()).format()));
   final TextEditingController endDateController =
-      TextEditingController(text: '۱۴۰۶/۰۷/۳۰');
+      TextEditingController();
   final TextEditingController workplaceController = TextEditingController();
   final TextEditingController subjectController = TextEditingController();
   final TextEditingController notesController = TextEditingController();
@@ -197,12 +197,35 @@ class _HrContractIssuePageState extends State<HrContractIssuePage> {
     );
   }
 
+  String? _startDateError(String? value) {
+    if (value == null || value.trim().isEmpty) return 'تاریخ شروع الزامی است.';
+    return parseJalaliDate(value) == null ? 'تاریخ شروع معتبر نیست.' : null;
+  }
+
+  String? _endDateError(String? value) {
+    if (value == null || value.trim().isEmpty) return 'تاریخ پایان الزامی است.';
+    final end = parseJalaliDate(value);
+    if (end == null) return 'تاریخ پایان معتبر نیست.';
+    final start = parseJalaliDate(startDateController.text);
+    return start != null && end.isBefore(start)
+        ? 'تاریخ پایان نباید پیش از تاریخ شروع باشد.' : null;
+  }
+
+  bool _validateDates() {
+    final message = _startDateError(startDateController.text) ??
+        (contractKind == 'مدت‌معین' ? _endDateError(endDateController.text) : null);
+    if (message == null) return true;
+    setState(() => errorMessage = message);
+    return false;
+  }
+
   Future<void> _saveDraft() async {
     if (saving) return;
     if (selectedEmployee == null) {
       setState(() => errorMessage = 'برای ثبت پیش‌نویس، ابتدا پرسنل را انتخاب کنید.');
       return;
     }
+    if (!_validateDates()) return;
     setState(() {
       saving = true;
       errorMessage = null;
@@ -271,6 +294,7 @@ class _HrContractIssuePageState extends State<HrContractIssuePage> {
       setState(() => errorMessage = 'برای پیش‌نمایش، ابتدا پرسنل را انتخاب کنید.');
       return;
     }
+    if (!_validateDates()) return;
     final record = _buildContractRecord(
         status: widget.initialDraft?.status ?? 'پیش‌نویس');
     setState(() => saving = true);
@@ -448,9 +472,7 @@ class _HrContractIssuePageState extends State<HrContractIssuePage> {
                                   border: OutlineInputBorder(),
                                   isDense: true,
                                 ),
-                                validator: (v) => (v == null || v.trim().isEmpty)
-                                    ? 'تاریخ شروع الزامی است.'
-                                    : null,
+                                validator: _startDateError,
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -463,10 +485,7 @@ class _HrContractIssuePageState extends State<HrContractIssuePage> {
                                         border: OutlineInputBorder(),
                                         isDense: true,
                                       ),
-                                      validator: (v) => (v == null ||
-                                              v.trim().isEmpty)
-                                          ? 'تاریخ پایان الزامی است.'
-                                          : null,
+                                      validator: _endDateError,
                                     )
                                   : Container(
                                       padding: const EdgeInsets.all(12),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:asoud_erp/core/theme/asoud_theme.dart';
+import 'package:asoud_erp/core/utils/jalali_date.dart';
 import 'package:asoud_erp/features/hr/domain/hr_contract_models.dart';
 import 'package:asoud_erp/features/hr/data/hr_contracts_repository.dart';
 import 'package:asoud_erp/features/hr/data/hr_contract_template_repository.dart';
@@ -185,6 +186,10 @@ void main() {
       await tester.pumpAndSettle();
 
       // Tap save draft
+      final end = find.widgetWithText(TextFormField, 'پایان (شمسی)');
+      await tester.scrollUntilVisible(end, 300, scrollable: find.byType(Scrollable).first);
+      await tester.enterText(end, toPersianDigits(JalaliDate.fromDateTime(
+          DateTime.now().add(const Duration(days: 365))).format()));
       final saveBtn = find.text('ذخیره پیش‌نویس');
       await tester.dragUntilVisible(
           saveBtn, find.byType(ListView).first, const Offset(0, -200));
