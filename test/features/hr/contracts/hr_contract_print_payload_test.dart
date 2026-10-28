@@ -8,7 +8,10 @@ import 'package:mocktail/mocktail.dart';
 class _Client extends Mock implements FrappeApiClient {}
 
 void main() {
-  testWidgets('print banner uses server payload instead of record status', (tester) async {
+  for (final width in [320.0, 390.0, 430.0]) {
+  testWidgets('print banner uses server payload instead of record status at $width', (tester) async {
+    await tester.binding.setSurfaceSize(Size(width, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     final client = _Client();
     const method = 'asoud_erp.api.v1.employment_contracts.get_contract_print';
     when(() => client.callAsoudMethod(method, data: {'contract_id': 'CONT-00001'}))
@@ -33,4 +36,5 @@ void main() {
     verify(() => client.callAsoudMethod(method, data: {'contract_id': 'CONT-00001'})).called(1);
     await tester.pumpWidget(const SizedBox());
   });
+  }
 }
