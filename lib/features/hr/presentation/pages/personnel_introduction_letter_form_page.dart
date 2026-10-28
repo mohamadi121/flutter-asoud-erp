@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/network/api_exception.dart';
+import '../../../../core/utils/jalali_date.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../../core/widgets/states.dart';
@@ -250,11 +251,11 @@ class _PersonnelIntroductionLetterFormPageState
           builder: (context, setModalState) {
             final filtered = _employees.where((emp) {
               final name = emp['employee_name']?.toString() ?? '';
-              final code = emp['employee_number']?.toString() ?? emp['name']?.toString() ?? '';
+              final code = emp['employee_number']?.toString() ?? '';
               final job = emp['designation']?.toString() ?? '';
               final query = filter.toLowerCase().trim();
               return name.toLowerCase().contains(query) ||
-                  code.toLowerCase().contains(query) ||
+                  toPersianDigits(code.toLowerCase()).contains(toPersianDigits(query)) ||
                   job.toLowerCase().contains(query);
             }).toList();
 
@@ -305,14 +306,14 @@ class _PersonnelIntroductionLetterFormPageState
                                 final emp = filtered[index];
                                 final id = emp['employee']?.toString() ?? emp['name']?.toString() ?? '';
                                 final name = emp['employee_name']?.toString() ?? 'نامشخص';
-                                final code = emp['employee_number']?.toString() ?? id;
+                                final code = emp['employee_number']?.toString() ?? '';
                                 final job = emp['designation']?.toString() ?? '—';
                                 final isSelected = id == _selectedEmployee;
 
                                 return ListTile(
                                   dense: true,
                                   title: Text(name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
-                                  subtitle: Text('$code ـ $job', style: const TextStyle(fontSize: 10)),
+                                  subtitle: Text('${code.isEmpty ? 'اطلاعات موجود نیست' : toPersianDigits(code)} ـ $job', style: const TextStyle(fontSize: 10)),
                                   trailing: isSelected
                                       ? const Icon(Icons.check_circle, color: AsoudColors.primary, size: 20)
                                       : null,
@@ -354,7 +355,7 @@ class _PersonnelIntroductionLetterFormPageState
   Widget _buildPersonnelCard() {
     final emp = _currentEmployeeInfo;
     final name = emp?['employee_name']?.toString();
-    final code = emp?['employee_number']?.toString() ?? emp?['name']?.toString();
+    final code = emp?['employee_number']?.toString() ?? '';
     final nationalId = emp?['national_id']?.toString();
     final dept = emp?['department']?.toString();
     final job = emp?['designation']?.toString();
@@ -419,7 +420,7 @@ class _PersonnelIntroductionLetterFormPageState
                 children: [
                   _buildInfoRow('نام و نام خانوادگی', name),
                   _buildInfoRow('کد ملی', nationalId),
-                  _buildInfoRow('کد پرسنلی', code),
+                  _buildInfoRow('کد پرسنلی', code.isEmpty ? 'اطلاعات موجود نیست' : toPersianDigits(code)),
                   _buildInfoRow('واحد سازمانی', dept),
                   _buildInfoRow('عنوان شغلی', job),
                   _buildInfoRow('محل خدمت', location),

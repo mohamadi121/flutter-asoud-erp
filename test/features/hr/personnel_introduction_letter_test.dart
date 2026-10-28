@@ -69,7 +69,58 @@ class _PendingWorkflowRepository extends FakePersonnelIntroductionLetterReposito
   }) async => _detail('Pending');
 }
 
+class _PersonnelCodeRepository extends FakePersonnelIntroductionLetterRepository {
+  _PersonnelCodeRepository(this.code);
+  final String code;
+
+  @override
+  Future<List<Map<String, dynamic>>> getEmployeeOptions({required String company}) async => [
+    {'employee': 'INTERNAL-EMPLOYEE-1', 'employee_name': 'پرسنل منتخب', 'employee_number': code,
+     'national_id': '', 'designation': null, 'department': null, 'work_location': '', 'date_of_joining': ''},
+    {'employee': 'INTERNAL-EMPLOYEE-2', 'employee_name': 'پرسنل دیگر', 'employee_number': '246',
+     'national_id': '', 'designation': null, 'department': null, 'work_location': '', 'date_of_joining': ''},
+  ];
+}
+
 void main() {
+  for (final width in [320.0, 390.0, 430.0]) {
+    testWidgets('missing personnel code has a Persian fallback at $width', (tester) async {
+      await tester.binding.setSurfaceSize(Size(width, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(_wrapWithRtl(
+        const PersonnelIntroductionLetterFormPage(company: 'شرکت نمونه'),
+        repo: _PersonnelCodeRepository(''), width: width,
+      ));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('انتخاب'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('INTERNAL-EMPLOYEE'), findsNothing);
+      expect(find.textContaining('اطلاعات موجود نیست'), findsWidgets);
+      await tester.tap(find.text('پرسنل منتخب'));
+      await tester.pumpAndSettle();
+      expect(find.text('اطلاعات موجود نیست'), findsWidgets);
+      expect(find.textContaining('INTERNAL-EMPLOYEE'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('personnel picker accepts Persian personnel-code digits at $width', (tester) async {
+      await tester.binding.setSurfaceSize(Size(width, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(_wrapWithRtl(
+        const PersonnelIntroductionLetterFormPage(company: 'شرکت نمونه'),
+        repo: _PersonnelCodeRepository('975310'), width: width,
+      ));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('انتخاب'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.descendant(of: find.byType(BottomSheet), matching: find.byType(TextField)), '۹۷۵۳۱۰');
+      await tester.pumpAndSettle();
+      expect(find.text('پرسنل منتخب'), findsOneWidget);
+      expect(find.text('پرسنل دیگر'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   for (final width in [320.0, 390.0, 430.0]) {
     testWidgets('workflow submission remains pending without another issue action at $width', (tester) async {
       await tester.binding.setSurfaceSize(Size(width, 844));
