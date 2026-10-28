@@ -13,6 +13,7 @@ import '../../helpers/fake_local_record_store.dart';
 
 class _Client extends Fake implements FrappeApiClient {
   ApiException? unitsFailure;
+  ApiException? saveUnitThrows;
   bool emptyChart = false;
   bool previewBreaks = false;
   final calls = <String>[];
@@ -100,6 +101,9 @@ class _Client extends Fake implements FrappeApiClient {
         return _ok({'can_delete': true, 'blockers': <dynamic>[]});
       case 'delete_unit':
         return _ok({'deleted': true});
+      case 'save_unit':
+        if (saveUnitThrows != null) throw saveUnitThrows!;
+        return _ok({'name': 'DEP-001', 'modified': '2026-10-22 10:00:00'});
     }
     throw StateError('Unexpected: $method');
   }
@@ -229,5 +233,23 @@ void main() {
     final fresh = templateOrganizationPayload(template);
     expect((fresh['units'] as List).any((u) => (u as Map).containsKey('name')),
         isFalse);
+  });
+
+  testWidgets('creating unit with ApiException boom displays Persian error, not raw server message',
+      (tester) async {
+    final client = _Client()
+      ..saveUnitThrows = const ApiException(
+          kind: ApiFailureKind.server, message: 'boom');
+    await _open(tester, client);
+    await _openStructureTool(tester, 'واحدها');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('واحد جدید'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField).first, 'واحد فناوری');
+    await tester.tap(find.byKey(const ValueKey('organization-compact-create-submit')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('boom'), findsNothing);
+    expect(find.text('خطایی در سرور رخ داد. کمی بعد دوباره تلاش کنید.'), findsOneWidget);
   });
 }

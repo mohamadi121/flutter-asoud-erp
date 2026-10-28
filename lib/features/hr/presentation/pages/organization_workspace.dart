@@ -75,7 +75,7 @@ class _OrganizationImportReviewState extends State<_OrganizationImportReview> {
     } catch (e) {
       if (mounted) {
         setState(() => error = e is ApiException
-            ? e.message
+            ? failureMessage(e)
             : e is FormatException && e.message.isNotEmpty
                 ? e.message
                 : 'پیش‌نمایش ورود آماده نشد؛ دوباره تلاش کنید.');
@@ -104,7 +104,7 @@ class _OrganizationImportReviewState extends State<_OrganizationImportReview> {
     } catch (e) {
       if (mounted) {
         setState(() => error = e is ApiException
-            ? e.message
+            ? failureMessage(e)
             : 'نتیجه ورود تأیید نشد؛ نسخه سرور را بررسی کنید.');
       }
     } finally {
@@ -649,7 +649,7 @@ class _UnitFormState extends State<_UnitForm> {
     } catch (e) {
       if (mounted) {
         setState(() => error = e is ApiException
-            ? e.message
+            ? failureMessage(e)
             : 'ثبت واحد تأیید نشد؛ دوباره بررسی کنید.');
       }
     } finally {
