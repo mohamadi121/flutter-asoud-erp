@@ -36,8 +36,14 @@ void main() {
       expect(endValidator('۱۴۰۵/۰۸/۰۹'), 'تاریخ پایان نباید پیش از تاریخ شروع باشد.');
       expect(endValidator('۱۴۰۵/۰۸/۱۰'), isNull);
       expect(endValidator('۱۴۰۵/۰۸/۱۱'), isNull);
+      FocusManager.instance.primaryFocus?.unfocus();
+      tester.testTextInput.hide();
+      await tester.pumpAndSettle();
       final save = find.text('ذخیره پیش‌نویس');
       await tester.scrollUntilVisible(save, 400, scrollable: find.byType(Scrollable).first);
+      await tester.ensureVisible(save);
+      await tester.pumpAndSettle();
+      expect(save.hitTestable(), findsOneWidget);
       await tester.tap(save);
       await tester.pumpAndSettle();
       await tester.scrollUntilVisible(find.text('تاریخ پایان الزامی است.'), -400,
