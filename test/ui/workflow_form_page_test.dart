@@ -49,6 +49,22 @@ class _Repository extends Fake implements WorkflowRepository {
   }
 }
 
+Future<void> _tapControl(WidgetTester tester, String key) async {
+  final target = find.byKey(ValueKey(key));
+  final scrollable = find.descendant(
+      of: find.byKey(const ValueKey('workflow-form-list')),
+      matching: find.byType(Scrollable)).first;
+  if (target.evaluate().isEmpty) {
+    await tester.scrollUntilVisible(target, 160, scrollable: scrollable);
+  }
+  await tester.ensureVisible(target);
+  // Jumping a ScrollPosition requires a layout frame before measuring/tapping.
+  await tester.pumpAndSettle();
+  expect(target.hitTestable(), findsOneWidget);
+  await tester.tap(target.hitTestable());
+  await tester.pumpAndSettle();
+}
+
 void main() {
   for (final width in [320.0, 390.0, 430.0, 768.0]) {
     testWidgets('workflow settings persist and submit at $width',
@@ -59,7 +75,9 @@ void main() {
       await tester.pumpWidget(RepositoryProvider<WorkflowRepository>.value(
         value: repository,
         child: MaterialApp(
-            theme: AsoudTheme.light, home: const WorkflowFormPage()),
+            theme: AsoudTheme.light,
+            builder: (_, child) => Directionality(textDirection: TextDirection.rtl, child: child!),
+            home: const WorkflowFormPage()),
       ));
       await tester.pumpAndSettle();
       final title = find.byKey(const ValueKey('workflow-title'));
@@ -73,13 +91,11 @@ void main() {
       await tester.enterText(title, 'تأیید خرید');
       await tester.enterText(
           find.byKey(const ValueKey('workflow-description')), 'شرح فرایند');
-      await tester.ensureVisible(find.byKey(const ValueKey('workflow-icon-purchase')));
-      await tester.tap(find.byKey(const ValueKey('workflow-icon-purchase')));
-      await tester.ensureVisible(find.byKey(const ValueKey('workflow-color-#16A765')));
-      await tester.tap(find.byKey(const ValueKey('workflow-color-#16A765')));
-      await tester.ensureVisible(find.byKey(const ValueKey('workflow-more')));
-      await tester.tap(find.byKey(const ValueKey('workflow-more')));
+      FocusManager.instance.primaryFocus?.unfocus();
       await tester.pumpAndSettle();
+      await _tapControl(tester, 'workflow-icon-purchase');
+      await _tapControl(tester, 'workflow-color-#16A765');
+      await _tapControl(tester, 'workflow-more');
       // Scope/document selectors were deliberately removed from this sheet.
       expect(find.text('دامنه و سند مقصد'), findsNothing);
       expect(find.text('دفتر / شرکت'), findsNothing);
@@ -89,8 +105,7 @@ void main() {
       expect(cubit.state.iconKey, 'purchase');
       expect(cubit.state.colorHex, '#16A765');
       expect(cubit.state.creationMode, 'Custom');
-      await tester.tap(find.byKey(const ValueKey('workflow-more')));
-      await tester.pumpAndSettle();
+      await _tapControl(tester, 'workflow-more');
       expect(find.byKey(const ValueKey('workflow-mode-Custom')), findsOneWidget);
       expect(cubit.state.iconKey, 'purchase');
       expect(cubit.state.colorHex, '#16A765');
@@ -123,8 +138,7 @@ void main() {
       // Changing the module must not silently change the workflow reference.
       cubit.changeModule('HR');
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('workflow-more')));
-      await tester.pumpAndSettle();
+      await _tapControl(tester, 'workflow-more');
       expect(cubit.state.moduleKey, 'HR');
       expect(cubit.state.targetDoctype, 'ASOUD Workflow Request');
       expect(find.text('نوع سند *'), findsNothing);

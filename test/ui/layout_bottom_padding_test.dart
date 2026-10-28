@@ -1,3 +1,4 @@
+import 'package:asoud_erp/core/widgets/asoud_bottom_bar.dart';
 import 'package:asoud_erp/features/base_setup/presentation/pages/base_accounting_setup_page.dart';
 import 'package:asoud_erp/features/employee/presentation/pages/my_info_page.dart';
 import 'package:asoud_erp/features/hr/data/personnel_file_repository.dart';
@@ -107,7 +108,9 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final list = _paddedList();
+      // The create action now occupies Scaffold.bottomNavigationBar instead of
+      // floating over the list; verify actual separation, not obsolete padding.
+      final list = find.byKey(const ValueKey('workflow-list'));
       expect(list, findsOneWidget);
       await tester.drag(list, const Offset(0, -3000));
       await tester.pumpAndSettle();
@@ -117,8 +120,13 @@ void main() {
       final lastCard = tester.getRect(find
           .descendant(of: find.byType(Card).last, matching: find.byType(InkWell))
           .first);
-      final createButton = tester.getRect(find.byType(FilledButton));
+      final create = find.byKey(const ValueKey('workflow-create'));
+      expect(create.hitTestable(), findsOneWidget);
+      final createButton = tester.getRect(create);
+      expect(tester.getRect(list).bottom, lessThanOrEqualTo(createButton.top));
       expect(lastCard.bottom, lessThan(createButton.top));
+      expect(createButton.bottom,
+          lessThanOrEqualTo(tester.getRect(find.byType(AsoudBottomBar)).top));
       expect(tester.takeException(), isNull);
     });
 

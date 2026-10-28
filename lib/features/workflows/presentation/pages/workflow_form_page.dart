@@ -194,6 +194,7 @@ class _FormContentState extends State<_FormContent> {
     final cubit = context.read<WorkflowFormCubit>();
     final enabled = state.status != WorkflowFormStatus.submitting;
     return ListView(
+      key: const ValueKey('workflow-form-list'),
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       children: [

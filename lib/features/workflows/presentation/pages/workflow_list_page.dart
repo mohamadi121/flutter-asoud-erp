@@ -99,6 +99,7 @@ class _WorkflowListView extends StatelessWidget {
                   return RefreshIndicator(
                     onRefresh: context.read<WorkflowListCubit>().load,
                     child: ListView(
+                      key: const ValueKey('workflow-list'),
                       padding: const EdgeInsets.fromLTRB(16, 9, 16, 16),
                       children: [
                         Row(children: [

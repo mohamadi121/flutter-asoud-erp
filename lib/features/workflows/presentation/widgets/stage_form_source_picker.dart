@@ -84,7 +84,8 @@ class _StageFormSourcePickerState extends State<StageFormSourcePicker> {
     return Directionality(textDirection: TextDirection.rtl,
       child: SafeArea(child: SizedBox(height: MediaQuery.sizeOf(context).height * .9,
         child: Column(children: [
-          Expanded(child: ListView(padding: const EdgeInsets.symmetric(horizontal: 16), children: [
+          Expanded(child: ListView(key: const ValueKey('stage-source-list'),
+            padding: const EdgeInsets.symmetric(horizontal: 16), children: [
             Row(children: [const Expanded(child: Text('انتخاب درخواست یا سند',
                 style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800))),
               IconButton(tooltip: 'بستن انتخاب درخواست یا سند', onPressed: confirming ? null : () => Navigator.pop(context),
