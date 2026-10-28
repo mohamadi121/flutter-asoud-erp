@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:pdf/pdf.dart';
-import 'package:printing/printing.dart';
+import '../widgets/hr_document_print.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/failure_message.dart';
@@ -121,8 +120,7 @@ class _EmploymentCertificatePreviewPageState extends State<EmploymentCertificate
     }
     setState(() => _printing = true);
     try {
-      final bytes = await Printing.convertHtml(html: cert.printHtml, format: PdfPageFormat.a4);
-      await Printing.layoutPdf(onLayout: (_) async => bytes, format: PdfPageFormat.a4);
+      await printHrDocument(cert.printHtml);
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('چاپ گواهی انجام نشد. ${failureMessage(e)}')));

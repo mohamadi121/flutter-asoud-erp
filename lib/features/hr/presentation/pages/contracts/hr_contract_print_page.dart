@@ -7,6 +7,7 @@ import 'package:asoud_erp/core/theme/asoud_colors.dart';
 import 'package:asoud_erp/core/utils/jalali_date.dart';
 import 'package:asoud_erp/core/widgets/asoud_ui.dart';
 import 'package:asoud_erp/features/hr/domain/hr_contract_models.dart';
+import '../../widgets/hr_document_print.dart';
 
 class HrContractPrintPage extends StatelessWidget {
   const HrContractPrintPage({
@@ -104,8 +105,7 @@ class _ServerContractPrintState extends State<_ServerContractPrint> {
             canChangePageFormat: false,
             canChangeOrientation: false,
             // The server HTML owns the letterhead, footer and rendered snapshot.
-            // ignore: deprecated_member_use
-            build: (format) => Printing.convertHtml(html: data['html'] as String, format: format),
+            build: (format) => convertHrDocument(data['html']?.toString() ?? '', format: format),
           )),
         ]);
       },

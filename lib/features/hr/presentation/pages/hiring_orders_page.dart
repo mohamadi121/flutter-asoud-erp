@@ -11,6 +11,7 @@ import '../../../../core/widgets/asoud_ui.dart';
 import '../../../../core/widgets/states.dart';
 import '../../data/hiring_order_repository.dart';
 import '../cubit/hiring_orders_cubit.dart';
+import '../widgets/hr_document_print.dart';
 
 enum _HiringViewMode { list, form, preview, templateBuilder }
 
@@ -1552,23 +1553,14 @@ class _HiringOrdersViewState extends State<_HiringOrdersView> {
         const SizedBox(height: 16),
 
         // Action buttons
-        ElevatedButton.icon(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AsoudColors.primary,
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            padding: const EdgeInsets.symmetric(vertical: 14),
-          ),
-          onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('سند آماده چاپ در مرورگر/پرینتر است.'),
-                backgroundColor: AsoudColors.success,
-              ),
-            );
+        HrDocumentPrintButton(
+          label: 'چاپ حکم',
+          loadHtml: () async {
+            final name = order?.name ?? _orderId;
+            if (name == null) return '';
+            final document = await context.read<HiringOrdersCubit>().repository.printOrder(name: name);
+            return document.html;
           },
-          icon: const Icon(Icons.print, size: 18),
-          label: const Text('🖨 چاپ حکم', style: TextStyle(fontWeight: FontWeight.bold)),
         ),
         const SizedBox(height: 8),
         Row(

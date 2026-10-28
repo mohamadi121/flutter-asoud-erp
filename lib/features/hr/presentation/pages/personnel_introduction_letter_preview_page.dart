@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:pdf/pdf.dart';
-import 'package:printing/printing.dart';
+import '../widgets/hr_document_print.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/failure_message.dart';
@@ -109,8 +108,7 @@ class _PersonnelIntroductionLetterPreviewPageState
     setState(() => _printing = true);
     try {
       // ignore: deprecated_member_use
-      final bytes = await Printing.convertHtml(html: letter.printHtml, format: PdfPageFormat.a4);
-      await Printing.layoutPdf(onLayout: (_) async => bytes, format: PdfPageFormat.a4);
+      await printHrDocument(letter.printHtml);
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
