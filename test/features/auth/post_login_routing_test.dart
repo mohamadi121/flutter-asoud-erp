@@ -98,7 +98,7 @@ void main() {
 
   testWidgets('admin with no office is sent to create the first office',
       (tester) async {
-    await _route(tester, _s(admin: true, create: true));
+    await _route(tester, _s(admin: true, create: true, done: true));
     expect(find.byType(OfficeFormPage), findsOneWidget);
   });
 
@@ -108,6 +108,24 @@ void main() {
     expect(find.byType(AdminProfilePage), findsOneWidget);
     expect(find.text('owner@acme.ir'), findsOneWidget);
   });
+
+  for (final width in [320.0, 390.0, 430.0]) {
+    testWidgets('first Administrator login opens profile before office at $width',
+        (tester) async {
+      await tester.binding.setSurfaceSize(Size(width, 1000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await _route(tester, LoginState(
+        userId: 'Administrator',
+        isSystemAdmin: true,
+        canCreateOffice: true,
+        adminProfileComplete: false,
+        next: const NextRoute(route: 'create-first-office'),
+      ));
+      expect(find.byType(AdminProfilePage), findsOneWidget);
+      expect(find.byType(OfficeFormPage), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   testWidgets('personnel without an office sees the exact message only',
       (tester) async {

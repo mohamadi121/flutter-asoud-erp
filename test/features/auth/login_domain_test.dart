@@ -38,7 +38,7 @@ void main() {
           LoginStep.changePassword);
     });
     test('admin without office creates the first office', () {
-      expect(decideLoginRoute(_state(admin: true, canCreate: true)).step,
+      expect(decideLoginRoute(_state(admin: true, canCreate: true, profileDone: true)).step,
           LoginStep.createFirstOffice);
     });
     test('admin with office but incomplete profile completes it', () {

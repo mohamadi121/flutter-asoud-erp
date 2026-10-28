@@ -36,7 +36,7 @@ class LoginRoute {
 }
 
 /// The screen after sign-in. The server decides (`login_state.next.route`);
-/// the app only maps that answer to a step and never second-guesses it:
+/// the app maps that answer, completing the administrator identity before setup:
 ///
 /// `account-disabled`, `change-password`, `create-first-office`,
 /// `complete-admin-profile`, `office-select`, `home` (with `next.office`),
@@ -47,6 +47,19 @@ class LoginRoute {
 /// same rule the backend applies.
 LoginRoute decideLoginRoute(LoginState state) {
   final next = state.next;
+  // Older servers put office creation/setup before the essential identity.
+  // Keep account and password gates ahead of this first-login form.
+  if (state.accountActive &&
+      !state.mustChangePassword &&
+      !state.temporaryPasswordExpired &&
+      state.isSystemAdmin &&
+      !state.adminProfileComplete &&
+      (next == null ||
+          const {'create-first-office', 'setup-first-office',
+            'complete-admin-profile', 'office-select', 'home'}
+              .contains(next.route))) {
+    return const LoginRoute(LoginStep.completeAdminProfile);
+  }
   if (next == null) return _localRoute(state);
   switch (next.route) {
     case 'account-disabled':
