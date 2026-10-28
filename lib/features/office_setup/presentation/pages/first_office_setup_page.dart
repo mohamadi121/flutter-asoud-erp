@@ -248,7 +248,7 @@ class _FirstOfficeSetupPageState extends State<FirstOfficeSetupPage> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          error = failureMessage(e);
+          error = failureDetail(e);
           needsReload = true;
         });
       }
@@ -282,7 +282,7 @@ class _FirstOfficeSetupPageState extends State<FirstOfficeSetupPage> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          error = failureMessage(e);
+          error = failureDetail(e);
           needsReload = true;
         });
       }

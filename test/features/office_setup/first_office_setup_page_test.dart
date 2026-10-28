@@ -17,6 +17,8 @@ class _FakeSetupClient extends Fake implements FrappeApiClient {
   Completer<Map<String, dynamic>>? createGate;
   Map<String, dynamic>? statusLead;
   Object? statusError;
+  Object? fiscalLoadError, fiscalSaveError;
+  bool emptyFiscalYears = false;
 
   @override
   bool get isAuthenticated => true;
@@ -92,6 +94,8 @@ class _FakeSetupClient extends Fake implements FrappeApiClient {
       methodData[method] = data;
     }
     if (method == 'asoud_erp.api.v1.setup.list_fiscal_years') {
+      if (fiscalLoadError != null) throw fiscalLoadError!;
+      if (emptyFiscalYears) return [];
       return [
         {
           'name': '1405',
@@ -105,6 +109,8 @@ class _FakeSetupClient extends Fake implements FrappeApiClient {
     if (method == 'asoud_erp.api.v1.calendar.get_calendar') {
       return {'items': [], 'can_manage': false};
     }
+    if (method == 'asoud_erp.api.v1.setup.create_fiscal_year' &&
+        fiscalSaveError != null) throw fiscalSaveError!;
     return {};
   }
 }
@@ -152,6 +158,30 @@ Widget _buildTestApp(FrappeApiClient client, double width) {
 }
 
 void main() {
+  for (final saveFailure in [true, false]) {
+    testWidgets('fiscal validation preserves server reason; save=$saveFailure',
+        (tester) async {
+      const reason = 'سال مالی با دوره ثبت‌شده هم‌پوشانی دارد.';
+      const failure = ApiException(kind: ApiFailureKind.validation,
+          statusCode: 417, message: reason);
+      final client = _FakeSetupClient()
+        ..emptyFiscalYears = true
+        ..fiscalSaveError = saveFailure ? failure : null
+        ..fiscalLoadError = saveFailure ? null : failure;
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.binding.setSurfaceSize(const Size(390, 1200));
+      await tester.pumpWidget(_buildTestApp(client, 390));
+      await tester.pumpAndSettle();
+      if (saveFailure) {
+        final save = find.text('ذخیره و ادامه  ←');
+        await tester.ensureVisible(save);
+        await tester.tap(save);
+        await tester.pumpAndSettle();
+      }
+      expect(find.text(reason), findsOneWidget);
+      expect(find.text('اطلاعات واردشده را بررسی کنید.'), findsNothing);
+    });
+  }
   for (final kind in [ApiFailureKind.timeout, ApiFailureKind.network,
     ApiFailureKind.protocol]) {
     for (final exists in [true, false]) {
