@@ -14,6 +14,8 @@ class HiringOrdersState extends Equatable {
     this.searchQuery = '',
     this.statusFilter = 'all',
     this.people = const [],
+    this.peopleLoading = false,
+    this.peopleError,
     this.publishedTemplate,
     this.currentOrder,
     this.currentPayroll,
@@ -27,6 +29,8 @@ class HiringOrdersState extends Equatable {
   final String searchQuery;
   final String statusFilter;
   final List<HiringOrderPerson> people;
+  final bool peopleLoading;
+  final String? peopleError;
   final Map<String, dynamic>? publishedTemplate;
   final HiringOrderDetail? currentOrder;
   final HiringOrderPayroll? currentPayroll;
@@ -41,6 +45,9 @@ class HiringOrdersState extends Equatable {
     String? searchQuery,
     String? statusFilter,
     List<HiringOrderPerson>? people,
+    bool? peopleLoading,
+    String? peopleError,
+    bool clearPeopleError = false,
     Map<String, dynamic>? publishedTemplate,
     bool clearTemplate = false,
     HiringOrderDetail? currentOrder,
@@ -58,6 +65,8 @@ class HiringOrdersState extends Equatable {
         searchQuery: searchQuery ?? this.searchQuery,
         statusFilter: statusFilter ?? this.statusFilter,
         people: people ?? this.people,
+        peopleLoading: peopleLoading ?? this.peopleLoading,
+        peopleError: clearPeopleError ? null : (peopleError ?? this.peopleError),
         publishedTemplate: clearTemplate
             ? null
             : (publishedTemplate ?? this.publishedTemplate),
@@ -81,6 +90,8 @@ class HiringOrdersState extends Equatable {
         searchQuery,
         statusFilter,
         people,
+        peopleLoading,
+        peopleError,
         publishedTemplate,
         currentOrder,
         currentPayroll,
@@ -97,9 +108,12 @@ class HiringOrdersCubit extends Cubit<HiringOrdersState> {
 
   final HiringOrderRepository repository;
   final String company;
+  int _listRequest = 0;
+  int _payrollRequest = 0;
 
   Future<void> load({bool refresh = false}) async {
     if (!refresh && state.status == HiringOrdersStatus.loading) return;
+    final request = ++_listRequest;
     emit(state.copyWith(status: HiringOrdersStatus.loading, clearError: true));
     try {
       final orders = await repository.listOrders(
@@ -108,12 +122,14 @@ class HiringOrdersCubit extends Cubit<HiringOrdersState> {
         status: state.statusFilter == 'all' ? '' : state.statusFilter,
       );
       final template = await repository.getTemplate(company: company);
+      if (isClosed || request != _listRequest) return;
       emit(state.copyWith(
         status: HiringOrdersStatus.loaded,
         orders: orders,
         publishedTemplate: template,
       ));
     } catch (e) {
+      if (isClosed || request != _listRequest) return;
       emit(state.copyWith(
         status: HiringOrdersStatus.error,
         errorMessage: failureMessage(e),
@@ -132,26 +148,36 @@ class HiringOrdersCubit extends Cubit<HiringOrdersState> {
   }
 
   Future<void> loadPeople() async {
+    if (state.peopleLoading) return;
+    emit(state.copyWith(peopleLoading: true, clearPeopleError: true));
     try {
       final list = await repository.people(company: company);
-      emit(state.copyWith(people: list));
-    } catch (_) {}
+      if (isClosed) return;
+      emit(state.copyWith(people: list, peopleLoading: false));
+    } catch (e) {
+      if (isClosed) return;
+      emit(state.copyWith(peopleLoading: false, peopleError: failureMessage(e)));
+    }
   }
 
   Future<void> loadPayroll({
     required String employee,
     required String effectiveDate,
   }) async {
+    final request = ++_payrollRequest;
+    emit(state.copyWith(clearCurrentPayroll: true, clearError: true));
     try {
       final payroll = await repository.payroll(
         company: company,
         employee: employee,
         effectiveDate: effectiveDate,
       );
+      if (isClosed || request != _payrollRequest) return;
       emit(state.copyWith(currentPayroll: payroll));
     } catch (e) {
+      if (isClosed || request != _payrollRequest) return;
       emit(state.copyWith(
-        currentPayroll: null,
+        clearCurrentPayroll: true,
         errorMessage: failureMessage(e),
       ));
     }

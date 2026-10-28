@@ -115,9 +115,11 @@ class SalaryChangeOrdersCubit extends Cubit<SalaryChangeOrdersState> {
   final SalaryChangeOrderRepository repository;
   final String company;
   int _payrollRequest = 0;
+  int _listRequest = 0;
 
   Future<void> load({bool refresh = false}) async {
     if (!refresh && state.status == SalaryChangeOrdersStatus.loading) return;
+    final request = ++_listRequest;
     emit(state.copyWith(
         status: SalaryChangeOrdersStatus.loading, clearError: true));
     try {
@@ -130,12 +132,14 @@ class SalaryChangeOrdersCubit extends Cubit<SalaryChangeOrdersState> {
             : state.applicationStatusFilter,
       );
       final template = await repository.getTemplate(company: company);
+      if (isClosed || request != _listRequest) return;
       emit(state.copyWith(
         status: SalaryChangeOrdersStatus.loaded,
         orders: orders,
         publishedTemplate: template,
       ));
     } catch (e) {
+      if (isClosed || request != _listRequest) return;
       emit(state.copyWith(
         status: SalaryChangeOrdersStatus.error,
         errorMessage: failureMessage(e),

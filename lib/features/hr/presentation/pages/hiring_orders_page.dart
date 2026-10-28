@@ -856,6 +856,16 @@ class _HiringOrdersViewState extends State<_HiringOrdersView> {
                 subtitle: 'اطلاعات از پرونده منابع انسانی',
               ),
               const SizedBox(height: 12),
+              if (state.peopleLoading) const LinearProgressIndicator(),
+              if (state.peopleError != null) ...[
+                Text('دریافت فهرست پرسنل انجام نشد. ${state.peopleError}',
+                    style: const TextStyle(color: AsoudColors.danger)),
+                TextButton(
+                  onPressed: state.peopleLoading ? null
+                      : () => context.read<HiringOrdersCubit>().loadPeople(),
+                  child: const Text('دریافت دوباره پرسنل'),
+                ),
+              ],
               DropdownButtonFormField<String>(
                 initialValue: _personId.isNotEmpty ? _personId : null,
                 isExpanded: true,
@@ -869,7 +879,7 @@ class _HiringOrdersViewState extends State<_HiringOrdersView> {
                           ),
                         ))
                     .toList(),
-                onChanged: (val) {
+                onChanged: state.peopleLoading || state.peopleError != null ? null : (val) {
                   if (val != null) {
                     final person = state.people.firstWhere((p) => p.name == val);
                     setState(() {

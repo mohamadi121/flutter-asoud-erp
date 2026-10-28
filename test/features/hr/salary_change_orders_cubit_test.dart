@@ -18,6 +18,22 @@ void main() {
 
   tearDown(() => cubit.close());
 
+  test('late list failure does not replace a newer search result', () async {
+    final older = Completer<List<SalaryChangeOrderSummary>>();
+    when(() => repository.listOrders(company: 'COMP-1', search: '', status: '', applicationStatus: ''))
+        .thenAnswer((_) => older.future);
+    when(() => repository.listOrders(company: 'COMP-1', search: 'جدید', status: '', applicationStatus: ''))
+        .thenAnswer((_) async => []);
+    when(() => repository.getTemplate(company: 'COMP-1')).thenAnswer((_) async => null);
+    final first = cubit.load();
+    await cubit.setSearch('جدید');
+    older.completeError(TimeoutException(''));
+    await first;
+    expect(cubit.state.searchQuery, 'جدید');
+    expect(cubit.state.status, SalaryChangeOrdersStatus.loaded);
+    expect(cubit.state.errorMessage, isNull);
+  });
+
   test('people failure has independent loading error and retry', () async {
     when(() => repository.people(company: 'COMP-1'))
         .thenThrow(const ApiException(kind: ApiFailureKind.network, message: 'شبکه'));
