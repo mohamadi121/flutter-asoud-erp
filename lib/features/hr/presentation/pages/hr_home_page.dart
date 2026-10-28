@@ -24,6 +24,7 @@ import '../../../request_templates/presentation/pages/request_list_pages.dart';
 import '../../data/hr_contracts_repository.dart';
 import '../../data/hr_contract_template_repository.dart';
 import 'contracts/hr_contracts_page.dart';
+import 'employment_certificates_page.dart';
 
 Future<Capabilities> _hrCapabilities(BuildContext context) async {
   try {
@@ -261,6 +262,12 @@ class _ManagerHrHome extends StatelessWidget {
                     ),
                     );
                   }),
+          _Action(
+              'گواهی‌های اشتغال به کار',
+              'صدور، مشاهده و چاپ اسناد پرسنلی',
+              Icons.description_outlined,
+              AsoudColors.primary,
+              () => _push(context, EmploymentCertificatesPage(company: company))),
           _Action(
               'درخواست‌های مرخصی',
               'مشاهده درخواست‌ها و وضعیت مرخصی',
