@@ -3,6 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/network/frappe_client.dart';
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/failure_message.dart';
+import '../../../../core/utils/jalali_date.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../../core/widgets/states.dart';
 import '../../data/personnel_introduction_letter_repository.dart';
@@ -11,8 +13,13 @@ import 'personnel_introduction_letter_preview_page.dart';
 import 'personnel_introduction_letter_template_builder_page.dart';
 
 class PersonnelIntroductionLettersPage extends StatefulWidget {
-  const PersonnelIntroductionLettersPage({required this.company, super.key});
+  const PersonnelIntroductionLettersPage({
+    required this.company,
+    this.canManageTemplate = false,
+    super.key,
+  });
   final String company;
+  final bool canManageTemplate;
 
   @override
   State<PersonnelIntroductionLettersPage> createState() =>
@@ -33,7 +40,7 @@ class _PersonnelIntroductionLettersPageState extends State<PersonnelIntroduction
   late Future<({List<PersonnelIntroductionLetter> items, int total})> _rows;
   String _status = '';
   String _query = '';
-  bool _canManageTemplate = false;
+  late bool _canManageTemplate = widget.canManageTemplate;
   final _searchController = TextEditingController();
 
   @override
@@ -44,6 +51,10 @@ class _PersonnelIntroductionLettersPageState extends State<PersonnelIntroduction
   }
 
   Future<void> _loadTemplateCapability() async {
+    if (!widget.canManageTemplate) {
+      if (mounted) setState(() => _canManageTemplate = false);
+      return;
+    }
     try {
       final template = await _repository.getTemplate(company: widget.company);
       if (mounted) setState(() => _canManageTemplate = template.canManageTemplate);
@@ -103,7 +114,10 @@ class _PersonnelIntroductionLettersPageState extends State<PersonnelIntroduction
       MaterialPageRoute(
         builder: (_) => RepositoryProvider.value(
           value: _repository,
-          child: PersonnelIntroductionLetterTemplateBuilderPage(company: widget.company),
+          child: PersonnelIntroductionLetterTemplateBuilderPage(
+            company: widget.company,
+            canManageTemplate: _canManageTemplate,
+          ),
         ),
       ),
     );
@@ -312,9 +326,8 @@ class _PersonnelIntroductionLettersPageState extends State<PersonnelIntroduction
                     );
                   }
                   if (snapshot.hasError) {
-                    final err = snapshot.error;
                     return ErrorState(
-                      failure: err ?? 'ارتباط با سرور برقرار نشد.',
+                      failure: failureMessage(snapshot.error),
                       onRetry: () => setState(_reload),
                     );
                   }
@@ -334,20 +347,20 @@ class _PersonnelIntroductionLettersPageState extends State<PersonnelIntroduction
                         children: [
                           Expanded(
                               child: _buildStatusTile(
-                                  '$draftCount', 'پیش‌نویس', const Color(0xFF62768C))),
+                                  toPersianDigits(draftCount), 'پیش‌نویس', const Color(0xFF62768C))),
                           const SizedBox(width: 8),
                           Expanded(
                               child: _buildStatusTile(
-                                  '$pendingCount', 'در جریان', AsoudColors.warning)),
+                                  toPersianDigits(pendingCount), 'در جریان', AsoudColors.warning)),
                           const SizedBox(width: 8),
                           Expanded(
                               child: _buildStatusTile(
-                                  '$finalCount', 'نهایی', AsoudColors.success)),
+                                  toPersianDigits(finalCount), 'نهایی', AsoudColors.success)),
                         ],
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        '${items.length} معرفی‌نامه یافت شد',
+                        '${toPersianDigits(items.length)} معرفی‌نامه یافت شد',
                         style: const TextStyle(fontSize: 11, color: Color(0xFF62768C)),
                       ),
                       const SizedBox(height: 8),

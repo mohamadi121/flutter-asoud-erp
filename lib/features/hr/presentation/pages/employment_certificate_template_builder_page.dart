@@ -1,15 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/failure_message.dart';
+import '../../../../core/utils/jalali_date.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../../core/widgets/states.dart';
 import '../../data/employment_certificate_repository.dart';
 
 class EmploymentCertificateTemplateBuilderPage extends StatefulWidget {
-  const EmploymentCertificateTemplateBuilderPage({required this.company, super.key});
+  const EmploymentCertificateTemplateBuilderPage({
+    required this.company,
+    this.canManageTemplate = false,
+    super.key,
+  });
   final String company;
+  final bool canManageTemplate;
 
   @override
   State<EmploymentCertificateTemplateBuilderPage> createState() => _EmploymentCertificateTemplateBuilderPageState();
@@ -74,7 +80,7 @@ class _EmploymentCertificateTemplateBuilderPageState extends State<EmploymentCer
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = e is ApiException ? e.message : 'بارگذاری قالب ناموفق بود.';
+        _error = failureMessage(e);
       });
     }
   }
@@ -209,6 +215,7 @@ class _EmploymentCertificateTemplateBuilderPageState extends State<EmploymentCer
   }
 
   Future<void> _saveDraft() async {
+    if (!widget.canManageTemplate) return;
     setState(() => _saving = true);
     try {
       final updated = await _repository.saveTemplateDraft(
@@ -228,12 +235,13 @@ class _EmploymentCertificateTemplateBuilderPageState extends State<EmploymentCer
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
-      final msg = e is ApiException ? e.message : 'ذخیره پیش‌نویس قالب ناموفق بود.';
+      final msg = failureMessage(e);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
     }
   }
 
   Future<void> _publish() async {
+    if (!widget.canManageTemplate) return;
     setState(() => _saving = true);
     try {
       final updated = await _repository.publishTemplate(
@@ -250,7 +258,7 @@ class _EmploymentCertificateTemplateBuilderPageState extends State<EmploymentCer
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
-      final msg = e is ApiException ? e.message : 'انتشار قالب ناموفق بود.';
+      final msg = failureMessage(e);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
     }
   }
@@ -317,7 +325,13 @@ class _EmploymentCertificateTemplateBuilderPageState extends State<EmploymentCer
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('وضعیت قالب: ${_status == 'Published' ? 'منتشرشده' : 'پیش‌نویس'} (نسخه $_revision)', style: const TextStyle(fontSize: 11, color: AsoudColors.muted)),
+            Expanded(
+              child: Text(
+                'وضعیت قالب: ${_status == 'Published' ? 'منتشرشده' : 'پیش‌نویس'} (نسخه ${toPersianDigits(_revision)})',
+                style: const TextStyle(fontSize: 11, color: AsoudColors.muted),
+              ),
+            ),
+            const SizedBox(width: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
@@ -407,7 +421,7 @@ class _EmploymentCertificateTemplateBuilderPageState extends State<EmploymentCer
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(vertical: 12),
           ),
-          onPressed: _saving ? null : _saveDraft,
+          onPressed: !widget.canManageTemplate || _saving ? null : _saveDraft,
           child: _saving
               ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
               : const Text('ذخیره پیش‌نویس قالب'),
@@ -419,7 +433,7 @@ class _EmploymentCertificateTemplateBuilderPageState extends State<EmploymentCer
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(vertical: 12),
           ),
-          onPressed: _saving ? null : _publish,
+          onPressed: !widget.canManageTemplate || _saving ? null : _publish,
           child: const Text('انتشار قالب'),
         ),
       ],

@@ -312,6 +312,23 @@ void main() {
       expect(find.text('سارا احمدی'), findsOneWidget);
       expect(find.text('علی محمدی'), findsNothing);
     });
+
+    testWidgets('hides template builder button when canManageTemplate is false and shows when true', (tester) async {
+      final repo = FakeEmploymentCertificateRepository();
+      await tester.pumpWidget(_wrapWithRtl(
+        const EmploymentCertificatesPage(company: 'شرکت نمونه', canManageTemplate: false),
+        repo: repo,
+      ));
+      await tester.pumpAndSettle();
+      expect(find.text('ویرایش قالب'), findsNothing);
+
+      await tester.pumpWidget(_wrapWithRtl(
+        const EmploymentCertificatesPage(company: 'شرکت نمونه', canManageTemplate: true),
+        repo: repo,
+      ));
+      await tester.pumpAndSettle();
+      expect(find.text('ویرایش قالب'), findsOneWidget);
+    });
   });
 
   group('EmploymentCertificateFormPage UI', () {
@@ -370,5 +387,26 @@ void main() {
         expect(find.text('بندهای متن گواهی'), findsOneWidget);
       });
     }
+
+    testWidgets('disables save and publish when canManageTemplate is false', (tester) async {
+      final repo = FakeEmploymentCertificateRepository();
+      await tester.binding.setSurfaceSize(const Size(390, 1600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(_wrapWithRtl(
+        const EmploymentCertificateTemplateBuilderPage(company: 'شرکت نمونه', canManageTemplate: false),
+        repo: repo,
+      ));
+      await tester.pumpAndSettle();
+
+      final saveFinder = find.widgetWithText(ElevatedButton, 'ذخیره پیش‌نویس قالب');
+      expect(saveFinder, findsOneWidget);
+      final saveButton = tester.widget<ElevatedButton>(saveFinder);
+      expect(saveButton.onPressed, isNull);
+
+      final publishFinder = find.widgetWithText(ElevatedButton, 'انتشار قالب');
+      expect(publishFinder, findsOneWidget);
+      final publishButton = tester.widget<ElevatedButton>(publishFinder);
+      expect(publishButton.onPressed, isNull);
+    });
   });
 }

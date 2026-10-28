@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/failure_message.dart';
+import '../../../../core/utils/jalali_date.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../../core/widgets/states.dart';
 import '../../data/employment_certificate_repository.dart';
@@ -53,7 +54,7 @@ class _EmploymentCertificatePreviewPageState extends State<EmploymentCertificate
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = e is ApiException ? e.message : 'بارگذاری گواهی با خطا مواجه شد.';
+        _error = failureMessage(e);
       });
     }
   }
@@ -102,7 +103,7 @@ class _EmploymentCertificatePreviewPageState extends State<EmploymentCertificate
     } catch (e) {
       if (!mounted) return;
       setState(() => _finalizing = false);
-      final msg = e is ApiException ? e.message : 'نهایی‌سازی گواهی انجام نشد.';
+      final msg = failureMessage(e);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
     }
   }
@@ -226,8 +227,8 @@ class _EmploymentCertificatePreviewPageState extends State<EmploymentCertificate
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('شماره: ${isFinal ? cert.number : '—'}', style: const TextStyle(fontSize: 10, color: Color(0xFF62768C))),
-                      Text('تاریخ: ${isFinal && cert.issueDate.isNotEmpty ? cert.issueDate : '—'}', style: const TextStyle(fontSize: 10, color: Color(0xFF62768C))),
+                      Text('شماره: ${isFinal ? toPersianDigits(cert.number) : '—'}', style: const TextStyle(fontSize: 10, color: Color(0xFF62768C))),
+                      Text('تاریخ: ${isFinal && cert.issueDate.isNotEmpty ? toPersianDigits(cert.issueDate) : '—'}', style: const TextStyle(fontSize: 10, color: Color(0xFF62768C))),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -243,7 +244,7 @@ class _EmploymentCertificatePreviewPageState extends State<EmploymentCertificate
                         const Text('موضوع: گواهی اشتغال به کار', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
                         const SizedBox(height: 12),
                         Text(
-                          'بدین‌وسیله گواهی می‌شود که خانم/آقای ${cert.employeeName} با شماره پرسنلی ${cert.employeeNumber} در شرکت ${cert.company} مشغول به خدمت می‌باشند.',
+                          'بدین‌وسیله گواهی می‌شود که خانم/آقای ${cert.employeeName} با شماره پرسنلی ${toPersianDigits(cert.employeeNumber)} در شرکت ${cert.company} مشغول به خدمت می‌باشند.',
                           style: const TextStyle(fontSize: 11, height: 2),
                         ),
                         const SizedBox(height: 8),

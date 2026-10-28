@@ -305,7 +305,7 @@ void main() {
       testWidgets('renders list and filter at width $width without overflow', (tester) async {
         final repo = FakePersonnelIntroductionLetterRepository();
         await tester.pumpWidget(_wrapWithRtl(
-          const PersonnelIntroductionLettersPage(company: 'شرکت نمونه'),
+          const PersonnelIntroductionLettersPage(company: 'شرکت نمونه', canManageTemplate: true),
           repo: repo,
           width: width,
         ));

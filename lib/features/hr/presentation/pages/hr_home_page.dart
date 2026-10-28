@@ -197,7 +197,7 @@ class _HrHome extends StatelessWidget {
                           SalaryChangeOrdersPage(
                             company: company,
                             canIssue: caps.canWriteHrRecords || caps.canManageOrganization,
-                            canDesign: caps.canManageDocumentTemplates || caps.canManageForms,
+                            canDesign: caps.canManageSalaryTemplates,
                             canExecutePayroll: caps.canSeeAccounting,
                           ),
                         );
@@ -290,19 +290,52 @@ class _ManagerHrHome extends StatelessWidget {
               'صدور، مشاهده و چاپ اسناد پرسنلی',
               Icons.description_outlined,
               AsoudColors.primary,
-              () => _push(context, EmploymentCertificatesPage(company: company))),
+              () async {
+                final caps = await _hrCapabilities(context);
+                if (context.mounted) {
+                  _push(
+                    context,
+                    EmploymentCertificatesPage(
+                      company: company,
+                      canManageTemplate: caps.canManageCertificateTemplates,
+                    ),
+                  );
+                }
+              }),
           _Action(
               'احکام استخدام',
               'صدور، پیگیری و چاپ احکام کارگزینی',
               Icons.assignment_outlined,
               AsoudColors.primary,
-              () => _push(context, HiringOrdersPage(company: company))),
+              () async {
+                final caps = await _hrCapabilities(context);
+                if (context.mounted) {
+                  _push(
+                    context,
+                    HiringOrdersPage(
+                      company: company,
+                      capabilities: caps,
+                    ),
+                  );
+                }
+              }),
           _Action(
               'معرفی‌نامه‌های پرسنلی',
               'صدور، مشاهده و چاپ معرفی‌نامه‌ها',
               Icons.assignment_ind_outlined,
               AsoudColors.primary,
-              () => _push(context, PersonnelIntroductionLettersPage(company: company))),
+              () async {
+                final caps = await _hrCapabilities(context);
+                if (context.mounted) {
+                  _push(
+                    context,
+                    PersonnelIntroductionLettersPage(
+                      company: company,
+                      canManageTemplate: caps.canManageIntroductionTemplates,
+                    ),
+                  );
+                }
+              }),
           _Action(
               'درخواست‌های مرخصی',
               'مشاهده درخواست‌ها و وضعیت مرخصی',
@@ -332,7 +365,7 @@ class _ManagerHrHome extends StatelessWidget {
                     SalaryChangeOrdersPage(
                       company: company,
                       canIssue: caps.canWriteHrRecords || caps.canManageOrganization,
-                      canDesign: caps.canManageDocumentTemplates || caps.canManageForms,
+                      canDesign: caps.canManageSalaryTemplates,
                       canExecutePayroll: caps.canSeeAccounting,
                     ),
                   );

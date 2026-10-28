@@ -1,15 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/failure_message.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../../core/widgets/states.dart';
 import '../../data/personnel_introduction_letter_repository.dart';
 
 class PersonnelIntroductionLetterTemplateBuilderPage extends StatefulWidget {
-  const PersonnelIntroductionLetterTemplateBuilderPage({required this.company, super.key});
+  const PersonnelIntroductionLetterTemplateBuilderPage({
+    required this.company,
+    this.canManageTemplate = false,
+    super.key,
+  });
   final String company;
+  final bool canManageTemplate;
 
   @override
   State<PersonnelIntroductionLetterTemplateBuilderPage> createState() =>
@@ -25,7 +30,7 @@ class _PersonnelIntroductionLetterTemplateBuilderPageState
   bool _loading = true;
   String? _error;
   bool _saving = false;
-  bool _canManageTemplate = false;
+  late bool _canManageTemplate = widget.canManageTemplate;
   String _workflow = '';
   List<IntroductionLetterWorkflowOption> _workflowOptions = const [];
 
@@ -105,7 +110,7 @@ class _PersonnelIntroductionLetterTemplateBuilderPageState
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = e is ApiException ? e.message : 'بارگذاری قالب ناموفق بود.';
+        _error = failureMessage(e);
       });
     }
   }
@@ -352,7 +357,7 @@ class _PersonnelIntroductionLetterTemplateBuilderPageState
       if (!mounted) return;
       setState(() => _saving = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e is ApiException ? e.message : 'ذخیره پیش‌نویس قالب با خطا مواجه شد.')),
+        SnackBar(content: Text(failureMessage(e))),
       );
     }
   }
@@ -378,7 +383,7 @@ class _PersonnelIntroductionLetterTemplateBuilderPageState
       if (!mounted) return;
       setState(() => _saving = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e is ApiException ? e.message : 'انتشار قالب با خطا مواجه شد.')),
+        SnackBar(content: Text(failureMessage(e))),
       );
     }
   }

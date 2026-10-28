@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../core/network/api_exception.dart';
 import '../../../../core/network/frappe_client.dart';
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/failure_message.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../../core/widgets/states.dart';
 import '../../data/employment_certificate_repository.dart';
@@ -12,8 +12,13 @@ import 'employment_certificate_preview_page.dart';
 import 'employment_certificate_template_builder_page.dart';
 
 class EmploymentCertificatesPage extends StatefulWidget {
-  const EmploymentCertificatesPage({required this.company, super.key});
+  const EmploymentCertificatesPage({
+    required this.company,
+    this.canManageTemplate = false,
+    super.key,
+  });
   final String company;
+  final bool canManageTemplate;
 
   @override
   State<EmploymentCertificatesPage> createState() => _EmploymentCertificatesPageState();
@@ -86,11 +91,15 @@ class _EmploymentCertificatesPageState extends State<EmploymentCertificatesPage>
   }
 
   void _openTemplateBuilder() {
+    if (!widget.canManageTemplate) return;
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => RepositoryProvider.value(
           value: _repository,
-          child: EmploymentCertificateTemplateBuilderPage(company: widget.company),
+          child: EmploymentCertificateTemplateBuilderPage(
+            company: widget.company,
+            canManageTemplate: widget.canManageTemplate,
+          ),
         ),
       ),
     );
@@ -122,16 +131,18 @@ class _EmploymentCertificatesPageState extends State<EmploymentCertificatesPage>
                       onPressed: () => _openNewForm(),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  OutlinedButton.icon(
-                    icon: const Icon(Icons.edit_note, size: 18),
-                    label: const Text('ویرایش قالب', style: TextStyle(fontSize: 12)),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  if (widget.canManageTemplate) ...[
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.edit_note, size: 18),
+                      label: const Text('ویرایش قالب', style: TextStyle(fontSize: 12)),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      onPressed: _openTemplateBuilder,
                     ),
-                    onPressed: _openTemplateBuilder,
-                  ),
+                  ],
                 ],
               ),
             ),
@@ -200,9 +211,7 @@ class _EmploymentCertificatesPageState extends State<EmploymentCertificatesPage>
                   }
                   if (snapshot.hasError) {
                     return ErrorState(
-                      failure: snapshot.error is ApiException
-                          ? (snapshot.error as ApiException).message
-                          : 'دریافت گواهی‌ها انجام نشد؛ دوباره تلاش کنید.',
+                      failure: failureMessage(snapshot.error),
                       onRetry: () => setState(_reload),
                     );
                   }

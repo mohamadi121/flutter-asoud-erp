@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../core/network/api_exception.dart';
-import '../../../../core/utils/jalali_date.dart';
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/failure_message.dart';
+import '../../../../core/utils/jalali_date.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../../core/widgets/states.dart';
 import '../../data/personnel_introduction_letter_repository.dart';
@@ -108,7 +108,7 @@ class _PersonnelIntroductionLetterFormPageState
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = e is ApiException ? e.message : 'بارگذاری اطلاعات با خطا مواجه شد.';
+        _error = failureMessage(e);
       });
     }
   }
@@ -231,7 +231,7 @@ class _PersonnelIntroductionLetterFormPageState
       if (!mounted) return;
       setState(() => _saving = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e is ApiException ? e.message : 'ذخیره معرفی‌نامه با خطا مواجه شد.')),
+        SnackBar(content: Text(failureMessage(e))),
       );
     } finally {
       if (mounted) setState(() => _saving = false);

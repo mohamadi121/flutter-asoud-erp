@@ -284,7 +284,7 @@ class _HiringOrdersViewState extends State<_HiringOrdersView> {
           ? Future.value(widget.capabilities)
           : capabilitiesOf(context),
       builder: (context, capsSnapshot) {
-        final caps = capsSnapshot.data ?? widget.capabilities ?? Capabilities.full;
+        final caps = capsSnapshot.data ?? widget.capabilities ?? Capabilities.none;
         final canManageTemplates = caps.canManageHiringTemplates;
 
         return RefreshIndicator(

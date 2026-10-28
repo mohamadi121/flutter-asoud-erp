@@ -3,8 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:pdf/pdf.dart';
 import 'package:printing/printing.dart';
 
-import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/failure_message.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../../core/widgets/states.dart';
 import '../../data/personnel_introduction_letter_repository.dart';
@@ -60,7 +60,7 @@ class _PersonnelIntroductionLetterPreviewPageState
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = e is ApiException ? e.message : 'بارگذاری معرفی‌نامه ناموفق بود.';
+        _error = failureMessage(e);
       });
     }
   }
@@ -91,9 +91,7 @@ class _PersonnelIntroductionLetterPreviewPageState
       setState(() => _finalizing = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            e is ApiException ? e.message : 'نهایی‌سازی معرفی‌نامه با خطا مواجه شد.',
-          ),
+          content: Text(failureMessage(e)),
         ),
       );
     }
