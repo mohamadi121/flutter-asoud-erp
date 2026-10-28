@@ -103,6 +103,7 @@ class SalaryChangeOrdersCubit extends Cubit<SalaryChangeOrdersState> {
 
   final SalaryChangeOrderRepository repository;
   final String company;
+  int _payrollRequest = 0;
 
   Future<void> load({bool refresh = false}) async {
     if (!refresh && state.status == SalaryChangeOrdersStatus.loading) return;
@@ -157,16 +158,20 @@ class SalaryChangeOrdersCubit extends Cubit<SalaryChangeOrdersState> {
     required String employee,
     required String effectiveDate,
   }) async {
+    final request = ++_payrollRequest;
+    emit(state.copyWith(clearCurrentPayroll: true, clearError: true));
     try {
       final payroll = await repository.payroll(
         company: company,
         employee: employee,
         effectiveDate: effectiveDate,
       );
+      if (isClosed || request != _payrollRequest) return;
       emit(state.copyWith(currentPayroll: payroll));
     } catch (e) {
+      if (isClosed || request != _payrollRequest) return;
       emit(state.copyWith(
-        currentPayroll: null,
+        clearCurrentPayroll: true,
         errorMessage: failureMessage(e),
       ));
     }

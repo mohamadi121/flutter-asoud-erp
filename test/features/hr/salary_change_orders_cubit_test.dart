@@ -16,6 +16,52 @@ void main() {
 
   tearDown(() => cubit.close());
 
+  test('employee change clears payroll immediately and after failure', () async {
+    const payroll = SalaryChangePayrollResult(currency: 'IRR', rows: []);
+    when(() => repository.payroll(company: 'COMP-1', employee: 'A',
+        effectiveDate: '2026-10-28')).thenAnswer((_) async => payroll);
+    await cubit.loadPayroll(employee: 'A', effectiveDate: '2026-10-28');
+    expect(cubit.state.currentPayroll, same(payroll));
+    final pending = Completer<SalaryChangePayrollResult>();
+    when(() => repository.payroll(company: 'COMP-1', employee: 'B',
+        effectiveDate: '2026-10-28')).thenAnswer((_) => pending.future);
+    final load = cubit.loadPayroll(employee: 'B', effectiveDate: '2026-10-28');
+    expect(cubit.state.currentPayroll, isNull);
+    pending.completeError(const ApiException(kind: ApiFailureKind.network));
+    await load;
+    expect(cubit.state.currentPayroll, isNull);
+    expect(cubit.state.errorMessage,
+        'ارتباط با سرور برقرار نشد. اتصال اینترنت را بررسی کنید.');
+  });
+
+  for (final changeDate in [false, true]) {
+    for (final staleFailure in [false, true]) {
+      test('ignores superseded payroll date=$changeDate failure=$staleFailure', () async {
+        final older = Completer<SalaryChangePayrollResult>();
+        final newer = Completer<SalaryChangePayrollResult>();
+        when(() => repository.payroll(company: 'COMP-1', employee: 'A',
+            effectiveDate: '2026-10-28')).thenAnswer((_) => older.future);
+        final employee = changeDate ? 'A' : 'B';
+        final date = changeDate ? '2026-10-29' : '2026-10-28';
+        when(() => repository.payroll(company: 'COMP-1', employee: employee,
+            effectiveDate: date)).thenAnswer((_) => newer.future);
+        final first = cubit.loadPayroll(employee: 'A', effectiveDate: '2026-10-28');
+        final second = cubit.loadPayroll(employee: employee, effectiveDate: date);
+        const current = SalaryChangePayrollResult(currency: 'IRR', rows: [], message: 'آخرین انتخاب');
+        newer.complete(current);
+        await second;
+        if (staleFailure) {
+          older.completeError(const ApiException(kind: ApiFailureKind.network));
+        } else {
+          older.complete(const SalaryChangePayrollResult(currency: 'IRR', rows: [], message: 'قدیمی'));
+        }
+        await first;
+        expect(cubit.state.currentPayroll, same(current));
+        expect(cubit.state.errorMessage, isNull);
+      });
+    }
+  }
+
   test('initial state has correct defaults', () {
     expect(cubit.state.status, SalaryChangeOrdersStatus.initial);
     expect(cubit.state.orders, isEmpty);
@@ -161,3 +207,5 @@ void main() {
     expect(cubit.state.currentOrder?.isApplied, isTrue);
   });
 }
+import 'dart:async';
+import 'package:asoud_erp/core/network/api_exception.dart';
