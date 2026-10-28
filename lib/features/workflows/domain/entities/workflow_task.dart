@@ -122,6 +122,7 @@ class WorkflowTaskDetail extends Equatable {
     this.requestName = '',
     this.requestCompany = '',
     this.requestValues = const {},
+    this.submittedForm = const {},
   });
   final String requestName, requestCompany;
   final WorkflowTask task;
@@ -136,6 +137,7 @@ class WorkflowTaskDetail extends Equatable {
   final String referenceDoctype, referenceName;
   final List<WorkflowTaskDataValue> documentValues;
   final Map<String, dynamic> requestValues;
+  final Map<String, dynamic> submittedForm;
   @override
   List<Object> get props => [
         task,
@@ -154,6 +156,7 @@ class WorkflowTaskDetail extends Equatable {
         requestName,
         requestCompany,
         requestValues,
+        submittedForm,
       ];
 }
 

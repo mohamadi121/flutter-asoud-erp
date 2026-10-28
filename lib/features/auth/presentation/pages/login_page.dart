@@ -22,6 +22,7 @@ import '../../domain/server_url_policy.dart';
 import 'demo_transfer_page.dart';
 import 'forgot_password_page.dart';
 import 'post_login_page.dart';
+import 'setup_reset_page.dart';
 
 T? _tryRead<T>(BuildContext context) {
   try {
@@ -224,7 +225,7 @@ class _LoginPageState extends State<LoginPage> {
         const SnackBar(content: Text('اطلاعات ورود ذخیره‌شده پاک شد.')));
   }
 
-  Future<void> _login() async {
+  Future<void> _login({bool resetSetup = false}) async {
     if (_busy) return;
     final check = widget.urlPolicy.check(_serverUrl.text);
     if (!check.isValid) {
@@ -276,7 +277,23 @@ class _LoginPageState extends State<LoginPage> {
       if (note.isNotEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(note)));
       }
-      await _afterLogin();
+      if (resetSetup) {
+        final reset = await Navigator.of(context).push<bool>(
+            MaterialPageRoute(builder: (_) => const SetupResetPage()));
+        var notice = reset == true
+            ? 'بازنشانی سرور تأیید شد؛ با همان نام کاربری و رمز از ابتدا وارد شوید.' : null;
+        try {
+          await auth.signOut();
+        } catch (_) {
+          notice = '${notice ?? 'از بخش بازنشانی خارج شدید.'} خروج سروری تأیید نشد؛ دوباره وارد شوید.';
+        }
+        if (mounted) {
+          Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute<void>(builder: (_) =>
+              LoginPage(initialServerUrl: server, notice: notice)), (_) => false);
+        }
+      } else {
+        await _afterLogin();
+      }
     } catch (error) {
       if (error is ApiException &&
           error.kind == ApiFailureKind.invalidCredentials &&
@@ -610,6 +627,13 @@ class _LoginPageState extends State<LoginPage> {
                                   Text(_busy ? 'در حال ورود…' : 'ورود به آسود'),
                             ),
                           ),
+                          TextButton.icon(
+                            key: const ValueKey('temporary_setup_reset'),
+                            style: TextButton.styleFrom(foregroundColor: AsoudColors.danger),
+                            onPressed: _busy ? null : () => _login(resetSetup: true),
+                            icon: const Icon(Icons.restart_alt),
+                            label: const Text('بازنشانی موقت اطلاعات سرور (فقط مدیر سیستم)',
+                                textAlign: TextAlign.center, style: TextStyle(fontSize: 11))),
                           if (canRecover)
                             Align(
                               alignment: Alignment.center,

@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/utils/failure_message.dart';
 
 import '../../domain/entities/workflow_task.dart';
 import '../../domain/repositories/workflow_task_repository.dart';
@@ -13,14 +14,16 @@ class WorkflowTaskDetailState extends Equatable {
     this.values = const {},
     this.message,
     this.offline = false,
+    this.failure,
   });
   final WorkflowTaskDetailStatus status;
   final WorkflowTaskDetail? detail;
   final Map<String, dynamic> values;
   final String? message;
   final bool offline;
+  final Object? failure;
   @override
-  List<Object?> get props => [status, detail, values, message, offline];
+  List<Object?> get props => [status, detail, values, message, offline, failure];
 }
 
 class WorkflowTaskDetailCubit extends Cubit<WorkflowTaskDetailState> {
@@ -33,6 +36,7 @@ class WorkflowTaskDetailCubit extends Cubit<WorkflowTaskDetailState> {
     emit(const WorkflowTaskDetailState());
     try {
       final detail = await _repository.getTask(task);
+      if (isClosed) return;
       emit(WorkflowTaskDetailState(
         status: WorkflowTaskDetailStatus.ready,
         detail: detail,
@@ -40,8 +44,9 @@ class WorkflowTaskDetailCubit extends Cubit<WorkflowTaskDetailState> {
         offline: _repository.isOfflinePreview,
       ));
     } catch (error) {
+      if (isClosed) return;
       emit(WorkflowTaskDetailState(
-          status: WorkflowTaskDetailStatus.failure, message: error.toString()));
+          status: WorkflowTaskDetailStatus.failure, message: failureDetail(error), failure: error));
     }
   }
 
@@ -200,5 +205,5 @@ class WorkflowTaskDetailCubit extends Cubit<WorkflowTaskDetailState> {
       detail: state.detail,
       values: state.values,
       offline: state.offline,
-      message: error.toString()));
+      message: failureDetail(error), failure: error));
 }

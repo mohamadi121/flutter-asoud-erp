@@ -15,6 +15,7 @@ import '../cubit/workflow_designer_cubit.dart';
 import '../widgets/document_template_visuals.dart';
 import '../widgets/stage_pickers.dart';
 import '../widgets/stage_people_sheet.dart';
+import '../widgets/stage_form_source_picker.dart';
 import '../widgets/workflow_form_builder.dart';
 import 'create_document_settings_page.dart';
 import 'automatic_action_page.dart';
@@ -102,6 +103,7 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
   bool specificPerson = false;
   Set<String> selectedPeople = {};
   late bool hasDeadline = ((config['deadline_value'] as num?) ?? 0) > 0;
+  late int reminderMinutes = (config['reminder_before_minutes'] as num?)?.toInt() ?? 0;
 
   // Decisions and extra settings.
   late bool allowReject =
@@ -121,6 +123,9 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
   late String requestDefinition =
       config['request_definition']?.toString() ?? '';
   late String requestLabel = config['request_label']?.toString() ?? '';
+  late Map<String, dynamic>? submissionSource = config['submission_source'] is Map
+      ? Map<String, dynamic>.from(config['submission_source'] as Map) : null;
+  bool selectingForm = false;
   late List<WorkflowFormFieldDefinition> formFields =
       ((config['form_fields'] as List?) ?? const [])
           .whereType<Map>()
@@ -255,7 +260,7 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
   Map<String, dynamic> _deadline() => {
         'deadline_value': hasDeadline ? _deadlineValue : 0,
         'deadline_unit': deadlineUnit,
-        'reminder_before_minutes': config['reminder_before_minutes'] ?? 0,
+        'reminder_before_minutes': hasDeadline ? reminderMinutes : 0,
         'escalation_roles': config['escalation_roles'] ?? const [],
         'reassign_on_overdue': config['reassign_on_overdue'] == true,
       };
@@ -268,6 +273,13 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
           .replaceAll('٠١٢٣٤٥٦٧٨٩'[i], '$i');
     }
     return int.tryParse(value);
+  }
+
+  bool get _hasAttachmentFields {
+    bool has(List fields) => fields.whereType<Map>().any((field) =>
+        const {'Attachment', 'File', 'Image', 'Signature'}.contains(field['type']) ||
+        (field['columns'] is List && has(field['columns'] as List)));
+    return formFields.any((field) => has([field.toMap()]));
   }
 
   String? _validate() {
@@ -294,6 +306,12 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
             _deadlineValue! <= 0 ||
             _deadlineValue! > 3650)) {
       return 'مهلت انجام باید یک عدد صحیح بین ۱ تا ۳۶۵۰ باشد.';
+    }
+    if (hasDeadline && reminderMinutes != 0) {
+      final total = (_deadlineValue ?? 0) * (deadlineUnit == 'Day' ? 1440 : deadlineUnit == 'Hour' ? 60 : 1);
+      if (reminderMinutes < 1 || reminderMinutes > total || reminderMinutes > 525600) {
+        return 'زمان یادآوری باید مثبت و حداکثر به‌اندازهٔ مهلت انجام باشد.';
+      }
     }
     if (type == WorkflowStageType.systemAction) {
       if (action == 'Create Document' && document.template == null) {
@@ -322,7 +340,8 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
           'description': text,
           'instructions': text,
           'activity_type': activityType,
-          'task_purpose': taskPurpose,
+          'task_purpose': submissionSource == null ? taskPurpose : 'Existing',
+          'submission_source': submissionSource,
           if (taskPurpose == 'Create Request') ...{
             'request_definition': requestDefinition,
             'request_label': requestLabel,
@@ -859,24 +878,35 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
               'دسترسی مسئول در زمان انجام این مرحله به سند مرجع؛ نه مجوز پس از پایان. حالت محدود تابع فیلدهای مجاز سامانه است.',
               style: TextStyle(fontSize: 11, color: AsoudColors.muted)),
           const SizedBox(height: 8),
-          AsoudSegmentedControl<String>(
-            value: access,
-            options: const [
-              AsoudSegmentedOption(value: 'Read Only', label: 'فقط مشاهده'),
-              AsoudSegmentedOption(value: 'Edit', label: 'ویرایش'),
-              AsoudSegmentedOption(value: 'Limited Edit', label: 'محدود'),
-            ],
-            onChanged: (next) => setState(() => access = next),
-          ),
+          for (final mode in const [
+            ('Read Only', 'فقط مشاهده', 'بدون تغییر اطلاعات اصلی'),
+            ('Edit', 'مشاهده و ثبت اقدام', 'ثبت نتیجه، نظر و مستندات اقدام در حدود مجوزهای موجود'),
+            ('Limited Edit', 'مشاهده و ویرایش مجاز', 'ویرایش فقط در حدود فیلدها و وضعیت مجاز سند'),
+          ])
+            Padding(padding: const EdgeInsets.only(bottom: 7),
+              child: Material(color: access == mode.$1 ? const Color(0xfff0f6ff) : Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: access == mode.$1 ? AsoudColors.primary : AsoudColors.border)),
+                child: ListTile(key: ValueKey('stage-access-${mode.$1}'),
+                  dense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+                  leading: Icon(access == mode.$1 ? Icons.radio_button_checked : Icons.radio_button_off,
+                      color: access == mode.$1 ? AsoudColors.primary : AsoudColors.muted, size: 19),
+                  title: Text(mode.$2, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  subtitle: Text(mode.$3, style: const TextStyle(fontSize: 10, color: AsoudColors.muted)),
+                  onTap: saving ? null : () => setState(() => access = mode.$1)))),
+          const SizedBox(height: 4),
+          _notice('این انتخاب نباید مجوزهای اصلی اشخاص و وضعیت سند را دور بزند.'),
         ],
       );
 
   Widget _extra(List<Widget> children) => Card(
         margin: const EdgeInsets.only(top: 16),
         child: ExpansionTile(
-          leading: const Icon(Icons.tune_rounded, color: AsoudColors.primary),
+          leading: const AsoudIconBox(icon: Icons.tune_rounded, color: AsoudColors.primary, size: 34),
           title: const Text('تنظیمات اضافی (اختیاری)',
               style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
+          subtitle: const Text('دسترسی، پیوست‌ها و یادآوری',
+              style: TextStyle(fontSize: 10, color: AsoudColors.muted)),
           childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
           children: children,
         ),
@@ -946,41 +976,25 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
         ),
         child:
             Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          _label('نوع کار مرحله', required: true),
-          DropdownButtonFormField<String>(
-            initialValue: taskPurpose,
-            isExpanded: true,
-            items: const [
-              DropdownMenuItem(
-                  value: 'Create Request', child: Text('ایجاد درخواست جدید')),
-              DropdownMenuItem(
-                  value: 'Create Document', child: Text('ایجاد سند جدید')),
-              DropdownMenuItem(
-                  value: 'Existing', child: Text('تکمیل درخواست یا سند فعلی')),
-            ],
-            onChanged: (value) {
-              if (value != null) setState(() => taskPurpose = value);
-            },
-          ),
-          const SizedBox(height: 8),
-          _notice(switch (taskPurpose) {
-            'Create Request' =>
-              'پس از تکمیل این وظیفه، درخواست جدید از نوع انتخاب‌شده ثبت می‌شود.',
-            'Create Document' =>
-              'پس از تکمیل این وظیفه، سند طبق الگوی انتخاب‌شده و دسترسی کاربر ساخته می‌شود.',
-            _ =>
-              'ادامه کار روی درخواست یا سند فعلی؛ رکورد جدیدی ایجاد نمی‌شود.',
-          }),
-          if (taskPurpose == 'Create Request') ...[
-            const SizedBox(height: 12),
-            _label('نوع درخواست', required: true),
-            PickerField(
-                value: requestLabel.isEmpty ? requestDefinition : requestLabel,
-                placeholder: 'انتخاب نوع درخواست',
-                icon: Icons.description_outlined,
-                onTap: _pickRequestType),
-          ],
-          if (taskPurpose == 'Create Document') ..._createDocument(),
+          Material(color: submissionSource == null ? Colors.white : const Color(0xfff4f8ff),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: submissionSource == null ? AsoudColors.border : AsoudColors.primary)),
+            child: CheckboxListTile(key: const ValueKey('stage-select-form'),
+              value: submissionSource != null, controlAffinity: ListTileControlAffinity.leading,
+              secondary: const Icon(Icons.description_outlined, color: AsoudColors.primary),
+              title: const Text('انتخاب درخواست یا سند', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+              subtitle: Text(selectingForm ? 'در حال دریافت…' : '${submissionSource?['title'] ?? 'نوع درخواست یا سند برای ورود به گردش‌کار'}',
+                style: const TextStyle(fontSize: 11, color: AsoudColors.muted)),
+              onChanged: saving || selectingForm ? null : (_) => _pickRequestType())),
+          if (submissionSource != null)
+            Align(alignment: AlignmentDirectional.centerEnd,
+              child: TextButton(onPressed: saving ? null : () => setState(() {
+                submissionSource = null; formFields = []; formLayout = []; taskPurpose = 'Existing';
+              }), child: const Text('حذف انتخاب'))),
+          if (submissionSource == null && (formFields.isNotEmpty || taskPurpose != 'Existing'))
+            const Padding(padding: EdgeInsets.only(top: 8), child: Text(
+              'این مرحله تنظیمات قبلی دارد؛ تا انتخاب منبع جدید، فرم و رفتار قبلی آن حفظ می‌شود.',
+              style: TextStyle(fontSize: 11, color: AsoudColors.muted))),
         ]),
       );
 
@@ -996,41 +1010,24 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
   }
 
   Future<void> _pickRequestType() async {
+    if (selectingForm || saving) return;
+    setState(() => selectingForm = true);
     try {
-      final choices = await automation.userTaskRequests(company ?? '');
-      if (!mounted) return;
       final picked = await showModalBottomSheet<Map<String, dynamic>>(
         context: context,
         isScrollControlled: true,
         useSafeArea: true,
         showDragHandle: true,
-        builder: (sheetContext) => Directionality(
-            textDirection: TextDirection.rtl,
-            child: SizedBox(
-                height: MediaQuery.sizeOf(sheetContext).height * .7,
-                child: ChoiceListPage<Map<String, dynamic>>(
-                  title: 'انتخاب نوع درخواست',
-                  searchHint: 'جستجو در درخواست‌ها...',
-                  items: choices
-                      .where(
-                          (item) => item['name'] != widget.design.workflow.id)
-                      .toList(),
-                  labelOf: (item) =>
-                      '${item['workflow_title'] ?? item['name']}',
-                  iconOf: (_) => (
-                    icon: Icons.description_outlined,
-                    color: AsoudColors.primary
-                  ),
-                ))),
+        builder: (_) => StageFormSourcePicker(repository: FormRepository(automation.client, company ?? '')),
       );
       if (picked == null || !mounted) return;
-      if (formFields.isNotEmpty) {
+      if (formFields.isNotEmpty || taskPurpose != 'Existing') {
         final confirm = await showDialog<bool>(
             context: context,
             builder: (context) => AlertDialog(
-                  title: const Text('جایگزینی فرم مرحله'),
+                  title: const Text('اتصال ارسال درخواست یا سند'),
                   content: const Text(
-                      'فرم مرحله با فیلدهای نوع درخواست انتخاب‌شده جایگزین شود؟'),
+                      'فرم قدیمی داخل مرحله حذف می‌شود؛ پس از ارسال فرم اصلی، ثبت موجود وارد این گردش‌کار خواهد شد. اطلاعات اصلی دوباره از کاربر پرسیده نمی‌شود. ادامه می‌دهید؟'),
                   actions: [
                     TextButton(
                         onPressed: () => Navigator.pop(context, false),
@@ -1043,12 +1040,10 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
         if (confirm != true || !mounted) return;
       }
       setState(() {
-        requestDefinition = picked['name'].toString();
-        requestLabel = '${picked['workflow_title'] ?? picked['name']}';
-        formFields = ((picked['fields'] as List?) ?? const [])
-            .whereType<Map>()
-            .map(WorkflowFormFieldDefinition.fromMap)
-            .toList();
+        submissionSource = Map<String, dynamic>.from(picked);
+        taskPurpose = 'Existing';
+        requestDefinition = ''; requestLabel = '';
+        formFields = [];
         formLayout = [];
       });
     } catch (error) {
@@ -1057,6 +1052,8 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
             ? error.message
             : 'دریافت انواع درخواست ممکن نشد؛ انتخاب قبلی حفظ شده است.');
       }
+    } finally {
+      if (mounted) setState(() => selectingForm = false);
     }
   }
 
@@ -1128,28 +1125,45 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
 
   List<Widget> _userTask() => [
         _taskPurpose(),
-        _label('فرم مرحله'),
-        PickerField(
-          value: formFields.isEmpty
-              ? 'بدون فرم'
-              : 'فرم مرحله · ${formatCount(formFields.length, 'فیلد')}',
-          icon: Icons.dynamic_form_outlined,
-          onTap: _pickForm,
-        ),
-        if (formFields.isNotEmpty)
-          Align(
-              alignment: AlignmentDirectional.centerEnd,
-              child: TextButton.icon(
-                  onPressed: _editForm,
-                  icon: const Icon(Icons.edit_outlined, size: 16),
-                  label: const Text('ویرایش فرم مرحله'))),
         ..._owner(),
         _deadlineRow(),
         const SizedBox(height: 6),
-        _switch('الزام به تکمیل', true, null,
-            subtitle:
-                'کاربر نمی‌تواند بدون تکمیل این مرحله به مرحله بعد برود.'),
         _extra([
+          const Divider(height: 24),
+          _accessControl(),
+          const SizedBox(height: 6),
+          Tooltip(message: 'نمایش پیوست‌ها از مجوزهای فعلی سند پیروی می‌کند؛ تنظیم مستقل سروری ندارد.',
+            child: CheckboxListTile(value: true, onChanged: null,
+              controlAffinity: ListTileControlAffinity.leading, contentPadding: EdgeInsets.zero,
+              title: const Text('نمایش پیوست‌های موجود', style: TextStyle(fontSize: 12)))),
+          Tooltip(message: 'افزودن پیوست از فیلد پیوست فرم و مجوزهای موجود پیروی می‌کند؛ با این نمایش مجوزی اعطا نمی‌شود.',
+            child: CheckboxListTile(value: _hasAttachmentFields, onChanged: null,
+              controlAffinity: ListTileControlAffinity.leading, contentPadding: EdgeInsets.zero,
+              title: const Text('امکان افزودن پیوست جدید (در حدود مجوزهای موجود)', style: TextStyle(fontSize: 12)))),
+          const Divider(height: 24),
+          _label('تکمیل وظیفه'),
+          _notice('بستن مرحله فقط پس از ثبت اقدام مجاز انجام می‌شود. کلید «الزام به تکمیل» از این طرح حذف شده؛ منطق تکمیل مرحله تغییری نکرده است.'),
+          const Divider(height: 24),
+          CheckboxListTile(key: const ValueKey('stage-reminder'),
+            value: hasDeadline && reminderMinutes > 0,
+            controlAffinity: ListTileControlAffinity.leading, contentPadding: EdgeInsets.zero,
+            title: const Text('یادآوری پیش از پایان مهلت', style: TextStyle(fontSize: 12)),
+            subtitle: !hasDeadline ? const Text('ابتدا مهلت انجام را تعیین کنید.', style: TextStyle(fontSize: 10)) : null,
+            onChanged: saving || !hasDeadline || (_deadlineValue ?? 0) <= 0 ? null : (value) => setState(() {
+              final total = (_deadlineValue ?? 1) * (deadlineUnit == 'Day' ? 1440 : deadlineUnit == 'Hour' ? 60 : 1);
+              reminderMinutes = value == true ? 30.clamp(1, total) : 0;
+            })),
+          if (hasDeadline && reminderMinutes > 0)
+            TextFormField(key: ValueKey('reminder-minutes-$reminderMinutes'),
+              initialValue: '$reminderMinutes', keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'چند دقیقه پیش از مهلت؟'),
+              onChanged: (value) {
+                var text = value.trim();
+                for (var i = 0; i < 10; i++) { text = text.replaceAll('۰۱۲۳۴۵۶۷۸۹'[i], '$i').replaceAll('٠١٢٣٤٥٦٧٨٩'[i], '$i'); }
+                reminderMinutes = int.tryParse(text) ?? 0;
+              }),
+          ExpansionTile(tilePadding: EdgeInsets.zero,
+            title: const Text('سایر گزینه‌های مرحله', style: TextStyle(fontSize: 12)), children: [
           DropdownButtonFormField<String>(
             initialValue: activityType,
             isExpanded: true,
@@ -1175,7 +1189,7 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
               (value) => setState(() => allowReject = value)),
           _switch('امکان بازگشت برای اصلاح', allowReturn,
               (value) => setState(() => allowReturn = value)),
-          _accessControl(),
+          ]),
         ]),
         const SizedBox(height: 16),
         _label('مسیرهای خروجی', required: true),

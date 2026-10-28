@@ -7,6 +7,7 @@ import '../../../../core/utils/persian_server_values.dart';
 import '../../../../core/utils/persian_format.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../../core/widgets/asoud_form.dart';
+import '../../../../core/widgets/states.dart';
 import '../../../../core/network/frappe_client.dart';
 import '../../data/generic_request_repository.dart';
 import '../../domain/entities/workflow_definition.dart';
@@ -19,6 +20,8 @@ import '../widgets/receipt_confirmation_bar.dart';
 import '../widgets/request_link_fields.dart';
 import '../widgets/workflow_activity_timeline.dart';
 import '../../../directives/presentation/directive_pages.dart';
+import '../../../form_builder/form_repository.dart';
+import '../../../form_builder/form_runtime/form_fields_view.dart';
 
 class WorkflowTaskDetailPage extends StatelessWidget {
   const WorkflowTaskDetailPage({required this.task, super.key});
@@ -58,14 +61,8 @@ class _TaskDetailView extends StatelessWidget {
             ),
             body: detail == null
                 ? state.status == WorkflowTaskDetailStatus.failure
-                    ? Center(
-                        child: OutlinedButton.icon(
-                          onPressed:
-                              context.read<WorkflowTaskDetailCubit>().load,
-                          icon: const Icon(Icons.refresh_rounded),
-                          label: const Text('تلاش دوباره'),
-                        ),
-                      )
+                    ? ErrorState(failure: state.failure ?? StateError(state.message ?? 'دریافت اطلاعات ممکن نشد.'),
+                        onRetry: context.read<WorkflowTaskDetailCubit>().load)
                     : const Center(child: CircularProgressIndicator())
                 : Column(children: [
                     if (state.offline) const AsoudOfflinePreviewBanner(),
@@ -75,6 +72,19 @@ class _TaskDetailView extends StatelessWidget {
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
                         children: [
                           _TaskSummaryCard(rows: _summaryRows(detail)),
+                          if (detail.submittedForm.isNotEmpty) ...[
+                            const SizedBox(height: 14),
+                            const AsoudSectionTitle(title: 'درخواست یا سند ارسال‌شده'),
+                            const Text('اطلاعات ثبت اصلی؛ فقط مشاهده',
+                                style: TextStyle(color: AsoudColors.muted, fontSize: 11)),
+                            FormFieldsView(
+                              schema: formMap(detail.submittedForm['schema']),
+                              values: formMap(detail.submittedForm['values']),
+                              enabled: false, snapshot: true,
+                              onChanged: (_) {},
+                              repository: FormRepository(context.read<FrappeApiClient>(),
+                                  '${detail.submittedForm['company'] ?? ''}')),
+                          ],
                           if (detail.requestName.isNotEmpty)
                             Align(
                               alignment: AlignmentDirectional.centerStart,
