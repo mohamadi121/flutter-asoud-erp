@@ -84,14 +84,27 @@ class _FirstOfficeSetupPageState extends State<FirstOfficeSetupPage> {
 
   Future<void> enterHomeWithoutCompletion() async {
     if (loading || saving || hrBusy || saved == null) return;
-    setState(() => hrBusy = true);
+    setState(() {
+      hrBusy = true;
+      hrError = null;
+    });
     try {
-      // Defer the server completion marker; navigation grants no permissions.
+      final result = await bootstrapRepository.complete(widget.company);
+      if (!mounted) return;
+      setState(() => bootstrap = result);
+      if (!result.completed) {
+        throw const FormatException('تأیید نهایی در سرور ثبت نشد.');
+      }
       await Navigator.of(context).pushAndRemoveUntil<void>(
           MaterialPageRoute(builder: (_) => const DashboardLandingPage()),
           (_) => false);
     } catch (e) {
-      if (mounted) setState(() => hrError = failureDetail(e));
+      if (mounted) {
+        setState(() {
+          hrError = failureDetail(e);
+          hrNeedsReload = true;
+        });
+      }
     } finally {
       if (mounted) setState(() => hrBusy = false);
     }
@@ -376,8 +389,13 @@ class _FirstOfficeSetupPageState extends State<FirstOfficeSetupPage> {
                             style: const TextStyle(
                                 color: AsoudColors.primary,
                                 fontWeight: FontWeight.bold)),
-                        const Text('پیشرفت راه‌اندازی',
-                            style: TextStyle(color: ink)),
+                        const Flexible(
+                          child: Text(
+                            'پیشرفت راه‌اندازی',
+                            style: TextStyle(color: ink),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                       ]),
                   const SizedBox(height: 14),
                   Row(children: [
@@ -531,10 +549,10 @@ class _FirstOfficeSetupPageState extends State<FirstOfficeSetupPage> {
                             shape: const StadiumBorder()),
                         child: Text(hrBusy
                             ? 'در حال انتقال…'
-                            : 'عبور از بررسی نهایی و ورود به خانه  ←')),
+                            : 'تأیید نهایی و ورود به خانه  ←')),
                     const SizedBox(height: 10),
                     const Text(
-                        'با عبور از این مرحله، تأیید نهایی راه‌اندازی در سرور ثبت نمی‌شود و ممکن است در ورود بعدی دوباره نمایش داده شود.',
+                        'با ورود به خانه، مراحل اولیهٔ راه‌اندازی دفتر در سرور نهایی می‌شود.',
                         style: TextStyle(fontSize: 11, color: AsoudColors.muted)),
                     const SizedBox(height: 8),
                     OutlinedButton(
