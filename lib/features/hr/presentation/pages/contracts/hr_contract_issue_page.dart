@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:asoud_erp/core/theme/asoud_colors.dart';
 import 'package:asoud_erp/core/utils/jalali_date.dart';
+import 'package:asoud_erp/core/utils/failure_message.dart';
 import 'package:asoud_erp/core/widgets/asoud_ui.dart';
 import 'package:asoud_erp/features/hr/data/hr_contracts_repository.dart';
 import 'package:asoud_erp/features/hr/data/hr_contract_template_repository.dart';
@@ -31,6 +32,7 @@ class _HrContractIssuePageState extends State<HrContractIssuePage> {
   final _formKey = GlobalKey<FormState>();
   late final String _clientId = widget.initialDraft?.clientId ??
       List.generate(24, (_) => Random.secure().nextInt(256).toRadixString(16).padLeft(2, '0')).join();
+  late String? _savedContractId = widget.initialDraft?.id;
 
   bool loading = true;
   bool saving = false;
@@ -170,7 +172,7 @@ class _HrContractIssuePageState extends State<HrContractIssuePage> {
     final employee = selectedEmployee!;
     return HrContractRecord(
       clientId: _clientId,
-      id: widget.initialDraft?.id ?? 'شماره پس از صدور',
+      id: _savedContractId ?? 'شماره پس از صدور',
       staffId: employee.id,
       employeeName: employee.name,
       employeeCode: employee.code,
@@ -210,9 +212,9 @@ class _HrContractIssuePageState extends State<HrContractIssuePage> {
       if (mounted) {
         Navigator.pop(context, true);
       }
-    } catch (_) {
+    } catch (error) {
       if (mounted) {
-        setState(() => errorMessage = 'ذخیره پیش‌نویس با خطا مواجه شد.');
+        setState(() => errorMessage = failureMessage(error));
       }
     } finally {
       if (mounted) setState(() => saving = false);
@@ -249,9 +251,9 @@ class _HrContractIssuePageState extends State<HrContractIssuePage> {
       if (mounted) {
         Navigator.pop(context, true);
       }
-    } catch (_) {
+    } catch (error) {
       if (mounted) {
-        setState(() => errorMessage = 'ثبت نهایی قرارداد با خطا مواجه شد.');
+        setState(() => errorMessage = failureMessage(error));
       }
     } finally {
       if (mounted) setState(() => saving = false);
@@ -269,6 +271,7 @@ class _HrContractIssuePageState extends State<HrContractIssuePage> {
     setState(() => saving = true);
     try {
     final saved = await widget.repository.saveDraftContract(company: widget.company, draft: record);
+    _savedContractId = saved.id;
     if (!mounted) return;
     Navigator.push(
       context,
@@ -281,7 +284,7 @@ class _HrContractIssuePageState extends State<HrContractIssuePage> {
       ),
     );
     } catch (error) {
-      if (mounted) setState(() => errorMessage = 'دریافت پیش‌نمایش قرارداد ممکن نشد.');
+      if (mounted) setState(() => errorMessage = failureMessage(error));
     } finally {
       if (mounted) setState(() => saving = false);
     }

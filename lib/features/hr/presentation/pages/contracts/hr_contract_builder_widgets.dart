@@ -641,11 +641,13 @@ class InsertFieldDrawer extends StatefulWidget {
   const InsertFieldDrawer({
     required this.catalog,
     required this.onFieldSelected,
+    this.resolveTag,
     super.key,
   });
 
   final Map<String, List<String>> catalog;
   final void Function(String fieldTag) onFieldSelected;
+  final String Function(String group, String label)? resolveTag;
 
   @override
   State<InsertFieldDrawer> createState() => _InsertFieldDrawerState();
@@ -761,9 +763,9 @@ class _InsertFieldDrawerState extends State<InsertFieldDrawer> {
                                   fontSize: 11, color: AsoudColors.primary)),
                         ),
                         onTap: () {
-                          final tag = selectedGroup == 'personnel'
+                          final tag = widget.resolveTag?.call(selectedGroup, field) ?? (selectedGroup == 'personnel'
                               ? '[$field پرسنل]'
-                              : '[$field]';
+                              : '[$field]');
                           widget.onFieldSelected(tag);
                           Navigator.pop(context);
                         },

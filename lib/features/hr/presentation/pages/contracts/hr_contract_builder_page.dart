@@ -171,6 +171,7 @@ class _HrContractBuilderPageState extends State<HrContractBuilderPage> {
       isScrollControlled: true,
       builder: (ctx) => InsertFieldDrawer(
         catalog: catalogFields,
+        resolveTag: repository.fieldTag,
         onFieldSelected: (tag) {
           final text = controller.text;
           final selection = controller.selection;

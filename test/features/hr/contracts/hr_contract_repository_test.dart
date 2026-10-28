@@ -51,6 +51,23 @@ void main() {
     expect(template.payrollRows.single.toJson()['id'], 'row_base');
     expect(template.isPublished, false);
   });
+  test('catalog binding uses server field ids and payroll null stays missing', () async {
+    when(() => client.callAsoudMethod('${prefix}get_contract_field_catalog', data: any(named: 'data'))).thenAnswer((_) async => {
+      'categories': [{'key': 'personnel', 'authorized': true, 'fields': [{'id': 'personnel.employee_name', 'label': 'نام', 'type': 'Data'}]}],
+    });
+    final templates = ServerHrContractTemplateRepository(client);
+    expect(await templates.getAvailableCatalogFields(company: 'شرکت'), {'personnel': ['نام']});
+    expect(templates.fieldTag('personnel', 'نام'), '{{personnel.employee_name}}');
+    when(() => client.callAsoudMethod('${prefix}prepare_contract', data: any(named: 'data'))).thenAnswer((_) async => {
+      'employee_info': {'employee_name': 'محمد رضایی'},
+      'company_info': {}, 'template_version': 1, 'rendered_clauses': [],
+      'salary_table': [
+        {'fieldRef': 'payroll.base_salary', 'amount': 200000000.0, 'has_value': true},
+        {'fieldRef': 'payroll.housing', 'amount': null, 'has_value': false, 'formatted_amount': 'اطلاعات موجود نیست'},
+      ],
+    });
+    expect(await repository.getStaffSalaries(company: 'شرکت', staffId: 'HR-EMP-00001'), {'payroll.base_salary': 200000000, 'payroll.housing': null});
+  });
   test('draft dates are ISO and finalization saves before using returned id', () async {
     final draft = HrContractRecord.fromJson(detail).copyWith(id: '', status: 'پیش‌نویس', startDate: '۱۴۰۵/۰۸/۰۱');
     when(() => client.callAsoudMethod('${prefix}save_contract_draft', data: any(named: 'data'))).thenAnswer((_) async => {'contract_id': 'CONT-00001', 'status': 'پیش‌نویس'});

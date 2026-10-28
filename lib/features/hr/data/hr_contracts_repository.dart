@@ -350,7 +350,7 @@ class ServerHrContractsRepository implements HrContractsRepository {
       final data = res['data'] is Map<String, dynamic>
           ? res['data'] as Map<String, dynamic>
           : res;
-      return HrContractRecord.fromJson(data);
+      return HrContractRecord.fromJson({...draft.toJson(), ...data});
     }
     throw const FormatException('پاسخ ذخیره قرارداد معتبر نیست.');
   }

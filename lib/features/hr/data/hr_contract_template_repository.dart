@@ -2,6 +2,7 @@ import 'package:asoud_erp/core/network/frappe_client.dart';
 import 'package:asoud_erp/features/hr/domain/hr_contract_models.dart';
 
 abstract class HrContractTemplateRepository {
+  String fieldTag(String group, String label);
   Future<HrContractTemplate> getTemplate({
     required String company,
     String? id,
@@ -27,6 +28,8 @@ abstract class HrContractTemplateRepository {
 }
 
 class FakeHrContractTemplateRepository implements HrContractTemplateRepository {
+  @override
+  String fieldTag(String group, String label) => group == 'personnel' ? '[$label پرسنل]' : '[$label]';
   FakeHrContractTemplateRepository({HrContractTemplate? initial})
       : _template = initial ?? HrContractTemplate.defaultTemplate();
 
@@ -82,6 +85,14 @@ class ServerHrContractTemplateRepository implements HrContractTemplateRepository
   ServerHrContractTemplateRepository(this.client);
   final FrappeApiClient client;
   final Map<String, int> _draftVersions = {};
+  final Map<String, String> _fieldIds = {};
+
+  @override
+  String fieldTag(String group, String label) {
+    final id = _fieldIds['$group.$label'];
+    if (id == null) throw const FormatException('فیلد انتخاب‌شده در کاتالوگ موجود نیست.');
+    return '{{$id}}';
+  }
 
   @override
   Future<HrContractTemplate> getTemplate({
@@ -196,7 +207,11 @@ class ServerHrContractTemplateRepository implements HrContractTemplateRepository
               final key = '${cat['key'] ?? ''}';
               final fields = (cat['fields'] as List<dynamic>?)
                   ?.whereType<Map<String, dynamic>>()
-                  .map((f) => '${f['label'] ?? f['id'] ?? ''}')
+                  .map((f) {
+                    final label = '${f['label'] ?? ''}';
+                    _fieldIds['$key.$label'] = '${f['id']}';
+                    return label;
+                  })
                   .toList() ?? [];
               result[key] = fields;
             }
