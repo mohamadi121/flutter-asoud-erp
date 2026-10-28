@@ -1,3 +1,4 @@
+import 'package:asoud_erp/core/network/api_exception.dart';
 import 'package:asoud_erp/features/hr/data/salary_change_order_repository.dart';
 import 'package:asoud_erp/features/hr/presentation/pages/salary_change_orders_page.dart';
 import 'package:asoud_erp/core/utils/jalali_date.dart';
@@ -22,7 +23,7 @@ void main() {
       when(() => repository.getTemplate(company: 'شرکت تابان'))
           .thenAnswer((_) async => {'revision': 1});
       when(() => repository.people(company: 'شرکت تابان'))
-          .thenThrow(const ApiException(kind: ApiFailureKind.network));
+          .thenThrow(const ApiException(kind: ApiFailureKind.network, message: 'شبکه'));
       addTearDown(() => tester.binding.setSurfaceSize(null));
       await tester.binding.setSurfaceSize(Size(width, 900));
       await tester.pumpWidget(MaterialApp(
@@ -438,4 +439,3 @@ void main() {
         )).called(1);
   });
 }
-import 'package:asoud_erp/core/network/api_exception.dart';

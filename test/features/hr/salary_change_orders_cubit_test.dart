@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'package:asoud_erp/core/network/api_exception.dart';
 import 'package:asoud_erp/features/hr/data/salary_change_order_repository.dart';
 import 'package:asoud_erp/features/hr/presentation/cubit/salary_change_orders_cubit.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -18,7 +20,7 @@ void main() {
 
   test('people failure has independent loading error and retry', () async {
     when(() => repository.people(company: 'COMP-1'))
-        .thenThrow(const ApiException(kind: ApiFailureKind.network));
+        .thenThrow(const ApiException(kind: ApiFailureKind.network, message: 'شبکه'));
     await cubit.loadPeople();
     expect(cubit.state.peopleLoading, isFalse);
     expect(cubit.state.peopleError,
@@ -50,7 +52,7 @@ void main() {
         effectiveDate: '2026-10-28')).thenAnswer((_) => pending.future);
     final load = cubit.loadPayroll(employee: 'B', effectiveDate: '2026-10-28');
     expect(cubit.state.currentPayroll, isNull);
-    pending.completeError(const ApiException(kind: ApiFailureKind.network));
+    pending.completeError(const ApiException(kind: ApiFailureKind.network, message: 'شبکه'));
     await load;
     expect(cubit.state.currentPayroll, isNull);
     expect(cubit.state.errorMessage,
@@ -74,7 +76,7 @@ void main() {
         newer.complete(current);
         await second;
         if (staleFailure) {
-          older.completeError(const ApiException(kind: ApiFailureKind.network));
+          older.completeError(const ApiException(kind: ApiFailureKind.network, message: 'شبکه'));
         } else {
           older.complete(const SalaryChangePayrollResult(currency: 'IRR', rows: [], message: 'قدیمی'));
         }
@@ -230,5 +232,3 @@ void main() {
     expect(cubit.state.currentOrder?.isApplied, isTrue);
   });
 }
-import 'dart:async';
-import 'package:asoud_erp/core/network/api_exception.dart';

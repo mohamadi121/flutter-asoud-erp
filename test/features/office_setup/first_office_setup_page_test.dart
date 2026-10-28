@@ -204,12 +204,12 @@ void main() {
         await tester.ensureVisible(submit);
         await tester.tap(submit);
         await tester.pump();
-        client.createGate!.completeError(ApiException(kind: kind));
+        client.createGate!.completeError(ApiException(kind: kind, message: 'خطا'));
         await tester.pumpAndSettle();
         expect(tester.widget<FirstHrLeadForm>(find.byType(FirstHrLeadForm))
             .enabled, isFalse);
         expect(client.calls.where((m) => m.endsWith('.create_hr_lead')).length, 1);
-        client.statusError = const ApiException(kind: ApiFailureKind.network);
+        client.statusError = const ApiException(kind: ApiFailureKind.network, message: 'شبکه');
         final reload = find.text('دریافت دوباره وضعیت راه‌اندازی');
         await tester.ensureVisible(reload);
         await tester.tap(reload);

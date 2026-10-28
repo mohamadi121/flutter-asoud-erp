@@ -10,7 +10,7 @@ class _Staff extends FakeHrContractsRepository {
   bool fail = false;
   @override
   Future<List<EmployeeOption>> getStaffList({required String company}) async {
-    if (fail) throw const ApiException(kind: ApiFailureKind.network);
+    if (fail) throw const ApiException(kind: ApiFailureKind.network, message: 'شبکه');
     return super.getStaffList(company: company);
   }
 }
@@ -19,7 +19,7 @@ class _Templates extends FakeHrContractTemplateRepository {
   bool fail = false;
   @override
   Future<HrContractTemplate> getTemplate({required String company, String? id}) async {
-    if (fail) throw const ApiException(kind: ApiFailureKind.network);
+    if (fail) throw const ApiException(kind: ApiFailureKind.network, message: 'شبکه');
     return super.getTemplate(company: company, id: id);
   }
 }

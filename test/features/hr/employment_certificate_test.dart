@@ -1,3 +1,10 @@
+import 'dart:async';
+import 'dart:typed_data';
+import 'package:pdf/pdf.dart';
+import 'package:printing/printing.dart';
+// Printing exposes its platform test seam through this library.
+// ignore: implementation_imports
+import 'package:printing/src/interface.dart';
 import 'package:asoud_erp/features/hr/data/employment_certificate_repository.dart';
 import 'package:asoud_erp/features/hr/presentation/pages/employment_certificate_form_page.dart';
 import 'package:asoud_erp/features/hr/presentation/pages/employment_certificate_preview_page.dart';
@@ -504,12 +511,6 @@ void main() {
     });
   });
 }
-import 'dart:async';
-import 'dart:typed_data';
-import 'package:pdf/pdf.dart';
-import 'package:printing/printing.dart';
-import 'package:printing/src/interface.dart';
-
 class _CertificatePrinting extends PrintingPlatform {
   Completer<Uint8List> pending = Completer<Uint8List>();
   String? html;
