@@ -28,10 +28,11 @@ abstract class HrContractTemplateRepository {
 }
 
 class FakeHrContractTemplateRepository implements HrContractTemplateRepository {
-  @override
-  String fieldTag(String group, String label) => group == 'personnel' ? '[$label پرسنل]' : '[$label]';
   FakeHrContractTemplateRepository({HrContractTemplate? initial})
       : _template = initial ?? HrContractTemplate.defaultTemplate();
+
+  @override
+  String fieldTag(String group, String label) => group == 'personnel' ? '[$label پرسنل]' : '[$label]';
 
   HrContractTemplate _template;
 

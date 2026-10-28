@@ -62,14 +62,6 @@ abstract class HrContractsRepository {
 }
 
 class FakeHrContractsRepository implements HrContractsRepository {
-  @override
-  Future<Map<String, dynamic>> getPrintPayload({required String company, required String id}) async {
-    final record = await getContract(company: company, id: id);
-    return {
-      'draft_banner': record.isDraft ? '«پیش‌نویس ـ فاقد اعتبار نهایی»' : null,
-      'html': '<html dir="rtl"><body>${record.employeeName}</body></html>',
-    };
-  }
   FakeHrContractsRepository({List<HrContractRecord>? initial})
       : _records = initial ??
             [
@@ -132,6 +124,15 @@ class FakeHrContractsRepository implements HrContractsRepository {
             ];
 
   final List<HrContractRecord> _records;
+
+  @override
+  Future<Map<String, dynamic>> getPrintPayload({required String company, required String id}) async {
+    final record = await getContract(company: company, id: id);
+    return {
+      'draft_banner': record.isDraft ? '«پیش‌نویس ـ فاقد اعتبار نهایی»' : null,
+      'html': '<html dir="rtl"><body>${record.employeeName}</body></html>',
+    };
+  }
   int savedDraftsCount = 0;
 
   static const _mockStaff = [
