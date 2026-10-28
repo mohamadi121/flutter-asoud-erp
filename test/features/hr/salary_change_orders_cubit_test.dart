@@ -16,6 +16,29 @@ void main() {
 
   tearDown(() => cubit.close());
 
+  test('people failure has independent loading error and retry', () async {
+    when(() => repository.people(company: 'COMP-1'))
+        .thenThrow(const ApiException(kind: ApiFailureKind.network));
+    await cubit.loadPeople();
+    expect(cubit.state.peopleLoading, isFalse);
+    expect(cubit.state.peopleError,
+        'ارتباط با سرور برقرار نشد. اتصال اینترنت را بررسی کنید.');
+    expect(cubit.state.errorMessage, isNull);
+    expect(cubit.state.status, SalaryChangeOrdersStatus.initial);
+    final pending = Completer<List<SalaryChangeOrderPerson>>();
+    when(() => repository.people(company: 'COMP-1')).thenAnswer((_) => pending.future);
+    final retry = cubit.loadPeople();
+    expect(cubit.state.peopleLoading, isTrue);
+    expect(cubit.state.peopleError, isNull);
+    const person = SalaryChangeOrderPerson(name: 'A', displayName: 'علی رضایی',
+        employeeNumber: '۱۲', department: 'اداری', designation: 'کارشناس');
+    pending.complete([person]);
+    await retry;
+    expect(cubit.state.peopleLoading, isFalse);
+    expect(cubit.state.peopleError, isNull);
+    expect(cubit.state.people, [person]);
+  });
+
   test('employee change clears payroll immediately and after failure', () async {
     const payroll = SalaryChangePayrollResult(currency: 'IRR', rows: []);
     when(() => repository.payroll(company: 'COMP-1', employee: 'A',

@@ -995,6 +995,15 @@ class _SalaryChangeOrdersViewState extends State<_SalaryChangeOrdersView> {
               const Text('۱. مشخصات پرسنل',
                   style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
+              if (state.peopleLoading) const LinearProgressIndicator(),
+              if (state.peopleError != null) ...[
+                Text(state.peopleError!, style: const TextStyle(color: AsoudColors.danger)),
+                TextButton(
+                  onPressed: state.peopleLoading ? null
+                      : () => context.read<SalaryChangeOrdersCubit>().loadPeople(),
+                  child: const Text('دریافت دوباره پرسنل'),
+                ),
+              ],
               DropdownButtonFormField<String>(
                 initialValue: _personId.isNotEmpty ? _personId : null,
                 isExpanded: true,
@@ -1011,7 +1020,7 @@ class _SalaryChangeOrdersViewState extends State<_SalaryChangeOrdersView> {
                           child: Text('${p.displayName} — ${p.employeeNumber}'),
                         ))
                     .toList(),
-                onChanged: (val) {
+                onChanged: state.peopleLoading || state.peopleError != null ? null : (val) {
                   if (val != null) {
                     final p = state.people
                         .firstWhere((element) => element.name == val);

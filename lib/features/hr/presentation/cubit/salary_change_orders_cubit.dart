@@ -15,6 +15,8 @@ class SalaryChangeOrdersState extends Equatable {
     this.statusFilter = 'all',
     this.applicationStatusFilter = 'all',
     this.people = const [],
+    this.peopleLoading = false,
+    this.peopleError,
     this.publishedTemplate,
     this.currentOrder,
     this.currentPayroll,
@@ -29,6 +31,8 @@ class SalaryChangeOrdersState extends Equatable {
   final String statusFilter;
   final String applicationStatusFilter;
   final List<SalaryChangeOrderPerson> people;
+  final bool peopleLoading;
+  final String? peopleError;
   final Map<String, dynamic>? publishedTemplate;
   final SalaryChangeOrderDetail? currentOrder;
   final SalaryChangePayrollResult? currentPayroll;
@@ -44,6 +48,9 @@ class SalaryChangeOrdersState extends Equatable {
     String? statusFilter,
     String? applicationStatusFilter,
     List<SalaryChangeOrderPerson>? people,
+    bool? peopleLoading,
+    String? peopleError,
+    bool clearPeopleError = false,
     Map<String, dynamic>? publishedTemplate,
     bool clearTemplate = false,
     SalaryChangeOrderDetail? currentOrder,
@@ -63,6 +70,8 @@ class SalaryChangeOrdersState extends Equatable {
         applicationStatusFilter:
             applicationStatusFilter ?? this.applicationStatusFilter,
         people: people ?? this.people,
+        peopleLoading: peopleLoading ?? this.peopleLoading,
+        peopleError: clearPeopleError ? null : (peopleError ?? this.peopleError),
         publishedTemplate: clearTemplate
             ? null
             : (publishedTemplate ?? this.publishedTemplate),
@@ -87,6 +96,8 @@ class SalaryChangeOrdersState extends Equatable {
         statusFilter,
         applicationStatusFilter,
         people,
+        peopleLoading,
+        peopleError,
         publishedTemplate,
         currentOrder,
         currentPayroll,
@@ -148,10 +159,16 @@ class SalaryChangeOrdersCubit extends Cubit<SalaryChangeOrdersState> {
   }
 
   Future<void> loadPeople() async {
+    if (state.peopleLoading) return;
+    emit(state.copyWith(peopleLoading: true, clearPeopleError: true));
     try {
       final list = await repository.people(company: company);
-      emit(state.copyWith(people: list));
-    } catch (_) {}
+      if (isClosed) return;
+      emit(state.copyWith(people: list, peopleLoading: false));
+    } catch (e) {
+      if (isClosed) return;
+      emit(state.copyWith(peopleLoading: false, peopleError: failureDetail(e)));
+    }
   }
 
   Future<void> loadPayroll({
