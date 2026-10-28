@@ -322,6 +322,9 @@ class FrappeWorkflowRepository implements WorkflowRepository {
     return data.whereType<Map>().map(_parse).toList(growable: false);
   }
 
+  /// Shared decoding for additive workflow endpoints with the same contract.
+  WorkflowDefinition parseDefinition(Map raw) => _parse(raw);
+
   WorkflowDefinition _parse(Map raw) {
     final item = Map<String, dynamic>.from(raw);
     final missing = item['missing_requirements'];

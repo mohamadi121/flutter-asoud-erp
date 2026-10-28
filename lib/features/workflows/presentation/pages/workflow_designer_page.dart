@@ -149,7 +149,11 @@ class _DesignerView extends StatelessWidget {
       showDragHandle: true,
       builder: (_) => const _StagePickerSheet(),
     );
-    if (type != null) await cubit.addStage(type);
+    if (type == null) return;
+    final stage = await cubit.addStage(type);
+    if (stage != null && type == WorkflowStageType.userTask && context.mounted) {
+      await _openStage(context, stage, cubit.state.options);
+    }
   }
 
   Future<void> _editWorkflow(BuildContext context) async {

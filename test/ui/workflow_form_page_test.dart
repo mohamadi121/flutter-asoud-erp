@@ -50,7 +50,7 @@ class _Repository extends Fake implements WorkflowRepository {
 }
 
 void main() {
-  for (final width in [320.0, 390.0, 768.0]) {
+  for (final width in [320.0, 390.0, 430.0, 768.0]) {
     testWidgets('workflow settings persist and submit at $width',
         (tester) async {
       await tester.binding.setSurfaceSize(Size(width, 844));
@@ -65,7 +65,6 @@ void main() {
       final title = find.byKey(const ValueKey('workflow-title'));
       final cubit = tester.element(title).read<WorkflowFormCubit>();
       expect(Directionality.of(tester.element(title)), TextDirection.rtl);
-      expect(find.text('آیکون گردش کار'), findsNothing);
       await tester.tap(find.text('ذخیره و طراحی مراحل'));
       await tester.pumpAndSettle();
       expect(
@@ -74,26 +73,25 @@ void main() {
       await tester.enterText(title, 'تأیید خرید');
       await tester.enterText(
           find.byKey(const ValueKey('workflow-description')), 'شرح فرایند');
-      await tester.tap(find.byKey(const ValueKey('workflow-more')));
-      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(const ValueKey('workflow-icon-purchase')));
       await tester.tap(find.byKey(const ValueKey('workflow-icon-purchase')));
+      await tester.ensureVisible(find.byKey(const ValueKey('workflow-color-#16A765')));
       await tester.tap(find.byKey(const ValueKey('workflow-color-#16A765')));
-      final toggle = find.byType(SwitchListTile);
-      await tester.ensureVisible(toggle);
-      await tester.tap(toggle);
+      await tester.ensureVisible(find.byKey(const ValueKey('workflow-more')));
+      await tester.tap(find.byKey(const ValueKey('workflow-more')));
       await tester.pumpAndSettle();
       // Scope/document selectors were deliberately removed from this sheet.
       expect(find.text('دامنه و سند مقصد'), findsNothing);
       expect(find.text('دفتر / شرکت'), findsNothing);
       expect(find.text('نوع سند *'), findsNothing);
-      await tester.tap(find.byTooltip('بستن تنظیمات'));
+      await tester.tap(find.byKey(const ValueKey('workflow-mode-Custom')));
       await tester.pumpAndSettle();
       expect(cubit.state.iconKey, 'purchase');
       expect(cubit.state.colorHex, '#16A765');
-      expect(cubit.state.creationMode, 'Template');
+      expect(cubit.state.creationMode, 'Custom');
       await tester.tap(find.byKey(const ValueKey('workflow-more')));
       await tester.pumpAndSettle();
-      expect(tester.widget<SwitchListTile>(toggle).value, isTrue);
+      expect(find.byKey(const ValueKey('workflow-mode-Custom')), findsOneWidget);
       expect(cubit.state.iconKey, 'purchase');
       expect(cubit.state.colorHex, '#16A765');
       expect(cubit.state.targetDoctype, 'ASOUD Workflow Request');
@@ -108,7 +106,7 @@ void main() {
         'module': 'Purchase',
         'doctype': 'ASOUD Workflow Request',
         'company': 'دفتر اول',
-        'mode': 'Template',
+        'mode': 'Custom',
         'icon': 'purchase',
         'color': '#16A765'
       });

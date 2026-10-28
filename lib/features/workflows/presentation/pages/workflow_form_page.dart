@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/network/frappe_client.dart';
 import '../../../../core/widgets/asoud_ui.dart';
+import '../../data/workflow_template_repository.dart';
 import '../../domain/repositories/workflow_repository.dart';
 import '../../domain/entities/workflow_definition.dart';
 import '../cubit/workflow_form_cubit.dart';
+import '../widgets/workflow_template_picker.dart';
 import 'workflow_designer_page.dart';
 
 class WorkflowFormPage extends StatelessWidget {
@@ -14,10 +17,14 @@ class WorkflowFormPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => BlocProvider(
-        create: (_) => WorkflowFormCubit(
+        create: (_) {
+          FrappeApiClient? client;
+          try { client = context.read<FrappeApiClient>(); } on ProviderNotFoundException { /* injected test/preview tree */ }
+          return WorkflowFormCubit(
           repository: context.read<WorkflowRepository>(),
           existing: existing,
-        )..load(),
+          templates: client == null ? null : WorkflowTemplateRepository(client),
+        )..load(); },
         child: const _WorkflowFormView(),
       );
 }
@@ -52,6 +59,7 @@ class _WorkflowFormView extends StatelessWidget {
         builder: (context, state) => Directionality(
           textDirection: TextDirection.rtl,
           child: Scaffold(
+            backgroundColor: const Color(0xfff7f9fd),
             appBar: AppBar(
               toolbarHeight: 76,
               centerTitle: true,
@@ -91,7 +99,9 @@ class _WorkflowFormView extends StatelessWidget {
                       primaryLabel:
                           state.status == WorkflowFormStatus.submitting
                               ? 'در حال ذخیره...'
-                              : 'ذخیره و طراحی مراحل',
+                              : context.read<WorkflowFormCubit>().existing != null
+                                  ? 'ذخیره تغییرات'
+                                  : 'ذخیره و طراحی مراحل',
                       onPrimary: state.status == WorkflowFormStatus.submitting
                           ? null
                           : context.read<WorkflowFormCubit>().submit,
@@ -102,14 +112,32 @@ class _WorkflowFormView extends StatelessWidget {
       );
 }
 
-class _FormContent extends StatelessWidget {
+class _FormContent extends StatefulWidget {
   const _FormContent({required this.state});
   final WorkflowFormState state;
+  @override
+  State<_FormContent> createState() => _FormContentState();
+}
+
+class _FormContentState extends State<_FormContent> {
+  WorkflowFormState get state => widget.state;
+  late final title = TextEditingController(text: state.title);
+  late final description = TextEditingController(text: state.description);
+  @override
+  void didUpdateWidget(covariant _FormContent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.state.selectedTemplate?.id != state.selectedTemplate?.id) {
+      title.text = state.title;
+      description.text = state.description;
+    }
+  }
+  @override
+  void dispose() { title.dispose(); description.dispose(); super.dispose(); }
 
   Future<void> _more(BuildContext context) async {
     FocusScope.of(context).unfocus();
     final cubit = context.read<WorkflowFormCubit>();
-    await showModalBottomSheet<void>(
+    final mode = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
@@ -128,7 +156,7 @@ class _FormContent extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Row(children: [
                   const Expanded(
-                      child: Text('تنظیمات بیشتر',
+                      child: Text('روش ایجاد گردش کار',
                           style: TextStyle(
                               fontSize: 17, fontWeight: FontWeight.w800))),
                   IconButton(
@@ -141,12 +169,24 @@ class _FormContent extends StatelessWidget {
               Flexible(
                   child: BlocBuilder<WorkflowFormCubit, WorkflowFormState>(
                       builder: (context, state) =>
-                          _MoreSettingsContent(state: state))),
+                          _CreationModeOptions(state: state))),
             ]),
           ),
         ),
       ),
     );
+    if (!context.mounted || cubit.isClosed || mode == null) return;
+    if (mode == 'Custom') { cubit.changeCreationMode(mode); return; }
+    if (cubit.templates == null || state.offlinePreview) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('انتخاب الگوی واقعی نیازمند ورود به سرور است.')));
+      return;
+    }
+    final selected = await showModalBottomSheet<WorkflowTemplate>(context: context,
+      isScrollControlled: true, useSafeArea: true, showDragHandle: true,
+      builder: (_) => WorkflowTemplatePicker(repository: cubit.templates!, company: state.company,
+          modules: state.options!.modules, selected: state.selectedTemplate));
+    if (mounted && !cubit.isClosed && selected != null) cubit.selectTemplate(selected);
   }
 
   @override
@@ -155,54 +195,63 @@ class _FormContent extends StatelessWidget {
     final enabled = state.status != WorkflowFormStatus.submitting;
     return ListView(
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       children: [
         if (state.offlinePreview) ...[
           const AsoudOfflinePreviewBanner(),
           const SizedBox(height: 12),
         ],
-        const _FieldLabel('عنوان گردش کار *'),
+        _WorkflowSection(title: 'مشخصات گردش کار', icon: Icons.subject_rounded, children: [
         TextFormField(
           key: const ValueKey('workflow-title'),
-          initialValue: state.title,
+          controller: title,
           enabled: enabled,
+          hintLocales: const [Locale('fa')],
           onChanged: cubit.changeTitle,
           decoration: InputDecoration(
+            labelText: 'عنوان گردش کار *',
+            floatingLabelBehavior: FloatingLabelBehavior.always,
             hintText: 'مثلاً تأیید درخواست تأمین کالا',
-            suffixIcon: const Icon(Icons.title_rounded),
             errorText: state.titleError,
           ),
         ),
         const SizedBox(height: 22),
-        const _FieldLabel('ماژول *'),
         DropdownButtonFormField<String>(
           key: ValueKey('workflow-module-${state.moduleKey}'),
           isExpanded: true,
           initialValue: state.moduleKey.isEmpty ? null : state.moduleKey,
           decoration:
-              const InputDecoration(suffixIcon: Icon(Icons.layers_outlined)),
+              const InputDecoration(labelText: 'ماژول *',
+                  floatingLabelBehavior: FloatingLabelBehavior.always),
           items: state.options!.modules
               .map((item) => DropdownMenuItem(
                   value: item.key,
                   child: Text(_moduleLabel(item.key),
                       overflow: TextOverflow.ellipsis)))
               .toList(),
-          onChanged: enabled ? cubit.changeModule : null,
+          onChanged: enabled && state.creationMode != 'Template' ? cubit.changeModule : null,
         ),
         const SizedBox(height: 22),
-        const _FieldLabel('توضیح کوتاه (اختیاری)'),
         TextFormField(
           key: const ValueKey('workflow-description'),
-          initialValue: state.description,
+          controller: description,
           enabled: enabled,
+          hintLocales: const [Locale('fa')],
           onChanged: cubit.changeDescription,
           minLines: 3,
           maxLines: 5,
           decoration: const InputDecoration(
+              labelText: 'توضیح کوتاه (اختیاری)',
+              floatingLabelBehavior: FloatingLabelBehavior.always,
               hintText: 'هدف و کاربرد این گردش کار را بنویسید…',
-              suffixIcon: Icon(Icons.description_outlined)),
+              alignLabelWithHint: true),
         ),
-        const SizedBox(height: 20),
+        ]),
+        const SizedBox(height: 14),
+        _WorkflowSection(title: 'تنظیمات ظاهری', icon: Icons.palette_outlined,
+            children: [_AppearanceSettings(state: state)]),
+        const SizedBox(height: 14),
+        if (cubit.existing == null)
         Card(
           margin: EdgeInsets.zero,
           child: ListTile(
@@ -211,17 +260,21 @@ class _FormContent extends StatelessWidget {
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             leading:
                 const Icon(Icons.settings_outlined, color: AsoudColors.primary),
-            title: const Text('تنظیمات بیشتر',
+            title: const Text('روش ایجاد گردش کار',
                 style: TextStyle(fontWeight: FontWeight.w700)),
             subtitle: Text(
                 state.creationMode == 'Template'
-                    ? 'قالب پیشنهادی فعال • آیکون، رنگ و موارد تکمیلی'
-                    : 'آیکون، رنگ و موارد تکمیلی',
+                    ? 'الگو: ${state.selectedTemplate?.title ?? 'انتخاب نشده'}'
+                    : 'طراحی گردش کار جدید',
                 style: const TextStyle(fontSize: 11)),
             trailing: const Icon(Icons.expand_more),
             onTap: enabled ? () => _more(context) : null,
           ),
         ),
+        const SizedBox(height: 14),
+        const _InfoBanner(icon: Icons.info_outline,
+            text: 'گردش کار ابتدا به‌صورت پیش‌نویس ذخیره می‌شود؛ طراحی و تکمیل مراحل در صفحهٔ بعد انجام می‌شود.',
+            color: AsoudColors.primary),
         if (state.message != null &&
             state.status == WorkflowFormStatus.ready) ...[
           const SizedBox(height: 12),
@@ -233,33 +286,66 @@ class _FormContent extends StatelessWidget {
   }
 }
 
-class _FieldLabel extends StatelessWidget {
-  const _FieldLabel(this.text);
-  final String text;
+class _WorkflowSection extends StatelessWidget {
+  const _WorkflowSection({required this.title, required this.icon, required this.children});
+  final String title;
+  final IconData icon;
+  final List<Widget> children;
   @override
-  Widget build(BuildContext context) => Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Text(text,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800)));
+  Widget build(BuildContext context) => Card(
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18),
+          side: const BorderSide(color: AsoudColors.border)),
+      child: Padding(padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Row(children: [AsoudIconBox(icon: icon, color: AsoudColors.primary, size: 35),
+            const SizedBox(width: 9),
+            Expanded(child: Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800)))]),
+          const SizedBox(height: 24),
+          ...children,
+        ])));
 }
 
-class _MoreSettingsContent extends StatelessWidget {
-  const _MoreSettingsContent({required this.state});
+class _CreationModeOptions extends StatelessWidget {
+  const _CreationModeOptions({required this.state});
+  final WorkflowFormState state;
+  @override
+  Widget build(BuildContext context) => ListView(shrinkWrap: true, children: [
+    for (final mode in const [('Custom', 'طراحی گردش کار جدید', Icons.edit_note_rounded),
+        ('Template', 'استفاده از الگوی آماده', Icons.dashboard_customize_outlined)])
+      ListTile(key: ValueKey('workflow-mode-${mode.$1}'),
+        leading: Icon(mode.$3, color: AsoudColors.primary),
+        title: Text(mode.$2),
+        trailing: Icon(state.creationMode == mode.$1 ? Icons.radio_button_checked : Icons.radio_button_off,
+            color: state.creationMode == mode.$1 ? AsoudColors.primary : AsoudColors.muted),
+        onTap: () => Navigator.pop(context, mode.$1)),
+  ]);
+}
+
+class _AppearanceSettings extends StatelessWidget {
+  const _AppearanceSettings({required this.state});
   final WorkflowFormState state;
 
   @override
   Widget build(BuildContext context) {
     final cubit = context.read<WorkflowFormCubit>();
-    return ListView(
-      shrinkWrap: true,
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+    final enabled = state.status != WorkflowFormStatus.submitting;
+    final color = Color(int.tryParse(state.colorHex.replaceFirst('#', 'ff'), radix: 16) ?? 0xff315cf5);
+    final icon = switch (state.iconKey) {
+      'purchase' => Icons.shopping_cart_outlined,
+      'expense' => Icons.account_balance_wallet_outlined,
+      'support' => Icons.support_agent_outlined,
+      'leave' => Icons.description_outlined,
+      'hiring' => Icons.person_add_alt_1_outlined,
+      _ => Icons.hub_outlined,
+    };
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const Text('آیکون گردش کار',
             style: TextStyle(fontSize: 10, color: AsoudColors.muted)),
         const SizedBox(height: 7),
-        Wrap(
-          spacing: 9,
-          runSpacing: 8,
+        Row(
           children: [
             for (final option in const [
               ('hub', Icons.hub_outlined),
@@ -269,12 +355,12 @@ class _MoreSettingsContent extends StatelessWidget {
               ('leave', Icons.description_outlined),
               ('hiring', Icons.person_add_alt_1_outlined),
             ])
-              _IconChoice(
+              Expanded(child: Padding(padding: const EdgeInsetsDirectional.only(end: 5), child: _IconChoice(
                 key: ValueKey('workflow-icon-${option.$1}'),
                 icon: option.$2,
                 selected: state.iconKey == option.$1,
-                onTap: () => cubit.changeIcon(option.$1),
-              ),
+                onTap: enabled ? () => cubit.changeIcon(option.$1) : null,
+              ))),
           ],
         ),
         const SizedBox(height: 12),
@@ -296,31 +382,22 @@ class _MoreSettingsContent extends StatelessWidget {
                 key: ValueKey('workflow-color-${option.$1}'),
                 color: option.$2,
                 selected: state.colorHex == option.$1,
-                onTap: () => cubit.changeColor(option.$1),
+                onTap: enabled ? () => cubit.changeColor(option.$1) : null,
               ),
           ],
         ),
         const SizedBox(height: 16),
-        SwitchListTile.adaptive(
-          contentPadding: EdgeInsets.zero,
-          title: const Text('استفاده از قالب پیشنهادی',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-          subtitle: const Text(
-              'قالب اولیه از مسیر فعلی پروژه ایجاد می‌شود؛ مراحل در صفحه بعد قابل تکمیل‌اند.',
-              style: TextStyle(fontSize: 11)),
-          value: state.creationMode == 'Template',
-          onChanged: cubit.existing != null
-              ? null
-              : (value) =>
-                  cubit.changeCreationMode(value ? 'Template' : 'Custom'),
-        ),
-        const SizedBox(height: 14),
-        const _InfoBanner(
-          icon: Icons.lock_outline_rounded,
-          text:
-              'فرایند ابتدا به‌صورت پیش‌نویس ذخیره می‌شود و تا تکمیل مراحل و اتصال به Workflow واقعی Frappe فعال نخواهد شد.',
-          color: AsoudColors.success,
-        ),
+        Container(padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: const Color(0xfff8fafe),
+              borderRadius: BorderRadius.circular(12), border: Border.all(color: AsoudColors.border)),
+          child: Row(children: [AsoudIconBox(icon: icon, color: color, size: 42),
+            const SizedBox(width: 12),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('پیش‌نمایش کارت گردش کار', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 5),
+              Text(state.title.trim().isEmpty ? 'عنوان گردش کار' : state.title,
+                  style: const TextStyle(fontSize: 12, color: AsoudColors.muted)),
+            ]))])),
       ],
     );
   }
@@ -358,7 +435,7 @@ class _IconChoice extends StatelessWidget {
       super.key});
   final IconData icon;
   final bool selected;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   @override
   Widget build(BuildContext context) => InkWell(
         onTap: onTap,
@@ -390,7 +467,7 @@ class _ColorChoice extends StatelessWidget {
       super.key});
   final Color color;
   final bool selected;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   @override
   Widget build(BuildContext context) => InkWell(
         onTap: onTap,

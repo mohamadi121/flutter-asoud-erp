@@ -99,7 +99,7 @@ class _WorkflowListView extends StatelessWidget {
                   return RefreshIndicator(
                     onRefresh: context.read<WorkflowListCubit>().load,
                     child: ListView(
-                      padding: const EdgeInsets.fromLTRB(16, 9, 16, 128),
+                      padding: const EdgeInsets.fromLTRB(16, 9, 16, 16),
                       children: [
                         Row(children: [
                           Text('مرتب‌سازی: ${_orderLabel(state.orderBy)}',
@@ -123,26 +123,24 @@ class _WorkflowListView extends StatelessWidget {
             ),
           ]),
         ),
-        floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-        floatingActionButton: canManageWorkflows
-            ? Padding(
-                padding: const EdgeInsets.only(bottom: 64),
-                child: SizedBox(
-                  width: MediaQuery.sizeOf(context).width - 32,
-                  height: 50,
+        bottomNavigationBar: Column(mainAxisSize: MainAxisSize.min, children: [
+          if (canManageWorkflows)
+            SafeArea(top: false, bottom: false,
+              child: Padding(padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+                child: SizedBox(width: double.infinity, height: 52,
                   child: FilledButton.icon(
-                    onPressed: onCreate ??
-                        () =>
-                            Navigator.of(context).push(MaterialPageRoute<void>(
-                              builder: (_) => const WorkflowFormPage(),
-                            )),
+                    key: const ValueKey('workflow-create'),
+                    onPressed: onCreate ?? () async {
+                      final cubit = context.read<WorkflowListCubit>();
+                      await Navigator.of(context).push(MaterialPageRoute<void>(
+                          builder: (_) => const WorkflowFormPage()));
+                      if (!cubit.isClosed) await cubit.load();
+                    },
                     icon: const Icon(Icons.add_rounded),
                     label: const Text('ایجاد گردش‌کار جدید'),
-                  ),
-                ),
-              )
-            : null,
-        bottomNavigationBar: const _WorkflowBottomNavigation(),
+                  )))),
+          const _WorkflowBottomNavigation(),
+        ]),
       );
 }
 
@@ -345,6 +343,8 @@ class _WorkflowCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final visual = _workflowVisual(item.iconKey, item.status, item.isLocked);
+    final selectedColor = RegExp(r'^#[0-9a-fA-F]{6}$').hasMatch(item.colorHex ?? '')
+        ? Color(int.parse('ff${item.colorHex!.substring(1)}', radix: 16)) : visual.$2;
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       child: InkWell(
@@ -353,7 +353,7 @@ class _WorkflowCard extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Row(children: [
-            AsoudIconBox(icon: visual.$1, color: visual.$2, size: 43),
+            AsoudIconBox(icon: visual.$1, color: item.isLocked ? visual.$2 : selectedColor, size: 43),
             const SizedBox(width: 10),
             Expanded(
               child: Column(

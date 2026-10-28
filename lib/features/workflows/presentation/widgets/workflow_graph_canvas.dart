@@ -172,7 +172,9 @@ class _GraphNode extends StatelessWidget {
           child: InkWell(
             onTap: onTap,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+              padding: EdgeInsets.symmetric(
+                  horizontal: stage.type == WorkflowStageType.start || stage.type == WorkflowStageType.end ? 40 : 18,
+                  vertical: 12),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -284,11 +286,15 @@ class _NodeShapePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final fill = Paint()..color = Colors.white;
+    final terminal = type == WorkflowStageType.start || type == WorkflowStageType.end;
+    final fill = Paint()
+      ..shader = LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter,
+          colors: [Colors.white, color.withValues(alpha: terminal ? .12 : .035)])
+          .createShader(Offset.zero & size);
     final border = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.6;
+      ..strokeWidth = terminal ? 2.2 : 1.6;
     final path = switch (type) {
       WorkflowStageType.condition => Path()
         ..moveTo(size.width / 2, 0)
@@ -313,6 +319,11 @@ class _NodeShapePainter extends CustomPainter {
     canvas.drawShadow(path, Colors.black.withValues(alpha: .13), 7, false);
     canvas.drawPath(path, fill);
     canvas.drawPath(path, border);
+    if (terminal) {
+      canvas.drawOval(Rect.fromLTWH(33, 5, size.width - 66, size.height - 10),
+          Paint()..color = color.withValues(alpha: .18)
+            ..style = PaintingStyle.stroke..strokeWidth = 1);
+    }
   }
 
   @override

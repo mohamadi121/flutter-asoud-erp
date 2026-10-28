@@ -1,5 +1,6 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import '../../../../core/utils/failure_message.dart';
 
 import '../../domain/entities/workflow_definition.dart';
 import '../../domain/repositories/workflow_repository.dart';
@@ -31,25 +32,45 @@ class WorkflowDesignerCubit extends Cubit<WorkflowDesignerState> {
     }
   }
 
-  Future<void> addStage(WorkflowStageType type) async {
+  Future<WorkflowStage?> addStage(WorkflowStageType type) async {
     final design = state.design;
-    if (design == null || state.status == WorkflowDesignerStatus.saving) return;
+    if (design == null || design.stages.isEmpty || state.status == WorkflowDesignerStatus.saving) return null;
     final last =
         design.stages.reduce((a, b) => a.sequence > b.sequence ? a : b);
     emit(state.copyWith(
         status: WorkflowDesignerStatus.saving, clearMessage: true));
     try {
-      final updated = await repository.addStage(
-        definition: definition,
-        afterStage: last.id,
-        type: type,
-      );
+      final previousIds = design.stages.map((stage) => stage.id).toSet();
+      final incoming = design.transitions.where((edge) => edge.toStage == last.id).toList();
+      if (last.type == WorkflowStageType.end && incoming.length != 1) {
+        emit(state.copyWith(status: WorkflowDesignerStatus.failure,
+            message: 'برای افزودن مرحله، مسیر موردنظر را از روی نمودار انتخاب کنید.'));
+        return null;
+      }
+      var updated = last.type == WorkflowStageType.end
+          ? await repository.insertStage(definition: definition,
+              transition: incoming.single.id, type: type)
+          : await repository.addStage(definition: definition, afterStage: last.id, type: type);
+      final created = updated.stages.where((stage) => !previousIds.contains(stage.id) && stage.type == type).firstOrNull;
+      if (isClosed) return null;
+      if (type == WorkflowStageType.userTask && created != null &&
+          !updated.stages.any((stage) => stage.type == WorkflowStageType.end)) {
+        // A new custom design starts with only Start. Supply a real End so the
+        // user-task form has a valid completion destination from its first open.
+        emit(state.copyWith(status: WorkflowDesignerStatus.saving, design: updated));
+        updated = await repository.addStage(definition: definition,
+            afterStage: created.id, type: WorkflowStageType.end);
+      }
+      if (isClosed) return null;
       emit(state.copyWith(
           status: WorkflowDesignerStatus.ready, design: updated));
-    } catch (_) {
+      return created == null ? null : updated.stages.where((stage) => stage.id == created.id).firstOrNull;
+    } catch (error) {
+      if (isClosed) return null;
       emit(state.copyWith(
           status: WorkflowDesignerStatus.failure,
-          message: 'افزودن مرحله ممکن نشد.'));
+          message: failureDetail(error)));
+      return null;
     }
   }
 
@@ -192,10 +213,10 @@ class WorkflowDesignerCubit extends Cubit<WorkflowDesignerState> {
         message: 'تنظیمات مرحله ذخیره شد.',
       ));
       return true;
-    } catch (_) {
+    } catch (error) {
       emit(state.copyWith(
         status: WorkflowDesignerStatus.failure,
-        message: 'ذخیره تنظیمات مرحله ممکن نشد.',
+        message: failureDetail(error),
       ));
       return false;
     }
