@@ -5,6 +5,7 @@ import 'package:asoud_erp/core/theme/asoud_colors.dart';
 import 'package:asoud_erp/core/utils/jalali_date.dart';
 import 'package:asoud_erp/core/utils/failure_message.dart';
 import 'package:asoud_erp/core/widgets/asoud_ui.dart';
+import 'package:asoud_erp/core/widgets/states.dart';
 import 'package:asoud_erp/features/hr/data/hr_contracts_repository.dart';
 import 'package:asoud_erp/features/hr/data/hr_contract_template_repository.dart';
 import 'package:asoud_erp/features/hr/domain/hr_contract_models.dart';
@@ -37,6 +38,7 @@ class _HrContractIssuePageState extends State<HrContractIssuePage> {
   bool loading = true;
   bool saving = false;
   String? errorMessage;
+  String? loadError;
 
   late HrContractTemplate template;
   List<EmployeeOption> staffList = [];
@@ -78,7 +80,10 @@ class _HrContractIssuePageState extends State<HrContractIssuePage> {
   }
 
   Future<void> _load() async {
-    setState(() => loading = true);
+    setState(() {
+      loading = true;
+      loadError = null;
+    });
     try {
       final t = await widget.templateRepository.getTemplate(company: widget.company);
       final staff = await widget.repository.getStaffList(company: widget.company);
@@ -105,10 +110,10 @@ class _HrContractIssuePageState extends State<HrContractIssuePage> {
           }
         }
       }
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
         setState(() {
-          errorMessage = 'دریافت اطلاعات اولیه برای صدور قرارداد ممکن نشد.';
+          loadError = failureDetail(e);
           loading = false;
         });
       }
@@ -301,6 +306,8 @@ class _HrContractIssuePageState extends State<HrContractIssuePage> {
         ),
         body: loading
             ? const Center(child: CircularProgressIndicator())
+            : loadError != null
+            ? ErrorState(failure: loadError!, onRetry: _load)
             : Form(
                 key: _formKey,
                 child: ListView(
