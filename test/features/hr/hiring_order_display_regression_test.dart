@@ -41,7 +41,8 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('علی رضایی — ۱۲').last);
       await tester.pumpAndSettle();
-      await tester.scrollUntilVisible(find.text('اطلاعات موجود نیست'), 250);
+      await tester.scrollUntilVisible(find.text('اطلاعات موجود نیست').first, 250,
+          scrollable: find.byType(Scrollable).first);
       expect(find.text('اطلاعات موجود نیست'), findsWidgets);
       expect(find.text('۰ ریال'), findsNothing);
       expect(tester.takeException(), isNull);
