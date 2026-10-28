@@ -83,7 +83,41 @@ class _PersonnelCodeRepository extends FakePersonnelIntroductionLetterRepository
   ];
 }
 
+class _RetryDraftRepository extends FakePersonnelIntroductionLetterRepository {
+  final keys = <String>[];
+
+  @override
+  Future<PersonnelIntroductionLetterDetail> saveDraft({
+    required String company, required String employee, String recipientType = 'bank',
+    String recipientName = '', String bankName = '', String branchName = '', String purpose = '',
+    String validityDate = '', String notes = '', required String requestKey, int revision = 0, String name = '',
+  }) async {
+    keys.add(requestKey);
+    throw Exception('connection lost');
+  }
+}
+
 void main() {
+  testWidgets('draft retries reuse the key created for the form', (tester) async {
+    final repo = _RetryDraftRepository();
+    await tester.pumpWidget(_wrapWithRtl(
+      const PersonnelIntroductionLetterFormPage(company: 'شرکت نمونه', initialLetterName: 'INTRO-DRAFT-1'),
+      repo: repo,
+    ));
+    await tester.pumpAndSettle();
+    final save = find.text('ذخیره پیش‌نویس');
+    await tester.ensureVisible(save);
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(save);
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+    expect(repo.keys, hasLength(2));
+    expect(repo.keys.last, repo.keys.first);
+  });
+
   for (final width in [320.0, 390.0, 430.0]) {
     testWidgets('missing personnel code has a Persian fallback at $width', (tester) async {
       await tester.binding.setSurfaceSize(Size(width, 844));
