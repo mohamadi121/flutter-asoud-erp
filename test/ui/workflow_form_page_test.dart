@@ -68,7 +68,7 @@ void main() {
       await tester.tap(find.text('ذخیره و طراحی مراحل'));
       await tester.pumpAndSettle();
       expect(
-          find.text('عنوان فرایند باید حداقل ۳ نویسه باشد.'), findsOneWidget);
+          find.text('عنوان فرایند باید بین ۳ تا ۱۴۰ نویسه باشد.'), findsOneWidget);
       expect(repository.submitted, isNull);
       await tester.enterText(title, 'تأیید خرید');
       await tester.enterText(
