@@ -122,8 +122,10 @@ class _EmploymentCertificatePreviewPageState extends State<EmploymentCertificate
     try {
       await printHrDocument(cert.printHtml);
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('چاپ گواهی انجام نشد. ${failureMessage(e)}')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('چاپ گواهی انجام نشد. ${failureMessage(e)}')));
+      }
     } finally {
       if (mounted) setState(() => _printing = false);
     }

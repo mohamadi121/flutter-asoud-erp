@@ -46,9 +46,11 @@ class _HrDocumentPrintButtonState extends State<HrDocumentPrintButton> {
       }
       await printHrDocument(html);
     } catch (error) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('چاپ سند انجام نشد. ${failureMessage(error)}'),
-      ));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('چاپ سند انجام نشد. ${failureMessage(error)}'),
+        ));
+      }
     } finally {
       if (mounted) setState(() => _running = false);
     }

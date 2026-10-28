@@ -131,7 +131,7 @@ void main() {
     // Select employee from dropdown
     await tester.tap(find.byType(DropdownButtonFormField<String>).first);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('محمد محمدی — HR-102').last);
+    await tester.tap(find.text('محمد محمدی — HR-۱۰۲').last);
     await tester.pumpAndSettle();
 
     // Enter location
