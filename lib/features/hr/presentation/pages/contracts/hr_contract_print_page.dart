@@ -467,8 +467,10 @@ class HrContractPrintLayout extends StatelessWidget {
 
           const SizedBox(height: 36),
           // Signatures
-          const Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
+          const Wrap(
+            alignment: WrapAlignment.spaceAround,
+            spacing: 24,
+            runSpacing: 16,
             children: [
               Text(
                 'امضای کارفرما',

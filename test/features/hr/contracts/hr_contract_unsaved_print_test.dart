@@ -20,6 +20,8 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(button);
       await tester.pumpAndSettle();
+      expect(find.text('امضای کارفرما'), findsOneWidget);
+      expect(find.text('امضای پرسنل'), findsOneWidget);
       expect(find.text('برای چاپ، ابتدا سند پرسنلی را ذخیره و خروجی چاپ سرور را دریافت کنید.'), findsOneWidget);
       expect(find.text('ارسال به چاپگر...'), findsNothing);
       expect(tester.takeException(), isNull);
