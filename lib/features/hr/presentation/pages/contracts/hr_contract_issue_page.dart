@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:math';
 
 import 'package:asoud_erp/core/theme/asoud_colors.dart';
 import 'package:asoud_erp/core/utils/jalali_date.dart';
@@ -28,6 +29,8 @@ class HrContractIssuePage extends StatefulWidget {
 
 class _HrContractIssuePageState extends State<HrContractIssuePage> {
   final _formKey = GlobalKey<FormState>();
+  late final String _clientId = widget.initialDraft?.clientId ??
+      List.generate(24, (_) => Random.secure().nextInt(256).toRadixString(16).padLeft(2, '0')).join();
 
   bool loading = true;
   bool saving = false;
@@ -166,6 +169,7 @@ class _HrContractIssuePageState extends State<HrContractIssuePage> {
   HrContractRecord _buildContractRecord({required String status}) {
     final employee = selectedEmployee!;
     return HrContractRecord(
+      clientId: _clientId,
       id: widget.initialDraft?.id ?? 'شماره پس از صدور',
       staffId: employee.id,
       employeeName: employee.name,

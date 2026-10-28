@@ -334,6 +334,7 @@ class ServerHrContractsRepository implements HrContractsRepository {
       data: {
         'company': company,
         'employee': draft.staffId,
+        if (draft.clientId != null) 'client_id': draft.clientId,
         'start_date': _isoDate(draft.startDate),
         if (draft.endDate != null && draft.endDate!.isNotEmpty) 'end_date': _isoDate(draft.endDate!),
         'contract_type': draft.kind,
@@ -364,6 +365,7 @@ class ServerHrContractsRepository implements HrContractsRepository {
       'asoud_erp.api.v1.employment_contracts.finalize_contract',
       data: {
         'contract_id': saved.id,
+        if (draft.clientId != null) 'client_id': draft.clientId,
       },
     );
     return getContract(company: company, id: saved.id);

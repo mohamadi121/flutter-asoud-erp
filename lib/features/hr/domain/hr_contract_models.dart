@@ -329,6 +329,7 @@ class HrContractTemplate {
 
 class HrContractRecord {
   const HrContractRecord({
+    this.clientId,
     required this.id,
     required this.staffId,
     required this.employeeName,
@@ -350,6 +351,7 @@ class HrContractRecord {
 
   factory HrContractRecord.fromJson(Map<String, dynamic> json) =>
       HrContractRecord(
+        clientId: json['client_id'] as String?,
         id: '${json['contract_id'] ?? json['id'] ?? json['name'] ?? ''}',
         staffId: '${json['employee'] ?? json['staffId'] ?? json['staff_id'] ?? ''}',
         employeeName:
@@ -392,6 +394,7 @@ class HrContractRecord {
 
   final String id;
   final String staffId;
+  final String? clientId;
   final String employeeName;
   final String employeeCode;
   final String unit;
@@ -412,6 +415,7 @@ class HrContractRecord {
   bool get isDraft => status == 'پیش‌نویس';
 
   HrContractRecord copyWith({
+    String? clientId,
     String? id,
     String? staffId,
     String? employeeName,
@@ -431,6 +435,7 @@ class HrContractRecord {
     List<HrPayrollTableRow>? snapshotPayrollRows,
   }) =>
       HrContractRecord(
+        clientId: clientId ?? this.clientId,
         id: id ?? this.id,
         staffId: staffId ?? this.staffId,
         employeeName: employeeName ?? this.employeeName,
@@ -451,6 +456,7 @@ class HrContractRecord {
       );
 
   Map<String, dynamic> toJson() => {
+        if (clientId != null) 'client_id': clientId,
         'id': id,
         'staffId': staffId,
         'employeeName': employeeName,
