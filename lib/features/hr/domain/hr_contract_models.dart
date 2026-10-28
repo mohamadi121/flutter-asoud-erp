@@ -13,19 +13,17 @@ class HrContractClause {
 
   factory HrContractClause.fromJson(Map<String, dynamic> json) =>
       HrContractClause(
-        id: json['id'] is int
-            ? json['id'] as int
-            : int.tryParse('${json['id']}') ?? 0,
+        id: json['id'] as Object? ?? '',
         title: '${json['title'] ?? ''}',
         body: '${json['body'] ?? ''}',
       );
 
-  final int id;
+  final Object id;
   final String title;
   final String body;
 
   HrContractClause copyWith({
-    int? id,
+    Object? id,
     String? title,
     String? body,
   }) =>
@@ -52,21 +50,19 @@ class HrPayrollTableRow {
 
   factory HrPayrollTableRow.fromJson(Map<String, dynamic> json) =>
       HrPayrollTableRow(
-        id: json['id'] is int
-            ? json['id'] as int
-            : int.tryParse('${json['id']}') ?? 0,
+        id: json['id'] as Object? ?? '',
         name: '${json['name'] ?? ''}',
-        period: '${json['period'] ?? 'monthly'}',
+        period: '${json['period_raw'] ?? json['period'] ?? 'monthly'}',
         fieldRef: '${json['fieldRef'] ?? json['field_ref'] ?? ''}',
       );
 
-  final int id;
+  final Object id;
   final String name;
   final String period; // 'monthly', 'annual', 'once'
   final String fieldRef; // e.g. 'payroll.base_salary'
 
   HrPayrollTableRow copyWith({
-    int? id,
+    Object? id,
     String? name,
     String? period,
     String? fieldRef,
@@ -213,18 +209,18 @@ class HrContractTemplate {
 
   factory HrContractTemplate.fromJson(Map<String, dynamic> json) =>
       HrContractTemplate(
-        id: '${json['id'] ?? 'contract-standard'}',
+        id: '${json['template_id'] ?? json['id'] ?? 'contract-standard'}',
         title: '${json['title'] ?? 'قالب قرارداد کار'}',
         version: json['version'] is int
             ? json['version'] as int
             : int.tryParse('${json['version']}') ?? 1,
-        isPublished: json['isPublished'] != false && json['is_published'] != false,
+        isPublished: json['has_draft'] != true && json['isPublished'] != false && json['is_published'] != false,
         clauses: (json['clauses'] as List<dynamic>?)
                 ?.whereType<Map<String, dynamic>>()
                 .map(HrContractClause.fromJson)
                 .toList() ??
             const [],
-        payrollRows: (json['payrollRows'] as List<dynamic>?)
+        payrollRows: ((json['salary_rows'] ?? json['payrollRows']) as List<dynamic>?)
                 ?.whereType<Map<String, dynamic>>()
                 .map(HrPayrollTableRow.fromJson)
                 .toList() ??
@@ -354,39 +350,40 @@ class HrContractRecord {
 
   factory HrContractRecord.fromJson(Map<String, dynamic> json) =>
       HrContractRecord(
-        id: '${json['id'] ?? ''}',
-        staffId: '${json['staffId'] ?? json['staff_id'] ?? ''}',
+        id: '${json['contract_id'] ?? json['id'] ?? json['name'] ?? ''}',
+        staffId: '${json['employee'] ?? json['staffId'] ?? json['staff_id'] ?? ''}',
         employeeName:
             '${json['employeeName'] ?? json['employee_name'] ?? json['employee'] ?? ''}',
         employeeCode:
             '${json['employeeCode'] ?? json['employee_code'] ?? json['code'] ?? ''}',
-        unit: '${json['unit'] ?? ''}',
+        unit: '${json['department'] ?? json['unit'] ?? ''}',
         jobTitle: '${json['jobTitle'] ?? json['job_title'] ?? json['job'] ?? ''}',
-        kind: '${json['kind'] ?? 'مدت‌معین'}',
+        kind: '${json['contract_type'] ?? json['kind'] ?? 'مدت‌معین'}',
         status: '${json['status'] ?? 'پیش‌نویس'}',
-        startDate: '${json['startDate'] ?? json['start_date'] ?? json['start'] ?? ''}',
-        endDate: json['endDate'] as String? ??
+        startDate: '${json['jalali_start_date'] ?? json['startDate'] ?? json['start_date'] ?? json['start'] ?? ''}',
+        endDate: json['jalali_end_date'] as String? ?? json['endDate'] as String? ??
             json['end_date'] as String? ??
             json['end'] as String?,
-        workplace: '${json['workplace'] ?? json['place'] ?? ''}',
+        workplace: '${json['work_location'] ?? json['workplace'] ?? json['place'] ?? ''}',
         subject: json['subject'] as String?,
         notes: json['notes'] as String?,
-        salaries: (json['salaries'] as Map<String, dynamic>?)?.map(
+        salaries: json['salary_table'] is List ? {
+          for (final row in (json['salary_table'] as List).whereType<Map>())
+            '${row['fieldRef']}': row['has_value'] == false || row['amount'] == null ? null : (row['amount'] as num).toInt(),
+        } : (json['salaries'] as Map<String, dynamic>?)?.map(
               (k, v) => MapEntry(
                 k,
                 v == null ? null : (v is int ? v : int.tryParse('$v')),
               ),
             ) ??
             const {},
-        templateVersion: json['templateVersion'] is int
-            ? json['templateVersion'] as int
-            : int.tryParse('${json['templateVersion']}') ?? 1,
-        snapshotClauses: (json['snapshotClauses'] as List<dynamic>?)
+        templateVersion: int.tryParse('${json['template_version'] ?? json['templateVersion']}') ?? 1,
+        snapshotClauses: ((json['rendered_clauses'] ?? json['snapshotClauses']) as List<dynamic>?)
                 ?.whereType<Map<String, dynamic>>()
                 .map(HrContractClause.fromJson)
                 .toList() ??
             const [],
-        snapshotPayrollRows: (json['snapshotPayrollRows'] as List<dynamic>?)
+        snapshotPayrollRows: ((json['salary_table'] ?? json['snapshotPayrollRows']) as List<dynamic>?)
                 ?.whereType<Map<String, dynamic>>()
                 .map(HrPayrollTableRow.fromJson)
                 .toList() ??

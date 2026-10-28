@@ -33,8 +33,8 @@ class _HrContractBuilderPageState extends State<HrContractBuilderPage> {
   late HrContractTemplate template;
   int currentTab = 0; // 0: template, 1: contract preview, 2: print preview
 
-  int? expandedClauseId;
-  int? editingClauseId;
+  Object? expandedClauseId;
+  Object? editingClauseId;
   final TextEditingController editTitleController = TextEditingController();
   final TextEditingController editBodyController = TextEditingController();
   List<HrPayrollTableRow> draftPayrollRows = [];
@@ -136,7 +136,7 @@ class _HrContractBuilderPageState extends State<HrContractBuilderPage> {
     final body = newBodyController.text.trim();
     if (title.isEmpty || body.isEmpty) return;
 
-    final nextId = (template.clauses.map((c) => c.id).fold(0, (a, b) => a > b ? a : b)) + 1;
+    final nextId = 'clause_${DateTime.now().microsecondsSinceEpoch}';
     final newClause = HrContractClause(id: nextId, title: title, body: body);
 
     setState(() {
@@ -188,7 +188,7 @@ class _HrContractBuilderPageState extends State<HrContractBuilderPage> {
     );
   }
 
-  void _openSalaryPicker(int rowId) {
+  void _openSalaryPicker(Object rowId) {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -209,7 +209,7 @@ class _HrContractBuilderPageState extends State<HrContractBuilderPage> {
   }
 
   void _addDraftPayrollRow() {
-    final nextId = (draftPayrollRows.map((r) => r.id).fold(0, (a, b) => a > b ? a : b)) + 1;
+    final nextId = 'row_${DateTime.now().microsecondsSinceEpoch}';
     setState(() {
       draftPayrollRows.add(HrPayrollTableRow(
         id: nextId,
@@ -220,7 +220,7 @@ class _HrContractBuilderPageState extends State<HrContractBuilderPage> {
     });
   }
 
-  void _deleteDraftPayrollRow(int rowId) {
+  void _deleteDraftPayrollRow(Object rowId) {
     setState(() {
       draftPayrollRows.removeWhere((r) => r.id == rowId);
     });

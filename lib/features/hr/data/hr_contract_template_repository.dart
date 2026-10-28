@@ -81,13 +81,13 @@ class FakeHrContractTemplateRepository implements HrContractTemplateRepository {
 class ServerHrContractTemplateRepository implements HrContractTemplateRepository {
   ServerHrContractTemplateRepository(this.client);
   final FrappeApiClient client;
+  final Map<String, int> _draftVersions = {};
 
   @override
   Future<HrContractTemplate> getTemplate({
     required String company,
     String? id,
   }) async {
-    try {
       final res = await client.callAsoudMethod(
         'asoud_erp.api.v1.employment_contracts.get_contract_template',
         data: {'company': company, if (id != null) 'template_id': id},
@@ -96,12 +96,10 @@ class ServerHrContractTemplateRepository implements HrContractTemplateRepository
         final data = res['data'] is Map<String, dynamic>
             ? res['data'] as Map<String, dynamic>
             : res;
+        _draftVersions[company] = (data['draft_version'] as num?)?.toInt() ?? 1;
         return HrContractTemplate.fromJson(data);
       }
-    } catch (_) {
-      // Fallback to default template if not created yet
-    }
-    return HrContractTemplate.defaultTemplate(company: company);
+    throw const FormatException('پاسخ قالب قرارداد معتبر نیست.');
   }
 
   @override
@@ -113,19 +111,20 @@ class ServerHrContractTemplateRepository implements HrContractTemplateRepository
       'asoud_erp.api.v1.employment_contracts.save_contract_template',
       data: {
         'company': company,
-        'clauses': template.clauses.map((c) => c.toJson()).toList(),
-        'salary_rows': template.payrollRows.map((r) => r.toJson()).toList(),
+        'clauses': [for (var i = 0; i < template.clauses.length; i++) {...template.clauses[i].toJson(), 'id': '${template.clauses[i].id}', 'order': i + 1}],
+        'salary_rows': template.payrollRows.map((r) => {...r.toJson(), 'id': '${r.id}', 'period': r.period == 'annual' ? 'yearly' : r.period}).toList(),
         'title': template.title,
-        'expected_version': template.version,
+        'expected_version': _draftVersions[company] ?? 0,
       },
     );
     if (res is Map<String, dynamic>) {
       final data = res['data'] is Map<String, dynamic>
           ? res['data'] as Map<String, dynamic>
           : res;
-      return HrContractTemplate.fromJson(data);
+      _draftVersions[company] = (data['draft_version'] as num?)?.toInt() ?? 1;
+      return HrContractTemplate.fromJson({...data, 'version': template.version, 'has_draft': true});
     }
-    return template;
+    throw const FormatException('پاسخ ذخیره قالب معتبر نیست.');
   }
 
   @override
@@ -138,26 +137,19 @@ class ServerHrContractTemplateRepository implements HrContractTemplateRepository
       data: {
         'company': company,
         'template_id': template.id,
-        'expected_version': template.version,
+        'expected_version': _draftVersions[company] ?? 0,
       },
     );
     if (res is Map<String, dynamic>) {
-      final data = res['data'] is Map<String, dynamic>
-          ? res['data'] as Map<String, dynamic>
-          : res;
-      return HrContractTemplate.fromJson(data);
+      return getTemplate(company: company, id: template.id);
     }
-    return template.copyWith(
-      version: template.version + 1,
-      isPublished: true,
-    );
+    throw const FormatException('پاسخ انتشار قالب معتبر نیست.');
   }
 
   @override
   Future<List<HrPayrollFieldOption>> getPayrollFields({
     required String company,
   }) async {
-    try {
       final res = await client.callAsoudMethod(
         'asoud_erp.api.v1.employment_contracts.get_contract_field_catalog',
         data: {'company': company},
@@ -167,7 +159,7 @@ class ServerHrContractTemplateRepository implements HrContractTemplateRepository
         final categories = data['categories'] as List<dynamic>?;
         if (categories != null) {
           for (final cat in categories) {
-            if (cat is Map && cat['key'] == 'payroll') {
+            if (cat is Map && cat['key'] == 'payroll' && cat['authorized'] == true) {
               final fields = cat['fields'] as List<dynamic>?;
               if (fields != null) {
                 return fields
@@ -183,15 +175,13 @@ class ServerHrContractTemplateRepository implements HrContractTemplateRepository
           }
         }
       }
-    } catch (_) {}
-    return defaultPayrollFields;
+    return const [];
   }
 
   @override
   Future<Map<String, List<String>>> getAvailableCatalogFields({
     required String company,
   }) async {
-    try {
       final res = await client.callAsoudMethod(
         'asoud_erp.api.v1.employment_contracts.get_contract_field_catalog',
         data: {'company': company},
@@ -202,7 +192,7 @@ class ServerHrContractTemplateRepository implements HrContractTemplateRepository
         if (categories != null) {
           final result = <String, List<String>>{};
           for (final cat in categories) {
-            if (cat is Map) {
+            if (cat is Map && cat['authorized'] != false) {
               final key = '${cat['key'] ?? ''}';
               final fields = (cat['fields'] as List<dynamic>?)
                   ?.whereType<Map<String, dynamic>>()
@@ -214,7 +204,6 @@ class ServerHrContractTemplateRepository implements HrContractTemplateRepository
           if (result.isNotEmpty) return result;
         }
       }
-    } catch (_) {}
-    return defaultCatalogGroups;
+    return const {};
   }
 }

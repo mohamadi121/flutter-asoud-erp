@@ -48,9 +48,9 @@ class ArticleCard extends StatelessWidget {
   final VoidCallback onSaveEdit;
   final VoidCallback onCancelEdit;
   final void Function(TextEditingController controller) onOpenDrawer;
-  final void Function(int rowId) onOpenSalaryPicker;
+  final void Function(Object rowId) onOpenSalaryPicker;
   final VoidCallback onAddDraftPayrollRow;
-  final void Function(int rowId) onDeleteDraftPayrollRow;
+  final void Function(Object rowId) onDeleteDraftPayrollRow;
 
   @override
   Widget build(BuildContext context) {
@@ -220,9 +220,9 @@ class InlineArticleEditor extends StatelessWidget {
   final VoidCallback onSave;
   final VoidCallback onCancel;
   final VoidCallback onOpenDrawer;
-  final void Function(int rowId) onOpenSalaryPicker;
+  final void Function(Object rowId) onOpenSalaryPicker;
   final VoidCallback onAddRow;
-  final void Function(int rowId) onDeleteRow;
+  final void Function(Object rowId) onDeleteRow;
 
   @override
   Widget build(BuildContext context) {
@@ -408,7 +408,7 @@ class PayrollMiniTable extends StatelessWidget {
 
   static const _periodLabels = {
     'monthly': 'ماهانه',
-    'annual': 'سالانه',
+    'yearly': 'سالانه',
     'once': 'یک‌باره',
   };
 
@@ -490,13 +490,13 @@ class PayrollRepeatingTableEditor extends StatelessWidget {
   });
 
   final List<HrPayrollTableRow> rows;
-  final void Function(int rowId) onOpenSalaryPicker;
+  final void Function(Object rowId) onOpenSalaryPicker;
   final VoidCallback onAddRow;
-  final void Function(int rowId) onDeleteRow;
+  final void Function(Object rowId) onDeleteRow;
 
   static const _periodLabels = {
     'monthly': 'ماهانه',
-    'annual': 'سالانه',
+    'yearly': 'سالانه',
     'once': 'یک‌باره',
   };
 

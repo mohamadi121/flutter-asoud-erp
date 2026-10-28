@@ -1,4 +1,5 @@
 import 'package:asoud_erp/core/network/frappe_client.dart';
+import 'package:asoud_erp/core/utils/jalali_date.dart';
 import 'package:asoud_erp/features/hr/domain/hr_contract_models.dart';
 
 class EmployeeOption {
@@ -11,11 +12,11 @@ class EmployeeOption {
   });
 
   factory EmployeeOption.fromJson(Map<String, dynamic> json) => EmployeeOption(
-        id: '${json['id'] ?? ''}',
-        name: '${json['name'] ?? ''}',
-        code: '${json['code'] ?? ''}',
-        unit: '${json['unit'] ?? ''}',
-        jobTitle: '${json['jobTitle'] ?? json['job_title'] ?? ''}',
+        id: '${json['employee_code'] ?? json['id'] ?? ''}',
+        name: '${json['display_name'] ?? json['full_name'] ?? json['name'] ?? ''}',
+        code: '${json['employee_code'] ?? json['code'] ?? ''}',
+        unit: '${json['department'] ?? json['unit'] ?? ''}',
+        jobTitle: '${json['designation'] ?? json['jobTitle'] ?? json['job_title'] ?? ''}',
       );
 
   final String id;
@@ -333,14 +334,14 @@ class ServerHrContractsRepository implements HrContractsRepository {
       data: {
         'company': company,
         'employee': draft.staffId,
-        'start_date': draft.startDate,
-        if (draft.endDate != null) 'end_date': draft.endDate,
+        'start_date': _isoDate(draft.startDate),
+        if (draft.endDate != null && draft.endDate!.isNotEmpty) 'end_date': _isoDate(draft.endDate!),
         'contract_type': draft.kind,
         'work_location': draft.workplace,
         if (draft.subject != null) 'subject': draft.subject,
         if (draft.notes != null) 'notes': draft.notes,
         'salary_values': draft.salaries,
-        if (draft.id.isNotEmpty && !draft.id.startsWith('پیش‌نویس'))
+        if (draft.id.isNotEmpty && draft.id != 'شماره پس از صدور' && !draft.id.startsWith('پیش‌نویس'))
           'contract_id': draft.id,
       },
     );
@@ -350,7 +351,7 @@ class ServerHrContractsRepository implements HrContractsRepository {
           : res;
       return HrContractRecord.fromJson(data);
     }
-    return draft;
+    throw const FormatException('پاسخ ذخیره قرارداد معتبر نیست.');
   }
 
   @override
@@ -358,36 +359,29 @@ class ServerHrContractsRepository implements HrContractsRepository {
     required String company,
     required HrContractRecord draft,
   }) async {
-    final res = await client.callAsoudMethod(
+    final saved = await saveDraftContract(company: company, draft: draft);
+    await client.callAsoudMethod(
       'asoud_erp.api.v1.employment_contracts.finalize_contract',
       data: {
-        'contract_id': draft.id,
+        'contract_id': saved.id,
       },
     );
-    if (res is Map<String, dynamic>) {
-      final data = res['data'] is Map<String, dynamic>
-          ? res['data'] as Map<String, dynamic>
-          : res;
-      return HrContractRecord.fromJson(data);
-    }
-    return draft.copyWith(status: 'نهایی');
+    return getContract(company: company, id: saved.id);
   }
 
   @override
   Future<List<EmployeeOption>> getStaffList({required String company}) async {
-    try {
       final res = await client.callAsoudMethod(
         'asoud_erp.api.v1.personnel.list_personnel',
-        data: {'company': company, 'limit': 100},
+        data: {'company': company},
       );
-      if (res is List) {
-        return res
+      if (res is Map && res['rows'] is List) {
+        return (res['rows'] as List)
             .whereType<Map<String, dynamic>>()
             .map(EmployeeOption.fromJson)
             .toList();
       }
-    } catch (_) {}
-    return FakeHrContractsRepository._mockStaff;
+    throw const FormatException('پاسخ فهرست پرسنل معتبر نیست.');
   }
 
   @override
@@ -395,7 +389,6 @@ class ServerHrContractsRepository implements HrContractsRepository {
     required String company,
     required String staffId,
   }) async {
-    try {
       final res = await client.callAsoudMethod(
         'asoud_erp.api.v1.employment_contracts.prepare_contract',
         data: {'company': company, 'employee': staffId},
@@ -410,14 +403,21 @@ class ServerHrContractsRepository implements HrContractsRepository {
           for (final row in salaryTable) {
             if (row is Map) {
               final ref = '${row['fieldRef'] ?? row['id'] ?? ''}';
-              final val = row['amount'] ?? row['value'];
-              result[ref] = val == null ? null : (val is int ? val : int.tryParse('$val'));
+              final val = row['has_value'] == false ? null : row['amount'];
+              result[ref] = val is num ? val.toInt() : null;
             }
           }
           return result;
         }
       }
-    } catch (_) {}
     return const {};
+  }
+
+  String _isoDate(String value) {
+    final latin = toLatinDigits(value);
+    if (RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(latin) && int.parse(latin.substring(0, 4)) > 1700) return latin;
+    final date = parseJalaliDate(value);
+    if (date == null) throw const FormatException('تاریخ قرارداد معتبر نیست.');
+    return date.toIso8601String().substring(0, 10);
   }
 }
