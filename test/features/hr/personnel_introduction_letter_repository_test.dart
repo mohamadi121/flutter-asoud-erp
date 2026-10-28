@@ -1,7 +1,59 @@
 import 'package:asoud_erp/features/hr/data/personnel_introduction_letter_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:asoud_erp/core/network/frappe_client.dart';
+import 'package:mocktail/mocktail.dart';
+
+class _Client extends Mock implements FrappeApiClient {}
 
 void main() {
+  test('repository uses server endpoint parameters and unwrapped response shapes', () async {
+    final client = _Client();
+    final repository = FrappePersonnelIntroductionLetterRepository(client);
+    const module = 'asoud_erp.api.v1.personnel_introduction_letters';
+    final detail = <String, dynamic>{
+      'name': 'INTRO-DRAFT-1', 'id': 'INTRO-DRAFT-1', 'company': 'شرکت',
+      'employee': 'HR-EMP-1', 'employee_name': 'نام پرسنل', 'employee_number': '125',
+      'recipient_type': 'bank', 'recipient_name': '', 'bank_name': 'بانک ملت',
+      'branch_name': '', 'recipient_text': 'بانک ملت', 'purpose': 'افتتاح حساب',
+      'validity_date': '', 'notes': '', 'status': 'Draft', 'number': '—',
+      'issue_date': '—', 'revision': 1, 'template_version': 1,
+      'rendered_html': '<article>متن</article>',
+      'print_html': '<article>پیش‌نویس ـ فاقد اعتبار نهایی</article>',
+      'values_snapshot': <String, dynamic>{}, 'template_snapshot': <String, dynamic>{},
+    };
+    when(() => client.callAsoudMethod('$module.list_letters', data: {
+      'company': 'شرکت', 'query': '125', 'status': 'Draft', 'start': 20, 'page_length': 10,
+    })).thenAnswer((_) async => {'items': [detail], 'total': 21});
+    final page = await repository.list(company: 'شرکت', query: '125', status: 'Draft', start: 20, pageLength: 10);
+    expect(page.total, 21);
+    expect(page.items.single.employeeNumber, '125');
+    when(() => client.callAsoudMethod('$module.get_letter', data: {'name': 'INTRO-DRAFT-1'}))
+        .thenAnswer((_) async => detail);
+    expect((await repository.getLetter(name: 'INTRO-DRAFT-1')).printHtml, detail['print_html']);
+    when(() => client.callAsoudMethod('$module.save_draft', data: {
+      'company': 'شرکت', 'employee': 'HR-EMP-1', 'recipient_type': 'bank',
+      'recipient_name': '', 'bank_name': 'بانک ملت', 'branch_name': '',
+      'purpose': 'افتتاح حساب', 'validity_date': '', 'notes': '',
+      'request_key': 'retry-key', 'revision': 0, 'name': '',
+    })).thenAnswer((_) async => detail);
+    final saved = await repository.saveDraft(company: 'شرکت', employee: 'HR-EMP-1',
+      bankName: 'بانک ملت', purpose: 'افتتاح حساب', requestKey: 'retry-key');
+    expect(saved.revision, 1);
+    when(() => client.callAsoudMethod('$module.finalize_letter', data: {
+      'name': saved.name, 'revision': 1, 'request_key': 'final-key',
+    })).thenAnswer((_) async => {...detail, 'status': 'Final', 'number': 'INTRO-1405-0001', 'revision': 2});
+    final finalLetter = await repository.finalizeLetter(name: saved.name, revision: 1, requestKey: 'final-key');
+    expect(finalLetter.isFinal, isTrue);
+    expect(finalLetter.number, 'INTRO-1405-0001');
+    when(() => client.callAsoudMethod('$module.get_employee_options', data: {'company': 'شرکت'}))
+        .thenAnswer((_) async => [{
+          'employee': 'HR-EMP-1', 'employee_name': 'نام پرسنل', 'employee_number': '125',
+          'national_id': '', 'designation': null, 'department': null,
+          'work_location': '', 'date_of_joining': '',
+        }]);
+    expect((await repository.getEmployeeOptions(company: 'شرکت')).single['employee_number'], '125');
+  });
+
   test('maps personnel introduction letter list contract without exposing ids', () {
     final item = PersonnelIntroductionLetter.fromMap({
       'name': 'INTRO-1',

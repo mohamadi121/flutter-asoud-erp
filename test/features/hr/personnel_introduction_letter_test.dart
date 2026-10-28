@@ -4,6 +4,7 @@ import 'package:asoud_erp/features/hr/presentation/pages/personnel_introduction_
 import 'package:asoud_erp/features/hr/presentation/pages/personnel_introduction_letter_template_builder_page.dart';
 import 'package:asoud_erp/features/hr/presentation/pages/personnel_introduction_letters_page.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -36,7 +37,58 @@ class _RetryFinalizationRepository extends FakePersonnelIntroductionLetterReposi
   }
 }
 
+class _OperationalRepository extends FakePersonnelIntroductionLetterRepository {
+  @override
+  Future<PersonnelIntroductionTemplate> getTemplate({required String company}) async =>
+      PersonnelIntroductionTemplate.fromMap({
+        'name': 'template', 'revision': 1, 'status': 'Published',
+        'clauses': <Map<String, dynamic>>[],
+      });
+}
+
 void main() {
+  testWidgets('printing sends the exact server print payload', (tester) async {
+    const channel = MethodChannel('net.nfet.printing');
+    String? receivedHtml;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (call) async {
+      if (call.method == 'convertHtml') {
+        receivedHtml = (call.arguments as Map)['html'] as String;
+        throw PlatformException(code: 'unavailable');
+      }
+      return null;
+    });
+    addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, null));
+    final repo = FakePersonnelIntroductionLetterRepository();
+    final server = await repo.getLetter(name: 'INTRO-DRAFT-1');
+    await tester.pumpWidget(_wrapWithRtl(
+      const PersonnelIntroductionLetterPreviewPage(
+        letterName: 'INTRO-DRAFT-1', company: 'شرکت نمونه',
+      ), repo: repo,
+    ));
+    await tester.pumpAndSettle();
+    final printButton = find.text('چاپ / ذخیره سند');
+    await tester.ensureVisible(printButton);
+    await tester.tap(printButton);
+    await tester.pumpAndSettle();
+    expect(receivedHtml, server.printHtml);
+  });
+
+  for (final width in [320.0, 390.0, 430.0]) {
+    testWidgets('operational user has no template entry points at $width', (tester) async {
+      await tester.binding.setSurfaceSize(Size(width, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(_wrapWithRtl(
+        const PersonnelIntroductionLettersPage(company: 'شرکت نمونه'),
+        repo: _OperationalRepository(), width: width,
+      ));
+      await tester.pumpAndSettle();
+      expect(find.text('ویرایش قالب'), findsNothing);
+      expect(find.byTooltip('ویرایش قالب'), findsNothing);
+      expect(find.text('＋ معرفی‌نامه جدید'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   group('PersonnelIntroductionLetter models', () {
     test('Template and clauses serialization roundtrip', () {
       final jsonMap = {

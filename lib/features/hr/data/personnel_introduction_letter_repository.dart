@@ -45,6 +45,7 @@ class PersonnelIntroductionTemplate {
     this.requiredRecipient = true,
     this.requiredPurpose = true,
     this.hasExpiry = false,
+    this.canManageTemplate = false,
   });
 
   factory PersonnelIntroductionTemplate.fromMap(Map<String, dynamic> map) => PersonnelIntroductionTemplate(
@@ -56,6 +57,7 @@ class PersonnelIntroductionTemplate {
         requiredRecipient: map['required_recipient'] != false,
         requiredPurpose: map['required_purpose'] != false,
         hasExpiry: map['has_expiry'] == true,
+        canManageTemplate: map['can_manage_template'] == true,
         clauses: (map['clauses'] as List? ?? const [])
             .map((c) => IntroductionLetterClause.fromMap(Map<String, dynamic>.from(c as Map)))
             .toList(),
@@ -67,6 +69,7 @@ class PersonnelIntroductionTemplate {
   final bool requiredRecipient;
   final bool requiredPurpose;
   final bool hasExpiry;
+  final bool canManageTemplate;
   final List<IntroductionLetterClause> clauses;
 
   Map<String, dynamic> toMap() => {
@@ -76,6 +79,7 @@ class PersonnelIntroductionTemplate {
         'required_recipient': requiredRecipient,
         'required_purpose': requiredPurpose,
         'has_expiry': hasExpiry,
+        'can_manage_template': canManageTemplate,
         'clauses': clauses.map((c) => c.toMap()).toList(),
       };
 }
@@ -420,6 +424,7 @@ class FrappePersonnelIntroductionLetterRepository implements PersonnelIntroducti
 class FakePersonnelIntroductionLetterRepository implements PersonnelIntroductionLetterRepository {
   PersonnelIntroductionTemplate template = const PersonnelIntroductionTemplate(
     name: 'tmpl-intro-1',
+    canManageTemplate: true,
     revision: 1,
     status: 'Published',
     requiredRecipient: true,

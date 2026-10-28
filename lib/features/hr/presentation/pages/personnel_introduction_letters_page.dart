@@ -33,12 +33,23 @@ class _PersonnelIntroductionLettersPageState extends State<PersonnelIntroduction
   late Future<({List<PersonnelIntroductionLetter> items, int total})> _rows;
   String _status = '';
   String _query = '';
+  bool _canManageTemplate = false;
   final _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _reload();
+    _loadTemplateCapability().ignore();
+  }
+
+  Future<void> _loadTemplateCapability() async {
+    try {
+      final template = await _repository.getTemplate(company: widget.company);
+      if (mounted) setState(() => _canManageTemplate = template.canManageTemplate);
+    } catch (_) {
+      if (mounted) setState(() => _canManageTemplate = false);
+    }
   }
 
   @override
@@ -87,6 +98,7 @@ class _PersonnelIntroductionLettersPageState extends State<PersonnelIntroduction
   }
 
   void _openTemplateBuilder() {
+    if (!_canManageTemplate) return;
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => RepositoryProvider.value(
@@ -129,11 +141,11 @@ class _PersonnelIntroductionLettersPageState extends State<PersonnelIntroduction
         appBar: AsoudHeader(
           title: 'معرفی‌نامه‌های پرسنلی',
           subtitle: 'اسناد پرسنلی / معرفی‌نامه پرسنل',
-          action: IconButton(
+          action: _canManageTemplate ? IconButton(
             icon: const Icon(Icons.settings_outlined, size: 20),
             tooltip: 'ویرایش قالب',
             onPressed: _openTemplateBuilder,
-          ),
+          ) : null,
         ),
         body: RefreshIndicator(
           onRefresh: () async => setState(_reload),
@@ -198,8 +210,8 @@ class _PersonnelIntroductionLettersPageState extends State<PersonnelIntroduction
                               onPressed: () => _openNewForm(),
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Expanded(
+                          if (_canManageTemplate) const SizedBox(width: 8),
+                          if (_canManageTemplate) Expanded(
                             child: OutlinedButton.icon(
                               icon: const Icon(Icons.tune, size: 16),
                               label: const Text('ویرایش قالب', style: TextStyle(fontSize: 11)),

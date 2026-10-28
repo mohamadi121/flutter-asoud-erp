@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:pdf/pdf.dart';
+import 'package:printing/printing.dart';
 
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/asoud_colors.dart';
@@ -30,6 +32,7 @@ class _PersonnelIntroductionLetterPreviewPageState
   bool _loading = true;
   String? _error;
   bool _finalizing = false;
+  bool _printing = false;
   late final String _finalizeRequestKey =
       'finalize-${widget.letterName}-${DateTime.now().microsecondsSinceEpoch}';
   PersonnelIntroductionLetterDetail? _letter;
@@ -91,6 +94,31 @@ class _PersonnelIntroductionLetterPreviewPageState
           ),
         ),
       );
+    }
+  }
+
+  Future<void> _printLetter() async {
+    final letter = _letter;
+    if (letter == null || _printing) return;
+    if (letter.printHtml.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('خروجی چاپ معرفی‌نامه از سرور دریافت نشده است.')),
+      );
+      return;
+    }
+    setState(() => _printing = true);
+    try {
+      // ignore: deprecated_member_use
+      final bytes = await Printing.convertHtml(html: letter.printHtml, format: PdfPageFormat.a4);
+      await Printing.layoutPdf(onLayout: (_) async => bytes, format: PdfPageFormat.a4);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('چاپ معرفی‌نامه در این دستگاه انجام نشد. دوباره تلاش کنید.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _printing = false);
     }
   }
 
@@ -325,11 +353,7 @@ class _PersonnelIntroductionLetterPreviewPageState
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                 ),
-                                onPressed: () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('دستور چاپ ارسال شد.')),
-                                  );
-                                },
+                                onPressed: _printing ? null : _printLetter,
                               ),
                               const SizedBox(height: 10),
                               OutlinedButton(

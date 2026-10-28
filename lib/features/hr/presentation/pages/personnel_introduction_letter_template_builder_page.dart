@@ -25,6 +25,7 @@ class _PersonnelIntroductionLetterTemplateBuilderPageState
   bool _loading = true;
   String? _error;
   bool _saving = false;
+  bool _canManageTemplate = false;
 
   int _revision = 1;
   String _status = 'Draft';
@@ -78,7 +79,16 @@ class _PersonnelIntroductionLetterTemplateBuilderPageState
     try {
       final tmpl = await _repository.getTemplate(company: widget.company);
       if (!mounted) return;
+      if (!tmpl.canManageTemplate) {
+        setState(() {
+          _loading = false;
+          _canManageTemplate = false;
+          _error = 'دسترسی مدیریت قالب معرفی‌نامه برای شما فعال نیست.';
+        });
+        return;
+      }
       setState(() {
+        _canManageTemplate = tmpl.canManageTemplate;
         _revision = tmpl.revision;
         _status = tmpl.status;
         _requiredRecipient = tmpl.requiredRecipient;
@@ -313,6 +323,7 @@ class _PersonnelIntroductionLetterTemplateBuilderPageState
   }
 
   Future<void> _saveDraft() async {
+    if (!_canManageTemplate || _saving) return;
     setState(() => _saving = true);
     try {
       final res = await _repository.saveTemplateDraft(
@@ -342,6 +353,7 @@ class _PersonnelIntroductionLetterTemplateBuilderPageState
   }
 
   Future<void> _publish() async {
+    if (!_canManageTemplate || _saving) return;
     setState(() => _saving = true);
     try {
       final res = await _repository.publishTemplate(
