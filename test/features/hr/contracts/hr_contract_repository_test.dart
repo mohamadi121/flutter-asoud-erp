@@ -35,6 +35,7 @@ void main() {
     when(() => client.callAsoudMethod('${prefix}get_contract', data: any(named: 'data'))).thenAnswer((_) async => detail);
     final rows = await repository.listContracts(company: 'شرکت', query: 'محمد', statusFilter: 'نهایی', page: 2);
     expect(rows.single.id, 'CONT-00001');
+    expect(rows.single.displayNumber, 'CNT-1405-00001');
     expect(rows.single.staffId, 'HR-EMP-00001');
     expect(rows.single.unit, 'امور اداری');
     expect(rows.single.templateVersion, 2);

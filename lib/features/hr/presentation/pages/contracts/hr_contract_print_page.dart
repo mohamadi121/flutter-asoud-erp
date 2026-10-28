@@ -228,7 +228,7 @@ class HrContractPrintLayout extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    'شماره: ${contract.id}',
+                    'شماره: ${contract.displayNumber}',
                     style: const TextStyle(fontSize: 10, color: Color(0xFF475569)),
                   ),
                   Text(

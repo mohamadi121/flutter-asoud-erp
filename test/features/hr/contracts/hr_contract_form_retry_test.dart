@@ -31,7 +31,7 @@ void main() {
     await tester.pumpAndSettle();
     final save = find.text('ذخیره پیش‌نویس');
     for (var attempt = 0; attempt < 2; attempt++) {
-      await tester.ensureVisible(save);
+      await tester.scrollUntilVisible(save, 500, scrollable: find.byType(Scrollable).first);
       await tester.tap(save);
       await tester.pumpAndSettle();
     }

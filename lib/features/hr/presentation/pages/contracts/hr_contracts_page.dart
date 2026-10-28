@@ -489,7 +489,7 @@ class _HrContractsPageState extends State<HrContractsPage> {
           ),
           const SizedBox(height: 4),
           Text(
-            '${c.id} · ${c.employeeCode}\n${c.kind} · شروع ${c.startDate}',
+            '${c.displayNumber} · ${c.employeeCode}\n${c.kind} · شروع ${c.startDate}',
             style: const TextStyle(
               fontSize: 11,
               height: 1.5,

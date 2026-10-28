@@ -330,6 +330,7 @@ class HrContractTemplate {
 class HrContractRecord {
   const HrContractRecord({
     this.clientId,
+    this.contractNumber,
     required this.id,
     required this.staffId,
     required this.employeeName,
@@ -352,6 +353,7 @@ class HrContractRecord {
   factory HrContractRecord.fromJson(Map<String, dynamic> json) =>
       HrContractRecord(
         clientId: json['client_id'] as String?,
+        contractNumber: (json['contract_number'] ?? json['name']) as String?,
         id: '${json['contract_id'] ?? json['id'] ?? json['name'] ?? ''}',
         staffId: '${json['employee'] ?? json['staffId'] ?? json['staff_id'] ?? ''}',
         employeeName:
@@ -395,6 +397,9 @@ class HrContractRecord {
   final String id;
   final String staffId;
   final String? clientId;
+  final String? contractNumber;
+  String get displayNumber => isDraft ? 'شماره پس از صدور' :
+      (contractNumber ?? (id.startsWith('CNT-') || id.startsWith('CRT-') ? id : 'اطلاعات موجود نیست'));
   final String employeeName;
   final String employeeCode;
   final String unit;
@@ -416,6 +421,7 @@ class HrContractRecord {
 
   HrContractRecord copyWith({
     String? clientId,
+    String? contractNumber,
     String? id,
     String? staffId,
     String? employeeName,
@@ -436,6 +442,7 @@ class HrContractRecord {
   }) =>
       HrContractRecord(
         clientId: clientId ?? this.clientId,
+        contractNumber: contractNumber ?? this.contractNumber,
         id: id ?? this.id,
         staffId: staffId ?? this.staffId,
         employeeName: employeeName ?? this.employeeName,
@@ -457,6 +464,7 @@ class HrContractRecord {
 
   Map<String, dynamic> toJson() => {
         if (clientId != null) 'client_id': clientId,
+        if (contractNumber != null) 'contract_number': contractNumber,
         'id': id,
         'staffId': staffId,
         'employeeName': employeeName,
