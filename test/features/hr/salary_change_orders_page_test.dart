@@ -335,9 +335,9 @@ void main() {
         .thenAnswer((_) async => []);
     when(() => repository.printOrder(name: 'ENTRY-1'))
         .thenAnswer((_) async => const SalaryChangeOrderPrint(
-              name: 'ENTRY-1',
-              title: 'حکم افزایش یا تغییر حقوق و مزایا',
               html: '<div>print</div>',
+              status: 'final',
+              number: 'SAL-1405-001',
               draftBanner: false,
             ));
     when(() => repository.applyToPayroll(
