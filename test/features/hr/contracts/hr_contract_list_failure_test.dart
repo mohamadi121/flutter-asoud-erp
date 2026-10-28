@@ -31,7 +31,8 @@ void main() {
       ));
       await tester.pumpAndSettle();
       final reason = find.text('خطایی در سرور رخ داد. کمی بعد دوباره تلاش کنید.');
-      await tester.scrollUntilVisible(reason, 150);
+      await tester.scrollUntilVisible(reason, 150,
+          scrollable: find.byType(Scrollable).first);
       expect(reason, findsOneWidget);
       final retry = find.text('تلاش دوباره');
       await tester.ensureVisible(retry);
