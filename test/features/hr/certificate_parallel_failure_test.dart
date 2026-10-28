@@ -50,7 +50,7 @@ void main() {
       ));
       await tester.pumpAndSettle();
       expect(find.text('اجازه دسترسی به این بخش را ندارید'), findsOneWidget);
-      expect(find.text('تلاش دوباره'), findsOneWidget);
+      expect(find.text('تلاش دوباره'), findsNothing);
       repository.people.completeError(const ApiException(kind: ApiFailureKind.network, message: 'شبکه'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
@@ -68,7 +68,7 @@ void main() {
       ));
       await tester.pumpAndSettle();
       expect(find.text('اجازه دسترسی به این بخش را ندارید'), findsOneWidget);
-      expect(find.text('تلاش دوباره'), findsOneWidget);
+      expect(find.text('تلاش دوباره'), findsNothing);
       expect(find.byType(CircularProgressIndicator), findsNothing);
       repository.people.completeError(const ApiException(kind: ApiFailureKind.network, message: 'شبکه'));
       await tester.pumpAndSettle();
