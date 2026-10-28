@@ -15,6 +15,8 @@ class _FakeSetupClient extends Fake implements FrappeApiClient {
   final calls = <String>[];
   final Map<String, dynamic> methodData = {};
   Completer<Map<String, dynamic>>? createGate;
+  Map<String, dynamic>? statusLead;
+  Object? statusError;
 
   @override
   bool get isAuthenticated => true;
@@ -43,13 +45,14 @@ class _FakeSetupClient extends Fake implements FrappeApiClient {
       return createGate!.future;
     }
     if (method == 'asoud_erp.api.v1.first_office_setup.status') {
+      if (statusError != null) throw statusError!;
       return {
         'message': {
           'ok': true,
           'data': {
             'company': 'شرکت آزمون',
-            'hr_lead': null,
-            'hr_ready': false,
+            'hr_lead': statusLead,
+            'hr_ready': statusLead != null,
             'completed': false,
           },
         },
@@ -149,6 +152,57 @@ Widget _buildTestApp(FrappeApiClient client, double width) {
 }
 
 void main() {
+  for (final kind in [ApiFailureKind.timeout, ApiFailureKind.network,
+    ApiFailureKind.protocol]) {
+    for (final exists in [true, false]) {
+      testWidgets('$kind requires reconciliation before retry; lead=$exists',
+          (tester) async {
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        await tester.binding.setSurfaceSize(const Size(390, 1200));
+        final client = _FakeSetupClient()
+          ..createGate = Completer<Map<String, dynamic>>();
+        await tester.pumpWidget(_buildTestApp(client, 390));
+        await tester.pumpAndSettle();
+        final fields = find.descendant(of: find.byType(FirstHrLeadForm),
+            matching: find.byType(TextFormField));
+        for (final entry in ['علی رضایی', 'hr_lead', '09123456789',
+          'Temporary123!'].asMap().entries) {
+          await tester.ensureVisible(fields.at(entry.key));
+          await tester.enterText(fields.at(entry.key), entry.value);
+        }
+        final submit = find.text('ثبت مسئول منابع انسانی و ادامه  ←');
+        await tester.ensureVisible(submit);
+        await tester.tap(submit);
+        await tester.pump();
+        client.createGate!.completeError(ApiException(kind: kind));
+        await tester.pumpAndSettle();
+        expect(tester.widget<FirstHrLeadForm>(find.byType(FirstHrLeadForm))
+            .enabled, isFalse);
+        expect(client.calls.where((m) => m.endsWith('.create_hr_lead')).length, 1);
+        client.statusError = const ApiException(kind: ApiFailureKind.network);
+        final reload = find.text('دریافت دوباره وضعیت راه‌اندازی');
+        await tester.ensureVisible(reload);
+        await tester.tap(reload);
+        await tester.pumpAndSettle();
+        expect(tester.widget<FirstHrLeadForm>(find.byType(FirstHrLeadForm))
+            .enabled, isFalse);
+        client.statusError = null;
+        if (exists) client.statusLead = {'full_name': 'علی رضایی',
+          'username': 'hr_lead', 'role_title': 'مسئول منابع انسانی'};
+        await tester.ensureVisible(reload);
+        await tester.tap(reload);
+        await tester.pumpAndSettle();
+        if (exists) {
+          expect(find.byType(FirstHrLeadForm), findsNothing);
+          expect(find.text('علی رضایی'), findsOneWidget);
+        } else {
+          expect(tester.widget<FirstHrLeadForm>(find.byType(FirstHrLeadForm))
+              .enabled, isTrue);
+        }
+        expect(client.calls.where((m) => m.endsWith('.create_hr_lead')).length, 1);
+      });
+    }
+  }
   testWidgets('renders first office setup review at 320, 390, and 430 px',
       (tester) async {
     addTearDown(() => tester.binding.setSurfaceSize(null));

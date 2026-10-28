@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/network/frappe_client.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/failure_message.dart';
@@ -111,6 +112,8 @@ class _FirstOfficeSetupPageState extends State<FirstOfficeSetupPage> {
       if (mounted) {
         setState(() {
           hrError = failureDetail(e);
+          hrNeedsReload = !(e is ApiException &&
+              e.kind == ApiFailureKind.validation && e.statusCode == 417);
         });
       }
       return false;
