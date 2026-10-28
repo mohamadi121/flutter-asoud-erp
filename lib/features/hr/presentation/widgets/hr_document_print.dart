@@ -10,6 +10,9 @@ Future<Uint8List> convertHrDocument(String html, {PdfPageFormat format = PdfPage
   if (html.trim().isEmpty) {
     throw const FormatException('خروجی چاپ موجود نیست. سند را دوباره دریافت کنید.');
   }
+  // printing 5.14.3 has no replacement for converting server-rendered HTML.
+  // Its suggested PDF creation APIs would rebuild the document on the client
+  // and lose the authoritative letterhead, snapshot and draft watermark.
   // ignore: deprecated_member_use
   return Printing.convertHtml(html: html, format: format);
 }

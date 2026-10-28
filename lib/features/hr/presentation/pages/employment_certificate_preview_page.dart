@@ -241,8 +241,10 @@ class _EmploymentCertificatePreviewPageState extends State<EmploymentCertificate
                   ],
 
                   // Meta row
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    spacing: 12,
+                    runSpacing: 8,
                     children: [
                       Text('شماره: ${isFinal ? toPersianDigits(cert.number) : '—'}', style: const TextStyle(fontSize: 10, color: Color(0xFF62768C))),
                       Text('تاریخ: ${isFinal && cert.issueDate.isNotEmpty ? formatJalaliIso(cert.issueDate) : '—'}', style: const TextStyle(fontSize: 10, color: Color(0xFF62768C))),
@@ -336,8 +338,10 @@ class _EmploymentCertificatePreviewPageState extends State<EmploymentCertificate
 
                   const SizedBox(height: 40),
                   // Signatures
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    spacing: 12,
+                    runSpacing: 8,
                     children: const [
                       Text('نام و امضای مقام مجاز', style: TextStyle(fontSize: 10, color: Color(0xFF62768C))),
                       Text('مهر شرکت', style: TextStyle(fontSize: 10, color: Color(0xFF62768C))),
