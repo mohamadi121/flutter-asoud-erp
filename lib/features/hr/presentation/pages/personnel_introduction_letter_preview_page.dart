@@ -248,14 +248,16 @@ class _PersonnelIntroductionLetterPreviewPageState
           const Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
+              Expanded(child: Text(
                 'نام و امضای مقام مجاز',
                 style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF243F60)),
-              ),
-              Text(
+              )),
+              SizedBox(width: 12),
+              Expanded(child: Text(
                 'مهر شرکت',
+                textAlign: TextAlign.end,
                 style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF243F60)),
-              ),
+              )),
             ],
           ),
           const SizedBox(height: 30),

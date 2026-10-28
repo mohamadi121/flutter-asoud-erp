@@ -342,10 +342,14 @@ class _PersonnelIntroductionLetterFormPageState
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF62768C))),
-          Text(
-            value != null && value.isNotEmpty ? value : 'پس از انتخاب',
-            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF243F60)),
+          Expanded(child: Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF62768C)))),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              value != null && value.isNotEmpty ? value : 'پس از انتخاب',
+              textAlign: TextAlign.end,
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF243F60)),
+            ),
           ),
         ],
       ),
@@ -478,6 +482,7 @@ class _PersonnelIntroductionLetterFormPageState
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
+              isExpanded: true,
               initialValue: _recipientType,
               decoration: const InputDecoration(
                 labelText: 'نوع مرجع دریافت‌کننده',

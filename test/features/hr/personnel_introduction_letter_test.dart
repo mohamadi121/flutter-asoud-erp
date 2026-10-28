@@ -131,7 +131,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.textContaining('INTERNAL-EMPLOYEE'), findsNothing);
       expect(find.textContaining('اطلاعات موجود نیست'), findsWidgets);
-      await tester.tap(find.text('پرسنل منتخب'));
+      await tester.tap(find.descendant(of: find.byType(BottomSheet),
+          matching: find.widgetWithText(ListTile, 'پرسنل منتخب')));
       await tester.pumpAndSettle();
       expect(find.text('اطلاعات موجود نیست'), findsWidgets);
       expect(find.textContaining('INTERNAL-EMPLOYEE'), findsNothing);
@@ -150,8 +151,8 @@ void main() {
       await tester.pumpAndSettle();
       await tester.enterText(find.descendant(of: find.byType(BottomSheet), matching: find.byType(TextField)), '۹۷۵۳۱۰');
       await tester.pumpAndSettle();
-      expect(find.text('پرسنل منتخب'), findsOneWidget);
-      expect(find.text('پرسنل دیگر'), findsNothing);
+      expect(find.descendant(of: find.byType(BottomSheet), matching: find.text('پرسنل منتخب')), findsOneWidget);
+      expect(find.descendant(of: find.byType(BottomSheet), matching: find.text('پرسنل دیگر')), findsNothing);
       expect(tester.takeException(), isNull);
     });
   }
