@@ -4,6 +4,7 @@ import '../widgets/hr_document_print.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/failure_message.dart';
+import '../../../../core/utils/jalali_date.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../../core/widgets/states.dart';
 import '../../data/personnel_introduction_letter_repository.dart';
@@ -215,11 +216,11 @@ class _PersonnelIntroductionLetterPreviewPageState
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'شماره: ${letter.number.isNotEmpty ? letter.number : "—"}',
+                'شماره: ${letter.number.isNotEmpty ? toPersianDigits(letter.number) : "—"}',
                 style: const TextStyle(fontSize: 11, color: Color(0xFF62768C)),
               ),
               Text(
-                'تاریخ: ${letter.issueDate.isNotEmpty ? letter.issueDate : "—"}',
+                'تاریخ: ${letter.issueDate.isNotEmpty ? formatJalaliIso(letter.issueDate) : "—"}',
                 style: const TextStyle(fontSize: 11, color: Color(0xFF62768C)),
               ),
             ],

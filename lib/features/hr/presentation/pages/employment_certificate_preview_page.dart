@@ -243,7 +243,7 @@ class _EmploymentCertificatePreviewPageState extends State<EmploymentCertificate
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text('شماره: ${isFinal ? toPersianDigits(cert.number) : '—'}', style: const TextStyle(fontSize: 10, color: Color(0xFF62768C))),
-                      Text('تاریخ: ${isFinal && cert.issueDate.isNotEmpty ? toPersianDigits(cert.issueDate) : '—'}', style: const TextStyle(fontSize: 10, color: Color(0xFF62768C))),
+                      Text('تاریخ: ${isFinal && cert.issueDate.isNotEmpty ? formatJalaliIso(cert.issueDate) : '—'}', style: const TextStyle(fontSize: 10, color: Color(0xFF62768C))),
                     ],
                   ),
                   const SizedBox(height: 16),

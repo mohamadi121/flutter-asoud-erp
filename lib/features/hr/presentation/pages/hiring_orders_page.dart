@@ -60,7 +60,7 @@ class _HiringOrdersViewState extends State<_HiringOrdersView> {
   String _employeeName = '';
   String _employeeNumber = '';
   String _employment = 'تمام‌وقت';
-  String _effectiveDate = '1405/08/01';
+  String _effectiveDate = JalaliDate.fromDateTime(DateTime.now()).format();
   String _unit = '';
   String _position = '';
   String _location = '';
@@ -383,7 +383,7 @@ class _HiringOrdersViewState extends State<_HiringOrdersView> {
       _employeeName = '';
       _employeeNumber = '';
       _employment = 'تمام‌وقت';
-      _effectiveDate = '1405/08/01';
+      _effectiveDate = JalaliDate.fromDateTime(DateTime.now()).format();
       _unit = '';
       _position = '';
       _location = '';
@@ -401,7 +401,7 @@ class _HiringOrdersViewState extends State<_HiringOrdersView> {
       _employeeName = order.employeeName;
       _employeeNumber = order.employeeNumber;
       _employment = order.values['employment']?.toString() ?? 'تمام‌وقت';
-      _effectiveDate = order.effectiveDate.isNotEmpty ? order.effectiveDate : '1405/08/01';
+      _effectiveDate = order.effectiveDate.isNotEmpty ? order.effectiveDate : JalaliDate.fromDateTime(DateTime.now()).format();
       _unit = order.department;
       _position = order.designation;
       _location = order.location;
@@ -736,7 +736,7 @@ class _HiringOrdersViewState extends State<_HiringOrdersView> {
           ),
           const SizedBox(height: 2),
           Text(
-            'تاریخ اجرا: ${toPersianDigits(order.effectiveDate)}',
+            'تاریخ اجرا: ${formatJalaliIso(order.effectiveDate)}',
             style: const TextStyle(fontSize: 11, color: AsoudColors.muted),
           ),
           const SizedBox(height: 10),
@@ -832,7 +832,7 @@ class _HiringOrdersViewState extends State<_HiringOrdersView> {
               ),
               SizedBox(height: 4),
               Text(
-                '۶ ماده از فرم‌ساز سند؛ کارشناس HR فقط اطلاعات اجرایی را تکمیل می‌کند.',
+                '۶ ماده از فرم‌ساز سند؛ کارشناس منابع انسانی فقط اطلاعات اجرایی را تکمیل می‌کند.',
                 style: TextStyle(fontSize: 11, color: AsoudColors.muted),
               ),
             ],
@@ -874,7 +874,7 @@ class _HiringOrdersViewState extends State<_HiringOrdersView> {
                     .map((p) => DropdownMenuItem(
                           value: p.name,
                           child: Text(
-                            '${p.displayName} — ${p.employeeNumber.isNotEmpty ? p.employeeNumber : p.name}',
+                            '${p.displayName} — ${p.employeeNumber.isNotEmpty ? toPersianDigits(p.employeeNumber) : 'اطلاعات موجود نیست'}',
                             style: const TextStyle(fontSize: 12),
                           ),
                         ))
@@ -1140,9 +1140,9 @@ class _HiringOrdersViewState extends State<_HiringOrdersView> {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        state.currentPayroll!.hasMissing
-                            ? 'ناقص'
-                            : '${toPersianDigits((state.currentPayroll!.monthlyTotal ?? 0).toStringAsFixed(0))} ریال',
+                        state.currentPayroll!.hasMissing || state.currentPayroll!.monthlyTotal == null
+                            ? 'اطلاعات موجود نیست'
+                            : '${toPersianDigits(state.currentPayroll!.monthlyTotal!.toStringAsFixed(0))} ریال',
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF1769AA)),
                       ),
                     ],
@@ -1417,7 +1417,7 @@ class _HiringOrdersViewState extends State<_HiringOrdersView> {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text('شماره: ${order != null && isFinal ? order.number : "—"}', style: const TextStyle(fontSize: 10, color: Color(0xFF718499))),
-                      Text('تاریخ صدور: ${order != null && order.issueDate.isNotEmpty ? toPersianDigits(order.issueDate) : "—"}', style: const TextStyle(fontSize: 10, color: Color(0xFF718499))),
+                      Text('تاریخ صدور: ${order != null && order.issueDate.isNotEmpty ? formatJalaliIso(order.issueDate) : "—"}', style: const TextStyle(fontSize: 10, color: Color(0xFF718499))),
                     ],
                   ),
                 ],
@@ -1506,9 +1506,9 @@ class _HiringOrdersViewState extends State<_HiringOrdersView> {
                                 Padding(
                                   padding: const EdgeInsets.all(6),
                                   child: Text(
-                                    state.currentPayroll!.hasMissing
-                                        ? 'ناقص'
-                                        : '${toPersianDigits((state.currentPayroll!.monthlyTotal ?? 0).toStringAsFixed(0))} ریال',
+                                    state.currentPayroll!.hasMissing || state.currentPayroll!.monthlyTotal == null
+                                        ? 'اطلاعات موجود نیست'
+                                        : '${toPersianDigits(state.currentPayroll!.monthlyTotal!.toStringAsFixed(0))} ریال',
                                     style: const TextStyle(
                                         fontSize: 9.5,
                                         fontWeight: FontWeight.bold,
