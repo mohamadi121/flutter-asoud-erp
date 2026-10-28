@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/failure_message.dart';
+import '../../../../core/utils/jalali_date.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../../core/widgets/states.dart';
 import '../../data/employment_certificate_repository.dart';
@@ -129,6 +130,41 @@ class _EmploymentCertificateFormPageState extends State<EmploymentCertificateFor
     resolved = resolved.replaceAll('{{employee.designation}}', emp?['designation']?.toString() ?? '[عنوان شغلی]');
     resolved = resolved.replaceAll('{{employee.date_of_joining}}', emp?['date_of_joining']?.toString() ?? '[تاریخ شروع]');
     return resolved;
+  }
+
+  int? _getSalaryAmount(Map<String, dynamic>? emp, String fieldRef) {
+    if (emp == null) return null;
+    final pay = emp['salaries'] ?? emp['pay'];
+    if (pay is Map) {
+      final v = pay[fieldRef] ?? pay[fieldRef.replaceAll('payroll.', '')];
+      if (v is num) return v.toInt();
+      if (v is String) return int.tryParse(v);
+    }
+    return null;
+  }
+
+  bool _allMonthlySalaryFilled(Map<String, dynamic>? emp) {
+    if (emp == null) return false;
+    final rows = _template?.salaryRows ?? const [];
+    if (rows.isEmpty) return true;
+    for (final r in rows) {
+      if (r.period == 'monthly' && _getSalaryAmount(emp, r.fieldRef) == null) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  int _calculateMonthlySalaryTotal(Map<String, dynamic>? emp) {
+    if (emp == null) return 0;
+    final rows = _template?.salaryRows ?? const [];
+    var total = 0;
+    for (final r in rows) {
+      if (r.period == 'monthly') {
+        total += _getSalaryAmount(emp, r.fieldRef) ?? 0;
+      }
+    }
+    return total;
   }
 
   Future<void> _saveDraft({bool navigateToPreview = false}) async {
@@ -358,6 +394,120 @@ class _EmploymentCertificateFormPageState extends State<EmploymentCertificateFor
                         value: _includeSalary,
                         onChanged: (val) => setState(() => _includeSalary = val),
                       ),
+                      if (_includeSalary) ...[
+                        const SizedBox(height: 8),
+                        for (final row in (_template?.salaryRows ?? const <SalaryRowDefinition>[])) ...[
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF8FAFC),
+                              border: Border.all(color: const Color(0xFFE2E8F0)),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      row.title,
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                    ),
+                                    Text(
+                                      switch (row.period) {
+                                        'monthly' => 'ماهانه',
+                                        'annual' => 'سالانه',
+                                        'once' => 'یک‌باره',
+                                        _ => 'ماهانه',
+                                      },
+                                      style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text('مبلغ (ریال):', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                                    Text(
+                                      _selectedEmployee.isEmpty
+                                          ? 'پس از انتخاب'
+                                          : (_getSalaryAmount(empInfo, row.fieldRef) != null
+                                              ? '${toPersianDigits('${_getSalaryAmount(empInfo, row.fieldRef)}')} ریال'
+                                              : 'اطلاعات موجود نیست'),
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: _selectedEmployee.isNotEmpty && _getSalaryAmount(empInfo, row.fieldRef) == null
+                                            ? const Color(0xFFB45309)
+                                            : const Color(0xFF1E293B),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 2),
+                                const Text(
+                                  '⌁ متصل به فیلد حقوق و دستمزد',
+                                  style: TextStyle(fontSize: 9, color: Color(0xFF94A3B8)),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        // Totals Row
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('جمع اقلام ماهانه', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                              Text(
+                                _selectedEmployee.isEmpty
+                                    ? 'پس از انتخاب'
+                                    : (_allMonthlySalaryFilled(empInfo)
+                                        ? '${toPersianDigits('${_calculateMonthlySalaryTotal(empInfo)}')} ریال'
+                                        : 'ناقص'),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                  color: _allMonthlySalaryFilled(empInfo)
+                                      ? AsoudColors.primary
+                                      : const Color(0xFFB45309),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (_selectedEmployee.isNotEmpty && !_allMonthlySalaryFilled(empInfo)) ...[
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFFBEB),
+                              border: Border.all(color: const Color(0xFFFDE68A)),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Row(
+                              children: [
+                                Icon(Icons.warning_amber_rounded, size: 18, color: Color(0xFFB45309)),
+                                SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'مبلغ یکی از فیلدهای حقوقی این پرسنل در نمونه موجود نیست. ارسال تا تکمیل آن غیرفعال می‌ماند.',
+                                    style: TextStyle(fontSize: 11, color: Color(0xFFB45309)),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
                     ] else ...[
                       Container(
                         padding: const EdgeInsets.all(10),
@@ -371,6 +521,11 @@ class _EmploymentCertificateFormPageState extends State<EmploymentCertificateFor
                         ),
                       ),
                     ],
+                    const SizedBox(height: 6),
+                    const Text(
+                      'کارشناس HR در این فرم به انتخاب یا تغییر اتصال فیلدهای حقوقی دسترسی ندارد.',
+                      style: TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
+                    ),
                   ],
                 ),
               ),

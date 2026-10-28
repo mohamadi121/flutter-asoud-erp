@@ -416,8 +416,38 @@ class HrContractRecord {
   final List<HrContractClause> snapshotClauses;
   final List<HrPayrollTableRow> snapshotPayrollRows;
 
-  bool get isFinal => status == 'نهایی';
-  bool get isDraft => status == 'پیش‌نویس';
+  static String mapStatusToGroup(String raw) {
+    final s = raw.trim().toLowerCase();
+    if (s == 'draft' || s == 'پیش‌نویس') return 'پیش‌نویس';
+    if (s == 'in review' ||
+        s == 'in_review' ||
+        s == 'pending' ||
+        s == 'در جریان' ||
+        s == 'در انتظار بررسی') {
+      return 'در جریان';
+    }
+    if (s == 'final' ||
+        s == 'submitted' ||
+        s == 'active' ||
+        s == 'نهایی' ||
+        s == 'ارسال‌شده') {
+      return 'نهایی';
+    }
+    if (s == 'rejected' ||
+        s == 'cancelled' ||
+        s == 'canceled' ||
+        s == 'ردشده' ||
+        s == 'لغوشده') {
+      return 'ردشده';
+    }
+    return raw;
+  }
+
+  String get statusGroup => mapStatusToGroup(status);
+  bool get isFinal => statusGroup == 'نهایی';
+  bool get isDraft => statusGroup == 'پیش‌نویس';
+  bool get isInReview => statusGroup == 'در جریان';
+  bool get isRejected => statusGroup == 'ردشده';
 
   HrContractRecord copyWith({
     String? clientId,

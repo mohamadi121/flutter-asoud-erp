@@ -37,6 +37,83 @@ class _EmploymentCertificateTemplateBuilderPageState extends State<EmploymentCer
   List<SalaryRowDefinition> _salaryRows = [];
 
   int? _editingIndex;
+  final Set<int> _expandedClauses = {0, 1, 2, 3};
+  String _selectedDrawerGroup = 'personnel';
+  String _drawerSearchQuery = '';
+
+  static const _drawerGroupLabels = {
+    'personnel': 'اطلاعات پرسنل',
+    'company': 'مشخصات شرکت',
+    'decree': 'اطلاعات گواهی',
+    'payroll': 'حقوق و دستمزد',
+  };
+
+  static const _catalogGroups = {
+    'personnel': [
+      'نام کامل پرسنل',
+      'کد پرسنلی',
+      'کد ملی',
+      'عنوان شغلی',
+      'واحد سازمانی',
+      'تاریخ شروع همکاری',
+      'نوع قرارداد',
+      'محل خدمت',
+      'شماره شناسنامه',
+    ],
+    'company': [
+      'نام شرکت',
+      'شناسه ملی شرکت',
+      'شماره ثبت',
+      'نشانی قانونی شرکت',
+      'کد پستی شرکت',
+      'تلفن شرکت',
+    ],
+    'decree': [
+      'شماره گواهی',
+      'تاریخ صدور گواهی',
+      'گیرنده گواهی',
+      'هدف صدور گواهی',
+      'مدت اعتبار گواهی',
+    ],
+    'payroll': [
+      'حقوق پایه',
+      'حق مسکن',
+      'بن خواربار',
+      'حق جذب',
+      'پایه سنوات',
+      'سایر مزایا',
+    ],
+  };
+
+  static const _tokenMap = {
+    'نام کامل پرسنل': '{{employee.employee_name}}',
+    'کد پرسنلی': '{{employee.employee_number}}',
+    'کد ملی': '{{employee.national_id}}',
+    'عنوان شغلی': '{{employee.designation}}',
+    'واحد سازمانی': '{{employee.department}}',
+    'تاریخ شروع همکاری': '{{employee.date_of_joining}}',
+    'نوع قرارداد': '{{employee.contract_type}}',
+    'محل خدمت': '{{employee.work_location}}',
+    'شماره شناسنامه': '{{employee.id_number}}',
+    'نام شرکت': '{{company.company_name}}',
+    'شناسه ملی شرکت': '{{company.tax_id}}',
+    'شماره ثبت': '{{company.registration_number}}',
+    'نشانی قانونی شرکت': '{{company.address}}',
+    'کد پستی شرکت': '{{company.postal_code}}',
+    'تلفن شرکت': '{{company.phone}}',
+    'شماره گواهی': '{{certificate.number}}',
+    'تاریخ صدور گواهی': '{{certificate.issue_date}}',
+    'گیرنده گواهی': '{{certificate.addressee_name}}',
+    'هدف صدور گواهی': '{{certificate.purpose}}',
+    'مدت اعتبار گواهی': '{{certificate.validity}}',
+    'حقوق پایه': '{{payroll.base}}',
+    'حق مسکن': '{{payroll.housing}}',
+    'بن خواربار': '{{payroll.food}}',
+    'حق جذب': '{{payroll.merit}}',
+    'پایه سنوات': '{{payroll.seniority}}',
+    'سایر مزایا': '{{payroll.other}}',
+  };
+
   final _editTitleController = TextEditingController();
   final _editBodyController = TextEditingController();
 
@@ -88,6 +165,7 @@ class _EmploymentCertificateTemplateBuilderPageState extends State<EmploymentCer
   void _beginEditClause(int index) {
     setState(() {
       _editingIndex = index;
+      _expandedClauses.add(index);
       _editTitleController.text = _clauses[index].title;
       _editBodyController.text = _clauses[index].body;
       _showNewClauseForm = false;
@@ -124,57 +202,93 @@ class _EmploymentCertificateTemplateBuilderPageState extends State<EmploymentCer
   void _showPlaceholderPicker(TextEditingController controller) {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
       builder: (ctx) => Directionality(
         textDirection: TextDirection.rtl,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('انتخاب فیلد پویا جهت درج در بند', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _TagChip('نام پرسنل', '{{employee.employee_name}}', () {
-                    _insertPlaceholder(controller, '{{employee.employee_name}}');
-                    Navigator.of(ctx).pop();
-                  }),
-                  _TagChip('کد پرسنلی', '{{employee.employee_number}}', () {
-                    _insertPlaceholder(controller, '{{employee.employee_number}}');
-                    Navigator.of(ctx).pop();
-                  }),
-                  _TagChip('کد ملی', '{{employee.national_id}}', () {
-                    _insertPlaceholder(controller, '{{employee.national_id}}');
-                    Navigator.of(ctx).pop();
-                  }),
-                  _TagChip('عنوان شغلی', '{{employee.designation}}', () {
-                    _insertPlaceholder(controller, '{{employee.designation}}');
-                    Navigator.of(ctx).pop();
-                  }),
-                  _TagChip('تاریخ شروع همکاری', '{{employee.date_of_joining}}', () {
-                    _insertPlaceholder(controller, '{{employee.date_of_joining}}');
-                    Navigator.of(ctx).pop();
-                  }),
-                  _TagChip('نام شرکت', '{{company.company_name}}', () {
-                    _insertPlaceholder(controller, '{{company.company_name}}');
-                    Navigator.of(ctx).pop();
-                  }),
-                  _TagChip('گیرنده گواهی', '{{certificate.addressee_name}}', () {
-                    _insertPlaceholder(controller, '{{certificate.addressee_name}}');
-                    Navigator.of(ctx).pop();
-                  }),
-                  _TagChip('هدف صدور', '{{certificate.purpose}}', () {
-                    _insertPlaceholder(controller, '{{certificate.purpose}}');
-                    Navigator.of(ctx).pop();
-                  }),
-                ],
+        child: StatefulBuilder(
+          builder: (context, setSheetState) {
+            final fields = _catalogGroups[_selectedDrawerGroup] ?? const [];
+            final filtered = fields.where((f) => f.contains(_drawerSearchQuery.trim())).toList();
+
+            return SafeArea(
+              child: SizedBox(
+                height: MediaQuery.of(context).size.height * 0.75,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(Icons.storage_rounded, size: 18, color: AsoudColors.primary),
+                              SizedBox(width: 8),
+                              Text('انتخاب فیلد موجود', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                            ],
+                          ),
+                          IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      DropdownButtonFormField<String>(
+                        initialValue: _selectedDrawerGroup,
+                        isExpanded: true,
+                        decoration: const InputDecoration(labelText: 'گروه فیلدها', isDense: true, border: OutlineInputBorder()),
+                        items: _drawerGroupLabels.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value))).toList(),
+                        onChanged: (v) {
+                          if (v != null) {
+                            setSheetState(() => _selectedDrawerGroup = v);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        decoration: const InputDecoration(
+                          hintText: 'نام فیلد را جست‌وجو کنید...',
+                          prefixIcon: Icon(Icons.search),
+                          isDense: true,
+                          border: OutlineInputBorder(),
+                        ),
+                        onChanged: (v) => setSheetState(() => _drawerSearchQuery = v),
+                      ),
+                      const SizedBox(height: 10),
+                      Expanded(
+                        child: ListView.separated(
+                          itemCount: filtered.length,
+                          separatorBuilder: (_, __) => const Divider(height: 1),
+                          itemBuilder: (context, idx) {
+                            final field = filtered[idx];
+                            final token = _tokenMap[field] ?? '[$field]';
+                            return ListTile(
+                              dense: true,
+                              contentPadding: EdgeInsets.zero,
+                              leading: const Icon(Icons.add_circle_outline, size: 18, color: AsoudColors.primary),
+                              title: Text(field, style: const TextStyle(fontSize: 13)),
+                              trailing: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFEFF6FF),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Text('درج', style: TextStyle(fontSize: 11, color: AsoudColors.primary)),
+                              ),
+                              onTap: () {
+                                _insertPlaceholder(controller, token);
+                                Navigator.pop(ctx);
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );
@@ -443,72 +557,254 @@ class _EmploymentCertificateTemplateBuilderPageState extends State<EmploymentCer
   Widget _buildClauseItem(int i) {
     final c = _clauses[i];
     final isEditing = _editingIndex == i;
-
-    if (isEditing) {
-      return Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF5F9FD),
-          border: Border.all(color: const Color(0xFF8DBDEB)),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('ویرایش بند ${i + 1}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-            const SizedBox(height: 8),
-            TextFormField(controller: _editTitleController, decoration: const InputDecoration(labelText: 'عنوان بند', border: OutlineInputBorder())),
-            const SizedBox(height: 8),
-            TextFormField(controller: _editBodyController, maxLines: 4, decoration: const InputDecoration(labelText: 'متن بند', border: OutlineInputBorder())),
-            const SizedBox(height: 8),
-            TextButton.icon(
-              icon: const Icon(Icons.data_object, size: 16),
-              label: const Text('درج فیلد در متن بند'),
-              onPressed: () => _showPlaceholderPicker(_editBodyController),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                ElevatedButton(
-                  onPressed: _saveEditClause,
-                  style: ElevatedButton.styleFrom(backgroundColor: AsoudColors.primary, foregroundColor: Colors.white),
-                  child: const Text('ذخیره بند'),
-                ),
-                const SizedBox(width: 8),
-                TextButton(
-                  onPressed: () => setState(() => _editingIndex = null),
-                  child: const Text('انصراف'),
-                ),
-              ],
-            ),
-          ],
-        ),
-      );
-    }
+    final isExpanded = _expandedClauses.contains(i);
+    final isSalaryClause = c.id == 'clause_salary' || c.id == '4' || i == 3;
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: const Color(0xFFE4EAF1)),
+        color: isEditing ? const Color(0xFFF8FAFC) : Colors.white,
+        border: Border.all(
+          color: isEditing ? AsoudColors.primary : const Color(0xFFE4EAF1),
+          width: isEditing ? 1.5 : 1,
+        ),
         borderRadius: BorderRadius.circular(8),
       ),
       padding: const EdgeInsets.all(10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              CircleAvatar(radius: 12, backgroundColor: const Color(0xFFEDF5FC), child: Text('${i + 1}', style: const TextStyle(fontSize: 11, color: AsoudColors.primary))),
-              const SizedBox(width: 8),
-              Expanded(child: Text(c.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-              IconButton(icon: const Icon(Icons.arrow_upward, size: 16), onPressed: i > 0 ? () => _moveClause(i, -1) : null),
-              IconButton(icon: const Icon(Icons.arrow_downward, size: 16), onPressed: i < _clauses.length - 1 ? () => _moveClause(i, 1) : null),
-              IconButton(icon: const Icon(Icons.edit, size: 16), onPressed: () => _beginEditClause(i)),
-              IconButton(icon: const Icon(Icons.delete, size: 16, color: AsoudColors.danger), onPressed: () => _deleteClause(i)),
-            ],
+          InkWell(
+            onTap: () {
+              setState(() {
+                if (isExpanded) {
+                  _expandedClauses.remove(i);
+                } else {
+                  _expandedClauses.add(i);
+                }
+              });
+            },
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 12,
+                  backgroundColor: const Color(0xFFEDF5FC),
+                  child: Text(
+                    toPersianDigits('${i + 1}'),
+                    style: const TextStyle(fontSize: 11, color: AsoudColors.primary),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    c.title,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                ),
+                Icon(
+                  isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                  color: AsoudColors.muted,
+                  size: 18,
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 6),
-          Text(c.body, style: const TextStyle(fontSize: 11, color: AsoudColors.muted, height: 1.6)),
+          if (isExpanded) ...[
+            const SizedBox(height: 8),
+            if (isEditing) ...[
+              // Inline edit form directly under the article
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF5F9FD),
+                  border: Border.all(color: const Color(0xFF8DBDEB)),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'ویرایش بند ${toPersianDigits('${i + 1}')}',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: _editTitleController,
+                      decoration: const InputDecoration(labelText: 'عنوان بند', border: OutlineInputBorder(), isDense: true),
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: _editBodyController,
+                      maxLines: 4,
+                      decoration: const InputDecoration(labelText: 'متن بند', border: OutlineInputBorder()),
+                    ),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.add, size: 16),
+                      label: const Text('درج فیلد در متن بند'),
+                      onPressed: () => _showPlaceholderPicker(_editBodyController),
+                    ),
+                    if (isSalaryClause && _salaryEnabled) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFCBD5E1)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('جدول اختیاری حقوق و درآمد', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                            const SizedBox(height: 8),
+                            for (int rIdx = 0; rIdx < _salaryRows.length; rIdx++) ...[
+                              Container(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF8FAFC),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text('ردیف ${toPersianDigits('${rIdx + 1}')}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                                        IconButton(
+                                          icon: const Icon(Icons.delete_outline, size: 16, color: AsoudColors.danger),
+                                          onPressed: () => setState(() => _salaryRows.removeAt(rIdx)),
+                                          visualDensity: VisualDensity.compact,
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    TextFormField(
+                                      initialValue: _salaryRows[rIdx].title,
+                                      decoration: const InputDecoration(labelText: 'عنوان قلم درآمدی', isDense: true, border: OutlineInputBorder()),
+                                      onChanged: (val) => _salaryRows[rIdx] = _salaryRows[rIdx].copyWith(title: val),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text('فیلد متصل: ${_salaryRows[rIdx].fieldRef}', style: const TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+                                    const SizedBox(height: 4),
+                                    DropdownButtonFormField<String>(
+                                      initialValue: _salaryRows[rIdx].period,
+                                      decoration: const InputDecoration(labelText: 'دوره پرداخت', isDense: true, border: OutlineInputBorder()),
+                                      items: const [
+                                        DropdownMenuItem(value: 'monthly', child: Text('ماهانه')),
+                                        DropdownMenuItem(value: 'annual', child: Text('سالانه')),
+                                        DropdownMenuItem(value: 'once', child: Text('یک‌باره')),
+                                      ],
+                                      onChanged: (val) {
+                                        if (val != null) {
+                                          setState(() => _salaryRows[rIdx] = _salaryRows[rIdx].copyWith(period: val));
+                                        }
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                            OutlinedButton.icon(
+                              icon: const Icon(Icons.add, size: 16),
+                              label: const Text('افزودن ردیف درآمدی'),
+                              onPressed: () {
+                                setState(() {
+                                  _salaryRows.add(SalaryRowDefinition(
+                                    id: 'row_${DateTime.now().millisecondsSinceEpoch % 10000}',
+                                    title: 'قلم درآمدی جدید',
+                                    fieldRef: 'payroll.base',
+                                    period: 'monthly',
+                                  ));
+                                });
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        ElevatedButton(
+                          onPressed: _saveEditClause,
+                          style: ElevatedButton.styleFrom(backgroundColor: AsoudColors.primary, foregroundColor: Colors.white),
+                          child: const Text('ذخیره تغییرات'),
+                        ),
+                        OutlinedButton(
+                          onPressed: () => setState(() => _editingIndex = null),
+                          child: const Text('انصراف'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ] else ...[
+              Text(c.body, style: const TextStyle(fontSize: 11, color: AsoudColors.muted, height: 1.6)),
+              if (isSalaryClause && _salaryEnabled) ...[
+                Container(
+                  margin: const EdgeInsets.only(top: 8),
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('جدول اختیاری حقوق و درآمد', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                      const SizedBox(height: 6),
+                      for (int rIdx = 0; rIdx < _salaryRows.length; rIdx++) ...[
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 2),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('${toPersianDigits('${rIdx + 1}')}. ${_salaryRows[rIdx].title}', style: const TextStyle(fontSize: 11)),
+                              Text(
+                                switch (_salaryRows[rIdx].period) {
+                                  'monthly' => 'ماهانه',
+                                  'annual' => 'سالانه',
+                                  'once' => 'یک‌باره',
+                                  _ => 'ماهانه',
+                                },
+                                style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 4,
+                runSpacing: 4,
+                alignment: WrapAlignment.end,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  IconButton(icon: const Icon(Icons.arrow_upward, size: 16), onPressed: i > 0 ? () => _moveClause(i, -1) : null),
+                  IconButton(icon: const Icon(Icons.arrow_downward, size: 16), onPressed: i < _clauses.length - 1 ? () => _moveClause(i, 1) : null),
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.edit_outlined, size: 16),
+                    label: const Text('ویرایش'),
+                    onPressed: () => _beginEditClause(i),
+                  ),
+                  IconButton(icon: const Icon(Icons.delete_outline, size: 16, color: AsoudColors.danger), onPressed: () => _deleteClause(i)),
+                ],
+              ),
+            ],
+          ],
         ],
       ),
     );
@@ -527,25 +823,26 @@ class _EmploymentCertificateTemplateBuilderPageState extends State<EmploymentCer
         children: [
           const Text('افزودن بند جدید', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
           const SizedBox(height: 8),
-          TextFormField(controller: _newTitleController, decoration: const InputDecoration(labelText: 'عنوان بند جدید', border: OutlineInputBorder())),
+          TextFormField(controller: _newTitleController, decoration: const InputDecoration(labelText: 'عنوان بند', border: OutlineInputBorder(), isDense: true)),
           const SizedBox(height: 8),
-          TextFormField(controller: _newBodyController, maxLines: 4, decoration: const InputDecoration(labelText: 'متن بند جدید', border: OutlineInputBorder())),
+          TextFormField(controller: _newBodyController, maxLines: 4, decoration: const InputDecoration(labelText: 'متن بند', border: OutlineInputBorder())),
           const SizedBox(height: 8),
-          TextButton.icon(
-            icon: const Icon(Icons.data_object, size: 16),
-            label: const Text('درج فیلد در متن بند'),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.add, size: 16),
+            label: const Text('درج فیلد در بند جدید'),
             onPressed: () => _showPlaceholderPicker(_newBodyController),
           ),
           const SizedBox(height: 8),
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
               ElevatedButton(
                 onPressed: _addNewClause,
                 style: ElevatedButton.styleFrom(backgroundColor: AsoudColors.primary, foregroundColor: Colors.white),
-                child: const Text('افزودن'),
+                child: const Text('افزودن بند'),
               ),
-              const SizedBox(width: 8),
-              TextButton(
+              OutlinedButton(
                 onPressed: () => setState(() => _showNewClauseForm = false),
                 child: const Text('انصراف'),
               ),
@@ -594,7 +891,41 @@ class _EmploymentCertificateTemplateBuilderPageState extends State<EmploymentCer
                   const SizedBox(height: 12),
                 ],
               ],
-              const SizedBox(height: 30),
+              if (_salaryEnabled && _salaryRows.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Table(
+                  border: TableBorder.all(color: const Color(0xFFD6DFE9)),
+                  children: [
+                    TableRow(
+                      decoration: const BoxDecoration(color: Color(0xFFF0F3F7)),
+                      children: const [
+                        Padding(padding: EdgeInsets.all(6), child: Text('عنوان قلم', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold))),
+                        Padding(padding: EdgeInsets.all(6), child: Text('دوره', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold))),
+                        Padding(padding: EdgeInsets.all(6), child: Text('مبلغ (ریال)', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold))),
+                      ],
+                    ),
+                    for (final r in _salaryRows) ...[
+                      TableRow(
+                        children: [
+                          Padding(padding: const EdgeInsets.all(6), child: Text(r.title, style: const TextStyle(fontSize: 10))),
+                          Padding(padding: const EdgeInsets.all(6), child: Text(switch (r.period) { 'monthly' => 'ماهانه', 'annual' => 'سالانه', 'once' => 'یک‌باره', _ => 'ماهانه' }, style: const TextStyle(fontSize: 10))),
+                          Padding(padding: const EdgeInsets.all(6), child: Text('[${r.fieldRef}]', style: const TextStyle(fontSize: 10))),
+                        ],
+                      ),
+                    ],
+                    const TableRow(
+                      decoration: BoxDecoration(color: Color(0xFFF8FAFC)),
+                      children: [
+                        Padding(padding: EdgeInsets.all(6), child: Text('جمع اقلام ماهانه', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold))),
+                        Padding(padding: EdgeInsets.all(6), child: Text('—', style: TextStyle(fontSize: 10))),
+                        Padding(padding: EdgeInsets.all(6), child: Text('[محاسبه سیستم]', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AsoudColors.primary))),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+              ],
+              const SizedBox(height: 24),
               const Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -606,6 +937,20 @@ class _EmploymentCertificateTemplateBuilderPageState extends State<EmploymentCer
               const Center(child: Text('پابرگ و نشانی شرکت از تنظیمات سازمان', style: TextStyle(fontSize: 9, color: Color(0xFF748398)))),
             ],
           ),
+        ),
+        const SizedBox(height: 16),
+        ElevatedButton.icon(
+          icon: const Icon(Icons.print, size: 16),
+          label: const Text('چاپ / ذخیره PDF پیش‌نمایش'),
+          style: ElevatedButton.styleFrom(backgroundColor: AsoudColors.primary, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 12)),
+          onPressed: () {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('پیش‌نمایش چاپ آماده است.')));
+          },
+        ),
+        const SizedBox(height: 8),
+        OutlinedButton(
+          onPressed: () => setState(() => _tabIndex = 0),
+          child: const Text('بازگشت به ویرایش قالب'),
         ),
       ],
     );
@@ -639,20 +984,6 @@ class _TabButton extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _TagChip extends StatelessWidget {
-  const _TagChip(this.label, this.tag, this.onTap);
-  final String label, tag;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return ActionChip(
-      label: Text(label, style: const TextStyle(fontSize: 11)),
-      onPressed: onTap,
     );
   }
 }

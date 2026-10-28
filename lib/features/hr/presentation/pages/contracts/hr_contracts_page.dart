@@ -47,6 +47,7 @@ class _HrContractsPageState extends State<HrContractsPage> {
     'پیش‌نویس',
     'در جریان',
     'نهایی',
+    'ردشده',
   ];
 
   @override
@@ -120,25 +121,27 @@ class _HrContractsPageState extends State<HrContractsPage> {
   List<HrContractRecord> get filteredRecords {
     final q = _normalize(searchQuery);
     return records.where((r) {
-      if (statusFilter != 'همه' && r.status != statusFilter) {
+      if (statusFilter != 'همه' && r.statusGroup != statusFilter) {
         return false;
       }
       if (q.isEmpty) return true;
       final haystack = _normalize(
-          '${r.employeeName} ${r.employeeCode} ${r.id} ${r.kind} ${r.status}');
+          '${r.employeeName} ${r.employeeCode} ${r.displayNumber} ${r.kind} ${r.statusGroup} ${r.status}');
       return haystack.contains(q);
     }).toList();
   }
 
-  Color _statusColor(String status) => switch (status) {
+  Color _statusColor(String status) => switch (HrContractRecord.mapStatusToGroup(status)) {
         'نهایی' => AsoudColors.success,
         'در جریان' => AsoudColors.primary,
+        'ردشده' => AsoudColors.danger,
         _ => const Color(0xFFD97706),
       };
 
-  Color _statusBg(String status) => switch (status) {
+  Color _statusBg(String status) => switch (HrContractRecord.mapStatusToGroup(status)) {
         'نهایی' => const Color(0xFFECFDF5),
         'در جریان' => const Color(0xFFEFF6FF),
+        'ردشده' => const Color(0xFFFEF2F2),
         _ => const Color(0xFFFFFBEB),
       };
 
@@ -391,7 +394,7 @@ class _HrContractsPageState extends State<HrContractsPage> {
                         const SizedBox(width: 8),
                         const Flexible(
                           child: Text(
-                            'برای مشاهده هر ردیف، دکمه مشاهده را بزنید',
+                            'برای چاپ هر ردیف، دکمه چاپ را بزنید',
                             style: TextStyle(
                                 fontSize: 10, color: Color(0xFF64748B)),
                             overflow: TextOverflow.ellipsis,
@@ -420,9 +423,11 @@ class _HrContractsPageState extends State<HrContractsPage> {
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: const Color(0xFFE2E8F0)),
                   ),
-                  child: const Text(
-                    'قراردادی مطابق عبارت جست‌وجو پیدا نشد.',
-                    style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+                  child: Text(
+                    records.isEmpty
+                        ? 'قراردادی برای این سازمان ثبت نشده است.'
+                        : 'قراردادی مطابق عبارت جست‌وجو یا فیلتر وضعیت پیدا نشد.',
+                    style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
                   ),
                 )
               else
@@ -472,16 +477,16 @@ class _HrContractsPageState extends State<HrContractsPage> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: _statusBg(c.status),
-                  border: Border.all(color: _statusColor(c.status)),
+                  color: _statusBg(c.statusGroup),
+                  border: Border.all(color: _statusColor(c.statusGroup)),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
-                  c.status,
+                  c.statusGroup,
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
-                    color: _statusColor(c.status),
+                    color: _statusColor(c.statusGroup),
                   ),
                 ),
               ),

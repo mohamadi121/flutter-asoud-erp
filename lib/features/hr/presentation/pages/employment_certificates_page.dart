@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/network/frappe_client.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/failure_message.dart';
+import '../../../../core/utils/jalali_date.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../../core/widgets/states.dart';
 import '../../data/employment_certificate_repository.dart';
@@ -56,6 +57,46 @@ class _EmploymentCertificatesPageState extends State<EmploymentCertificatesPage>
       company: widget.company,
       status: _status,
       query: _query,
+    );
+  }
+
+  Color _statusColor(String group) => switch (group) {
+        'نهایی' => AsoudColors.success,
+        'در جریان' => AsoudColors.primary,
+        'ردشده' => AsoudColors.danger,
+        _ => AsoudColors.warning,
+      };
+
+  Color _statusBg(String group) => switch (group) {
+        'نهایی' => AsoudColors.successSurface,
+        'در جریان' => const Color(0xFFEFF6FF),
+        'ردشده' => const Color(0xFFFEF2F2),
+        _ => AsoudColors.warningSurface,
+      };
+
+  Widget _buildStatusCountBox(String label, int count, Color color, Color bg) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
+        ),
+        child: Column(
+          children: [
+            Text(
+              toPersianDigits('$count'),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: color),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -190,7 +231,9 @@ class _EmploymentCertificatesPageState extends State<EmploymentCertificatesPage>
                     items: const [
                       DropdownMenuItem(value: '', child: Text('همه گواهی‌ها')),
                       DropdownMenuItem(value: 'Draft', child: Text('پیش‌نویس')),
+                      DropdownMenuItem(value: 'Pending', child: Text('در جریان')),
                       DropdownMenuItem(value: 'Final', child: Text('نهایی')),
+                      DropdownMenuItem(value: 'Rejected', child: Text('ردشده')),
                     ],
                     onChanged: (value) => setState(() {
                       _status = value ?? '';
@@ -217,55 +260,76 @@ class _EmploymentCertificatesPageState extends State<EmploymentCertificatesPage>
                   }
                   final result = snapshot.data!;
                   if (result.items.isEmpty) {
-                    return const EmptyState(
-                      icon: Icons.description_outlined,
-                      title: 'گواهی‌ای ثبت نشده است',
-                      description: 'برای این دفتر هنوز گواهی اشتغال به کاری ثبت نشده است.',
-                    );
+                    return _query.isNotEmpty || _status.isNotEmpty
+                        ? const EmptyState(
+                            icon: Icons.search_off_outlined,
+                            title: 'گواهی‌ای پیدا نشد',
+                            description: 'گواهی‌ای مطابق عبارت جست‌وجو یا فیلتر وضعیت یافت نشد.',
+                          )
+                        : const EmptyState(
+                            icon: Icons.description_outlined,
+                            title: 'گواهی‌ای ثبت نشده است',
+                            description: 'برای این دفتر هنوز گواهی اشتغال به کاری ثبت نشده است.',
+                          );
                   }
 
-                  return ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    itemCount: result.items.length,
-                    itemBuilder: (context, index) {
-                      final item = result.items[index];
-                      final isDraft = item.status == 'Draft';
-                      return Card(
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        margin: const EdgeInsets.only(bottom: 10),
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    item.employeeName,
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: item.status == 'Final'
-                                          ? AsoudColors.successSurface
-                                          : AsoudColors.warningSurface,
-                                      borderRadius: BorderRadius.circular(12),
+                  final draftCount = result.items.where((i) => i.isDraft).length;
+                  final pendingCount = result.items.where((i) => i.isInReview).length;
+                  final finalCount = result.items.where((i) => i.isFinal).length;
+
+                  return Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                        child: Row(
+                          children: [
+                            _buildStatusCountBox('پیش‌نویس', draftCount, AsoudColors.warning, AsoudColors.warningSurface),
+                            const SizedBox(width: 8),
+                            _buildStatusCountBox('در جریان', pendingCount, AsoudColors.primary, const Color(0xFFEFF6FF)),
+                            const SizedBox(width: 8),
+                            _buildStatusCountBox('نهایی', finalCount, AsoudColors.success, AsoudColors.successSurface),
+                          ],
+                        ),
+                      ),
+                      Expanded(
+                        child: ListView.builder(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          itemCount: result.items.length,
+                          itemBuilder: (context, index) {
+                            final item = result.items[index];
+                            final isDraft = item.isDraft;
+                            return Card(
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              margin: const EdgeInsets.only(bottom: 10),
+                              child: Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          item.employeeName,
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                        ),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: _statusBg(item.statusGroup),
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                          child: Text(
+                                            item.statusLabel,
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                              color: _statusColor(item.statusGroup),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                    child: Text(
-                                      item.statusLabel,
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                        color: item.status == 'Final'
-                                            ? AsoudColors.success
-                                            : AsoudColors.warning,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
                               const SizedBox(height: 6),
                               Text(
                                 'کد پرسنلی: ${item.employeeNumber} | شماره سند: ${item.number}',
@@ -312,13 +376,16 @@ class _EmploymentCertificatesPageState extends State<EmploymentCertificatesPage>
                         ),
                       );
                     },
-                  );
-                },
-              ),
-            ),
-          ],
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       ),
+    ],
+  ),
+),
     );
   }
 }

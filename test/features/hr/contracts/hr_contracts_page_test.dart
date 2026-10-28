@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:asoud_erp/core/theme/asoud_theme.dart';
+import 'package:asoud_erp/features/hr/domain/hr_contract_models.dart';
 import 'package:asoud_erp/features/hr/data/hr_contracts_repository.dart';
 import 'package:asoud_erp/features/hr/data/hr_contract_template_repository.dart';
 import 'package:asoud_erp/features/hr/presentation/pages/contracts/hr_contracts_page.dart';
@@ -236,6 +237,37 @@ void main() {
 
       expect(tester.takeException(), isNull);
       expect(find.text('قراردادهای پرسنلی'), findsWidgets);
+    });
+
+    testWidgets('maps server statuses to Persian groups and shows empty state',
+        (tester) async {
+      final customRecord = HrContractRecord(
+        id: 'CRT-1405-999',
+        staffId: 'p99',
+        employeeName: 'کارمند تستی',
+        employeeCode: 'HR-999',
+        kind: 'مدت‌معین',
+        status: 'Draft',
+        startDate: '۱۴۰۵/۰۱/۰۱',
+        workplace: 'دفتر',
+        salaries: const {},
+      );
+
+      expect(customRecord.statusGroup, 'پیش‌نویس');
+      expect(customRecord.isDraft, isTrue);
+      expect(customRecord.isFinal, isFalse);
+
+      final pendingRec = customRecord.copyWith(status: 'Pending');
+      expect(pendingRec.statusGroup, 'در جریان');
+      expect(pendingRec.isInReview, isTrue);
+
+      final finalRec = customRecord.copyWith(status: 'Final');
+      expect(finalRec.statusGroup, 'نهایی');
+      expect(finalRec.isFinal, isTrue);
+
+      final rejectedRec = customRecord.copyWith(status: 'Rejected');
+      expect(rejectedRec.statusGroup, 'ردشده');
+      expect(rejectedRec.isRejected, isTrue);
     });
   });
 }
