@@ -637,6 +637,7 @@ class FrappeClient implements FrappeApiClient {
         action == 'reports' ||
         action == 'history' ||
         action == 'download_attachment' ||
+        action.startsWith('print_') ||
         action.endsWith('_options') ||
         action.endsWith('_fields') ||
         action.endsWith('_tree') ||
