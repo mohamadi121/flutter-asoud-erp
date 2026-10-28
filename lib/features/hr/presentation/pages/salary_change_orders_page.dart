@@ -10,6 +10,7 @@ import '../../../../core/widgets/states.dart';
 import '../../data/salary_change_order_repository.dart';
 import '../cubit/salary_change_orders_cubit.dart';
 import '../widgets/hr_document_print.dart';
+import '../widgets/hr_template_status.dart';
 
 enum SalaryChangeOrdersMode { list, form, preview, templateBuilder }
 
@@ -504,7 +505,11 @@ class _SalaryChangeOrdersViewState extends State<_SalaryChangeOrdersView> {
                   )
                 : null,
           ),
-          body: _buildBody(context, state),
+          body: HrTemplateStatus(
+            error: state.templateError,
+            onRetry: () => context.read<SalaryChangeOrdersCubit>().load(refresh: true),
+            child: _buildBody(context, state),
+          ),
         );
       },
     );

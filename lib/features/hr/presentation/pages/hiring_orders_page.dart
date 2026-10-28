@@ -12,6 +12,7 @@ import '../../../../core/widgets/states.dart';
 import '../../data/hiring_order_repository.dart';
 import '../cubit/hiring_orders_cubit.dart';
 import '../widgets/hr_document_print.dart';
+import '../widgets/hr_template_status.dart';
 
 enum _HiringViewMode { list, form, preview, templateBuilder }
 
@@ -481,7 +482,11 @@ class _HiringOrdersViewState extends State<_HiringOrdersView> {
                     : null,
               ),
               body: SafeArea(
-                child: _buildBody(context, state),
+                child: HrTemplateStatus(
+                  error: state.templateError,
+                  onRetry: () => context.read<HiringOrdersCubit>().load(refresh: true),
+                  child: _buildBody(context, state),
+                ),
               ),
             );
           },
