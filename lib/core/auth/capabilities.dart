@@ -25,6 +25,8 @@ class Capabilities {
     this.canManageCertificateTemplates = false,
     this.canManageIntroductionTemplates = false,
     this.canManageSalaryTemplates = false,
+    this.canIssueHrDocuments = false,
+    this.canReadSalaryOrders = false,
     required this.canWritePersonnel,
     required this.canManageUserAccess,
     required this.canWriteHrRecords,
@@ -65,6 +67,8 @@ class Capabilities {
       canManageCertificateTemplates: system || hrManager,
       canManageIntroductionTemplates: system || hrManager,
       canManageSalaryTemplates: system || hrManager,
+      canIssueHrDocuments: system || hrManager || hrUser,
+      canReadSalaryOrders: system || hrManager || accountsManager || names.contains('Payroll Manager'),
       canWritePersonnel: system,
       canManageUserAccess: system,
       canWriteHrRecords: system,
@@ -94,6 +98,8 @@ class Capabilities {
     canManageCertificateTemplates: true,
     canManageIntroductionTemplates: true,
     canManageSalaryTemplates: true,
+    canIssueHrDocuments: true,
+    canReadSalaryOrders: true,
     canWritePersonnel: true,
     canManageUserAccess: true,
     canWriteHrRecords: true,
@@ -141,6 +147,8 @@ class Capabilities {
   final bool canManageCertificateTemplates;
   final bool canManageIntroductionTemplates;
   final bool canManageSalaryTemplates;
+  final bool canIssueHrDocuments;
+  final bool canReadSalaryOrders;
   final bool canWritePersonnel;
   final bool canManageUserAccess;
   final bool canWriteHrRecords;
