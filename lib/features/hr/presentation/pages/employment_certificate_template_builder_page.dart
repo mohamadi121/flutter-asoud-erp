@@ -944,7 +944,7 @@ class _EmploymentCertificateTemplateBuilderPageState extends State<EmploymentCer
           label: const Text('چاپ / ذخیره PDF پیش‌نمایش'),
           style: ElevatedButton.styleFrom(backgroundColor: AsoudColors.primary, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 12)),
           onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('پیش‌نمایش چاپ آماده است.')));
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('برای چاپ، ابتدا سند پرسنلی را ذخیره و خروجی چاپ سرور را دریافت کنید.')));
           },
         ),
         const SizedBox(height: 8),

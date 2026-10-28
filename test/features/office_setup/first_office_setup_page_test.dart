@@ -4,14 +4,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:asoud_erp/core/network/frappe_client.dart';
+import 'package:asoud_erp/core/network/api_exception.dart';
 import 'package:asoud_erp/core/theme/asoud_theme.dart';
 import 'package:asoud_erp/features/office_setup/domain/entities/office.dart';
 import 'package:asoud_erp/features/office_setup/domain/repositories/office_repository.dart';
 import 'package:asoud_erp/features/office_setup/presentation/pages/first_office_setup_page.dart';
+import 'package:asoud_erp/features/office_setup/presentation/pages/first_hr_lead_form.dart';
 
 class _FakeSetupClient extends Fake implements FrappeApiClient {
   final calls = <String>[];
   final Map<String, dynamic> methodData = {};
+  Completer<Map<String, dynamic>>? createGate;
+  Completer<Map<String, dynamic>>? statusGate;
+  Map<String, dynamic>? statusLead;
+  Object? statusError;
+  Object? fiscalLoadError, fiscalSaveError;
+  bool emptyFiscalYears = false;
 
   @override
   bool get isAuthenticated => true;
@@ -36,14 +44,19 @@ class _FakeSetupClient extends Fake implements FrappeApiClient {
     if (data != null) {
       methodData[method] = data;
     }
+    if (method == 'asoud_erp.api.v1.first_office_setup.create_hr_lead') {
+      return createGate!.future;
+    }
     if (method == 'asoud_erp.api.v1.first_office_setup.status') {
+      if (statusError != null) throw statusError!;
+      if (statusGate != null) return statusGate!.future;
       return {
         'message': {
           'ok': true,
           'data': {
             'company': 'شرکت آزمون',
-            'hr_lead': null,
-            'hr_ready': false,
+            'hr_lead': statusLead,
+            'hr_ready': statusLead != null,
             'completed': false,
           },
         },
@@ -83,6 +96,8 @@ class _FakeSetupClient extends Fake implements FrappeApiClient {
       methodData[method] = data;
     }
     if (method == 'asoud_erp.api.v1.setup.list_fiscal_years') {
+      if (fiscalLoadError != null) throw fiscalLoadError!;
+      if (emptyFiscalYears) return [];
       return [
         {
           'name': '1405',
@@ -95,6 +110,10 @@ class _FakeSetupClient extends Fake implements FrappeApiClient {
     }
     if (method == 'asoud_erp.api.v1.calendar.get_calendar') {
       return {'items': [], 'can_manage': false};
+    }
+    if (method == 'asoud_erp.api.v1.setup.create_fiscal_year' &&
+        fiscalSaveError != null) {
+      throw fiscalSaveError!;
     }
     return {};
   }
@@ -143,17 +162,177 @@ Widget _buildTestApp(FrappeApiClient client, double width) {
 }
 
 void main() {
+  for (final saveFailure in [true, false]) {
+    testWidgets('fiscal validation preserves server reason; save=$saveFailure',
+        (tester) async {
+      const reason = 'سال مالی با دوره ثبت‌شده هم‌پوشانی دارد.';
+      const failure = ApiException(kind: ApiFailureKind.validation,
+          statusCode: 417, message: reason);
+      final client = _FakeSetupClient()
+        ..emptyFiscalYears = true
+        ..fiscalSaveError = saveFailure ? failure : null
+        ..fiscalLoadError = saveFailure ? null : failure;
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.binding.setSurfaceSize(const Size(390, 1200));
+      await tester.pumpWidget(_buildTestApp(client, 390));
+      await tester.pumpAndSettle();
+      if (saveFailure) {
+        final save = find.text('ذخیره و ادامه  ←');
+        await tester.ensureVisible(save);
+        await tester.tap(save);
+        await tester.pumpAndSettle();
+      }
+      expect(find.text(reason), findsOneWidget);
+      expect(find.text('اطلاعات واردشده را بررسی کنید.'), findsNothing);
+    });
+  }
+  for (final kind in [ApiFailureKind.timeout, ApiFailureKind.network,
+    ApiFailureKind.protocol]) {
+    for (final exists in [true, false]) {
+      testWidgets('$kind requires reconciliation before retry; lead=$exists',
+          (tester) async {
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        await tester.binding.setSurfaceSize(const Size(390, 1200));
+        final client = _FakeSetupClient()
+          ..createGate = Completer<Map<String, dynamic>>();
+        await tester.pumpWidget(_buildTestApp(client, 390));
+        await tester.pumpAndSettle();
+        final fields = find.descendant(of: find.byType(FirstHrLeadForm),
+            matching: find.byType(TextFormField));
+        for (final entry in ['علی رضایی', 'hr_lead', '09123456789',
+          'Temporary123!'].asMap().entries) {
+          await tester.ensureVisible(fields.at(entry.key));
+          await tester.enterText(fields.at(entry.key), entry.value);
+        }
+        final submit = find.text('ثبت مسئول منابع انسانی و ادامه  ←');
+        await tester.ensureVisible(submit);
+        await tester.pumpAndSettle();
+        expect(submit.hitTestable(), findsOneWidget);
+        await tester.tap(submit);
+        await tester.pump();
+        expect(client.calls.where((m) => m.endsWith('.create_hr_lead')).length, 1);
+        client.createGate!.completeError(ApiException(kind: kind, message: 'خطا'));
+        await tester.pumpAndSettle();
+        expect(tester.widget<FirstHrLeadForm>(find.byType(FirstHrLeadForm))
+            .enabled, isFalse);
+        expect(client.calls.where((m) => m.endsWith('.create_hr_lead')).length, 1);
+        client.statusError = const ApiException(kind: ApiFailureKind.network, message: 'شبکه');
+        final reload = find.text('دریافت دوباره وضعیت راه‌اندازی');
+        await tester.ensureVisible(reload);
+        await tester.pumpAndSettle();
+        expect(reload.hitTestable(), findsOneWidget);
+        await tester.tap(reload);
+        await tester.pumpAndSettle();
+        expect(tester.widget<FirstHrLeadForm>(find.byType(FirstHrLeadForm))
+            .enabled, isFalse);
+        client.statusError = null;
+        if (exists) {
+          client.statusLead = {'full_name': 'علی رضایی',
+            'username': 'hr_lead', 'role_title': 'مسئول منابع انسانی'};
+        }
+        await tester.ensureVisible(reload);
+        await tester.pumpAndSettle();
+        await tester.tap(reload);
+        await tester.pumpAndSettle();
+        if (exists) {
+          expect(find.byType(FirstHrLeadForm), findsNothing);
+          expect(find.text('علی رضایی'), findsNWidgets(2));
+        } else {
+          expect(tester.widget<FirstHrLeadForm>(find.byType(FirstHrLeadForm))
+              .enabled, isTrue);
+        }
+        expect(client.calls.where((m) => m.endsWith('.create_hr_lead')).length, 1);
+      });
+    }
+  }
+  for (final committed in [true, false]) {
+    testWidgets('serialized status keeps credentials locked until create settles; committed=$committed',
+        (tester) async {
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.binding.setSurfaceSize(const Size(390, 1200));
+      final client = _FakeSetupClient()..createGate = Completer<Map<String, dynamic>>();
+      await tester.pumpWidget(_buildTestApp(client, 390));
+      await tester.pumpAndSettle();
+      final fields = find.descendant(of: find.byType(FirstHrLeadForm),
+          matching: find.byType(TextFormField));
+      for (final entry in ['علی رضایی', 'hr_lead', '09123456789',
+        'Temporary123!'].asMap().entries) {
+        await tester.ensureVisible(fields.at(entry.key));
+        await tester.enterText(fields.at(entry.key), entry.value);
+      }
+      final submit = find.text('ثبت مسئول منابع انسانی و ادامه  ←');
+      await tester.ensureVisible(submit);
+      await tester.pumpAndSettle();
+      expect(submit.hitTestable(), findsOneWidget);
+      await tester.tap(submit);
+      await tester.pump();
+      expect(client.calls.where((m) => m.endsWith('.create_hr_lead')).length, 1);
+      client.createGate!.completeError(const ApiException(kind: ApiFailureKind.timeout, message: 'مهلت پایان یافت'));
+      await tester.pumpAndSettle();
+      // The server's committed pointer is still null while provisioning owns
+      // the company lock; status must wait instead of exposing that stale null.
+      expect(client.statusLead, isNull);
+      client.statusGate = Completer<Map<String, dynamic>>();
+      final reload = find.text('دریافت دوباره وضعیت راه‌اندازی');
+      await tester.ensureVisible(reload);
+      await tester.pumpAndSettle();
+      await tester.tap(reload);
+      await tester.pump(const Duration(seconds: 1));
+      expect(tester.widget<FirstHrLeadForm>(find.byType(FirstHrLeadForm)).enabled, isFalse);
+      expect(tester.widget<TextFormField>(fields.at(3)).enabled, isFalse);
+      expect(tester.widget<FirstHrLeadForm>(find.byType(FirstHrLeadForm)).busy, isFalse);
+      final lead = committed ? {'full_name': 'علی رضایی', 'username': 'hr_lead',
+        'role_title': 'مسئول منابع انسانی'} : null;
+      client.statusGate!.complete({'message': {'ok': true, 'data': {
+        'company': 'شرکت آزمون', 'hr_lead': lead, 'hr_ready': committed, 'completed': false,
+      }}});
+      await tester.pumpAndSettle();
+      if (committed) {
+        expect(find.byType(FirstHrLeadForm), findsNothing);
+        expect(find.text('علی رضایی'), findsNWidgets(2));
+      } else {
+        expect(tester.widget<FirstHrLeadForm>(find.byType(FirstHrLeadForm)).enabled, isTrue);
+        await tester.ensureVisible(fields.at(3));
+        await tester.enterText(fields.at(3), 'Changed123!');
+        client.createGate = Completer<Map<String, dynamic>>();
+        await tester.ensureVisible(submit);
+        await tester.pumpAndSettle();
+        await tester.tap(submit);
+        await tester.pump();
+        expect(client.methodData['asoud_erp.api.v1.first_office_setup.create_hr_lead']['temporary_password'], 'Changed123!');
+        client.createGate!.complete({'message': {'ok': true, 'data': {
+          'company': 'شرکت آزمون', 'hr_lead': {'full_name': 'علی رضایی', 'username': 'hr_lead'},
+          'hr_ready': true, 'completed': false,
+        }}});
+        await tester.pumpAndSettle();
+        expect(find.byType(FirstHrLeadForm), findsNothing);
+      }
+      expect(client.calls.where((m) => m.endsWith('.create_hr_lead')).length, committed ? 1 : 2);
+      expect(tester.takeException(), isNull);
+    });
+  }
   testWidgets('renders first office setup review at 320, 390, and 430 px',
       (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     for (final width in [320.0, 390.0, 430.0]) {
+      await tester.pumpWidget(const SizedBox.shrink());
       final client = _FakeSetupClient();
       await tester.binding.setSurfaceSize(Size(width, 1200));
       await tester.pumpWidget(_buildTestApp(client, width));
       await tester.pumpAndSettle();
 
       expect(find.text('راه‌اندازی دفتر کار'), findsOneWidget);
+      expect(find.text('۲. معرفی اولین مسئول منابع انسانی'), findsOneWidget);
+      expect(find.byType(FirstHrLeadForm), findsOneWidget);
+      final later = find.text('بعداً؛ ادامه به بررسی نهایی');
+      await tester.ensureVisible(later);
+      await tester.pumpAndSettle();
+      await tester.tap(later);
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('مراحل اولیه آمادهٔ تأیید هستند'));
       expect(find.text('مراحل اولیه آمادهٔ تأیید هستند'), findsOneWidget);
       expect(find.text('سال مالی ثبت شده است. معرفی مسئول منابع انسانی در این مرحله الزامی نیست؛ کاربران، نقش‌ها، ساختار سازمانی و گردش کار بعد از ورود به خانهٔ آسود تنظیم می‌شوند.'), findsOneWidget);
+      expect(tester.takeException(), isNull);
     }
   });
 
@@ -168,8 +347,16 @@ void main() {
     expect(client.calls, contains('asoud_erp.api.v1.first_office_setup.status'));
     expect(client.calls, isNot(contains('asoud_erp.api.v1.first_office_setup.complete')));
 
+    final later = find.text('بعداً؛ ادامه به بررسی نهایی');
+    await tester.ensureVisible(later);
+    await tester.pumpAndSettle();
+    await tester.tap(later);
+    await tester.pumpAndSettle();
+
     final enterButton = find.text('تأیید نهایی و ورود به خانه  ←');
     expect(enterButton, findsOneWidget);
+    await tester.ensureVisible(enterButton);
+    await tester.pumpAndSettle();
     await tester.tap(enterButton);
     await tester.pumpAndSettle();
 
@@ -179,4 +366,62 @@ void main() {
       equals({'company': 'شرکت آزمون'}),
     );
   });
+
+  for (final width in [320.0, 390.0, 430.0]) {
+    testWidgets('HR validation ends busy state and permits retry at $width',
+        (tester) async {
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final client = _FakeSetupClient()
+        ..createGate = Completer<Map<String, dynamic>>();
+      await tester.binding.setSurfaceSize(Size(width, 1200));
+      await tester.pumpWidget(_buildTestApp(client, width));
+      await tester.pumpAndSettle();
+      final fields = find.descendant(
+          of: find.byType(FirstHrLeadForm), matching: find.byType(TextFormField));
+      for (final entry in ['علی رضایی', 'hr_lead', '09123456789', 'Temporary123!'].asMap().entries) {
+        await tester.ensureVisible(fields.at(entry.key));
+        await tester.pumpAndSettle();
+        await tester.enterText(fields.at(entry.key), entry.value);
+      }
+      final submit = find.text('ثبت مسئول منابع انسانی و ادامه  ←');
+      await tester.ensureVisible(submit);
+      await tester.pumpAndSettle();
+      await tester.tap(submit);
+      await tester.pump();
+      expect(find.text('در حال ثبت…'), findsOneWidget);
+      expect(client.methodData['asoud_erp.api.v1.first_office_setup.create_hr_lead'], equals({
+        'company': 'شرکت آزمون', 'full_name': 'علی رضایی',
+        'username': 'hr_lead', 'contact': '09123456789',
+        'temporary_password': 'Temporary123!',
+      }));
+      const reason = 'نام کاربری یا اطلاعات تماس قبلاً برای حساب دیگری ثبت شده است.';
+      client.createGate!.completeError(const ApiException(
+          kind: ApiFailureKind.validation, statusCode: 417, message: reason));
+      await tester.pumpAndSettle();
+      expect(find.text('در حال ثبت…'), findsNothing);
+      await tester.ensureVisible(find.text(reason));
+      expect(find.text(reason), findsOneWidget);
+      expect(find.text('اطلاعات واردشده را بررسی کنید.'), findsNothing);
+      await tester.ensureVisible(submit);
+      await tester.pumpAndSettle();
+      expect(tester.widget<FilledButton>(find.ancestor(
+          of: submit, matching: find.byType(FilledButton))).onPressed, isNotNull);
+
+      client.createGate = Completer<Map<String, dynamic>>();
+      await tester.tap(submit);
+      await tester.pump();
+      expect(client.calls.where((m) => m.endsWith('.create_hr_lead')).length, 2);
+      client.createGate!.complete({'message': {'ok': true, 'data': {
+        'company': 'شرکت آزمون', 'hr_lead': {
+          'full_name': 'علی رضایی', 'username': 'hr_lead',
+          'role_title': 'مسئول منابع انسانی'},
+        'hr_ready': true, 'completed': false,
+      }}});
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('مراحل اولیه آمادهٔ تأیید هستند'));
+      expect(find.text('مراحل اولیه آمادهٔ تأیید هستند'), findsOneWidget);
+      expect(find.text('در حال ثبت…'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
 }

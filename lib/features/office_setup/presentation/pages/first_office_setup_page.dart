@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/network/frappe_client.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/failure_message.dart';
@@ -13,8 +14,9 @@ import '../../../base_setup/data/repositories/frappe_base_setup_repository.dart'
 import '../../../base_setup/domain/repositories/base_setup_repository.dart';
 import '../../../dashboard/presentation/pages/dashboard_page.dart';
 import '../../data/repositories/first_office_bootstrap_repository.dart';
+import 'first_hr_lead_form.dart';
 
-/// Server-backed fiscal year and final confirmation; HR provisioning is deferred.
+/// Server-backed fiscal year, first HR account and final confirmation.
 class FirstOfficeSetupPage extends StatefulWidget {
   const FirstOfficeSetupPage({required this.company, super.key});
   final String company;
@@ -34,7 +36,9 @@ class _FirstOfficeSetupPageState extends State<FirstOfficeSetupPage> {
       FirstOfficeBootstrapRepository(context.read<FrappeApiClient>());
   FirstOfficeBootstrapStatus? bootstrap;
   bool hrLoading = true, hrBusy = false, hrNeedsReload = false;
+  bool bootstrapRequestRunning = false;
   String? hrError;
+  bool hrDeferred = false;
   static const canvas = Color(0xfff6f8fc);
   static const ink = Color(0xff203650);
 
@@ -58,6 +62,8 @@ class _FirstOfficeSetupPageState extends State<FirstOfficeSetupPage> {
   }
 
   Future<void> loadBootstrap() async {
+    if (bootstrapRequestRunning || hrBusy) return;
+    bootstrapRequestRunning = true;
     setState(() {
       hrLoading = true;
       hrError = null;
@@ -78,43 +84,54 @@ class _FirstOfficeSetupPageState extends State<FirstOfficeSetupPage> {
         });
       }
     } finally {
+      bootstrapRequestRunning = false;
       if (mounted) setState(() => hrLoading = false);
     }
   }
 
-  Future<void> enterHomeWithoutCompletion() async {
-    if (loading || saving || hrBusy || saved == null) return;
+  Future<bool> createLead(String fullName, String username, String contact,
+      String password) async {
+    if (hrBusy || hrLoading || hrNeedsReload || saved == null) return false;
     setState(() {
       hrBusy = true;
       hrError = null;
     });
     try {
-      final result = await bootstrapRepository.complete(widget.company);
-      if (!mounted) return;
-      setState(() => bootstrap = result);
-      if (!result.completed) {
-        throw const FormatException('تأیید نهایی در سرور ثبت نشد.');
-      }
-      await Navigator.of(context).pushAndRemoveUntil<void>(
-          MaterialPageRoute(builder: (_) => const DashboardLandingPage()),
-          (_) => false);
+      final result = await bootstrapRepository.create(
+          company: widget.company,
+          fullName: fullName,
+          username: username,
+          contact: contact,
+          temporaryPassword: password);
+      if (!mounted) return false;
+      setState(() {
+        bootstrap = result;
+        hrDeferred = false;
+        if (!result.hrReady) {
+          hrError = 'حساب ثبت شده، اما دسترسی آن نیاز به بررسی مدیر سیستم دارد.';
+        }
+      });
+      return result.fullName != null;
     } catch (e) {
       if (mounted) {
         setState(() {
           hrError = failureDetail(e);
-          hrNeedsReload = true;
+          hrNeedsReload = !(e is ApiException &&
+              e.kind == ApiFailureKind.validation && e.statusCode == 417);
         });
       }
+      return false;
     } finally {
       if (mounted) setState(() => hrBusy = false);
     }
   }
 
   Future<void> finish() async {
-    if (hrBusy ||
+    if (loading || saving || hrBusy ||
         hrLoading ||
         hrNeedsReload ||
-        saved == null) {
+        saved == null ||
+        (bootstrap?.hrReady != true && !hrDeferred)) {
       return;
     }
     setState(() {
@@ -235,7 +252,7 @@ class _FirstOfficeSetupPageState extends State<FirstOfficeSetupPage> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          error = failureMessage(e);
+          error = failureDetail(e);
           needsReload = true;
         });
       }
@@ -269,7 +286,7 @@ class _FirstOfficeSetupPageState extends State<FirstOfficeSetupPage> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          error = failureMessage(e);
+          error = failureDetail(e);
           needsReload = true;
         });
       }
@@ -336,10 +353,10 @@ class _FirstOfficeSetupPageState extends State<FirstOfficeSetupPage> {
   Widget build(BuildContext context) {
     final busy = loading || saving || hrBusy;
     final completed = bootstrap?.completed == true
-        ? 2
+        ? 3
         : saved == null
             ? 0
-            : 1;
+            : bootstrap?.hrReady == true || hrDeferred ? 2 : 1;
     final last = saved == null ? end : DateTime.tryParse(saved!.endDate);
     return Directionality(
         textDirection: TextDirection.rtl,
@@ -385,7 +402,7 @@ class _FirstOfficeSetupPageState extends State<FirstOfficeSetupPage> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                            '${toPersianDigits((completed * 100 / 2).round())}٪',
+                            '${toPersianDigits((completed * 100 / 3).round())}٪',
                             style: const TextStyle(
                                 color: AsoudColors.primary,
                                 fontWeight: FontWeight.bold)),
@@ -399,11 +416,11 @@ class _FirstOfficeSetupPageState extends State<FirstOfficeSetupPage> {
                       ]),
                   const SizedBox(height: 14),
                   Row(children: [
-                    for (var i = 0; i < 2; i++)
+                    for (var i = 0; i < 3; i++)
                       Expanded(
                           child: Padding(
                               padding: EdgeInsetsDirectional.only(
-                                  end: i < 1 ? 6 : 0),
+                                  end: i < 2 ? 6 : 0),
                               child: ClipRRect(
                                   borderRadius: BorderRadius.circular(8),
                                   child: LinearProgressIndicator(
@@ -508,10 +525,10 @@ class _FirstOfficeSetupPageState extends State<FirstOfficeSetupPage> {
                   ],
                 ], selected: expanded),
                 card([
-                  heading('۲. بررسی نهایی', 'کنترل تنظیمات و ورود به آسود',
-                      Icons.assignment_turned_in_outlined,
-                      completed: bootstrap?.completed == true,
-                      color: AsoudColors.warning),
+                  heading('۲. معرفی اولین مسئول منابع انسانی',
+                      'ایجاد حساب اولیه مسئول منابع انسانی', Icons.people_outline,
+                      completed: bootstrap?.hrReady == true,
+                      color: AsoudColors.success),
                   if (hrLoading)
                     const Padding(padding: EdgeInsets.only(top: 12),
                         child: LinearProgressIndicator()),
@@ -521,7 +538,32 @@ class _FirstOfficeSetupPageState extends State<FirstOfficeSetupPage> {
                     TextButton(onPressed: busy || hrLoading ? null : loadBootstrap,
                         child: const Text('دریافت دوباره وضعیت راه‌اندازی')),
                   ],
-                  if (saved != null) ...[
+                  if (saved == null)
+                    const Text('ابتدا سال مالی را ثبت کنید.'),
+                  if (saved != null && bootstrap != null &&
+                      bootstrap!.fullName == null)
+                    FirstHrLeadForm(
+                        busy: hrBusy,
+                        enabled: !loading && !saving && !hrLoading && !hrNeedsReload,
+                        onSubmit: createLead),
+                  if (bootstrap?.fullName != null)
+                    reviewLine('مسئول منابع انسانی', bootstrap!.fullName!),
+                  if (saved != null && bootstrap != null)
+                    TextButton(
+                        onPressed: busy || hrLoading || hrNeedsReload ? null
+                            : () => setState(() => hrDeferred = true),
+                        child: const Text('بعداً؛ ادامه به بررسی نهایی')),
+                ], selected: saved != null && bootstrap?.hrReady != true),
+                card([
+                  heading('۳. بررسی نهایی', 'کنترل تنظیمات و ورود به آسود',
+                      Icons.assignment_turned_in_outlined,
+                      completed: bootstrap?.completed == true,
+                      color: AsoudColors.warning),
+                  if (saved == null ||
+                      (bootstrap?.hrReady != true && !hrDeferred))
+                    const Text('پس از ثبت سال مالی، مسئول منابع انسانی را معرفی کنید یا «بعداً» را انتخاب کنید.'),
+                  if (saved != null &&
+                      (bootstrap?.hrReady == true || hrDeferred)) ...[
                     const Divider(height: 32),
                     Container(
                         padding: const EdgeInsets.all(14),
@@ -542,7 +584,7 @@ class _FirstOfficeSetupPageState extends State<FirstOfficeSetupPage> {
                     const SizedBox(height: 14),
                     FilledButton(
                         onPressed:
-                            busy ? null : enterHomeWithoutCompletion,
+                            busy || hrLoading || hrNeedsReload ? null : finish,
                         style: FilledButton.styleFrom(
                             backgroundColor: const Color(0xff111111),
                             minimumSize: const Size.fromHeight(48),

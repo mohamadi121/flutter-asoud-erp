@@ -9,8 +9,9 @@ import '../../../auth/domain/identity_validators.dart';
 /// server acknowledgement. Personnel information is intentionally absent.
 class FirstHrLeadForm extends StatefulWidget {
   const FirstHrLeadForm(
-      {required this.busy, required this.onSubmit, super.key});
+      {required this.busy, required this.onSubmit, this.enabled = true, super.key});
   final bool busy;
+  final bool enabled;
   final Future<bool> Function(
           String fullName, String username, String contact, String password)
       onSubmit;
@@ -24,6 +25,7 @@ class _FirstHrLeadFormState extends State<FirstHrLeadForm> {
   final name = TextEditingController(), username = TextEditingController();
   final contact = TextEditingController(), password = TextEditingController();
   bool hidden = true;
+  bool get disabled => widget.busy || !widget.enabled;
 
   @override
   void dispose() {
@@ -34,7 +36,7 @@ class _FirstHrLeadFormState extends State<FirstHrLeadForm> {
   }
 
   Future<void> submit() async {
-    if (widget.busy || !form.currentState!.validate()) return;
+    if (disabled || !form.currentState!.validate()) return;
     FocusScope.of(context).unfocus();
     final accepted = await widget.onSubmit(
         name.text.trim(),
@@ -74,7 +76,7 @@ class _FirstHrLeadFormState extends State<FirstHrLeadForm> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         const Divider(height: 32),
         notice(
-            'حساب Administrator از قبل وجود دارد',
+            'حساب مدیر سیستم از قبل وجود دارد',
             'در این مرحله فقط اولین مسئول منابع انسانی معرفی می‌شود؛ نیازی به تعریف سایر نقش‌ها و کاربران نیست.',
             const Color(0xff25816f),
             const Color(0xffedf9f5),
@@ -95,7 +97,7 @@ class _FirstHrLeadFormState extends State<FirstHrLeadForm> {
             label: 'نام و نام خانوادگی',
             required: true,
             rounded: true,
-            enabled: !widget.busy,
+            enabled: !disabled,
             hintLocales: const [Locale('fa')],
             textInputAction: TextInputAction.next,
             validator: (v) {
@@ -113,7 +115,7 @@ class _FirstHrLeadFormState extends State<FirstHrLeadForm> {
             label: 'نام کاربری',
             required: true,
             rounded: true,
-            enabled: !widget.busy,
+            enabled: !disabled,
             ltr: true,
             hintLocales: const [Locale('en')],
             textInputAction: TextInputAction.next,
@@ -131,7 +133,7 @@ class _FirstHrLeadFormState extends State<FirstHrLeadForm> {
             label: 'شماره موبایل یا ایمیل',
             required: true,
             rounded: true,
-            enabled: !widget.busy,
+            enabled: !disabled,
             ltr: true,
             keyboardType: TextInputType.emailAddress,
             hintLocales: const [Locale('en')],
@@ -156,7 +158,7 @@ class _FirstHrLeadFormState extends State<FirstHrLeadForm> {
             label: 'رمز عبور موقت',
             required: true,
             rounded: true,
-            enabled: !widget.busy,
+            enabled: !disabled,
             ltr: true,
             obscureText: hidden,
             hint: 'حداقل ۸ کاراکتر',
@@ -165,7 +167,7 @@ class _FirstHrLeadFormState extends State<FirstHrLeadForm> {
             suffixIcon: IconButton(
                 tooltip: hidden ? 'نمایش رمز' : 'پنهان کردن رمز',
                 onPressed:
-                    widget.busy ? null : () => setState(() => hidden = !hidden),
+                    disabled ? null : () => setState(() => hidden = !hidden),
                 icon: Icon(hidden
                     ? Icons.visibility_outlined
                     : Icons.visibility_off_outlined)),
@@ -188,7 +190,7 @@ class _FirstHrLeadFormState extends State<FirstHrLeadForm> {
             Icons.key_outlined),
         const SizedBox(height: 8),
         FilledButton(
-            onPressed: widget.busy ? null : submit,
+            onPressed: disabled ? null : submit,
             style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xff111111),
                 minimumSize: const Size.fromHeight(48),

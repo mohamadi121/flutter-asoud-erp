@@ -9,6 +9,8 @@ import '../../../../core/widgets/asoud_ui.dart';
 import '../../../../core/widgets/states.dart';
 import '../../data/salary_change_order_repository.dart';
 import '../cubit/salary_change_orders_cubit.dart';
+import '../widgets/hr_document_print.dart';
+import '../widgets/hr_template_status.dart';
 
 enum SalaryChangeOrdersMode { list, form, preview, templateBuilder }
 
@@ -503,7 +505,11 @@ class _SalaryChangeOrdersViewState extends State<_SalaryChangeOrdersView> {
                   )
                 : null,
           ),
-          body: _buildBody(context, state),
+          body: HrTemplateStatus(
+            error: state.templateError,
+            onRetry: () => context.read<SalaryChangeOrdersCubit>().load(refresh: true),
+            child: _buildBody(context, state),
+          ),
         );
       },
     );
@@ -995,7 +1001,17 @@ class _SalaryChangeOrdersViewState extends State<_SalaryChangeOrdersView> {
               const Text('۱. مشخصات پرسنل',
                   style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
+              if (state.peopleLoading) const LinearProgressIndicator(),
+              if (state.peopleError != null) ...[
+                Text(state.peopleError!, style: const TextStyle(color: AsoudColors.danger)),
+                TextButton(
+                  onPressed: state.peopleLoading ? null
+                      : () => context.read<SalaryChangeOrdersCubit>().loadPeople(),
+                  child: const Text('دریافت دوباره پرسنل'),
+                ),
+              ],
               DropdownButtonFormField<String>(
+                key: const ValueKey('salary-order-personnel'),
                 initialValue: _personId.isNotEmpty ? _personId : null,
                 isExpanded: true,
                 decoration: InputDecoration(
@@ -1011,7 +1027,7 @@ class _SalaryChangeOrdersViewState extends State<_SalaryChangeOrdersView> {
                           child: Text('${p.displayName} — ${p.employeeNumber}'),
                         ))
                     .toList(),
-                onChanged: (val) {
+                onChanged: state.peopleLoading || state.peopleError != null ? null : (val) {
                   if (val != null) {
                     final p = state.people
                         .firstWhere((element) => element.name == val);
@@ -2029,23 +2045,12 @@ class _SalaryChangeOrdersViewState extends State<_SalaryChangeOrdersView> {
               ),
             ),
           const SizedBox(height: 8),
-          OutlinedButton.icon(
-            icon: const Icon(Icons.print, size: 16),
-            label: const Text('چاپ سند'),
-            onPressed: () async {
-              if (_orderId != null) {
-                await context
-                    .read<SalaryChangeOrdersCubit>()
-                    .loadPrint(_orderId!);
-              }
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('سند آماده چاپ در مرورگر/پرینتر است.'),
-                    backgroundColor: AsoudColors.success,
-                  ),
-                );
-              }
+          HrDocumentPrintButton(
+            label: 'چاپ سند',
+            loadHtml: () async {
+              if (_orderId == null) return '';
+              final document = await context.read<SalaryChangeOrdersCubit>().repository.printOrder(name: _orderId!);
+              return document.html;
             },
           ),
           const SizedBox(height: 8),
@@ -2697,7 +2702,7 @@ class _SalaryChangeOrdersViewState extends State<_SalaryChangeOrdersView> {
             ),
             onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('پیش‌نمایش آماده چاپ است.')),
+                const SnackBar(content: Text('برای چاپ، ابتدا سند پرسنلی را ذخیره و خروجی چاپ سرور را دریافت کنید.')),
               );
             },
           ),

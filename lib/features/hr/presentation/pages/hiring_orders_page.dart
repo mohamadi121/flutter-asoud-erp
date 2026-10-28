@@ -11,6 +11,8 @@ import '../../../../core/widgets/asoud_ui.dart';
 import '../../../../core/widgets/states.dart';
 import '../../data/hiring_order_repository.dart';
 import '../cubit/hiring_orders_cubit.dart';
+import '../widgets/hr_document_print.dart';
+import '../widgets/hr_template_status.dart';
 
 enum _HiringViewMode { list, form, preview, templateBuilder }
 
@@ -59,7 +61,7 @@ class _HiringOrdersViewState extends State<_HiringOrdersView> {
   String _employeeName = '';
   String _employeeNumber = '';
   String _employment = 'تمام‌وقت';
-  String _effectiveDate = '1405/08/01';
+  String _effectiveDate = JalaliDate.fromDateTime(DateTime.now()).format();
   String _unit = '';
   String _position = '';
   String _location = '';
@@ -382,7 +384,7 @@ class _HiringOrdersViewState extends State<_HiringOrdersView> {
       _employeeName = '';
       _employeeNumber = '';
       _employment = 'تمام‌وقت';
-      _effectiveDate = '1405/08/01';
+      _effectiveDate = JalaliDate.fromDateTime(DateTime.now()).format();
       _unit = '';
       _position = '';
       _location = '';
@@ -400,7 +402,7 @@ class _HiringOrdersViewState extends State<_HiringOrdersView> {
       _employeeName = order.employeeName;
       _employeeNumber = order.employeeNumber;
       _employment = order.values['employment']?.toString() ?? 'تمام‌وقت';
-      _effectiveDate = order.effectiveDate.isNotEmpty ? order.effectiveDate : '1405/08/01';
+      _effectiveDate = order.effectiveDate.isNotEmpty ? order.effectiveDate : JalaliDate.fromDateTime(DateTime.now()).format();
       _unit = order.department;
       _position = order.designation;
       _location = order.location;
@@ -480,7 +482,11 @@ class _HiringOrdersViewState extends State<_HiringOrdersView> {
                     : null,
               ),
               body: SafeArea(
-                child: _buildBody(context, state),
+                child: HrTemplateStatus(
+                  error: state.templateError,
+                  onRetry: () => context.read<HiringOrdersCubit>().load(refresh: true),
+                  child: _buildBody(context, state),
+                ),
               ),
             );
           },
@@ -735,7 +741,7 @@ class _HiringOrdersViewState extends State<_HiringOrdersView> {
           ),
           const SizedBox(height: 2),
           Text(
-            'تاریخ اجرا: ${toPersianDigits(order.effectiveDate)}',
+            'تاریخ اجرا: ${formatJalaliIso(order.effectiveDate)}',
             style: const TextStyle(fontSize: 11, color: AsoudColors.muted),
           ),
           const SizedBox(height: 10),
@@ -831,7 +837,7 @@ class _HiringOrdersViewState extends State<_HiringOrdersView> {
               ),
               SizedBox(height: 4),
               Text(
-                '۶ ماده از فرم‌ساز سند؛ کارشناس HR فقط اطلاعات اجرایی را تکمیل می‌کند.',
+                '۶ ماده از فرم‌ساز سند؛ کارشناس منابع انسانی فقط اطلاعات اجرایی را تکمیل می‌کند.',
                 style: TextStyle(fontSize: 11, color: AsoudColors.muted),
               ),
             ],
@@ -855,6 +861,16 @@ class _HiringOrdersViewState extends State<_HiringOrdersView> {
                 subtitle: 'اطلاعات از پرونده منابع انسانی',
               ),
               const SizedBox(height: 12),
+              if (state.peopleLoading) const LinearProgressIndicator(),
+              if (state.peopleError != null) ...[
+                Text('دریافت فهرست پرسنل انجام نشد. ${state.peopleError}',
+                    style: const TextStyle(color: AsoudColors.danger)),
+                TextButton(
+                  onPressed: state.peopleLoading ? null
+                      : () => context.read<HiringOrdersCubit>().loadPeople(),
+                  child: const Text('دریافت دوباره پرسنل'),
+                ),
+              ],
               DropdownButtonFormField<String>(
                 initialValue: _personId.isNotEmpty ? _personId : null,
                 isExpanded: true,
@@ -863,12 +879,12 @@ class _HiringOrdersViewState extends State<_HiringOrdersView> {
                     .map((p) => DropdownMenuItem(
                           value: p.name,
                           child: Text(
-                            '${p.displayName} — ${p.employeeNumber.isNotEmpty ? p.employeeNumber : p.name}',
+                            '${p.displayName} — ${p.employeeNumber.isNotEmpty ? toPersianDigits(p.employeeNumber) : 'اطلاعات موجود نیست'}',
                             style: const TextStyle(fontSize: 12),
                           ),
                         ))
                     .toList(),
-                onChanged: (val) {
+                onChanged: state.peopleLoading || state.peopleError != null ? null : (val) {
                   if (val != null) {
                     final person = state.people.firstWhere((p) => p.name == val);
                     setState(() {
@@ -1129,9 +1145,9 @@ class _HiringOrdersViewState extends State<_HiringOrdersView> {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        state.currentPayroll!.hasMissing
-                            ? 'ناقص'
-                            : '${toPersianDigits((state.currentPayroll!.monthlyTotal ?? 0).toStringAsFixed(0))} ریال',
+                        state.currentPayroll!.hasMissing || state.currentPayroll!.monthlyTotal == null
+                            ? 'اطلاعات موجود نیست'
+                            : '${toPersianDigits(state.currentPayroll!.monthlyTotal!.toStringAsFixed(0))} ریال',
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF1769AA)),
                       ),
                     ],
@@ -1406,7 +1422,7 @@ class _HiringOrdersViewState extends State<_HiringOrdersView> {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text('شماره: ${order != null && isFinal ? order.number : "—"}', style: const TextStyle(fontSize: 10, color: Color(0xFF718499))),
-                      Text('تاریخ صدور: ${order != null && order.issueDate.isNotEmpty ? toPersianDigits(order.issueDate) : "—"}', style: const TextStyle(fontSize: 10, color: Color(0xFF718499))),
+                      Text('تاریخ صدور: ${order != null && order.issueDate.isNotEmpty ? formatJalaliIso(order.issueDate) : "—"}', style: const TextStyle(fontSize: 10, color: Color(0xFF718499))),
                     ],
                   ),
                 ],
@@ -1495,9 +1511,9 @@ class _HiringOrdersViewState extends State<_HiringOrdersView> {
                                 Padding(
                                   padding: const EdgeInsets.all(6),
                                   child: Text(
-                                    state.currentPayroll!.hasMissing
-                                        ? 'ناقص'
-                                        : '${toPersianDigits((state.currentPayroll!.monthlyTotal ?? 0).toStringAsFixed(0))} ریال',
+                                    state.currentPayroll!.hasMissing || state.currentPayroll!.monthlyTotal == null
+                                        ? 'اطلاعات موجود نیست'
+                                        : '${toPersianDigits(state.currentPayroll!.monthlyTotal!.toStringAsFixed(0))} ریال',
                                     style: const TextStyle(
                                         fontSize: 9.5,
                                         fontWeight: FontWeight.bold,
@@ -1552,23 +1568,14 @@ class _HiringOrdersViewState extends State<_HiringOrdersView> {
         const SizedBox(height: 16),
 
         // Action buttons
-        ElevatedButton.icon(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AsoudColors.primary,
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            padding: const EdgeInsets.symmetric(vertical: 14),
-          ),
-          onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('سند آماده چاپ در مرورگر/پرینتر است.'),
-                backgroundColor: AsoudColors.success,
-              ),
-            );
+        HrDocumentPrintButton(
+          label: 'چاپ حکم',
+          loadHtml: () async {
+            final name = order?.name ?? _orderId;
+            if (name == null) return '';
+            final document = await context.read<HiringOrdersCubit>().repository.printOrder(name: name);
+            return document.html;
           },
-          icon: const Icon(Icons.print, size: 18),
-          label: const Text('🖨 چاپ حکم', style: TextStyle(fontWeight: FontWeight.bold)),
         ),
         const SizedBox(height: 8),
         Row(

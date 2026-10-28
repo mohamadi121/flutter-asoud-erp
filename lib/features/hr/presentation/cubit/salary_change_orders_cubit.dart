@@ -15,7 +15,10 @@ class SalaryChangeOrdersState extends Equatable {
     this.statusFilter = 'all',
     this.applicationStatusFilter = 'all',
     this.people = const [],
+    this.peopleLoading = false,
+    this.peopleError,
     this.publishedTemplate,
+    this.templateError,
     this.currentOrder,
     this.currentPayroll,
     this.currentPrint,
@@ -29,7 +32,10 @@ class SalaryChangeOrdersState extends Equatable {
   final String statusFilter;
   final String applicationStatusFilter;
   final List<SalaryChangeOrderPerson> people;
+  final bool peopleLoading;
+  final String? peopleError;
   final Map<String, dynamic>? publishedTemplate;
+  final String? templateError;
   final SalaryChangeOrderDetail? currentOrder;
   final SalaryChangePayrollResult? currentPayroll;
   final SalaryChangeOrderPrint? currentPrint;
@@ -44,8 +50,13 @@ class SalaryChangeOrdersState extends Equatable {
     String? statusFilter,
     String? applicationStatusFilter,
     List<SalaryChangeOrderPerson>? people,
+    bool? peopleLoading,
+    String? peopleError,
+    bool clearPeopleError = false,
     Map<String, dynamic>? publishedTemplate,
     bool clearTemplate = false,
+    String? templateError,
+    bool clearTemplateError = false,
     SalaryChangeOrderDetail? currentOrder,
     bool clearCurrentOrder = false,
     SalaryChangePayrollResult? currentPayroll,
@@ -63,6 +74,9 @@ class SalaryChangeOrdersState extends Equatable {
         applicationStatusFilter:
             applicationStatusFilter ?? this.applicationStatusFilter,
         people: people ?? this.people,
+        peopleLoading: peopleLoading ?? this.peopleLoading,
+        peopleError: clearPeopleError ? null : (peopleError ?? this.peopleError),
+        templateError: clearTemplateError ? null : (templateError ?? this.templateError),
         publishedTemplate: clearTemplate
             ? null
             : (publishedTemplate ?? this.publishedTemplate),
@@ -87,7 +101,10 @@ class SalaryChangeOrdersState extends Equatable {
         statusFilter,
         applicationStatusFilter,
         people,
+        peopleLoading,
+        peopleError,
         publishedTemplate,
+        templateError,
         currentOrder,
         currentPayroll,
         currentPrint,
@@ -103,9 +120,14 @@ class SalaryChangeOrdersCubit extends Cubit<SalaryChangeOrdersState> {
 
   final SalaryChangeOrderRepository repository;
   final String company;
+  int _payrollRequest = 0;
+  int _listRequest = 0;
+  int _orderRequest = 0;
+  int _printRequest = 0;
 
   Future<void> load({bool refresh = false}) async {
     if (!refresh && state.status == SalaryChangeOrdersStatus.loading) return;
+    final request = ++_listRequest;
     emit(state.copyWith(
         status: SalaryChangeOrdersStatus.loading, clearError: true));
     try {
@@ -117,13 +139,26 @@ class SalaryChangeOrdersCubit extends Cubit<SalaryChangeOrdersState> {
             ? ''
             : state.applicationStatusFilter,
       );
-      final template = await repository.getTemplate(company: company);
+      if (isClosed || request != _listRequest) return;
+      emit(state.copyWith(status: SalaryChangeOrdersStatus.loaded, orders: orders));
+      Map<String, dynamic>? template;
+      String? templateError;
+      try {
+        template = await repository.getTemplate(company: company);
+      } catch (error) {
+        templateError = failureDetail(error);
+      }
+      if (isClosed || request != _listRequest) return;
       emit(state.copyWith(
         status: SalaryChangeOrdersStatus.loaded,
         orders: orders,
         publishedTemplate: template,
+        clearTemplate: template == null,
+        templateError: templateError,
+        clearTemplateError: templateError == null,
       ));
     } catch (e) {
+      if (isClosed || request != _listRequest) return;
       emit(state.copyWith(
         status: SalaryChangeOrdersStatus.error,
         errorMessage: failureMessage(e),
@@ -147,26 +182,36 @@ class SalaryChangeOrdersCubit extends Cubit<SalaryChangeOrdersState> {
   }
 
   Future<void> loadPeople() async {
+    if (state.peopleLoading) return;
+    emit(state.copyWith(peopleLoading: true, clearPeopleError: true));
     try {
       final list = await repository.people(company: company);
-      emit(state.copyWith(people: list));
-    } catch (_) {}
+      if (isClosed) return;
+      emit(state.copyWith(people: list, peopleLoading: false));
+    } catch (e) {
+      if (isClosed) return;
+      emit(state.copyWith(peopleLoading: false, peopleError: failureDetail(e)));
+    }
   }
 
   Future<void> loadPayroll({
     required String employee,
     required String effectiveDate,
   }) async {
+    final request = ++_payrollRequest;
+    emit(state.copyWith(clearCurrentPayroll: true, clearError: true));
     try {
       final payroll = await repository.payroll(
         company: company,
         employee: employee,
         effectiveDate: effectiveDate,
       );
+      if (isClosed || request != _payrollRequest) return;
       emit(state.copyWith(currentPayroll: payroll));
     } catch (e) {
+      if (isClosed || request != _payrollRequest) return;
       emit(state.copyWith(
-        currentPayroll: null,
+        clearCurrentPayroll: true,
         errorMessage: failureMessage(e),
       ));
     }
@@ -185,6 +230,7 @@ class SalaryChangeOrdersCubit extends Cubit<SalaryChangeOrdersState> {
     String? position,
     List<Map<String, dynamic>> comparisonRows = const [],
   }) async {
+    if (state.isSubmitting) return null;
     emit(state.copyWith(isSubmitting: true, clearError: true));
     try {
       final saved = await repository.saveOrder(
@@ -223,6 +269,7 @@ class SalaryChangeOrdersCubit extends Cubit<SalaryChangeOrdersState> {
     required int revision,
     required String requestId,
   }) async {
+    if (state.isSubmitting) return false;
     emit(state.copyWith(isSubmitting: true, clearError: true));
     try {
       final order = await repository.sendForReview(
@@ -250,6 +297,7 @@ class SalaryChangeOrdersCubit extends Cubit<SalaryChangeOrdersState> {
     required int revision,
     required String requestId,
   }) async {
+    if (state.isSubmitting) return false;
     emit(state.copyWith(isSubmitting: true, clearError: true));
     try {
       final order = await repository.approveOrder(
@@ -277,6 +325,7 @@ class SalaryChangeOrdersCubit extends Cubit<SalaryChangeOrdersState> {
     required int revision,
     String reason = '',
   }) async {
+    if (state.isSubmitting) return false;
     emit(state.copyWith(isSubmitting: true, clearError: true));
     try {
       final order = await repository.rejectOrder(
@@ -303,6 +352,7 @@ class SalaryChangeOrdersCubit extends Cubit<SalaryChangeOrdersState> {
     required String name,
     required String operationId,
   }) async {
+    if (state.isSubmitting) return false;
     emit(state.copyWith(isSubmitting: true, clearError: true));
     try {
       final order = await repository.applyToPayroll(
@@ -325,14 +375,17 @@ class SalaryChangeOrdersCubit extends Cubit<SalaryChangeOrdersState> {
   }
 
   Future<void> loadOrder(String name) async {
-    emit(state.copyWith(isSubmitting: true, clearError: true));
+    final request = ++_orderRequest;
+    emit(state.copyWith(isSubmitting: true, clearError: true, clearCurrentOrder: true));
     try {
       final order = await repository.getOrder(name: name);
+      if (isClosed || request != _orderRequest) return;
       emit(state.copyWith(
         isSubmitting: false,
         currentOrder: order,
       ));
     } catch (e) {
+      if (isClosed || request != _orderRequest) return;
       emit(state.copyWith(
         isSubmitting: false,
         errorMessage: failureMessage(e),
@@ -341,14 +394,17 @@ class SalaryChangeOrdersCubit extends Cubit<SalaryChangeOrdersState> {
   }
 
   Future<void> loadPrint(String name) async {
-    emit(state.copyWith(isSubmitting: true, clearError: true));
+    final request = ++_printRequest;
+    emit(state.copyWith(isSubmitting: true, clearError: true, clearCurrentPrint: true));
     try {
       final printDoc = await repository.printOrder(name: name);
+      if (isClosed || request != _printRequest) return;
       emit(state.copyWith(
         isSubmitting: false,
         currentPrint: printDoc,
       ));
     } catch (e) {
+      if (isClosed || request != _printRequest) return;
       emit(state.copyWith(
         isSubmitting: false,
         errorMessage: failureMessage(e),
@@ -358,6 +414,7 @@ class SalaryChangeOrdersCubit extends Cubit<SalaryChangeOrdersState> {
 
   Future<bool> publishTemplate(Map<String, dynamic> template,
       {int revision = 0}) async {
+    if (state.isSubmitting) return false;
     emit(state.copyWith(isSubmitting: true, clearError: true));
     try {
       final saved = await repository.saveTemplate(

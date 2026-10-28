@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../widgets/hr_document_print.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/failure_message.dart';
@@ -29,6 +30,7 @@ class _EmploymentCertificatePreviewPageState extends State<EmploymentCertificate
   bool _loading = true;
   String? _error;
   bool _finalizing = false;
+  bool _printing = false;
   EmploymentCertificateDetail? _certificate;
 
   @override
@@ -61,7 +63,8 @@ class _EmploymentCertificatePreviewPageState extends State<EmploymentCertificate
 
   Future<void> _finalize() async {
     final cert = _certificate;
-    if (cert == null) return;
+    if (cert == null || _finalizing) return;
+    setState(() => _finalizing = true);
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -79,9 +82,11 @@ class _EmploymentCertificatePreviewPageState extends State<EmploymentCertificate
       ),
     );
 
-    if (confirmed != true) return;
-
-    setState(() => _finalizing = true);
+    if (!mounted) return;
+    if (confirmed != true) {
+      setState(() => _finalizing = false);
+      return;
+    }
 
     try {
       final reqKey = 'finalize-${widget.company}-${cert.name}-${DateTime.now().millisecondsSinceEpoch}';
@@ -108,10 +113,25 @@ class _EmploymentCertificatePreviewPageState extends State<EmploymentCertificate
     }
   }
 
-  void _printCertificate() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('دستور چاپ ارسال شد.')),
-    );
+  Future<void> _printCertificate() async {
+    final cert = _certificate;
+    if (_printing || cert == null) return;
+    if (cert.printHtml.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('خروجی چاپ گواهی موجود نیست. وضعیت را دوباره دریافت کنید.')));
+      return;
+    }
+    setState(() => _printing = true);
+    try {
+      await printHrDocument(cert.printHtml);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('چاپ گواهی انجام نشد. ${failureMessage(e)}')));
+      }
+    } finally {
+      if (mounted) setState(() => _printing = false);
+    }
   }
 
   @override
@@ -224,11 +244,13 @@ class _EmploymentCertificatePreviewPageState extends State<EmploymentCertificate
                   ],
 
                   // Meta row
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    spacing: 12,
+                    runSpacing: 8,
                     children: [
                       Text('شماره: ${isFinal ? toPersianDigits(cert.number) : '—'}', style: const TextStyle(fontSize: 10, color: Color(0xFF62768C))),
-                      Text('تاریخ: ${isFinal && cert.issueDate.isNotEmpty ? toPersianDigits(cert.issueDate) : '—'}', style: const TextStyle(fontSize: 10, color: Color(0xFF62768C))),
+                      Text('تاریخ: ${isFinal && cert.issueDate.isNotEmpty ? formatJalaliIso(cert.issueDate) : '—'}', style: const TextStyle(fontSize: 10, color: Color(0xFF62768C))),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -319,8 +341,10 @@ class _EmploymentCertificatePreviewPageState extends State<EmploymentCertificate
 
                   const SizedBox(height: 40),
                   // Signatures
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    spacing: 12,
+                    runSpacing: 8,
                     children: const [
                       Text('نام و امضای مقام مجاز', style: TextStyle(fontSize: 10, color: Color(0xFF62768C))),
                       Text('مهر شرکت', style: TextStyle(fontSize: 10, color: Color(0xFF62768C))),
@@ -348,7 +372,7 @@ class _EmploymentCertificatePreviewPageState extends State<EmploymentCertificate
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
-              onPressed: _printCertificate,
+              onPressed: _printing ? null : _printCertificate,
             ),
             if (!isFinal) ...[
               const SizedBox(height: 8),

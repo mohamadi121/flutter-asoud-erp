@@ -7,6 +7,7 @@ import 'package:asoud_erp/core/theme/asoud_colors.dart';
 import 'package:asoud_erp/core/utils/jalali_date.dart';
 import 'package:asoud_erp/core/widgets/asoud_ui.dart';
 import 'package:asoud_erp/features/hr/domain/hr_contract_models.dart';
+import '../../widgets/hr_document_print.dart';
 
 class HrContractPrintPage extends StatelessWidget {
   const HrContractPrintPage({
@@ -35,7 +36,7 @@ class HrContractPrintPage extends StatelessWidget {
             icon: const Icon(Icons.print_outlined),
             onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('سند برای چاپ ارسال شد.')),
+                const SnackBar(content: Text('برای چاپ، ابتدا سند پرسنلی را ذخیره و خروجی چاپ سرور را دریافت کنید.')),
               );
             },
           ),
@@ -53,7 +54,7 @@ class HrContractPrintPage extends StatelessWidget {
               FilledButton.icon(
                 onPressed: () {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('ارسال به چاپگر...')),
+                    const SnackBar(content: Text('برای چاپ، ابتدا سند پرسنلی را ذخیره و خروجی چاپ سرور را دریافت کنید.')),
                   );
                 },
                 icon: const Icon(Icons.print),
@@ -104,8 +105,7 @@ class _ServerContractPrintState extends State<_ServerContractPrint> {
             canChangePageFormat: false,
             canChangeOrientation: false,
             // The server HTML owns the letterhead, footer and rendered snapshot.
-            // ignore: deprecated_member_use
-            build: (format) => Printing.convertHtml(html: data['html'] as String, format: format),
+            build: (format) => convertHrDocument(data['html']?.toString() ?? '', format: format),
           )),
         ]);
       },
@@ -467,8 +467,10 @@ class HrContractPrintLayout extends StatelessWidget {
 
           const SizedBox(height: 36),
           // Signatures
-          const Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
+          const Wrap(
+            alignment: WrapAlignment.spaceAround,
+            spacing: 24,
+            runSpacing: 16,
             children: [
               Text(
                 'امضای کارفرما',

@@ -1,3 +1,10 @@
+import 'dart:async';
+import 'dart:typed_data';
+import 'package:pdf/pdf.dart';
+import 'package:printing/printing.dart';
+// Printing exposes its platform test seam through this library.
+// ignore: implementation_imports
+import 'package:printing/src/interface.dart';
 import 'package:asoud_erp/features/hr/data/employment_certificate_repository.dart';
 import 'package:asoud_erp/features/hr/presentation/pages/employment_certificate_form_page.dart';
 import 'package:asoud_erp/features/hr/presentation/pages/employment_certificate_preview_page.dart';
@@ -220,6 +227,63 @@ Widget _wrapWithRtl(Widget child, {FakeEmploymentCertificateRepository? repo, do
 }
 
 void main() {
+  for (final width in [320.0, 390.0, 430.0]) {
+    testWidgets('finalization guards repeated taps and unlocks after cancellation at $width', (tester) async {
+      await tester.binding.setSurfaceSize(Size(width, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(_wrapWithRtl(const EmploymentCertificatePreviewPage(
+        company: 'شرکت نمونه', certificateName: 'CERT-DRAFT-1'), width: width));
+      await tester.pumpAndSettle();
+      final label = find.text('ارسال و نهایی‌سازی گواهی');
+      await tester.scrollUntilVisible(label, 300, scrollable: find.byType(Scrollable).first);
+      await tester.ensureVisible(label);
+      await tester.pumpAndSettle();
+      final button = find.ancestor(of: label, matching: find.byType(ElevatedButton));
+      final action = tester.widget<ElevatedButton>(button).onPressed!;
+      action();
+      action();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(tester.widget<ElevatedButton>(button).onPressed, isNull);
+      await tester.tap(find.text('انصراف'));
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(tester.widget<ElevatedButton>(button).onPressed, isNotNull);
+    });
+    testWidgets('prints server HTML once and recovers from failure at $width', (tester) async {
+      final original = PrintingPlatform.instance;
+      final printing = _CertificatePrinting();
+      PrintingPlatform.instance = printing;
+      addTearDown(() {
+        PrintingPlatform.instance = original;
+        tester.binding.setSurfaceSize(null);
+      });
+      await tester.binding.setSurfaceSize(Size(width, 844));
+      await tester.pumpWidget(_wrapWithRtl(const EmploymentCertificatePreviewPage(
+        company: 'شرکت نمونه', certificateName: 'CERT-DRAFT-1'), width: width));
+      await tester.pumpAndSettle();
+      final button = find.text('چاپ گواهی');
+      await tester.scrollUntilVisible(button, 400, scrollable: find.byType(Scrollable).first);
+      await tester.tap(button);
+      await tester.pump();
+      expect(printing.html, '<article><p>متن چاپ برای علی محمدی</p></article>');
+      expect(tester.widget<ElevatedButton>(find.ancestor(of: button,
+          matching: find.byType(ElevatedButton))).onPressed, isNull);
+      printing.pending.complete(Uint8List.fromList([37, 80, 68, 70]));
+      await tester.pumpAndSettle();
+      expect(printing.printed, [37, 80, 68, 70]);
+      expect(printing.layoutCalls, 1);
+      printing.pending = Completer<Uint8List>();
+      await tester.tap(button);
+      await tester.pump();
+      printing.pending.completeError(Exception('conversion failed'));
+      await tester.pumpAndSettle();
+      expect(find.text('چاپ گواهی انجام نشد. دریافت اطلاعات ممکن نشد. دوباره تلاش کنید.'), findsOneWidget);
+      expect(tester.widget<ElevatedButton>(find.ancestor(of: button,
+          matching: find.byType(ElevatedButton))).onPressed, isNotNull);
+    });
+  }
   group('EmploymentCertificate models', () {
     test('Template and clauses serialization roundtrip', () {
       final jsonMap = {
@@ -469,4 +533,28 @@ void main() {
       expect(find.text('جمع اقلام ماهانه'), findsOneWidget);
     });
   });
+}
+class _CertificatePrinting extends PrintingPlatform {
+  Completer<Uint8List> pending = Completer<Uint8List>();
+  String? html;
+  Uint8List? printed;
+  int layoutCalls = 0;
+
+  @override
+  Future<Uint8List> convertHtml(String html, String? baseUrl, PdfPageFormat format) {
+    this.html = html;
+    return pending.future;
+  }
+
+  @override
+  Future<bool> layoutPdf(Printer? printer, LayoutCallback onLayout, String name,
+      PdfPageFormat format, bool dynamicLayout, bool usePrinterSettings,
+      OutputType outputType, bool forceCustomPrintPaper) async {
+    layoutCalls++;
+    printed = await onLayout(format);
+    return true;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

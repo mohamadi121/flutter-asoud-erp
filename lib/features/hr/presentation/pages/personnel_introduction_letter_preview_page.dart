@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:pdf/pdf.dart';
-import 'package:printing/printing.dart';
+import '../widgets/hr_document_print.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/failure_message.dart';
+import '../../../../core/utils/jalali_date.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../../core/widgets/states.dart';
 import '../../data/personnel_introduction_letter_repository.dart';
@@ -109,8 +109,7 @@ class _PersonnelIntroductionLetterPreviewPageState
     setState(() => _printing = true);
     try {
       // ignore: deprecated_member_use
-      final bytes = await Printing.convertHtml(html: letter.printHtml, format: PdfPageFormat.a4);
-      await Printing.layoutPdf(onLayout: (_) async => bytes, format: PdfPageFormat.a4);
+      await printHrDocument(letter.printHtml);
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -217,11 +216,11 @@ class _PersonnelIntroductionLetterPreviewPageState
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'شماره: ${letter.number.isNotEmpty ? letter.number : "—"}',
+                'شماره: ${letter.number.isNotEmpty ? toPersianDigits(letter.number) : "—"}',
                 style: const TextStyle(fontSize: 11, color: Color(0xFF62768C)),
               ),
               Text(
-                'تاریخ: ${letter.issueDate.isNotEmpty ? letter.issueDate : "—"}',
+                'تاریخ: ${letter.issueDate.isNotEmpty ? formatJalaliIso(letter.issueDate) : "—"}',
                 style: const TextStyle(fontSize: 11, color: Color(0xFF62768C)),
               ),
             ],

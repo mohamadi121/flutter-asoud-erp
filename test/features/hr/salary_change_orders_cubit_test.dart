@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'package:asoud_erp/core/network/api_exception.dart';
 import 'package:asoud_erp/features/hr/data/salary_change_order_repository.dart';
 import 'package:asoud_erp/features/hr/presentation/cubit/salary_change_orders_cubit.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -15,6 +17,91 @@ void main() {
   });
 
   tearDown(() => cubit.close());
+
+  test('late list failure does not replace a newer search result', () async {
+    final older = Completer<List<SalaryChangeOrderSummary>>();
+    when(() => repository.listOrders(company: 'COMP-1', search: '', status: '', applicationStatus: ''))
+        .thenAnswer((_) => older.future);
+    when(() => repository.listOrders(company: 'COMP-1', search: 'جدید', status: '', applicationStatus: ''))
+        .thenAnswer((_) async => []);
+    when(() => repository.getTemplate(company: 'COMP-1')).thenAnswer((_) async => null);
+    final first = cubit.load();
+    await cubit.setSearch('جدید');
+    older.completeError(TimeoutException(''));
+    await first;
+    expect(cubit.state.searchQuery, 'جدید');
+    expect(cubit.state.status, SalaryChangeOrdersStatus.loaded);
+    expect(cubit.state.errorMessage, isNull);
+  });
+
+  test('people failure has independent loading error and retry', () async {
+    when(() => repository.people(company: 'COMP-1'))
+        .thenThrow(const ApiException(kind: ApiFailureKind.network, message: 'شبکه'));
+    await cubit.loadPeople();
+    expect(cubit.state.peopleLoading, isFalse);
+    expect(cubit.state.peopleError,
+        'ارتباط با سرور برقرار نشد. اتصال اینترنت را بررسی کنید.');
+    expect(cubit.state.errorMessage, isNull);
+    expect(cubit.state.status, SalaryChangeOrdersStatus.initial);
+    final pending = Completer<List<SalaryChangeOrderPerson>>();
+    when(() => repository.people(company: 'COMP-1')).thenAnswer((_) => pending.future);
+    final retry = cubit.loadPeople();
+    expect(cubit.state.peopleLoading, isTrue);
+    expect(cubit.state.peopleError, isNull);
+    const person = SalaryChangeOrderPerson(name: 'A', displayName: 'علی رضایی',
+        employeeNumber: '۱۲', department: 'اداری', designation: 'کارشناس');
+    pending.complete([person]);
+    await retry;
+    expect(cubit.state.peopleLoading, isFalse);
+    expect(cubit.state.peopleError, isNull);
+    expect(cubit.state.people, [person]);
+  });
+
+  test('employee change clears payroll immediately and after failure', () async {
+    const payroll = SalaryChangePayrollResult(currency: 'IRR', rows: []);
+    when(() => repository.payroll(company: 'COMP-1', employee: 'A',
+        effectiveDate: '2026-10-28')).thenAnswer((_) async => payroll);
+    await cubit.loadPayroll(employee: 'A', effectiveDate: '2026-10-28');
+    expect(cubit.state.currentPayroll, same(payroll));
+    final pending = Completer<SalaryChangePayrollResult>();
+    when(() => repository.payroll(company: 'COMP-1', employee: 'B',
+        effectiveDate: '2026-10-28')).thenAnswer((_) => pending.future);
+    final load = cubit.loadPayroll(employee: 'B', effectiveDate: '2026-10-28');
+    expect(cubit.state.currentPayroll, isNull);
+    pending.completeError(const ApiException(kind: ApiFailureKind.network, message: 'شبکه'));
+    await load;
+    expect(cubit.state.currentPayroll, isNull);
+    expect(cubit.state.errorMessage,
+        'ارتباط با سرور برقرار نشد. اتصال اینترنت را بررسی کنید.');
+  });
+
+  for (final changeDate in [false, true]) {
+    for (final staleFailure in [false, true]) {
+      test('ignores superseded payroll date=$changeDate failure=$staleFailure', () async {
+        final older = Completer<SalaryChangePayrollResult>();
+        final newer = Completer<SalaryChangePayrollResult>();
+        when(() => repository.payroll(company: 'COMP-1', employee: 'A',
+            effectiveDate: '2026-10-28')).thenAnswer((_) => older.future);
+        final employee = changeDate ? 'A' : 'B';
+        final date = changeDate ? '2026-10-29' : '2026-10-28';
+        when(() => repository.payroll(company: 'COMP-1', employee: employee,
+            effectiveDate: date)).thenAnswer((_) => newer.future);
+        final first = cubit.loadPayroll(employee: 'A', effectiveDate: '2026-10-28');
+        final second = cubit.loadPayroll(employee: employee, effectiveDate: date);
+        const current = SalaryChangePayrollResult(currency: 'IRR', rows: [], message: 'آخرین انتخاب');
+        newer.complete(current);
+        await second;
+        if (staleFailure) {
+          older.completeError(const ApiException(kind: ApiFailureKind.network, message: 'شبکه'));
+        } else {
+          older.complete(const SalaryChangePayrollResult(currency: 'IRR', rows: [], message: 'قدیمی'));
+        }
+        await first;
+        expect(cubit.state.currentPayroll, same(current));
+        expect(cubit.state.errorMessage, isNull);
+      });
+    }
+  }
 
   test('initial state has correct defaults', () {
     expect(cubit.state.status, SalaryChangeOrdersStatus.initial);

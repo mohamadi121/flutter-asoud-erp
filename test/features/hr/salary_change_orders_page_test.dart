@@ -1,3 +1,4 @@
+import 'package:asoud_erp/core/network/api_exception.dart';
 import 'package:asoud_erp/features/hr/data/salary_change_order_repository.dart';
 import 'package:asoud_erp/features/hr/presentation/pages/salary_change_orders_page.dart';
 import 'package:asoud_erp/core/utils/jalali_date.dart';
@@ -13,6 +14,46 @@ void main() {
   setUp(() {
     repository = _Repository();
   });
+
+  for (final width in [320.0, 390.0, 430.0]) {
+    testWidgets('people picker shows error and retries at $width', (tester) async {
+      when(() => repository.listOrders(company: 'شرکت تابان',
+          search: any(named: 'search'), status: any(named: 'status'),
+          applicationStatus: any(named: 'applicationStatus'))).thenAnswer((_) async => []);
+      when(() => repository.getTemplate(company: 'شرکت تابان'))
+          .thenAnswer((_) async => {'revision': 1});
+      when(() => repository.people(company: 'شرکت تابان'))
+          .thenThrow(const ApiException(kind: ApiFailureKind.network, message: 'شبکه'));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.binding.setSurfaceSize(Size(width, 900));
+      await tester.pumpWidget(MaterialApp(
+        builder: (_, child) => Directionality(textDirection: TextDirection.rtl, child: child!),
+        home: SalaryChangeOrdersPage(company: 'شرکت تابان', repository: repository,
+            canIssue: true, initialMode: SalaryChangeOrdersMode.form),
+      ));
+      await tester.pumpAndSettle();
+      expect(find.text('ارتباط با سرور برقرار نشد. اتصال اینترنت را بررسی کنید.'), findsOneWidget);
+      const person = SalaryChangeOrderPerson(name: 'A', displayName: 'علی رضایی',
+          employeeNumber: '۱۲', department: 'اداری', designation: 'کارشناس');
+      when(() => repository.people(company: 'شرکت تابان')).thenAnswer((_) async => [person]);
+      final retry = find.text('دریافت دوباره پرسنل');
+      await tester.ensureVisible(retry);
+      await tester.tap(retry);
+      await tester.pumpAndSettle();
+      expect(find.text('دریافت دوباره پرسنل'), findsNothing);
+      final picker = find.byKey(const ValueKey('salary-order-personnel'));
+      await tester.scrollUntilVisible(picker, -200,
+          scrollable: find.byType(Scrollable).first);
+      await tester.ensureVisible(picker);
+      await tester.pumpAndSettle();
+      expect(picker.hitTestable(), findsOneWidget);
+      await tester.tap(picker);
+      await tester.pumpAndSettle();
+      expect(find.text('علی رضایی — ۱۲'), findsWidgets);
+      verify(() => repository.people(company: 'شرکت تابان')).called(2);
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   Widget createWidget({required double width, bool allowWrites = true}) {
     return MaterialApp(
