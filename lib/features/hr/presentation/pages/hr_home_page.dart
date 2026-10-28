@@ -26,6 +26,7 @@ import '../../data/hr_contracts_repository.dart';
 import '../../data/hr_contract_template_repository.dart';
 import 'contracts/hr_contracts_page.dart';
 import 'employment_certificates_page.dart';
+import 'personnel_introduction_letters_page.dart';
 
 Future<Capabilities> _hrCapabilities(BuildContext context) async {
   try {
@@ -275,6 +276,12 @@ class _ManagerHrHome extends StatelessWidget {
               Icons.assignment_outlined,
               AsoudColors.primary,
               () => _push(context, HiringOrdersPage(company: company))),
+          _Action(
+              'معرفی‌نامه‌های پرسنلی',
+              'صدور، مشاهده و چاپ معرفی‌نامه‌ها',
+              Icons.assignment_ind_outlined,
+              AsoudColors.primary,
+              () => _push(context, PersonnelIntroductionLettersPage(company: company))),
           _Action(
               'درخواست‌های مرخصی',
               'مشاهده درخواست‌ها و وضعیت مرخصی',
