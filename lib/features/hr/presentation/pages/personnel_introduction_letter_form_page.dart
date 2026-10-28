@@ -77,8 +77,9 @@ class _PersonnelIntroductionLetterFormPageState
       final tmplFuture = _repository.getTemplate(company: widget.company);
       final empFuture = _repository.getEmployeeOptions(company: widget.company);
 
-      final tmpl = await tmplFuture;
-      final emps = await empFuture;
+      final results = await Future.wait<Object>([tmplFuture, empFuture], eagerError: true);
+      final tmpl = results[0] as PersonnelIntroductionTemplate;
+      final emps = results[1] as List<Map<String, dynamic>>;
 
       if (!mounted) return;
       _template = tmpl;

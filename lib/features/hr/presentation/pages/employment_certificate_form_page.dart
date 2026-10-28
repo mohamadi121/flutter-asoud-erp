@@ -76,9 +76,12 @@ class _EmploymentCertificateFormPageState extends State<EmploymentCertificateFor
           ? _repository.getCertificate(name: widget.initialCertificateName)
           : null;
 
-      final tmpl = await tmplFuture;
-      final emps = await empFuture;
-      final cert = certFuture != null ? await certFuture : null;
+      final results = await Future.wait<Object?>([
+        tmplFuture, empFuture, if (certFuture != null) certFuture,
+      ], eagerError: true);
+      final tmpl = results[0] as EmploymentCertificateTemplate;
+      final emps = results[1] as List<Map<String, dynamic>>;
+      final cert = results.length > 2 ? results[2] as EmploymentCertificateDetail : null;
 
       if (!mounted) return;
 
