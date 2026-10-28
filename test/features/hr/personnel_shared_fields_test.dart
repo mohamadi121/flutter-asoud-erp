@@ -115,7 +115,12 @@ void main() {
     await _section(tester, 'نتیجه ارزیابی');
     expect(find.widgetWithText(TextFormField, 'امتیاز هدف از ۱۰۰ *'),
         findsOneWidget);
-    await tester.tap(find.text('دوره ارزیابی *'));
+    final cycle = find.ancestor(of: find.text('دوره ارزیابی *'),
+        matching: find.byType(AppSelectField));
+    await tester.ensureVisible(cycle);
+    await tester.pumpAndSettle();
+    expect(cycle.hitTestable(), findsOneWidget);
+    await tester.tap(cycle);
     await tester.pumpAndSettle();
     expect(find.byType(AppSelectField), findsOneWidget);
     await tester.ensureVisible(find.text('دوره ۴ ماهه').last);
