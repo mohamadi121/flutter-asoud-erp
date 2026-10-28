@@ -30,6 +30,8 @@ class _PersonnelIntroductionLetterPreviewPageState
   bool _loading = true;
   String? _error;
   bool _finalizing = false;
+  late final String _finalizeRequestKey =
+      'finalize-${widget.letterName}-${DateTime.now().microsecondsSinceEpoch}';
   PersonnelIntroductionLetterDetail? _letter;
 
   @override
@@ -69,7 +71,7 @@ class _PersonnelIntroductionLetterPreviewPageState
       final updated = await _repository.finalizeLetter(
         name: letter.name,
         revision: letter.revision,
-        requestKey: 'finalize-${letter.name}-${DateTime.now().millisecondsSinceEpoch}',
+        requestKey: _finalizeRequestKey,
       );
       if (!mounted) return;
       setState(() {

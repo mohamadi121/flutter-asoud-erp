@@ -22,6 +22,20 @@ Widget _wrapWithRtl(Widget child, {PersonnelIntroductionLetterRepository? repo, 
   );
 }
 
+class _RetryFinalizationRepository extends FakePersonnelIntroductionLetterRepository {
+  final keys = <String>[];
+
+  @override
+  Future<PersonnelIntroductionLetterDetail> finalizeLetter({
+    required String name,
+    required int revision,
+    required String requestKey,
+  }) async {
+    keys.add(requestKey);
+    throw Exception('connection lost');
+  }
+}
+
 void main() {
   group('PersonnelIntroductionLetter models', () {
     test('Template and clauses serialization roundtrip', () {
@@ -154,6 +168,26 @@ void main() {
 
       expect(find.text('نام مرجع دریافت‌کننده *'), findsOneWidget);
     });
+  });
+
+  testWidgets('finalization retries reuse the form request key', (tester) async {
+    final repo = _RetryFinalizationRepository();
+    await tester.pumpWidget(_wrapWithRtl(
+      const PersonnelIntroductionLetterPreviewPage(
+        letterName: 'INTRO-DRAFT-1', company: 'شرکت نمونه',
+      ),
+      repo: repo,
+    ));
+    await tester.pumpAndSettle();
+    final button = find.text('صدور نهایی معرفی‌نامه');
+    await tester.ensureVisible(button);
+    await tester.tap(button);
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.tap(button);
+    await tester.pumpAndSettle();
+    expect(repo.keys, hasLength(2));
+    expect(repo.keys.last, repo.keys.first);
   });
 
   group('PersonnelIntroductionLetterPreviewPage UI', () {

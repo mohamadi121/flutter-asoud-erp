@@ -31,6 +31,8 @@ class _PersonnelIntroductionLetterFormPageState
   bool _loading = true;
   String? _error;
   bool _saving = false;
+  final String _draftRequestKey = 'draft-${DateTime.now().microsecondsSinceEpoch}';
+  final String _finalizeRequestKey = 'finalize-${DateTime.now().microsecondsSinceEpoch}';
 
   PersonnelIntroductionTemplate? _template;
   List<Map<String, dynamic>> _employees = const [];
@@ -130,6 +132,7 @@ class _PersonnelIntroductionLetterFormPageState
   }
 
   Future<void> _saveDraft({bool andPreview = false, bool andFinalize = false}) async {
+    if (_saving) return;
     if (_selectedEmployee.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('لطفاً پرسنل را انتخاب نمایید.')),
@@ -164,7 +167,6 @@ class _PersonnelIntroductionLetterFormPageState
 
     setState(() => _saving = true);
     try {
-      final requestKey = 'draft-${DateTime.now().millisecondsSinceEpoch}';
       final draft = await _repository.saveDraft(
         company: widget.company,
         employee: _selectedEmployee,
@@ -175,7 +177,7 @@ class _PersonnelIntroductionLetterFormPageState
         purpose: _purposeController.text.trim(),
         validityDate: _validityDateController.text.trim(),
         notes: _notesController.text.trim(),
-        requestKey: requestKey,
+        requestKey: _draftRequestKey,
         revision: _revision,
         name: _letterName,
       );
@@ -184,14 +186,13 @@ class _PersonnelIntroductionLetterFormPageState
       setState(() {
         _letterName = draft.name;
         _revision = draft.revision;
-        _saving = false;
       });
 
       if (andFinalize) {
         final finalRes = await _repository.finalizeLetter(
           name: draft.name,
           revision: draft.revision,
-          requestKey: 'finalize-${draft.name}-${DateTime.now().millisecondsSinceEpoch}',
+          requestKey: _finalizeRequestKey,
         );
         if (!mounted) return;
         Navigator.of(context).pushReplacement(
@@ -231,6 +232,8 @@ class _PersonnelIntroductionLetterFormPageState
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(e is ApiException ? e.message : 'ذخیره معرفی‌نامه با خطا مواجه شد.')),
       );
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
   }
 
