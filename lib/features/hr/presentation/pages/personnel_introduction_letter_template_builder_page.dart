@@ -932,7 +932,7 @@ class _PersonnelIntroductionLetterTemplateBuilderPageState
             ),
             onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('چاپ در حالت پیش‌نمایش قالب ذخیره شد.')),
+                const SnackBar(content: Text('برای چاپ، ابتدا سند پرسنلی را ذخیره و خروجی چاپ سرور را دریافت کنید.')),
               );
             },
           ),

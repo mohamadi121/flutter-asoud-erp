@@ -2702,7 +2702,7 @@ class _SalaryChangeOrdersViewState extends State<_SalaryChangeOrdersView> {
             ),
             onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('پیش‌نمایش آماده چاپ است.')),
+                const SnackBar(content: Text('برای چاپ، ابتدا سند پرسنلی را ذخیره و خروجی چاپ سرور را دریافت کنید.')),
               );
             },
           ),

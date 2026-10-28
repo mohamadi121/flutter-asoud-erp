@@ -36,7 +36,7 @@ class HrContractPrintPage extends StatelessWidget {
             icon: const Icon(Icons.print_outlined),
             onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('سند برای چاپ ارسال شد.')),
+                const SnackBar(content: Text('برای چاپ، ابتدا سند پرسنلی را ذخیره و خروجی چاپ سرور را دریافت کنید.')),
               );
             },
           ),
@@ -54,7 +54,7 @@ class HrContractPrintPage extends StatelessWidget {
               FilledButton.icon(
                 onPressed: () {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('ارسال به چاپگر...')),
+                    const SnackBar(content: Text('برای چاپ، ابتدا سند پرسنلی را ذخیره و خروجی چاپ سرور را دریافت کنید.')),
                   );
                 },
                 icon: const Icon(Icons.print),
