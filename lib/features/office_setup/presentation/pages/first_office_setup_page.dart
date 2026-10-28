@@ -36,6 +36,7 @@ class _FirstOfficeSetupPageState extends State<FirstOfficeSetupPage> {
       FirstOfficeBootstrapRepository(context.read<FrappeApiClient>());
   FirstOfficeBootstrapStatus? bootstrap;
   bool hrLoading = true, hrBusy = false, hrNeedsReload = false;
+  bool bootstrapRequestRunning = false;
   String? hrError;
   bool hrDeferred = false;
   static const canvas = Color(0xfff6f8fc);
@@ -61,6 +62,8 @@ class _FirstOfficeSetupPageState extends State<FirstOfficeSetupPage> {
   }
 
   Future<void> loadBootstrap() async {
+    if (bootstrapRequestRunning || hrBusy) return;
+    bootstrapRequestRunning = true;
     setState(() {
       hrLoading = true;
       hrError = null;
@@ -81,6 +84,7 @@ class _FirstOfficeSetupPageState extends State<FirstOfficeSetupPage> {
         });
       }
     } finally {
+      bootstrapRequestRunning = false;
       if (mounted) setState(() => hrLoading = false);
     }
   }

@@ -46,6 +46,9 @@ class FirstOfficeBootstrapRepository {
         Map<String, dynamic>.from(result));
   }
 
+  // The paired server serializes status and create_hr_lead on the company row.
+  // A null lead is definitive only after that lock settles; a lock timeout is
+  // an error and must leave credential editing disabled in the setup page.
   Future<FirstOfficeBootstrapStatus> status(String company) =>
       _call('status', {'company': company});
   Future<FirstOfficeBootstrapStatus> complete(String company) =>
