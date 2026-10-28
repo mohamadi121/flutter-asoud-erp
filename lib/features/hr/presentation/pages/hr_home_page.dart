@@ -16,17 +16,24 @@ import 'organization_page.dart';
 import '../../domain/hr_repository.dart';
 import '../cubit/hr_cubit.dart';
 import 'personnel_page.dart';
+import 'hiring_orders_page.dart';
 import '../../../../core/network/frappe_client.dart';
 import '../../data/personnel_repository.dart';
 import '../../../employee/data/self_service_repository.dart';
 import '../../../employee/presentation/pages/my_attendance_page.dart';
 import '../../../request_templates/presentation/pages/request_list_pages.dart';
+import '../../data/hr_contracts_repository.dart';
+import '../../data/hr_contract_template_repository.dart';
+import 'contracts/hr_contracts_page.dart';
+import 'employment_certificates_page.dart';
+import 'personnel_introduction_letters_page.dart';
+import 'salary_change_orders_page.dart';
 
 Future<Capabilities> _hrCapabilities(BuildContext context) async {
   try {
     return await loadCapabilities(context.read<FrappeApiClient>());
   } on ProviderNotFoundException {
-    return Capabilities.full;
+    return Capabilities.fromRoles(const []);
   } catch (_) {
     return Capabilities.fromRoles(const []);
   }
@@ -127,6 +134,27 @@ class _HrHome extends StatelessWidget {
                   () => _push(context, PersonnelPage(company: company)),
                 ),
                 _Action(
+                  'قراردادهای پرسنلی',
+                  'صدور، پیگیری و چاپ قراردادهای کار',
+                  Icons.badge_outlined,
+                  AsoudColors.primary,
+                  () async {
+                    final capabilities = await _hrCapabilities(context);
+                    if (!context.mounted) return;
+                    _push(
+                    context,
+                    HrContractsPage(
+                      company: company,
+                      repository: ServerHrContractsRepository(
+                          context.read<FrappeApiClient>()),
+                      templateRepository: ServerHrContractTemplateRepository(
+                          context.read<FrappeApiClient>()),
+                      canManageTemplate: capabilities.canManageContractTemplates,
+                    ),
+                    );
+                  },
+                ),
+                _Action(
                   'تیم و ساختار سازمانی',
                   'همکاران، واحدها و مسیر سازمانی',
                   Icons.account_tree_outlined,
@@ -155,6 +183,26 @@ class _HrHome extends StatelessWidget {
                         ),
                       ),
                     ),
+                  ),
+                  _Action(
+                    'احکام تغییر حقوق و مزایا',
+                    'صدور، مقایسه، گردش‌کار و اعمال احکام حقوقی',
+                    Icons.request_quote_outlined,
+                    AsoudColors.primary,
+                    () async {
+                      final caps = await _hrCapabilities(context);
+                      if (context.mounted) {
+                        _push(
+                          context,
+                          SalaryChangeOrdersPage(
+                            company: company,
+                            canIssue: caps.canWriteHrRecords || caps.canManageOrganization,
+                            canDesign: caps.canManageSalaryTemplates,
+                            canExecutePayroll: caps.canSeeAccounting,
+                          ),
+                        );
+                      }
+                    },
                   ),
                 ],
                 _Action(
@@ -218,6 +266,77 @@ class _ManagerHrHome extends StatelessWidget {
               AsoudColors.warning,
               () => _push(context, PersonnelPage(company: company))),
           _Action(
+              'قراردادهای پرسنلی',
+              'صدور، پیگیری و چاپ قراردادهای کار',
+              Icons.badge_outlined,
+              AsoudColors.primary,
+              () async {
+                    final capabilities = await _hrCapabilities(context);
+                    if (!context.mounted) return;
+                    _push(
+                    context,
+                    HrContractsPage(
+                      company: company,
+                      repository: ServerHrContractsRepository(
+                          context.read<FrappeApiClient>()),
+                      templateRepository: ServerHrContractTemplateRepository(
+                          context.read<FrappeApiClient>()),
+                      canManageTemplate: capabilities.canManageContractTemplates,
+                    ),
+                    );
+                  }),
+          _Action(
+              'گواهی‌های اشتغال به کار',
+              'صدور، مشاهده و چاپ اسناد پرسنلی',
+              Icons.description_outlined,
+              AsoudColors.primary,
+              () async {
+                final caps = await _hrCapabilities(context);
+                if (context.mounted) {
+                  _push(
+                    context,
+                    EmploymentCertificatesPage(
+                      company: company,
+                      canManageTemplate: caps.canManageCertificateTemplates,
+                    ),
+                  );
+                }
+              }),
+          _Action(
+              'احکام استخدام',
+              'صدور، پیگیری و چاپ احکام کارگزینی',
+              Icons.assignment_outlined,
+              AsoudColors.primary,
+              () async {
+                final caps = await _hrCapabilities(context);
+                if (context.mounted) {
+                  _push(
+                    context,
+                    HiringOrdersPage(
+                      company: company,
+                      capabilities: caps,
+                    ),
+                  );
+                }
+              }),
+          _Action(
+              'معرفی‌نامه‌های پرسنلی',
+              'صدور، مشاهده و چاپ معرفی‌نامه‌ها',
+              Icons.assignment_ind_outlined,
+              AsoudColors.primary,
+              () async {
+                final caps = await _hrCapabilities(context);
+                if (context.mounted) {
+                  _push(
+                    context,
+                    PersonnelIntroductionLettersPage(
+                      company: company,
+                      canManageTemplate: caps.canManageIntroductionTemplates,
+                    ),
+                  );
+                }
+              }),
+          _Action(
               'درخواست‌های مرخصی',
               'مشاهده درخواست‌ها و وضعیت مرخصی',
               Icons.beach_access_outlined,
@@ -233,6 +352,25 @@ class _ManagerHrHome extends StatelessWidget {
                   MyAttendancePage(
                       repository: SelfServiceRepository(
                           context.read<FrappeApiClient>())))),
+          _Action(
+              'احکام تغییر حقوق و مزایا',
+              'صدور، مقایسه، گردش‌کار و اعمال احکام حقوقی',
+              Icons.request_quote_outlined,
+              AsoudColors.primary,
+              () async {
+                final caps = await _hrCapabilities(context);
+                if (context.mounted) {
+                  _push(
+                    context,
+                    SalaryChangeOrdersPage(
+                      company: company,
+                      canIssue: caps.canWriteHrRecords || caps.canManageOrganization,
+                      canDesign: caps.canManageSalaryTemplates,
+                      canExecutePayroll: caps.canSeeAccounting,
+                    ),
+                  );
+                }
+              }),
           _Action(
               'گزارش کار روزانه',
               'فعالیت‌ها، پیش‌نویس و بازخورد',

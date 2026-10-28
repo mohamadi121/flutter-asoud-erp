@@ -71,7 +71,7 @@ class _OrganizationCreateFormState extends State<_OrganizationCreateForm> {
     } catch (e) {
       if (mounted) {
         setState(() => error = e is ApiException
-            ? e.message
+            ? failureMessage(e)
             : 'دریافت واحدها یا مجوز ایجاد ناموفق بود.');
       }
     } finally {
@@ -142,7 +142,7 @@ class _OrganizationCreateFormState extends State<_OrganizationCreateForm> {
     } catch (e) {
       if (mounted) {
         setState(() => error = e is ApiException
-            ? e.message
+            ? failureMessage(e)
             : e is StateError
                 ? e.message
                 : 'ذخیره تأیید نشد؛ دوباره بررسی کنید.');

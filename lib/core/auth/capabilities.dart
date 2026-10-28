@@ -20,6 +20,11 @@ class Capabilities {
     required this.canManageRoles,
     required this.canManageOrganization,
     required this.canManageDocumentTemplates,
+    this.canManageContractTemplates = false,
+    this.canManageHiringTemplates = false,
+    this.canManageCertificateTemplates = false,
+    this.canManageIntroductionTemplates = false,
+    this.canManageSalaryTemplates = false,
     required this.canWritePersonnel,
     required this.canManageUserAccess,
     required this.canWriteHrRecords,
@@ -55,6 +60,11 @@ class Capabilities {
       canManageRoles: system,
       canManageOrganization: system || hrManager,
       canManageDocumentTemplates: system || accountsManager || purchaseManager,
+      canManageContractTemplates: system || hrManager,
+      canManageHiringTemplates: system || hrManager,
+      canManageCertificateTemplates: system || hrManager,
+      canManageIntroductionTemplates: system || hrManager,
+      canManageSalaryTemplates: system || hrManager,
       canWritePersonnel: system,
       canManageUserAccess: system,
       canWriteHrRecords: system,
@@ -79,6 +89,11 @@ class Capabilities {
     canManageRoles: true,
     canManageOrganization: true,
     canManageDocumentTemplates: true,
+    canManageContractTemplates: true,
+    canManageHiringTemplates: true,
+    canManageCertificateTemplates: true,
+    canManageIntroductionTemplates: true,
+    canManageSalaryTemplates: true,
     canWritePersonnel: true,
     canManageUserAccess: true,
     canWriteHrRecords: true,
@@ -91,12 +106,41 @@ class Capabilities {
     canCreateOffice: true,
   );
 
+  static const none = Capabilities._(
+    canManageWorkflows: false,
+    canManageRequestTypes: false,
+    canManageForms: false,
+    canManageRoles: false,
+    canManageOrganization: false,
+    canManageDocumentTemplates: false,
+    canManageContractTemplates: false,
+    canManageHiringTemplates: false,
+    canManageCertificateTemplates: false,
+    canManageIntroductionTemplates: false,
+    canManageSalaryTemplates: false,
+    canWritePersonnel: false,
+    canManageUserAccess: false,
+    canWriteHrRecords: false,
+    canWriteOwnHrRecords: false,
+    canSeeAccounting: false,
+    canSeeSettingsAdmin: false,
+    canReadManagerViews: false,
+    canReadRoleCatalog: false,
+    canReadOrganization: false,
+    canCreateOffice: false,
+  );
+
   final bool canManageWorkflows;
   final bool canManageRequestTypes;
   final bool canManageForms;
   final bool canManageRoles;
   final bool canManageOrganization;
   final bool canManageDocumentTemplates;
+  final bool canManageContractTemplates;
+  final bool canManageHiringTemplates;
+  final bool canManageCertificateTemplates;
+  final bool canManageIntroductionTemplates;
+  final bool canManageSalaryTemplates;
   final bool canWritePersonnel;
   final bool canManageUserAccess;
   final bool canWriteHrRecords;
