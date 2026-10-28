@@ -5,6 +5,7 @@ import '../../../../core/auth/capabilities.dart';
 import '../../../../core/network/frappe_client.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/jalali_date.dart';
+import '../../../../core/utils/failure_message.dart';
 import '../../../../core/widgets/asoud_jalali_picker.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../../core/widgets/states.dart';
@@ -68,6 +69,36 @@ class _HiringOrdersViewState extends State<_HiringOrdersView> {
   // Template builder state
   List<Map<String, String>> _builderArticles = [];
   List<Map<String, String>> _builderPayrollRows = [];
+  List<Map<String, dynamic>> _payrollCatalog = [];
+  bool _catalogLoading = false;
+  String? _catalogError;
+  int _nextPayrollRow = 0;
+
+  Future<void> _openTemplateBuilder() async {
+    final cubit = context.read<HiringOrdersCubit>();
+    final published = cubit.state.publishedTemplate;
+    setState(() {
+      _mode = _HiringViewMode.templateBuilder;
+      _catalogLoading = true;
+      _catalogError = null;
+      if (published != null) {
+        _builderArticles = (published['articles'] as List? ?? [])
+            .map((row) => Map<String, String>.from(row as Map)).toList();
+        _builderPayrollRows = (published['payroll_rows'] as List? ?? [])
+            .map((row) => Map<String, String>.from(row as Map)).toList();
+      }
+    });
+    try {
+      final catalog = await cubit.repository.payrollCatalog(company: widget.company);
+      if (!mounted) return;
+      setState(() => _payrollCatalog = catalog);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _catalogError = failureMessage(error));
+    } finally {
+      if (mounted) setState(() => _catalogLoading = false);
+    }
+  }
 
   @override
   void initState() {
@@ -307,11 +338,7 @@ class _HiringOrdersViewState extends State<_HiringOrdersView> {
                               ),
                               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                             ),
-                            onPressed: () {
-                              setState(() {
-                                _mode = _HiringViewMode.templateBuilder;
-                              });
-                            },
+                            onPressed: _openTemplateBuilder,
                             icon: const Icon(Icons.tune, size: 18),
                             label: const Text('قالب حکم استخدام'),
                           ),
@@ -1392,6 +1419,71 @@ class _HiringOrdersViewState extends State<_HiringOrdersView> {
                 );
               }),
               const SizedBox(height: 8),
+              if (_catalogLoading) const LinearProgressIndicator(),
+              if (_catalogError != null) ...[
+                Text(_catalogError!),
+                TextButton(onPressed: _openTemplateBuilder, child: const Text('تلاش دوباره')),
+              ],
+              ..._builderPayrollRows.map((row) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TextFormField(
+                      key: ValueKey('title-${row['id']}'),
+                      initialValue: row['title'],
+                      decoration: const InputDecoration(labelText: 'عنوان قلم حقوق'),
+                      onChanged: (value) => row['title'] = value,
+                    ),
+                    DropdownButtonFormField<String>(
+                      key: ValueKey('source-${row['id']}-${row['field_ref']}'),
+                      initialValue: _payrollCatalog.any((item) => item['field_id'] == row['field_ref'])
+                          ? row['field_ref'] : null,
+                      isExpanded: true,
+                      decoration: const InputDecoration(labelText: 'منبع حقوق و دستمزد'),
+                      items: _payrollCatalog.map((item) => DropdownMenuItem<String>(
+                        value: item['field_id'] as String,
+                        child: Text(item['label'] as String, overflow: TextOverflow.ellipsis),
+                      )).toList(),
+                      onChanged: _catalogLoading || _catalogError != null ? null : (value) {
+                        setState(() => row['field_ref'] = value ?? '');
+                      },
+                    ),
+                    DropdownButtonFormField<String>(
+                      initialValue: row['period'],
+                      decoration: const InputDecoration(labelText: 'دوره پرداخت'),
+                      items: const [
+                        DropdownMenuItem(value: 'monthly', child: Text('ماهانه')),
+                        DropdownMenuItem(value: 'yearly', child: Text('سالانه')),
+                        DropdownMenuItem(value: 'one_off', child: Text('یک‌باره')),
+                      ],
+                      onChanged: (value) => row['period'] = value ?? 'monthly',
+                    ),
+                    TextButton(
+                      onPressed: _builderPayrollRows.length <= 1 ? null : () {
+                        setState(() => _builderPayrollRows.remove(row));
+                      },
+                      child: const Text('حذف قلم'),
+                    ),
+                  ],
+                ),
+              )),
+              OutlinedButton(
+                onPressed: _payrollCatalog.isEmpty || _catalogLoading || _catalogError != null ? null : () {
+                  setState(() {
+                    String id;
+                    do {
+                      id = 'payroll_${++_nextPayrollRow}';
+                    } while (_builderPayrollRows.any((row) => row['id'] == id));
+                    final source = _payrollCatalog.first;
+                    _builderPayrollRows.add({
+                      'id': id, 'title': source['label'] as String,
+                      'period': 'monthly', 'field_ref': source['field_id'] as String,
+                    });
+                  });
+                },
+                child: const Text('افزودن قلم حقوق'),
+              ),
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AsoudColors.primary,
@@ -1399,7 +1491,7 @@ class _HiringOrdersViewState extends State<_HiringOrdersView> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
-                onPressed: () async {
+                onPressed: state.isSubmitting ? null : () async {
                   final cubit = context.read<HiringOrdersCubit>();
                   final ok = await cubit.publishTemplate({
                     'articles': _builderArticles,

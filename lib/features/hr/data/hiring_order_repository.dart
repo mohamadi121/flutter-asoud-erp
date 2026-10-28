@@ -306,6 +306,19 @@ class HiringOrderRepository {
         ) as Map,
       ));
 
+  Future<List<Map<String, dynamic>>> payrollCatalog({
+    required String company,
+  }) async {
+    final result = await _client.callAsoudMethod(
+      '${_prefix}get_hiring_order_payroll_catalog',
+      data: {'company': company},
+    ) as Map;
+    final items = (result['items'] as List?) ?? const [];
+    return items
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList(growable: false);
+  }
+
   Future<List<HiringOrderSummary>> listOrders({
     required String company,
     String search = '',

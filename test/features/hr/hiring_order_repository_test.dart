@@ -216,4 +216,21 @@ void main() {
         await repository.publishTemplate(company: 'COMP-1', revision: 2);
     expect(published['revision'], 2);
   });
+
+  test('payrollCatalog loads available field references', () async {
+    when(() => client.callAsoudMethod(any(), data: any(named: 'data')))
+        .thenAnswer((call) async {
+      return {
+        'items': [
+          {'field_id': 'base', 'label': 'حقوق پایه', 'type': 'Currency'},
+          {'field_id': 'component.Housing', 'label': 'حق مسکن', 'type': 'Currency'},
+        ]
+      };
+    });
+
+    final catalog = await repository.payrollCatalog(company: 'COMP-1');
+    expect(catalog.length, 2);
+    expect(catalog.first['field_id'], 'base');
+    expect(catalog.last['field_id'], 'component.Housing');
+  });
 }

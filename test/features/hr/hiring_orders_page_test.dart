@@ -12,6 +12,11 @@ void main() {
 
   setUp(() {
     repository = _Repository();
+    when(() => repository.payrollCatalog(company: 'شرکت تست'))
+        .thenAnswer((_) async => [
+              {'field_id': 'base', 'label': 'حقوق پایه (قرارداد)', 'type': 'Currency', 'group': 'حقوق'},
+              {'field_id': 'variable', 'label': 'مزایای متغیر (قرارداد)', 'type': 'Currency', 'group': 'مزایا'},
+            ]);
   });
 
   Widget createWidget({required double width, Capabilities? capabilities}) {
@@ -180,6 +185,7 @@ void main() {
 
     expect(find.text('قالب پیش‌فرض حکم استخدام'), findsOneWidget);
     expect(find.text('ماده ۱: مشخصات پرسنل'), findsOneWidget);
+    expect(find.text('افزودن قلم حقوق'), findsOneWidget);
     expect(find.text('انتشار و ذخیره نسخه نهایی قالب'), findsOneWidget);
 
     await tester.tap(find.text('انتشار و ذخیره نسخه نهایی قالب'));
