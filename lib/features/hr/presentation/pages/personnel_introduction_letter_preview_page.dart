@@ -67,7 +67,7 @@ class _PersonnelIntroductionLetterPreviewPageState
 
   Future<void> _finalize() async {
     final letter = _letter;
-    if (letter == null || letter.isFinal || _finalizing) return;
+    if (letter == null || letter.status != 'Draft' || _finalizing) return;
 
     setState(() => _finalizing = true);
     try {
@@ -82,7 +82,9 @@ class _PersonnelIntroductionLetterPreviewPageState
         _finalizing = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('معرفی‌نامه با موفقیت صادر و نهایی گردید.')),
+        SnackBar(content: Text(updated.isFinal
+            ? 'معرفی‌نامه با موفقیت صادر و نهایی گردید.'
+            : 'معرفی‌نامه برای بررسی به گردش کار ارسال شد.')),
       );
     } catch (e) {
       if (!mounted) return;
@@ -275,7 +277,7 @@ class _PersonnelIntroductionLetterPreviewPageState
       child: Scaffold(
         appBar: AsoudHeader(
           title: 'پیش‌نمایش معرفی‌نامه',
-          subtitle: widget.letterName,
+          subtitle: 'نسخهٔ قابل چاپ سند پرسنلی',
           action: _letter != null
               ? Center(
                   child: Container(
@@ -318,7 +320,7 @@ class _PersonnelIntroductionLetterPreviewPageState
                             children: [
                               _buildPaperContent(_letter!),
                               const SizedBox(height: 20),
-                              if (!_letter!.isFinal) ...[
+                              if (_letter!.status == 'Draft') ...[
                                 ElevatedButton.icon(
                                   icon: _finalizing
                                       ? const SizedBox(

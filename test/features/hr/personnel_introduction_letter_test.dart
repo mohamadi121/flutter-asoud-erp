@@ -46,7 +46,72 @@ class _OperationalRepository extends FakePersonnelIntroductionLetterRepository {
       });
 }
 
+class _PendingWorkflowRepository extends FakePersonnelIntroductionLetterRepository {
+  PersonnelIntroductionLetterDetail _detail(String status) => PersonnelIntroductionLetterDetail.fromMap({
+    'name': 'INTRO-DRAFT-1', 'id': 'INTRO-DRAFT-1', 'company': 'شرکت نمونه',
+    'employee': 'HR-EMP-1', 'employee_name': 'نام پرسنل', 'employee_number': '125',
+    'recipient_type': 'bank', 'recipient_name': '', 'bank_name': 'بانک ملت', 'branch_name': '',
+    'recipient_text': 'بانک ملت', 'purpose': 'افتتاح حساب', 'validity_date': '', 'notes': '',
+    'number': '—', 'issue_date': '—', 'revision': status == 'Draft' ? 1 : 2, 'template_version': 1,
+    'status': status, 'rendered_html': '<article>متن معرفی‌نامه</article>',
+    'print_html': '<article>پیش‌نویس ـ فاقد اعتبار نهایی</article>',
+    'values_snapshot': <String, dynamic>{}, 'template_snapshot': <String, dynamic>{},
+    if (status == 'Pending') 'workflow_request': 'REQ-1',
+    if (status == 'Pending') 'workflow_instance': 'INSTANCE-1',
+  });
+
+  @override
+  Future<PersonnelIntroductionLetterDetail> getLetter({required String name}) async => _detail('Draft');
+
+  @override
+  Future<PersonnelIntroductionLetterDetail> finalizeLetter({
+    required String name, required int revision, required String requestKey,
+  }) async => _detail('Pending');
+}
+
 void main() {
+  for (final width in [320.0, 390.0, 430.0]) {
+    testWidgets('workflow submission remains pending without another issue action at $width', (tester) async {
+      await tester.binding.setSurfaceSize(Size(width, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(_wrapWithRtl(
+        const PersonnelIntroductionLetterPreviewPage(letterName: 'INTRO-DRAFT-1', company: 'شرکت نمونه'),
+        repo: _PendingWorkflowRepository(), width: width,
+      ));
+      await tester.pumpAndSettle();
+      final issue = find.text('صدور نهایی معرفی‌نامه');
+      await tester.ensureVisible(issue);
+      await tester.tap(issue);
+      await tester.pumpAndSettle();
+      expect(find.text('معرفی‌نامه برای بررسی به گردش کار ارسال شد.'), findsOneWidget);
+      expect(find.text('در جریان'), findsOneWidget);
+      expect(find.text('صدور نهایی معرفی‌نامه'), findsNothing);
+      expect(find.text('معرفی‌نامه با موفقیت صادر و نهایی گردید.'), findsNothing);
+      expect(find.text('INTRO-DRAFT-1'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('template retains the chosen existing workflow at $width', (tester) async {
+      await tester.binding.setSurfaceSize(Size(width, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final repo = FakePersonnelIntroductionLetterRepository();
+      repo.template = PersonnelIntroductionTemplate.fromMap({
+        ...repo.template.toMap(), 'workflow': 'WF-INTRO',
+        'workflow_options': [{'name': 'WF-INTRO', 'title': 'بررسی معرفی‌نامه'}],
+      });
+      await tester.pumpWidget(_wrapWithRtl(
+        const PersonnelIntroductionLetterTemplateBuilderPage(company: 'شرکت نمونه'), repo: repo, width: width,
+      ));
+      await tester.pumpAndSettle();
+      final selector = find.byType(DropdownButtonFormField<String>);
+      await tester.ensureVisible(selector);
+      expect(find.text('بررسی معرفی‌نامه'), findsOneWidget);
+      expect(find.text('WF-INTRO'), findsNothing);
+      expect(tester.widget<DropdownButtonFormField<String>>(selector).initialValue, 'WF-INTRO');
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('printing sends the exact server print payload', (tester) async {
     const channel = MethodChannel('net.nfet.printing');
     String? receivedHtml;

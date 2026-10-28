@@ -6,6 +6,38 @@ import 'package:mocktail/mocktail.dart';
 class _Client extends Mock implements FrappeApiClient {}
 
 void main() {
+  test('template workflow and choices match the real server contract', () async {
+    final client = _Client();
+    final repository = FrappePersonnelIntroductionLetterRepository(client);
+    const module = 'asoud_erp.api.v1.personnel_introduction_letters';
+    final template = <String, dynamic>{
+      'name': 'intro-template', 'revision': 2, 'status': 'Draft',
+      'clauses': [{'id': 'intro', 'title': 'متن', 'body': '{{employee.employee_name}}', 'enabled': true}],
+      'required_recipient': true, 'required_purpose': true, 'has_expiry': false, 'workflow': 'WF-INTRO',
+    };
+    when(() => client.callAsoudMethod('$module.get_template', data: {'company': 'شرکت'}))
+        .thenAnswer((_) async => {...template, 'can_manage_template': true, 'workflow_options': [
+          {'name': 'WF-INTRO', 'title': 'بررسی معرفی‌نامه'},
+        ]});
+    final loaded = await repository.getTemplate(company: 'شرکت');
+    expect(loaded.workflow, 'WF-INTRO');
+    expect(loaded.workflowOptions.single.title, 'بررسی معرفی‌نامه');
+    expect(loaded.canManageTemplate, isTrue);
+    expect(PersonnelIntroductionTemplate.fromMap(template).canManageTemplate, isFalse);
+    when(() => client.callAsoudMethod('$module.save_template_draft', data: {
+      'company': 'شرکت', 'revision': 2, 'clauses': template['clauses'],
+      'required_recipient': true, 'required_purpose': true, 'has_expiry': false, 'workflow': 'WF-INTRO',
+    })).thenAnswer((_) async => {...template, 'revision': 3});
+    final saved = await repository.saveTemplateDraft(company: 'شرکت', revision: 2,
+      clauses: loaded.clauses, workflow: loaded.workflow);
+    expect(saved.workflow, 'WF-INTRO');
+    when(() => client.callAsoudMethod('$module.publish_template', data: {'company': 'شرکت', 'revision': 3}))
+        .thenAnswer((_) async => {...template, 'status': 'Published', 'revision': 1});
+    final published = await repository.publishTemplate(company: 'شرکت', revision: 3);
+    expect(published.workflow, 'WF-INTRO');
+    expect(published.status, 'Published');
+  });
+
   test('repository uses server endpoint parameters and unwrapped response shapes', () async {
     final client = _Client();
     final repository = FrappePersonnelIntroductionLetterRepository(client);

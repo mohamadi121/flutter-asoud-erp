@@ -36,6 +36,12 @@ class IntroductionLetterClause {
       );
 }
 
+class IntroductionLetterWorkflowOption {
+  const IntroductionLetterWorkflowOption({required this.name, required this.title});
+  final String name;
+  final String title;
+}
+
 class PersonnelIntroductionTemplate {
   const PersonnelIntroductionTemplate({
     required this.name,
@@ -46,6 +52,8 @@ class PersonnelIntroductionTemplate {
     this.requiredPurpose = true,
     this.hasExpiry = false,
     this.canManageTemplate = false,
+    this.workflow = '',
+    this.workflowOptions = const [],
   });
 
   factory PersonnelIntroductionTemplate.fromMap(Map<String, dynamic> map) => PersonnelIntroductionTemplate(
@@ -58,6 +66,14 @@ class PersonnelIntroductionTemplate {
         requiredPurpose: map['required_purpose'] != false,
         hasExpiry: map['has_expiry'] == true,
         canManageTemplate: map['can_manage_template'] == true,
+        workflow: map['workflow']?.toString() ?? '',
+        workflowOptions: (map['workflow_options'] as List? ?? const []).map((row) {
+          final option = Map<String, dynamic>.from(row as Map);
+          return IntroductionLetterWorkflowOption(
+            name: option['name']?.toString() ?? '',
+            title: option['title']?.toString() ?? 'گردش کار',
+          );
+        }).toList(),
         clauses: (map['clauses'] as List? ?? const [])
             .map((c) => IntroductionLetterClause.fromMap(Map<String, dynamic>.from(c as Map)))
             .toList(),
@@ -70,6 +86,8 @@ class PersonnelIntroductionTemplate {
   final bool requiredPurpose;
   final bool hasExpiry;
   final bool canManageTemplate;
+  final String workflow;
+  final List<IntroductionLetterWorkflowOption> workflowOptions;
   final List<IntroductionLetterClause> clauses;
 
   Map<String, dynamic> toMap() => {
@@ -80,6 +98,8 @@ class PersonnelIntroductionTemplate {
         'required_purpose': requiredPurpose,
         'has_expiry': hasExpiry,
         'can_manage_template': canManageTemplate,
+        'workflow': workflow,
+        'workflow_options': workflowOptions.map((option) => {'name': option.name, 'title': option.title}).toList(),
         'clauses': clauses.map((c) => c.toMap()).toList(),
       };
 }
@@ -140,6 +160,9 @@ class PersonnelIntroductionLetter {
   String get statusLabel => switch (status) {
         'Draft' => 'پیش‌نویس',
         'Final' => 'نهایی',
+        'Rejected' => 'ردشده',
+        'Cancelled' => 'لغوشده',
+        'Failed' => 'ناموفق',
         _ => 'در جریان',
       };
 }
@@ -226,6 +249,9 @@ class PersonnelIntroductionLetterDetail {
   String get statusLabel => switch (status) {
         'Draft' => 'پیش‌نویس',
         'Final' => 'نهایی',
+        'Rejected' => 'ردشده',
+        'Cancelled' => 'لغوشده',
+        'Failed' => 'ناموفق',
         _ => 'در جریان',
       };
 }
@@ -240,6 +266,7 @@ abstract class PersonnelIntroductionLetterRepository {
     bool requiredRecipient = true,
     bool requiredPurpose = true,
     bool hasExpiry = false,
+    String? workflow,
   });
 
   Future<PersonnelIntroductionTemplate> publishTemplate({
@@ -302,6 +329,7 @@ class FrappePersonnelIntroductionLetterRepository implements PersonnelIntroducti
     bool requiredRecipient = true,
     bool requiredPurpose = true,
     bool hasExpiry = false,
+    String? workflow,
   }) async {
     final raw = Map<String, dynamic>.from(
       await _client.callAsoudMethod('$_module.save_template_draft', data: {
@@ -311,6 +339,7 @@ class FrappePersonnelIntroductionLetterRepository implements PersonnelIntroducti
         'required_recipient': requiredRecipient,
         'required_purpose': requiredPurpose,
         'has_expiry': hasExpiry,
+        if (workflow != null) 'workflow': workflow,
       }) as Map,
     );
     return PersonnelIntroductionTemplate.fromMap(raw);
@@ -507,6 +536,7 @@ class FakePersonnelIntroductionLetterRepository implements PersonnelIntroduction
     bool requiredRecipient = true,
     bool requiredPurpose = true,
     bool hasExpiry = false,
+    String? workflow,
   }) async {
     template = PersonnelIntroductionTemplate(
       name: template.name,
@@ -515,6 +545,9 @@ class FakePersonnelIntroductionLetterRepository implements PersonnelIntroduction
       requiredRecipient: requiredRecipient,
       requiredPurpose: requiredPurpose,
       hasExpiry: hasExpiry,
+      workflow: workflow ?? template.workflow,
+      workflowOptions: template.workflowOptions,
+      canManageTemplate: template.canManageTemplate,
       clauses: clauses,
     );
     return template;
@@ -532,6 +565,9 @@ class FakePersonnelIntroductionLetterRepository implements PersonnelIntroduction
       requiredRecipient: template.requiredRecipient,
       requiredPurpose: template.requiredPurpose,
       hasExpiry: template.hasExpiry,
+      workflow: template.workflow,
+      workflowOptions: template.workflowOptions,
+      canManageTemplate: template.canManageTemplate,
       clauses: template.clauses,
     );
     return template;

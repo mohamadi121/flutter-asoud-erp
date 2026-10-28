@@ -26,6 +26,8 @@ class _PersonnelIntroductionLetterTemplateBuilderPageState
   String? _error;
   bool _saving = false;
   bool _canManageTemplate = false;
+  String _workflow = '';
+  List<IntroductionLetterWorkflowOption> _workflowOptions = const [];
 
   int _revision = 1;
   String _status = 'Draft';
@@ -89,6 +91,8 @@ class _PersonnelIntroductionLetterTemplateBuilderPageState
       }
       setState(() {
         _canManageTemplate = tmpl.canManageTemplate;
+        _workflow = tmpl.workflow;
+        _workflowOptions = tmpl.workflowOptions;
         _revision = tmpl.revision;
         _status = tmpl.status;
         _requiredRecipient = tmpl.requiredRecipient;
@@ -333,6 +337,7 @@ class _PersonnelIntroductionLetterTemplateBuilderPageState
         requiredRecipient: _requiredRecipient,
         requiredPurpose: _requiredPurpose,
         hasExpiry: _hasExpiry,
+        workflow: _workflow,
       );
       if (!mounted) return;
       setState(() {
@@ -439,6 +444,22 @@ class _PersonnelIntroductionLetterTemplateBuilderPageState
               onChanged: (val) => setState(() => _hasExpiry = val ?? false),
             ),
             const Divider(height: 16),
+            DropdownButtonFormField<String>(
+              initialValue: _workflow,
+              isExpanded: true,
+              style: const TextStyle(fontSize: 11, color: Color(0xFF243F60)),
+              decoration: const InputDecoration(labelText: 'گردش کار صدور'),
+              items: [
+                const DropdownMenuItem(value: '', child: Text('صدور مستقیم طبق سیاست منابع انسانی', overflow: TextOverflow.ellipsis)),
+                if (_workflow.isNotEmpty && !_workflowOptions.any((option) => option.name == _workflow))
+                  DropdownMenuItem(value: _workflow, child: const Text('گردش کار تنظیم‌شده در دسترس نیست', overflow: TextOverflow.ellipsis)),
+                ..._workflowOptions.map((option) => DropdownMenuItem(
+                  value: option.name, child: Text(option.title, overflow: TextOverflow.ellipsis),
+                )),
+              ],
+              onChanged: _saving ? null : (value) => setState(() => _workflow = value ?? ''),
+            ),
+            const SizedBox(height: 12),
             const Text(
               'شماره و تاریخ سند، نام مرجع، هدف معرفی و مشخصات کارمند از فیلدهای متصل تکمیل می‌شوند. این سند به‌صورت پیش‌فرض شامل ضمانت مالی یا افشای حقوق کارکنان نیست.',
               style: TextStyle(fontSize: 10, color: Color(0xFF748398), height: 1.6),
