@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import 'package:asoud_erp/core/theme/asoud_colors.dart';
 import 'package:asoud_erp/core/utils/jalali_date.dart';
+import 'package:asoud_erp/core/utils/failure_message.dart';
 import 'package:asoud_erp/core/widgets/asoud_ui.dart';
+import 'package:asoud_erp/core/widgets/states.dart';
 import 'package:asoud_erp/features/hr/data/hr_contracts_repository.dart';
 import 'package:asoud_erp/features/hr/data/hr_contract_template_repository.dart';
 import 'package:asoud_erp/features/hr/domain/hr_contract_models.dart';
@@ -35,6 +37,7 @@ class _HrContractsPageState extends State<HrContractsPage> {
       widget.templateRepository ?? FakeHrContractTemplateRepository();
 
   bool loading = true;
+  int loadRequest = 0;
   String? error;
   List<HrContractRecord> records = [];
 
@@ -91,6 +94,7 @@ class _HrContractsPageState extends State<HrContractsPage> {
   }
 
   Future<void> _load() async {
+    final request = ++loadRequest;
     setState(() {
       loading = true;
       error = null;
@@ -102,16 +106,16 @@ class _HrContractsPageState extends State<HrContractsPage> {
         query: searchQuery,
         statusFilter: statusFilter,
       );
-      if (mounted) {
+      if (mounted && request == loadRequest) {
         setState(() {
           records = list;
           loading = false;
         });
       }
-    } catch (_) {
-      if (mounted) {
+    } catch (failure) {
+      if (mounted && request == loadRequest) {
         setState(() {
-          error = 'دریافت فهرست قراردادها ممکن نشد؛ دوباره تلاش کنید.';
+          error = failureDetail(failure);
           loading = false;
         });
       }
@@ -414,6 +418,8 @@ class _HrContractsPageState extends State<HrContractsPage> {
                   padding: EdgeInsets.all(32),
                   child: Center(child: CircularProgressIndicator()),
                 )
+              else if (error != null)
+                ErrorState(failure: error!, onRetry: _load)
               else if (displayed.isEmpty)
                 Container(
                   padding: const EdgeInsets.all(24),
