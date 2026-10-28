@@ -63,7 +63,8 @@ class _EmploymentCertificatePreviewPageState extends State<EmploymentCertificate
 
   Future<void> _finalize() async {
     final cert = _certificate;
-    if (cert == null) return;
+    if (cert == null || _finalizing) return;
+    setState(() => _finalizing = true);
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -81,9 +82,11 @@ class _EmploymentCertificatePreviewPageState extends State<EmploymentCertificate
       ),
     );
 
-    if (confirmed != true) return;
-
-    setState(() => _finalizing = true);
+    if (!mounted) return;
+    if (confirmed != true) {
+      setState(() => _finalizing = false);
+      return;
+    }
 
     try {
       final reqKey = 'finalize-${widget.company}-${cert.name}-${DateTime.now().millisecondsSinceEpoch}';

@@ -228,6 +228,29 @@ Widget _wrapWithRtl(Widget child, {FakeEmploymentCertificateRepository? repo, do
 
 void main() {
   for (final width in [320.0, 390.0, 430.0]) {
+    testWidgets('finalization guards repeated taps and unlocks after cancellation at $width', (tester) async {
+      await tester.binding.setSurfaceSize(Size(width, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(_wrapWithRtl(const EmploymentCertificatePreviewPage(
+        company: 'شرکت نمونه', certificateName: 'CERT-DRAFT-1'), width: width));
+      await tester.pumpAndSettle();
+      final label = find.text('ارسال و نهایی‌سازی گواهی');
+      await tester.scrollUntilVisible(label, 300, scrollable: find.byType(Scrollable).first);
+      await tester.ensureVisible(label);
+      await tester.pumpAndSettle();
+      final button = find.ancestor(of: label, matching: find.byType(ElevatedButton));
+      final action = tester.widget<ElevatedButton>(button).onPressed!;
+      action();
+      action();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(tester.widget<ElevatedButton>(button).onPressed, isNull);
+      await tester.tap(find.text('انصراف'));
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(tester.widget<ElevatedButton>(button).onPressed, isNotNull);
+    });
     testWidgets('prints server HTML once and recovers from failure at $width', (tester) async {
       final original = PrintingPlatform.instance;
       final printing = _CertificatePrinting();
