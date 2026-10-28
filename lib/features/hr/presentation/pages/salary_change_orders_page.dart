@@ -1006,6 +1006,7 @@ class _SalaryChangeOrdersViewState extends State<_SalaryChangeOrdersView> {
                 ),
               ],
               DropdownButtonFormField<String>(
+                key: const ValueKey('salary-order-personnel'),
                 initialValue: _personId.isNotEmpty ? _personId : null,
                 isExpanded: true,
                 decoration: InputDecoration(

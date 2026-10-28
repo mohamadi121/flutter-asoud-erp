@@ -41,9 +41,12 @@ void main() {
       await tester.tap(retry);
       await tester.pumpAndSettle();
       expect(find.text('دریافت دوباره پرسنل'), findsNothing);
-      final picker = find.byWidgetPredicate((w) => w is DropdownButtonFormField<String> &&
-          w.decoration.labelText == 'انتخاب پرسنل *');
+      final picker = find.byKey(const ValueKey('salary-order-personnel'));
+      await tester.scrollUntilVisible(picker, -200,
+          scrollable: find.byType(Scrollable).first);
       await tester.ensureVisible(picker);
+      await tester.pumpAndSettle();
+      expect(picker.hitTestable(), findsOneWidget);
       await tester.tap(picker);
       await tester.pumpAndSettle();
       expect(find.text('علی رضایی — ۱۲'), findsWidgets);
