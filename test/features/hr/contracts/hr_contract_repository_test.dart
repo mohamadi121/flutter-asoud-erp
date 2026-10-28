@@ -19,19 +19,29 @@ void main() {
     client = _Client();
     repository = ServerHrContractsRepository(client);
   });
-  // Keys are from list_contracts/get_contract and the backend integration flow.
+  // Separate fixtures match the return dictionaries of list_contracts/get_contract.
+  const listRow = {
+    'name': 'CNT-1405-00001', 'contract_id': 'CONT-00001',
+    'employee': 'HR-EMP-00001', 'employee_name': 'محمد رضایی',
+    'department': 'امور اداری', 'job_title': 'کارشناس اداری',
+    'contract_type': 'مدت‌معین', 'start_date': '2026-10-23', 'end_date': '',
+    'jalali_start_date': '۱۴۰۵/۰۸/۰۱', 'jalali_end_date': '',
+    'status': 'نهایی', 'status_code': 'final', 'docstatus': 1,
+    'is_signed': 1, 'template_version': 2,
+  };
   const detail = {
     'contract_id': 'CONT-00001', 'contract_number': 'CNT-1405-00001',
     'employee': 'HR-EMP-00001', 'employee_name': 'محمد رضایی',
-    'department': 'امور اداری', 'job_title': 'کارشناس اداری',
-    'contract_type': 'مدت‌معین', 'start_date': '2026-10-23',
-    'jalali_start_date': '۱۴۰۵/۰۸/۰۱', 'status': 'نهایی',
+    'company': 'شرکت', 'start_date': '2026-10-23', 'end_date': '',
+    'jalali_start_date': '۱۴۰۵/۰۸/۰۱', 'jalali_end_date': '', 'status': 'نهایی',
+    'docstatus': 1, 'is_signed': 1, 'total_monthly': 200000000,
+    'formatted_total_monthly': '۲۰۰٬۰۰۰٬۰۰۰ ریال', 'print_payload': {},
     'template_version': 2,
     'rendered_clauses': [{'id': 'clause_parties', 'title': 'طرفین', 'body': 'متن مصوب', 'order': 1}],
     'salary_table': [{'id': 'row_base', 'name': 'حقوق پایه', 'period': 'ماهانه', 'period_raw': 'monthly', 'fieldRef': 'payroll.base_salary', 'amount': 200000000.0, 'has_value': true}],
   };
   test('reads backend list and detail keys without losing snapshot', () async {
-    when(() => client.callAsoudMethod('${prefix}list_contracts', data: any(named: 'data'))).thenAnswer((_) async => [detail]);
+    when(() => client.callAsoudMethod('${prefix}list_contracts', data: any(named: 'data'))).thenAnswer((_) async => [listRow]);
     when(() => client.callAsoudMethod('${prefix}get_contract', data: any(named: 'data'))).thenAnswer((_) async => detail);
     final rows = await repository.listContracts(company: 'شرکت', query: 'محمد', statusFilter: 'نهایی', page: 2);
     expect(rows.single.id, 'CONT-00001');
@@ -75,8 +85,13 @@ void main() {
   });
   test('draft dates are ISO and finalization saves before using returned id', () async {
     final draft = HrContractRecord.fromJson(detail).copyWith(id: '', status: 'پیش‌نویس', startDate: '۱۴۰۵/۰۸/۰۱');
-    when(() => client.callAsoudMethod('${prefix}save_contract_draft', data: any(named: 'data'))).thenAnswer((_) async => {'contract_id': 'CONT-00001', 'status': 'پیش‌نویس'});
-    when(() => client.callAsoudMethod('${prefix}finalize_contract', data: any(named: 'data'))).thenAnswer((_) async => {'contract_id': 'CONT-00001', 'contract_number': 'CNT-1405-00001', 'status': 'نهایی'});
+    when(() => client.callAsoudMethod('${prefix}save_contract_draft', data: any(named: 'data'))).thenAnswer((_) async => {
+      'contract_id': 'CONT-00001', 'contract_number': 'پیش‌نویس', 'employee': 'HR-EMP-00001',
+      'employee_name': 'محمد رضایی', 'start_date': '2026-10-23', 'end_date': '', 'status': 'پیش‌نویس', 'is_draft': true,
+    });
+    when(() => client.callAsoudMethod('${prefix}finalize_contract', data: any(named: 'data'))).thenAnswer((_) async => {
+      'contract_id': 'CONT-00001', 'contract_number': 'CNT-1405-00001', 'status': 'نهایی', 'docstatus': 1, 'is_draft': false,
+    });
     when(() => client.callAsoudMethod('${prefix}get_contract', data: any(named: 'data'))).thenAnswer((_) async => detail);
     final result = await repository.submitContract(company: 'شرکت', draft: draft);
     expect(result.id, 'CONT-00001');
