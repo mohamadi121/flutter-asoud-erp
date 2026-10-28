@@ -27,6 +27,7 @@ import '../../data/hr_contract_template_repository.dart';
 import 'contracts/hr_contracts_page.dart';
 import 'employment_certificates_page.dart';
 import 'personnel_introduction_letters_page.dart';
+import 'salary_change_orders_page.dart';
 
 Future<Capabilities> _hrCapabilities(BuildContext context) async {
   try {
@@ -183,6 +184,26 @@ class _HrHome extends StatelessWidget {
                       ),
                     ),
                   ),
+                  _Action(
+                    'احکام تغییر حقوق و مزایا',
+                    'صدور، مقایسه، گردش‌کار و اعمال احکام حقوقی',
+                    Icons.request_quote_outlined,
+                    AsoudColors.primary,
+                    () async {
+                      final caps = await _hrCapabilities(context);
+                      if (context.mounted) {
+                        _push(
+                          context,
+                          SalaryChangeOrdersPage(
+                            company: company,
+                            canIssue: caps.canWriteHrRecords || caps.canManageOrganization,
+                            canDesign: caps.canManageDocumentTemplates || caps.canManageForms,
+                            canExecutePayroll: caps.canSeeAccounting,
+                          ),
+                        );
+                      }
+                    },
+                  ),
                 ],
                 _Action(
                   'گزارش کار روزانه',
@@ -298,6 +319,25 @@ class _ManagerHrHome extends StatelessWidget {
                   MyAttendancePage(
                       repository: SelfServiceRepository(
                           context.read<FrappeApiClient>())))),
+          _Action(
+              'احکام تغییر حقوق و مزایا',
+              'صدور، مقایسه، گردش‌کار و اعمال احکام حقوقی',
+              Icons.request_quote_outlined,
+              AsoudColors.primary,
+              () async {
+                final caps = await _hrCapabilities(context);
+                if (context.mounted) {
+                  _push(
+                    context,
+                    SalaryChangeOrdersPage(
+                      company: company,
+                      canIssue: caps.canWriteHrRecords || caps.canManageOrganization,
+                      canDesign: caps.canManageDocumentTemplates || caps.canManageForms,
+                      canExecutePayroll: caps.canSeeAccounting,
+                    ),
+                  );
+                }
+              }),
           _Action(
               'گزارش کار روزانه',
               'فعالیت‌ها، پیش‌نویس و بازخورد',
