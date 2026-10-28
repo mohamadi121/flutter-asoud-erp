@@ -73,6 +73,230 @@ class _HiringOrdersViewState extends State<_HiringOrdersView> {
   bool _catalogLoading = false;
   String? _catalogError;
   int _nextPayrollRow = 0;
+  int? _expandedArticleIndex;
+  int? _editingArticleIndex;
+  final _articleTitleController = TextEditingController();
+  final _articleBodyController = TextEditingController();
+  bool _showNewArticleForm = false;
+  final _newArticleTitleController = TextEditingController();
+  final _newArticleBodyController = TextEditingController();
+
+  @override
+  void dispose() {
+    _articleTitleController.dispose();
+    _articleBodyController.dispose();
+    _newArticleTitleController.dispose();
+    _newArticleBodyController.dispose();
+    super.dispose();
+  }
+
+  void _beginEditArticle(int index) {
+    setState(() {
+      _editingArticleIndex = index;
+      _expandedArticleIndex = index;
+      _articleTitleController.text = _builderArticles[index]['title'] ?? '';
+      _articleBodyController.text = _builderArticles[index]['body'] ?? '';
+      _showNewArticleForm = false;
+    });
+  }
+
+  void _saveEditArticle() {
+    final title = _articleTitleController.text.trim();
+    final body = _articleBodyController.text.trim();
+    if (title.isEmpty || body.isEmpty) return;
+    setState(() {
+      _builderArticles[_editingArticleIndex!]['title'] = title;
+      _builderArticles[_editingArticleIndex!]['body'] = body;
+      _editingArticleIndex = null;
+    });
+  }
+
+  void _addNewArticle() {
+    final title = _newArticleTitleController.text.trim();
+    final body = _newArticleBodyController.text.trim();
+    if (title.isEmpty || body.isEmpty) return;
+    setState(() {
+      final newId = 'custom_art_${DateTime.now().millisecondsSinceEpoch}';
+      _builderArticles.add({'id': newId, 'title': title, 'body': body});
+      _newArticleTitleController.clear();
+      _newArticleBodyController.clear();
+      _showNewArticleForm = false;
+      _expandedArticleIndex = _builderArticles.length - 1;
+    });
+  }
+
+  void _moveArticle(int from, int to) {
+    if (to < 0 || to >= _builderArticles.length) return;
+    setState(() {
+      final item = _builderArticles.removeAt(from);
+      _builderArticles.insert(to, item);
+      _editingArticleIndex = null;
+      _expandedArticleIndex = to;
+    });
+  }
+
+  void _showHiringFieldPicker(TextEditingController controller) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        String query = '';
+        String activeCategory = 'personnel';
+
+        final Map<String, List<String>> fieldGroups = {
+          'personnel': [
+            '[نام و نام خانوادگی پرسنل]',
+            '[کد پرسنلی]',
+            '[کد ملی]',
+            '[عنوان شغلی]',
+            '[واحد سازمانی]',
+            '[محل خدمت]',
+          ],
+          'company': [
+            '[نام قانونی شرکت]',
+            '[نام نماینده قانونی]',
+            '[سمت نماینده قانونی]',
+            '[نشانی شرکت]',
+          ],
+          'contract': [
+            '[نوع استخدام / همکاری]',
+            '[تاریخ اجرای حکم]',
+            '[شماره حکم]',
+          ],
+          'payroll': [
+            '[حقوق پایه]',
+            '[حق جذب]',
+            '[حق مسکن]',
+            '[بن خواربار]',
+          ],
+        };
+
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final activeList = fieldGroups[activeCategory] ?? [];
+            final filtered = activeList.where((f) {
+              final q = query.toLowerCase().trim();
+              return f.toLowerCase().contains(q);
+            }).toList();
+
+            return Directionality(
+              textDirection: TextDirection.rtl,
+              child: Padding(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(context).viewInsets.bottom,
+                  left: 16,
+                  right: 16,
+                  top: 16,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                      'انتخاب فیلد موجود جهت درج در ماده',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ChoiceChip(
+                            label: const Text('پرسنل', style: TextStyle(fontSize: 10.5)),
+                            selected: activeCategory == 'personnel',
+                            onSelected: (val) {
+                              if (val) setModalState(() => activeCategory = 'personnel');
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: ChoiceChip(
+                            label: const Text('شرکت', style: TextStyle(fontSize: 10.5)),
+                            selected: activeCategory == 'company',
+                            onSelected: (val) {
+                              if (val) setModalState(() => activeCategory = 'company');
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: ChoiceChip(
+                            label: const Text('قرارداد', style: TextStyle(fontSize: 10.5)),
+                            selected: activeCategory == 'contract',
+                            onSelected: (val) {
+                              if (val) setModalState(() => activeCategory = 'contract');
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: ChoiceChip(
+                            label: const Text('حقوق', style: TextStyle(fontSize: 10.5)),
+                            selected: activeCategory == 'payroll',
+                            onSelected: (val) {
+                              if (val) setModalState(() => activeCategory = 'payroll');
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      decoration: const InputDecoration(
+                        hintText: 'جست‌وجوی نام فیلد...',
+                        prefixIcon: Icon(Icons.search, size: 20),
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      ),
+                      onChanged: (val) => setModalState(() => query = val),
+                    ),
+                    const SizedBox(height: 12),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 220),
+                      child: filtered.isEmpty
+                          ? const Center(
+                              child: Text('فیلدی با این نام یافت نشد.', style: TextStyle(fontSize: 11)),
+                            )
+                          : SingleChildScrollView(
+                              child: Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: filtered.map((f) {
+                                  return ActionChip(
+                                    label: Text(f, style: const TextStyle(fontSize: 11)),
+                                    avatar: const Icon(Icons.add, size: 16, color: AsoudColors.primary),
+                                    onPressed: () {
+                                      final text = controller.text;
+                                      final sel = controller.selection;
+                                      if (sel.isValid && sel.start >= 0 && sel.end >= sel.start) {
+                                        final newText = text.replaceRange(sel.start, sel.end, f);
+                                        controller.value = TextEditingValue(
+                                          text: newText,
+                                          selection: TextSelection.collapsed(offset: sel.start + f.length),
+                                        );
+                                      } else {
+                                        controller.text = text.isEmpty ? f : '$text $f';
+                                      }
+                                      Navigator.of(ctx).pop();
+                                    },
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
 
   Future<void> _openTemplateBuilder() async {
     final cubit = context.read<HiringOrdersCubit>();
@@ -449,12 +673,16 @@ class _HiringOrdersViewState extends State<_HiringOrdersView> {
   Widget _buildOrderCard(BuildContext context, HiringOrderSummary order) {
     Color badgeBg;
     Color badgeText;
-    if (order.isFinal) {
+    final s = order.status.toLowerCase().trim();
+    if (order.isFinal || s == 'final' || s == 'approved' || s == 'completed') {
       badgeBg = AsoudColors.successSurface;
       badgeText = AsoudColors.success;
-    } else if (order.isPending) {
+    } else if (order.isPending || s == 'pending' || s == 'submitted' || s == 'in_progress' || s == 'in progress' || s == 'open') {
       badgeBg = AsoudColors.warningSurface;
       badgeText = AsoudColors.warning;
+    } else if (s == 'rejected' || s == 'cancelled' || s == 'failed') {
+      badgeBg = AsoudColors.dangerSurface;
+      badgeText = AsoudColors.danger;
     } else {
       badgeBg = const Color(0xFFEDF2F8);
       badgeText = const Color(0xFF607D9B);
@@ -1068,8 +1296,30 @@ class _HiringOrdersViewState extends State<_HiringOrdersView> {
 
   Widget _buildPreviewView(BuildContext context, HiringOrdersState state) {
     final order = state.currentOrder;
-    final isFinal = order?.isFinal ?? false;
+    if (order == null && _personId.isEmpty) {
+      return const EmptyState(
+        icon: Icons.description_outlined,
+        title: 'حکم انتخاب‌شده پیدا نشد',
+        description: 'حکم انتخاب‌شده پیدا نشد.',
+      );
+    }
+    final s = order?.status.toLowerCase().trim() ?? 'draft';
+    final isFinal = order?.isFinal ?? (s == 'final' || s == 'approved' || s == 'completed');
+    final isPending = order?.isPending ?? (s == 'pending' || s == 'submitted' || s == 'in_progress' || s == 'in progress' || s == 'open');
+    final isRejected = s == 'rejected' || s == 'cancelled' || s == 'failed';
     final canSub = _canSubmit(state);
+
+    final statusLabel = isFinal ? 'نهایی' : (isPending ? 'در جریان' : (isRejected ? 'ردشده' : 'پیش‌نویس'));
+    final statusBg = isFinal
+        ? AsoudColors.successSurface
+        : (isPending
+            ? AsoudColors.warningSurface
+            : (isRejected ? AsoudColors.dangerSurface : const Color(0xFFEDF2F8)));
+    final statusColor = isFinal
+        ? AsoudColors.success
+        : (isPending
+            ? AsoudColors.warning
+            : (isRejected ? AsoudColors.danger : const Color(0xFF607D9B)));
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -1082,24 +1332,34 @@ class _HiringOrdersViewState extends State<_HiringOrdersView> {
             borderRadius: BorderRadius.circular(10),
             border: Border.all(color: const Color(0xFFD8E7F5)),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text('وضعیت حکم:', style: TextStyle(fontSize: 12, color: AsoudColors.muted)),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: isFinal ? AsoudColors.successSurface : const Color(0xFFEDF2F8),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  isFinal ? 'نهایی' : 'پیش‌نویس',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: isFinal ? AsoudColors.success : const Color(0xFF607D9B),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('وضعیت حکم:', style: TextStyle(fontSize: 12, color: AsoudColors.muted)),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: statusBg,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      statusLabel,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: statusColor,
+                      ),
+                    ),
                   ),
-                ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'این پیش‌نمایش بر اساس قالب حکم استخدام نمایش داده شده است.',
+                style: TextStyle(fontSize: 11, color: AsoudColors.muted),
               ),
             ],
           ),
@@ -1169,9 +1429,9 @@ class _HiringOrdersViewState extends State<_HiringOrdersView> {
                       color: const Color(0xFFFFF3E0),
                       borderRadius: BorderRadius.circular(6),
                     ),
-                    child: const Text(
-                      'پیش‌نویس ـ فاقد اعتبار نهایی',
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFB05228)),
+                    child: Text(
+                      isPending ? 'در جریان تأیید ـ فاقد اعتبار نهایی' : 'پیش‌نویس ـ فاقد اعتبار نهایی',
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFB05228)),
                     ),
                   ),
                 ),
@@ -1222,6 +1482,30 @@ class _HiringOrdersViewState extends State<_HiringOrdersView> {
                                 ],
                               );
                             }),
+                            TableRow(
+                              decoration: const BoxDecoration(color: Color(0xFFF2F5F9)),
+                              children: [
+                                const Padding(
+                                  padding: EdgeInsets.all(6),
+                                  child: Text('جمع مبالغ ماهانه',
+                                      style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold)),
+                                ),
+                                const Padding(padding: EdgeInsets.all(6), child: SizedBox.shrink()),
+                                const Padding(padding: EdgeInsets.all(6), child: SizedBox.shrink()),
+                                Padding(
+                                  padding: const EdgeInsets.all(6),
+                                  child: Text(
+                                    state.currentPayroll!.hasMissing
+                                        ? 'ناقص'
+                                        : '${toPersianDigits((state.currentPayroll!.monthlyTotal ?? 0).toStringAsFixed(0))} ریال',
+                                    style: const TextStyle(
+                                        fontSize: 9.5,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF1769AA)),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ],
                         ),
                       ],
@@ -1258,6 +1542,12 @@ class _HiringOrdersViewState extends State<_HiringOrdersView> {
               ),
             ],
           ),
+        ),
+        const SizedBox(height: 12),
+        const Text(
+          'چاپ سند پیش‌نویس یا در جریان با برچسب «فاقد اعتبار نهایی» انجام می‌شود. این خروجی نمایشی و فاقد اعتبار حقوقی است.',
+          style: TextStyle(fontSize: 10, color: AsoudColors.muted),
+          textAlign: TextAlign.center,
         ),
         const SizedBox(height: 16),
 
@@ -1383,41 +1673,242 @@ class _HiringOrdersViewState extends State<_HiringOrdersView> {
               ..._builderArticles.asMap().entries.map((entry) {
                 final idx = entry.key;
                 final art = entry.value;
+                final isExpanded = _expandedArticleIndex == idx;
+                final isEditing = _editingArticleIndex == idx;
+
                 return Container(
                   margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF7F9FC),
+                    color: isEditing ? Colors.white : const Color(0xFFF7F9FC),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AsoudColors.border),
+                    border: Border.all(
+                      color: isEditing ? const Color(0xFF8DBDEB) : AsoudColors.border,
+                    ),
                   ),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Text(
-                        'ماده ${toPersianDigits(idx + 1)}: ${art['title']}',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                      ),
-                      const SizedBox(height: 6),
-                      TextFormField(
-                        initialValue: art['body'],
-                        maxLines: 3,
-                        style: const TextStyle(fontSize: 11),
-                        onChanged: (val) => art['body'] = val,
-                        decoration: InputDecoration(
-                          hintText: 'متن ماده...',
-                          fillColor: Colors.white,
-                          filled: true,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: const BorderSide(color: AsoudColors.border),
+                      InkWell(
+                        onTap: () {
+                          setState(() {
+                            _expandedArticleIndex = isExpanded ? null : idx;
+                            if (!isExpanded) _editingArticleIndex = null;
+                          });
+                        },
+                        borderRadius: BorderRadius.circular(10),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 26,
+                                height: 26,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFEDF5FC),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  toPersianDigits(idx + 1),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 11,
+                                    color: Color(0xFF2379BE),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'ماده ${toPersianDigits(idx + 1)}: ${art['title']}',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                ),
+                              ),
+                              Icon(
+                                isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                                color: const Color(0xFF748398),
+                                size: 20,
+                              ),
+                            ],
                           ),
                         ),
                       ),
+                      if (isExpanded) ...[
+                        const Divider(height: 1, color: Color(0xFFE8ECF2)),
+                        Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: isEditing
+                              ? Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    TextFormField(
+                                      controller: _articleTitleController,
+                                      decoration: const InputDecoration(
+                                        labelText: 'عنوان ماده',
+                                        border: OutlineInputBorder(),
+                                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    TextFormField(
+                                      controller: _articleBodyController,
+                                      maxLines: 4,
+                                      decoration: const InputDecoration(
+                                        labelText: 'متن ماده',
+                                        border: OutlineInputBorder(),
+                                        contentPadding: EdgeInsets.all(12),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    OutlinedButton.icon(
+                                      icon: const Icon(Icons.add_circle_outline, size: 16),
+                                      label: const Text('درج فیلد در متن ماده', style: TextStyle(fontSize: 11)),
+                                      style: OutlinedButton.styleFrom(foregroundColor: AsoudColors.primary),
+                                      onPressed: () => _showHiringFieldPicker(_articleBodyController),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: ElevatedButton(
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: AsoudColors.primary,
+                                              foregroundColor: Colors.white,
+                                            ),
+                                            onPressed: _saveEditArticle,
+                                            child: const Text('ذخیره تغییرات'),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: OutlinedButton(
+                                            onPressed: () => setState(() => _editingArticleIndex = null),
+                                            child: const Text('انصراف'),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                )
+                              : Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    Text(
+                                      art['body'] ?? '',
+                                      style: const TextStyle(fontSize: 11, height: 1.8, color: Color(0xFF42556B)),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        IconButton(
+                                          icon: const Icon(Icons.arrow_upward, size: 16),
+                                          onPressed: idx > 0 ? () => _moveArticle(idx, idx - 1) : null,
+                                          visualDensity: VisualDensity.compact,
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(Icons.arrow_downward, size: 16),
+                                          onPressed: idx < _builderArticles.length - 1 ? () => _moveArticle(idx, idx + 1) : null,
+                                          visualDensity: VisualDensity.compact,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        OutlinedButton.icon(
+                                          icon: const Icon(Icons.edit_outlined, size: 14),
+                                          label: const Text('ویرایش', style: TextStyle(fontSize: 11)),
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor: AsoudColors.primary,
+                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                          ),
+                                          onPressed: () => _beginEditArticle(idx),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                        ),
+                      ],
                     ],
                   ),
                 );
               }),
+              if (_showNewArticleForm) ...[
+                Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFF8DBDEB)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Text('افزودن ماده جدید به قالب', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                      const SizedBox(height: 10),
+                      TextFormField(
+                        controller: _newArticleTitleController,
+                        decoration: const InputDecoration(
+                          labelText: 'عنوان ماده جدید',
+                          border: OutlineInputBorder(),
+                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      TextFormField(
+                        controller: _newArticleBodyController,
+                        maxLines: 4,
+                        decoration: const InputDecoration(
+                          labelText: 'متن ماده جدید',
+                          border: OutlineInputBorder(),
+                          contentPadding: EdgeInsets.all(12),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.add_circle_outline, size: 16),
+                        label: const Text('درج فیلد در ماده جدید', style: TextStyle(fontSize: 11)),
+                        style: OutlinedButton.styleFrom(foregroundColor: AsoudColors.primary),
+                        onPressed: () => _showHiringFieldPicker(_newArticleBodyController),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AsoudColors.primary,
+                                foregroundColor: Colors.white,
+                              ),
+                              onPressed: _addNewArticle,
+                              child: const Text('افزودن ماده'),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => setState(() => _showNewArticleForm = false),
+                              child: const Text('انصراف'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ] else ...[
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text('افزودن ماده جدید'),
+                  style: OutlinedButton.styleFrom(foregroundColor: AsoudColors.primary),
+                  onPressed: () {
+                    setState(() {
+                      _showNewArticleForm = true;
+                      _editingArticleIndex = null;
+                    });
+                  },
+                ),
+                const SizedBox(height: 12),
+              ],
               const SizedBox(height: 8),
               if (_catalogLoading) const LinearProgressIndicator(),
               if (_catalogError != null) ...[

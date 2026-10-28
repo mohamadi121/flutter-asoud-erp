@@ -152,9 +152,10 @@ void main() {
 
     expect(find.text('پیش‌نویس ـ فاقد اعتبار نهایی'), findsOneWidget);
     expect(find.text('🖨 چاپ حکم'), findsOneWidget);
+    expect(find.text('جمع مبالغ ماهانه'), findsOneWidget);
   });
 
-  testWidgets('template builder view displays editable articles and publish button',
+  testWidgets('template builder view displays editable articles, inline editor and publish button',
       (tester) async {
     when(() => repository.listOrders(
           company: 'شرکت تست',
@@ -187,6 +188,31 @@ void main() {
     expect(find.text('ماده ۱: مشخصات پرسنل'), findsOneWidget);
     expect(find.text('افزودن قلم حقوق'), findsOneWidget);
     expect(find.text('انتشار و ذخیره نسخه نهایی قالب'), findsOneWidget);
+
+    // Expand article 1 and click edit
+    await tester.tap(find.text('ماده ۱: مشخصات پرسنل'));
+    await tester.pumpAndSettle();
+    expect(find.text('ویرایش'), findsOneWidget);
+
+    await tester.tap(find.text('ویرایش'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('درج فیلد در متن ماده'), findsOneWidget);
+    expect(find.text('ذخیره تغییرات'), findsOneWidget);
+
+    // Tap field drawer
+    await tester.tap(find.text('درج فیلد در متن ماده'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('انتخاب فیلد موجود جهت درج در ماده'), findsOneWidget);
+    expect(find.text('پرسنل'), findsOneWidget);
+    expect(find.text('شرکت'), findsOneWidget);
+    expect(find.text('قرارداد'), findsOneWidget);
+    expect(find.text('حقوق'), findsOneWidget);
+
+    // Close bottom sheet
+    await tester.tap(find.text('[نام و نام خانوادگی پرسنل]'));
+    await tester.pumpAndSettle();
 
     await tester.tap(find.text('انتشار و ذخیره نسخه نهایی قالب'));
     await tester.pumpAndSettle();

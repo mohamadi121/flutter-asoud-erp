@@ -94,6 +94,221 @@ class _SalaryChangeOrdersViewState extends State<_SalaryChangeOrdersView> {
   // Template builder state
   List<Map<String, String>> _builderArticles = [];
   List<Map<String, String>> _builderComparisonRows = [];
+  int _builderTab = 0;
+  int? _expandedArticleIndex;
+  int? _editingArticleIndex;
+  final _builderArticleTitleController = TextEditingController();
+  final _builderArticleBodyController = TextEditingController();
+  bool _showNewArticleForm = false;
+  final _newArticleTitleController = TextEditingController();
+  final _newArticleBodyController = TextEditingController();
+
+  void _beginEditArticle(int index) {
+    setState(() {
+      _editingArticleIndex = index;
+      _expandedArticleIndex = index;
+      _builderArticleTitleController.text = _builderArticles[index]['title'] ?? '';
+      _builderArticleBodyController.text = _builderArticles[index]['body'] ?? '';
+      _showNewArticleForm = false;
+    });
+  }
+
+  void _saveEditArticle() {
+    final title = _builderArticleTitleController.text.trim();
+    final body = _builderArticleBodyController.text.trim();
+    if (title.isEmpty || body.isEmpty) return;
+    setState(() {
+      _builderArticles[_editingArticleIndex!]['title'] = title;
+      _builderArticles[_editingArticleIndex!]['body'] = body;
+      _editingArticleIndex = null;
+    });
+  }
+
+  void _addNewArticle() {
+    final title = _newArticleTitleController.text.trim();
+    final body = _newArticleBodyController.text.trim();
+    if (title.isEmpty || body.isEmpty) return;
+    setState(() {
+      final newId = 'custom_art_${DateTime.now().millisecondsSinceEpoch}';
+      _builderArticles.add({'id': newId, 'title': title, 'body': body});
+      _newArticleTitleController.clear();
+      _newArticleBodyController.clear();
+      _showNewArticleForm = false;
+      _expandedArticleIndex = _builderArticles.length - 1;
+    });
+  }
+
+  void _moveArticle(int from, int to) {
+    if (to < 0 || to >= _builderArticles.length) return;
+    setState(() {
+      final item = _builderArticles.removeAt(from);
+      _builderArticles.insert(to, item);
+      _editingArticleIndex = null;
+      _expandedArticleIndex = to;
+    });
+  }
+
+  void _showSalaryFieldPicker(TextEditingController controller) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        String query = '';
+        String activeCategory = 'personnel';
+
+        final Map<String, List<String>> fieldGroups = {
+          'personnel': [
+            '[نام و نام خانوادگی پرسنل]',
+            '[کد پرسنلی]',
+            '[عنوان شغلی]',
+            '[واحد سازمانی]',
+          ],
+          'company': [
+            '[نام قانونی شرکت]',
+            '[نام نماینده قانونی]',
+            '[سمت نماینده قانونی]',
+            '[نشانی شرکت]',
+          ],
+          'decree': [
+            '[علت تغییر حقوق]',
+            '[تاریخ اجرای تغییر]',
+            '[شماره حکم]',
+            '[تاریخ صدور حکم]',
+          ],
+          'payroll': [
+            '[حقوق پایه]',
+            '[حق جذب]',
+            '[حق مسکن]',
+            '[بن خواربار]',
+          ],
+        };
+
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final activeList = fieldGroups[activeCategory] ?? [];
+            final filtered = activeList.where((f) {
+              final q = query.toLowerCase().trim();
+              return f.toLowerCase().contains(q);
+            }).toList();
+
+            return Directionality(
+              textDirection: TextDirection.rtl,
+              child: Padding(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(context).viewInsets.bottom,
+                  left: 16,
+                  right: 16,
+                  top: 16,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                      'انتخاب فیلد موجود جهت درج در ماده',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ChoiceChip(
+                            label: const Text('پرسنل', style: TextStyle(fontSize: 10)),
+                            selected: activeCategory == 'personnel',
+                            onSelected: (val) {
+                              if (val) setModalState(() => activeCategory = 'personnel');
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: ChoiceChip(
+                            label: const Text('شرکت', style: TextStyle(fontSize: 10)),
+                            selected: activeCategory == 'company',
+                            onSelected: (val) {
+                              if (val) setModalState(() => activeCategory = 'company');
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: ChoiceChip(
+                            label: const Text('حکم', style: TextStyle(fontSize: 10)),
+                            selected: activeCategory == 'decree',
+                            onSelected: (val) {
+                              if (val) setModalState(() => activeCategory = 'decree');
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: ChoiceChip(
+                            label: const Text('حقوق', style: TextStyle(fontSize: 10)),
+                            selected: activeCategory == 'payroll',
+                            onSelected: (val) {
+                              if (val) setModalState(() => activeCategory = 'payroll');
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      decoration: const InputDecoration(
+                        hintText: 'جست‌وجوی نام فیلد...',
+                        prefixIcon: Icon(Icons.search, size: 20),
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      ),
+                      onChanged: (val) => setModalState(() => query = val),
+                    ),
+                    const SizedBox(height: 12),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 220),
+                      child: filtered.isEmpty
+                          ? const Center(
+                              child: Text('فیلدی با این نام یافت نشد.', style: TextStyle(fontSize: 11)),
+                            )
+                          : SingleChildScrollView(
+                              child: Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: filtered.map((f) {
+                                  return ActionChip(
+                                    label: Text(f, style: const TextStyle(fontSize: 11)),
+                                    avatar: const Icon(Icons.add, size: 16, color: AsoudColors.primary),
+                                    onPressed: () {
+                                      final text = controller.text;
+                                      final sel = controller.selection;
+                                      if (sel.isValid && sel.start >= 0 && sel.end >= sel.start) {
+                                        final newText = text.replaceRange(sel.start, sel.end, f);
+                                        controller.value = TextEditingValue(
+                                          text: newText,
+                                          selection: TextSelection.collapsed(offset: sel.start + f.length),
+                                        );
+                                      } else {
+                                        controller.text = text.isEmpty ? f : '$text $f';
+                                      }
+                                      Navigator.of(ctx).pop();
+                                    },
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
 
   final List<Map<String, String>> _reasons = [
     {'value': 'annual', 'label': 'افزایش سالانه'},
@@ -121,6 +336,10 @@ class _SalaryChangeOrdersViewState extends State<_SalaryChangeOrdersView> {
     for (final c in _amountControllers.values) {
       c.dispose();
     }
+    _builderArticleTitleController.dispose();
+    _builderArticleBodyController.dispose();
+    _newArticleTitleController.dispose();
+    _newArticleBodyController.dispose();
     super.dispose();
   }
 
@@ -519,20 +738,21 @@ class _SalaryChangeOrdersViewState extends State<_SalaryChangeOrdersView> {
 
   Widget _buildOrderCard(
       BuildContext context, SalaryChangeOrderSummary order) {
+    Color statusBg;
     Color statusColor;
-    switch (order.status) {
-      case 'final':
-        statusColor = AsoudColors.success;
-        break;
-      case 'pending':
-        statusColor = AsoudColors.primary;
-        break;
-      case 'rejected':
-        statusColor = AsoudColors.danger;
-        break;
-      case 'draft':
-      default:
-        statusColor = AsoudColors.warning;
+    final s = order.status.toLowerCase().trim();
+    if (order.isFinal || s == 'final' || s == 'approved' || s == 'completed') {
+      statusBg = AsoudColors.successSurface;
+      statusColor = AsoudColors.success;
+    } else if (order.isPending || s == 'pending' || s == 'progress' || s == 'submitted' || s == 'in_progress' || s == 'in progress' || s == 'open') {
+      statusBg = AsoudColors.warningSurface;
+      statusColor = AsoudColors.warning;
+    } else if (s == 'rejected' || s == 'cancelled' || s == 'failed') {
+      statusBg = AsoudColors.dangerSurface;
+      statusColor = AsoudColors.danger;
+    } else {
+      statusBg = const Color(0xFFEDF2F8);
+      statusColor = const Color(0xFF607D9B);
     }
 
     return Container(
@@ -563,7 +783,7 @@ class _SalaryChangeOrdersViewState extends State<_SalaryChangeOrdersView> {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: statusColor.withValues(alpha: .12),
+                      color: statusBg,
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
@@ -1388,6 +1608,40 @@ class _SalaryChangeOrdersViewState extends State<_SalaryChangeOrdersView> {
     final isPending = order?.isPending ?? false;
     final isApplied = order?.isApplied ?? false;
 
+    int monthlyPrevSum = 0;
+    int monthlyNewSum = 0;
+    bool anyIncomplete = false;
+
+    for (final row in _builderComparisonRows) {
+      final id = row['id'] ?? '';
+      final period = row['period'] ?? 'monthly';
+      final prevAmount = state.currentPayroll?.rows
+          .firstWhere((r) => r.id == id || r.oldRef == row['old_ref'],
+              orElse: () => SalaryChangeComparisonRow(
+                    id: id,
+                    title: '',
+                    period: period,
+                    periodLabel: '',
+                    oldRef: '',
+                    newRef: '',
+                    previousAmount: null,
+                    state: 'missing',
+                  ))
+          .previousAmount;
+      final newText = _amountControllers[id]?.text.trim() ?? '';
+      final newAmount = int.tryParse(newText.replaceAll(',', ''));
+
+      if (prevAmount != null && newAmount != null) {
+        if (period == 'monthly') {
+          monthlyPrevSum += prevAmount;
+          monthlyNewSum += newAmount;
+        }
+      } else {
+        anyIncomplete = true;
+      }
+    }
+    final monthlyDiff = monthlyNewSum - monthlyPrevSum;
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -1433,18 +1687,17 @@ class _SalaryChangeOrdersViewState extends State<_SalaryChangeOrdersView> {
                   margin: const EdgeInsets.symmetric(vertical: 8),
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: AsoudColors.danger.withValues(alpha: .08),
+                    color: const Color(0xFFFFF3E0),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                        color: AsoudColors.danger.withValues(alpha: .3)),
+                    border: Border.all(color: const Color(0xFFF2DFBC)),
                   ),
-                  child: const Text(
-                    'پیش‌نویس ـ فاقد اعتبار نهایی',
+                  child: Text(
+                    isPending ? 'در جریان تأیید ـ فاقد اعتبار نهایی' : 'پیش‌نویس ـ فاقد اعتبار نهایی',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
+                    style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
-                        color: AsoudColors.danger),
+                        color: Color(0xFFB05228)),
                   ),
                 ),
 
@@ -1507,6 +1760,97 @@ class _SalaryChangeOrdersViewState extends State<_SalaryChangeOrdersView> {
                         style: const TextStyle(fontSize: 10, height: 1.6),
                         textAlign: TextAlign.justify,
                       ),
+                      if (art['id'] == 'salary_comparison') ...[
+                        const SizedBox(height: 8),
+                        Table(
+                          border: TableBorder.all(color: const Color(0xFFD3DCE6)),
+                          children: [
+                            TableRow(
+                              decoration: const BoxDecoration(color: Color(0xFFF2F5F9)),
+                              children: const [
+                                Padding(padding: EdgeInsets.all(6), child: Text('قلم', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold))),
+                                Padding(padding: EdgeInsets.all(6), child: Text('قبلی (ریال)', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold))),
+                                Padding(padding: EdgeInsets.all(6), child: Text('جدید (ریال)', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold))),
+                                Padding(padding: EdgeInsets.all(6), child: Text('تغییر', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold))),
+                              ],
+                            ),
+                            ..._builderComparisonRows.map((r) {
+                              final id = r['id'] ?? '';
+                              final rowName = r['title'] ?? r['name'] ?? id;
+                              final prev = state.currentPayroll?.rows
+                                  .firstWhere((item) => item.id == id || item.oldRef == r['old_ref'],
+                                      orElse: () => SalaryChangeComparisonRow(
+                                            id: id,
+                                            title: '',
+                                            period: 'monthly',
+                                            periodLabel: '',
+                                            oldRef: '',
+                                            newRef: '',
+                                            previousAmount: null,
+                                            state: 'missing',
+                                          ))
+                                  .previousAmount;
+                              final newText = _amountControllers[id]?.text.trim() ?? '';
+                              final next = int.tryParse(newText.replaceAll(',', ''));
+                              final delta = (prev != null && next != null) ? next - prev : null;
+                              return TableRow(
+                                children: [
+                                  Padding(padding: const EdgeInsets.all(6), child: Text(rowName, style: const TextStyle(fontSize: 9.5))),
+                                  Padding(padding: const EdgeInsets.all(6), child: Text(prev != null ? toPersianDigits(prev.toString()) : 'ناموجود', style: const TextStyle(fontSize: 9.5))),
+                                  Padding(padding: const EdgeInsets.all(6), child: Text(next != null ? toPersianDigits(next.toString()) : 'ثبت نشده', style: const TextStyle(fontSize: 9.5))),
+                                  Padding(padding: const EdgeInsets.all(6), child: Text(delta != null ? '${delta >= 0 ? "+" : ""}${toPersianDigits(delta.toString())}' : '—', style: const TextStyle(fontSize: 9.5))),
+                                ],
+                              );
+                            }),
+                            TableRow(
+                              decoration: const BoxDecoration(color: Color(0xFFF2F5F9)),
+                              children: [
+                                const Padding(
+                                  padding: EdgeInsets.all(6),
+                                  child: Text('جمع ماهانه', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold)),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.all(6),
+                                  child: Text(
+                                    anyIncomplete ? 'ناقص' : toPersianDigits(monthlyPrevSum.toString()),
+                                    style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.all(6),
+                                  child: Text(
+                                    anyIncomplete ? 'ناقص' : toPersianDigits(monthlyNewSum.toString()),
+                                    style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.all(6),
+                                  child: Text(
+                                    anyIncomplete ? 'ناقص' : '${monthlyDiff >= 0 ? "+" : ""}${toPersianDigits(monthlyDiff.toString())}',
+                                    style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        if (anyIncomplete)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFF8ED),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: const Color(0xFFF2DFBC)),
+                              ),
+                              child: const Text(
+                                'اطلاعات یک یا چند قلم ناقص است. تا تکمیل از منبع معتبر، ثبت نهایی مجاز نیست؛ صفر جایگزین مبلغ ناموجود نمی‌شود.',
+                                style: TextStyle(fontSize: 10, color: Color(0xFF8C631B)),
+                              ),
+                            ),
+                          ),
+                      ],
                     ],
                   ),
                 );
@@ -1528,6 +1872,12 @@ class _SalaryChangeOrdersViewState extends State<_SalaryChangeOrdersView> {
               ),
             ],
           ),
+        ),
+        const SizedBox(height: 12),
+        const Text(
+          'چاپ پیش‌نویس و حکم در جریان، با برچسب «فاقد اعتبار نهایی» انجام می‌شود. احکام نمونه صرفاً برای نمایش‌اند.',
+          style: TextStyle(fontSize: 10, color: AsoudColors.muted),
+          textAlign: TextAlign.center,
         ),
         const SizedBox(height: 16),
 
@@ -1712,154 +2062,652 @@ class _SalaryChangeOrdersViewState extends State<_SalaryChangeOrdersView> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        // Tabs: ویرایش قالب (0) / پیش‌نمایش سند (1)
         Container(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AsoudColors.border),
+            color: const Color(0xFFF3F5F7),
+            borderRadius: BorderRadius.circular(10),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+          child: Row(
             children: [
-              const Text('قالب حکم تغییر حقوق و مزایا',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 4),
-              const Text(
-                '۶ ماده پیش‌فرض و جدول تکرارشونده مقایسه؛ تغییرات در احکام بعدی اعمال می‌شود.',
-                style: TextStyle(fontSize: 11, color: AsoudColors.muted),
-              ),
-              const SizedBox(height: 16),
-              ..._builderArticles.asMap().entries.map((entry) {
-                final idx = entry.key;
-                final art = entry.value;
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AsoudColors.background,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AsoudColors.border),
+              Expanded(
+                child: InkWell(
+                  onTap: () => setState(() => _builderTab = 0),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    decoration: BoxDecoration(
+                      color: _builderTab == 0 ? Colors.white : Colors.transparent,
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: _builderTab == 0
+                          ? [BoxShadow(color: Colors.black.withValues(alpha: .06), blurRadius: 4)]
+                          : null,
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      'ویرایش قالب',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: _builderTab == 0 ? FontWeight.bold : FontWeight.normal,
+                        color: _builderTab == 0 ? AsoudColors.primary : AsoudColors.muted,
+                      ),
+                    ),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      TextFormField(
-                        initialValue: art['title'],
-                        decoration: InputDecoration(
-                          labelText:
-                              'ماده ${toPersianDigits((idx + 1).toString())}: ${art["title"]}',
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 8),
-                          border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8)),
-                        ),
-                        onChanged: (val) => art['title'] = val,
-                      ),
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        initialValue: art['body'],
-                        maxLines: 3,
-                        decoration: InputDecoration(
-                          labelText: 'متن ماده *',
-                          border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8)),
-                        ),
-                        onChanged: (val) => art['body'] = val,
-                      ),
-                      const SizedBox(height: 6),
-                      Wrap(
-                        spacing: 4,
-                        runSpacing: 4,
-                        children: [
-                          _fieldChip('[نام و نام خانوادگی پرسنل]', art),
-                          _fieldChip('[کد پرسنلی]', art),
-                          _fieldChip('[علت تغییر حقوق]', art),
-                          _fieldChip('[تاریخ اجرای تغییر]', art),
-                          _fieldChip('[عنوان شغلی]', art),
-                          _fieldChip('[واحد سازمانی]', art),
-                        ],
-                      ),
-                      if (art['id'] == 'salary_comparison') ...[
-                        const SizedBox(height: 12),
-                        const Divider(),
-                        const Text('ردیف‌های مقایسه حقوق و مزایا:',
-                            style: TextStyle(
-                                fontSize: 11, fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 6),
-                        ..._builderComparisonRows.map((r) => Container(
-                              margin: const EdgeInsets.only(bottom: 6),
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: AsoudColors.border),
-                              ),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(r['title'] ?? '',
-                                      style: const TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold)),
-                                  Text('دوره: ${r["period"]}',
-                                      style: const TextStyle(fontSize: 10)),
-                                ],
-                              ),
-                            )),
-                      ],
-                    ],
-                  ),
-                );
-              }),
-              const SizedBox(height: 12),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AsoudColors.primary,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
-                onPressed: () async {
-                  final cubit = context.read<SalaryChangeOrdersCubit>();
-                  final ok = await cubit.publishTemplate({
-                    'articles': _builderArticles,
-                    'comparison_rows': _builderComparisonRows,
-                  });
-                  if (ok && mounted && context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text(
-                              'نسخه نهایی قالب با موفقیت ذخیره و منتشر شد.')),
-                    );
-                    setState(() => _mode = _SalaryChangeViewMode.list);
-                  }
-                },
-                child: const Text('انتشار نسخه نهایی قالب'),
               ),
-              const SizedBox(height: 8),
-              TextButton(
-                onPressed: () =>
-                    setState(() => _mode = _SalaryChangeViewMode.list),
-                child: const Text('بازگشت به فهرست'),
+              Expanded(
+                child: InkWell(
+                  onTap: () => setState(() => _builderTab = 1),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    decoration: BoxDecoration(
+                      color: _builderTab == 1 ? Colors.white : Colors.transparent,
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: _builderTab == 1
+                          ? [BoxShadow(color: Colors.black.withValues(alpha: .06), blurRadius: 4)]
+                          : null,
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      'پیش‌نمایش سند',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: _builderTab == 1 ? FontWeight.bold : FontWeight.normal,
+                        color: _builderTab == 1 ? AsoudColors.primary : AsoudColors.muted,
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
         ),
-      ],
-    );
-  }
+        const SizedBox(height: 14),
 
-  Widget _fieldChip(String label, Map<String, String> art) {
-    return ActionChip(
-      label: Text(label, style: const TextStyle(fontSize: 9)),
-      onPressed: () {
-        setState(() {
-          art['body'] = '${art["body"] ?? ""} $label';
-        });
-      },
+        if (_builderTab == 0) ...[
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AsoudColors.border),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text('قالب حکم تغییر حقوق و مزایا',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                const Text(
+                  '۶ ماده پیش‌فرض و جدول تکرارشونده مقایسه؛ تغییرات در احکام بعدی اعمال می‌شود.',
+                  style: TextStyle(fontSize: 11, color: AsoudColors.muted),
+                ),
+                const SizedBox(height: 16),
+                ..._builderArticles.asMap().entries.map((entry) {
+                  final idx = entry.key;
+                  final art = entry.value;
+                  final isExpanded = _expandedArticleIndex == idx;
+                  final isEditing = _editingArticleIndex == idx;
+
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: isEditing ? Colors.white : AsoudColors.background,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: isEditing ? const Color(0xFF8DBDEB) : AsoudColors.border,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        InkWell(
+                          onTap: () {
+                            setState(() {
+                              _expandedArticleIndex = isExpanded ? null : idx;
+                              if (!isExpanded) _editingArticleIndex = null;
+                            });
+                          },
+                          borderRadius: BorderRadius.circular(10),
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 26,
+                                  height: 26,
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFEDF5FC),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    toPersianDigits((idx + 1).toString()),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 11,
+                                      color: Color(0xFF2379BE),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'ماده ${toPersianDigits((idx + 1).toString())}: ${art["title"]}',
+                                    style: const TextStyle(
+                                        fontSize: 12, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                                Icon(
+                                  isExpanded
+                                      ? Icons.keyboard_arrow_up
+                                      : Icons.keyboard_arrow_down,
+                                  color: const Color(0xFF748398),
+                                  size: 20,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        if (isExpanded) ...[
+                          const Divider(height: 1, color: Color(0xFFE8ECF2)),
+                          Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: isEditing
+                                ? Column(
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    children: [
+                                      TextFormField(
+                                        controller: _builderArticleTitleController,
+                                        decoration: InputDecoration(
+                                          labelText: 'عنوان ماده',
+                                          border: OutlineInputBorder(
+                                              borderRadius: BorderRadius.circular(8)),
+                                          contentPadding: const EdgeInsets.symmetric(
+                                              horizontal: 10, vertical: 8),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      TextFormField(
+                                        controller: _builderArticleBodyController,
+                                        maxLines: 4,
+                                        decoration: InputDecoration(
+                                          labelText: 'متن ماده *',
+                                          border: OutlineInputBorder(
+                                              borderRadius: BorderRadius.circular(8)),
+                                          contentPadding: const EdgeInsets.all(10),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      OutlinedButton.icon(
+                                        icon: const Icon(Icons.add_circle_outline, size: 16),
+                                        label: const Text('درج فیلد در متن ماده',
+                                            style: TextStyle(fontSize: 11)),
+                                        style: OutlinedButton.styleFrom(
+                                            foregroundColor: AsoudColors.primary),
+                                        onPressed: () => _showSalaryFieldPicker(
+                                            _builderArticleBodyController),
+                                      ),
+                                      if (art['id'] == 'salary_comparison') ...[
+                                        const SizedBox(height: 12),
+                                        const Divider(),
+                                        const Text('ردیف‌های مقایسه حقوق و مزایا:',
+                                            style: TextStyle(
+                                                fontSize: 11, fontWeight: FontWeight.bold)),
+                                        const SizedBox(height: 6),
+                                        ..._builderComparisonRows.asMap().entries.map((rEntry) {
+                                          final rIdx = rEntry.key;
+                                          final r = rEntry.value;
+                                          return Container(
+                                            margin: const EdgeInsets.only(bottom: 8),
+                                            padding: const EdgeInsets.all(10),
+                                            decoration: BoxDecoration(
+                                              color: Colors.white,
+                                              borderRadius: BorderRadius.circular(8),
+                                              border: Border.all(color: AsoudColors.border),
+                                            ),
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                                              children: [
+                                                Row(
+                                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                  children: [
+                                                    Text(
+                                                      'ردیف ${toPersianDigits((rIdx + 1).toString())}: ${r["title"] ?? ""}',
+                                                      style: const TextStyle(
+                                                          fontSize: 11, fontWeight: FontWeight.bold),
+                                                    ),
+                                                    IconButton(
+                                                      icon: const Icon(Icons.delete_outline,
+                                                          size: 16, color: AsoudColors.danger),
+                                                      onPressed: _builderComparisonRows.length <= 1
+                                                          ? null
+                                                          : () => setState(() =>
+                                                              _builderComparisonRows.removeAt(rIdx)),
+                                                    ),
+                                                  ],
+                                                ),
+                                                TextFormField(
+                                                  initialValue: r['title'],
+                                                  decoration: const InputDecoration(
+                                                    labelText: 'عنوان قلم حقوق و مزایا',
+                                                    contentPadding: EdgeInsets.symmetric(
+                                                        horizontal: 8, vertical: 6),
+                                                  ),
+                                                  onChanged: (val) => r['title'] = val,
+                                                ),
+                                                DropdownButtonFormField<String>(
+                                                  initialValue: r['period'] ?? 'monthly',
+                                                  decoration: const InputDecoration(
+                                                    labelText: 'دوره پرداخت',
+                                                    contentPadding: EdgeInsets.symmetric(
+                                                        horizontal: 8, vertical: 6),
+                                                  ),
+                                                  items: const [
+                                                    DropdownMenuItem(
+                                                        value: 'monthly', child: Text('ماهانه')),
+                                                    DropdownMenuItem(
+                                                        value: 'yearly', child: Text('سالانه')),
+                                                    DropdownMenuItem(
+                                                        value: 'one_off', child: Text('یک‌باره')),
+                                                  ],
+                                                  onChanged: (val) =>
+                                                      setState(() => r['period'] = val ?? 'monthly'),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                        }),
+                                        OutlinedButton.icon(
+                                          icon: const Icon(Icons.add, size: 14),
+                                          label: const Text('افزودن ردیف حقوقی',
+                                              style: TextStyle(fontSize: 11)),
+                                          onPressed: () {
+                                            setState(() {
+                                              final id = 'row_${_builderComparisonRows.length + 1}';
+                                              _builderComparisonRows.add({
+                                                'id': id,
+                                                'key': id,
+                                                'title': 'قلم جدید',
+                                                'period': 'monthly',
+                                                'old_ref': 'base_pay',
+                                                'new_ref': 'base_pay_proposed',
+                                              });
+                                            });
+                                          },
+                                        ),
+                                      ],
+                                      const SizedBox(height: 12),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: ElevatedButton(
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: AsoudColors.primary,
+                                                foregroundColor: Colors.white,
+                                              ),
+                                              onPressed: _saveEditArticle,
+                                              child: const Text('ذخیره تغییرات'),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: OutlinedButton(
+                                              onPressed: () =>
+                                                  setState(() => _editingArticleIndex = null),
+                                              child: const Text('انصراف'),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  )
+                                : Column(
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    children: [
+                                      Text(
+                                        art['body'] ?? '',
+                                        style: const TextStyle(
+                                            fontSize: 11, height: 1.8, color: Color(0xFF42556B)),
+                                      ),
+                                      if (art['id'] == 'salary_comparison') ...[
+                                        const SizedBox(height: 8),
+                                        Container(
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            borderRadius: BorderRadius.circular(6),
+                                            border: Border.all(color: AsoudColors.border),
+                                          ),
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                                            children: _builderComparisonRows
+                                                .map((r) => Padding(
+                                                      padding: const EdgeInsets.symmetric(vertical: 2),
+                                                      child: Row(
+                                                        mainAxisAlignment:
+                                                            MainAxisAlignment.spaceBetween,
+                                                        children: [
+                                                          Text(r['title'] ?? '',
+                                                              style: const TextStyle(
+                                                                  fontSize: 10.5,
+                                                                  fontWeight: FontWeight.bold)),
+                                                          Text(
+                                                            r['period'] == 'yearly'
+                                                                ? 'سالانه'
+                                                                : r['period'] == 'one_off'
+                                                                    ? 'یک‌باره'
+                                                                    : 'ماهانه',
+                                                            style: const TextStyle(fontSize: 10),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ))
+                                                .toList(),
+                                          ),
+                                        ),
+                                      ],
+                                      const SizedBox(height: 10),
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.end,
+                                        children: [
+                                          IconButton(
+                                            icon: const Icon(Icons.arrow_upward, size: 16),
+                                            onPressed: idx > 0 ? () => _moveArticle(idx, idx - 1) : null,
+                                            visualDensity: VisualDensity.compact,
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(Icons.arrow_downward, size: 16),
+                                            onPressed: idx < _builderArticles.length - 1
+                                                ? () => _moveArticle(idx, idx + 1)
+                                                : null,
+                                            visualDensity: VisualDensity.compact,
+                                          ),
+                                          const SizedBox(width: 4),
+                                          OutlinedButton.icon(
+                                            icon: const Icon(Icons.edit_outlined, size: 14),
+                                            label: const Text('ویرایش', style: TextStyle(fontSize: 11)),
+                                            style: OutlinedButton.styleFrom(
+                                              foregroundColor: AsoudColors.primary,
+                                              padding: const EdgeInsets.symmetric(
+                                                  horizontal: 10, vertical: 4),
+                                            ),
+                                            onPressed: () => _beginEditArticle(idx),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  );
+                }),
+                if (_showNewArticleForm) ...[
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFF8DBDEB)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text('افزودن ماده جدید به قالب',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                        const SizedBox(height: 10),
+                        TextFormField(
+                          controller: _newArticleTitleController,
+                          decoration: const InputDecoration(
+                            labelText: 'عنوان ماده جدید',
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        TextFormField(
+                          controller: _newArticleBodyController,
+                          maxLines: 4,
+                          decoration: const InputDecoration(
+                            labelText: 'متن ماده جدید',
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.all(12),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        OutlinedButton.icon(
+                          icon: const Icon(Icons.add_circle_outline, size: 16),
+                          label: const Text('درج فیلد در ماده جدید', style: TextStyle(fontSize: 11)),
+                          style: OutlinedButton.styleFrom(foregroundColor: AsoudColors.primary),
+                          onPressed: () => _showSalaryFieldPicker(_newArticleBodyController),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AsoudColors.primary,
+                                  foregroundColor: Colors.white,
+                                ),
+                                onPressed: _addNewArticle,
+                                child: const Text('افزودن ماده'),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () => setState(() => _showNewArticleForm = false),
+                                child: const Text('انصراف'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ] else ...[
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.add, size: 16),
+                    label: const Text('افزودن ماده جدید'),
+                    style: OutlinedButton.styleFrom(foregroundColor: AsoudColors.primary),
+                    onPressed: () {
+                      setState(() {
+                        _showNewArticleForm = true;
+                        _editingArticleIndex = null;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                const SizedBox(height: 12),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AsoudColors.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  onPressed: () async {
+                    final cubit = context.read<SalaryChangeOrdersCubit>();
+                    final ok = await cubit.publishTemplate({
+                      'articles': _builderArticles,
+                      'comparison_rows': _builderComparisonRows,
+                    });
+                    if (ok && mounted && context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content: Text(
+                                'نسخه نهایی قالب با موفقیت ذخیره و منتشر شد.')),
+                      );
+                      setState(() => _mode = _SalaryChangeViewMode.list);
+                    }
+                  },
+                  child: const Text('انتشار نسخه نهایی قالب'),
+                ),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: () =>
+                      setState(() => _mode = _SalaryChangeViewMode.list),
+                  child: const Text('بازگشت به فهرست'),
+                ),
+              ],
+            ),
+          ),
+        ] else ...[
+          // Tab 1: پیش‌نمایش سند (قالب)
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AsoudColors.border),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: .04),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                )
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  widget.company,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'حکم افزایش / تغییر حقوق و مزایا',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: AsoudColors.primary),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  margin: const EdgeInsets.symmetric(vertical: 4),
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF3E0),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Text(
+                    'پیش‌نمایش قالب ـ فاقد اعتبار نهایی',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFFB05228)),
+                  ),
+                ),
+                const Divider(),
+                ..._builderArticles.asMap().entries.map((entry) {
+                  final idx = entry.key;
+                  final art = entry.value;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'ماده ${toPersianDigits((idx + 1).toString())} ـ ${art["title"]}',
+                          style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: AsoudColors.primary),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          art['body'] ?? '',
+                          style: const TextStyle(fontSize: 10, height: 1.6),
+                        ),
+                        if (art['id'] == 'salary_comparison') ...[
+                          const SizedBox(height: 8),
+                          Table(
+                            border: TableBorder.all(color: const Color(0xFFD3DCE6)),
+                            children: [
+                              TableRow(
+                                decoration: const BoxDecoration(color: Color(0xFFF2F5F9)),
+                                children: const [
+                                  Padding(padding: EdgeInsets.all(6), child: Text('قلم', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold))),
+                                  Padding(padding: EdgeInsets.all(6), child: Text('قبلی (ریال)', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold))),
+                                  Padding(padding: EdgeInsets.all(6), child: Text('جدید (ریال)', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold))),
+                                  Padding(padding: EdgeInsets.all(6), child: Text('تغییر', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold))),
+                                ],
+                              ),
+                              ..._builderComparisonRows.map((r) => TableRow(
+                                    children: [
+                                      Padding(padding: const EdgeInsets.all(6), child: Text(r['title'] ?? '', style: const TextStyle(fontSize: 9.5))),
+                                      const Padding(padding: EdgeInsets.all(6), child: Text('[مبلغ قبلی]', style: TextStyle(fontSize: 9.5))),
+                                      const Padding(padding: EdgeInsets.all(6), child: Text('[مبلغ جدید]', style: TextStyle(fontSize: 9.5))),
+                                      const Padding(padding: EdgeInsets.all(6), child: Text('[اختلاف]', style: TextStyle(fontSize: 9.5))),
+                                    ],
+                                  )),
+                              const TableRow(
+                                decoration: BoxDecoration(color: Color(0xFFF2F5F9)),
+                                children: [
+                                  Padding(padding: EdgeInsets.all(6), child: Text('جمع ماهانه', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold))),
+                                  Padding(padding: EdgeInsets.all(6), child: Text('[جمع قبلی]', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold))),
+                                  Padding(padding: EdgeInsets.all(6), child: Text('[جمع جدید]', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold))),
+                                  Padding(padding: EdgeInsets.all(6), child: Text('[تغییر کل]', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold))),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  );
+                }),
+                const SizedBox(height: 20),
+                Wrap(
+                  alignment: WrapAlignment.spaceAround,
+                  spacing: 16,
+                  runSpacing: 8,
+                  children: const [
+                    Text('نام و امضای مقام صادرکننده\n...........................',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 9)),
+                    Text('مهر شرکت\n...........................',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 9)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          ElevatedButton.icon(
+            icon: const Icon(Icons.print, size: 16),
+            label: const Text('چاپ / ذخیره PDF پیش‌نمایش'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AsoudColors.primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+            ),
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('پیش‌نمایش آماده چاپ است.')),
+              );
+            },
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton(
+            onPressed: () => setState(() => _builderTab = 0),
+            child: const Text('بازگشت به ویرایش قالب'),
+          ),
+        ],
+      ],
     );
   }
 }

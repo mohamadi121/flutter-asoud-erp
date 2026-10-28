@@ -450,5 +450,25 @@ void main() {
       expect(find.text('معرفی‌نامه پرسنل'), findsOneWidget);
       expect(find.text('چاپ / ذخیره PDF پیش‌نمایش'), findsOneWidget);
     });
+
+    testWidgets('preview page displays notice card and watermark at width 320.0 and 390.0', (tester) async {
+      for (final width in [320.0, 390.0]) {
+        await tester.binding.setSurfaceSize(Size(width, 844));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final repo = FakePersonnelIntroductionLetterRepository();
+        await tester.pumpWidget(_wrapWithRtl(
+          const PersonnelIntroductionLetterPreviewPage(
+            letterName: 'INTRO-DRAFT-1',
+            company: 'شرکت نمونه',
+          ),
+          repo: repo,
+          width: width,
+        ));
+        await tester.pumpAndSettle();
+
+        expect(find.text('چاپ معرفی‌نامه غیرنهایی با عبارت «پیش‌نویس ـ فاقد اعتبار نهایی» انجام می‌شود.'), findsOneWidget);
+        expect(find.text('پیش‌نویس ـ فاقد اعتبار نهایی'), findsOneWidget);
+      }
+    });
   });
 }
