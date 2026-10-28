@@ -59,6 +59,8 @@ void main() {
       ),
     );
 
+    await tester.binding.setSurfaceSize(const Size(390, 2400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(_app(client, FrappeHrRepository(client)));
     await tester.pumpAndSettle();
 
@@ -69,6 +71,7 @@ void main() {
       'گزارش کار روزانه',
       'اعلان‌های منابع انسانی',
     ]) {
+      await tester.scrollUntilVisible(find.text(label), 100);
       expect(find.text(label), findsOneWidget);
     }
     verifyNever(() => client.callAsoudMethod(
