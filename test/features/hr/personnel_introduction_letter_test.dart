@@ -10,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 Widget _wrapWithRtl(Widget child, {PersonnelIntroductionLetterRepository? repo, double width = 390}) {
   return MaterialApp(
+    builder: (context, child) => Directionality(textDirection: TextDirection.rtl, child: child!),
     home: Directionality(
       textDirection: TextDirection.rtl,
       child: MediaQuery(
