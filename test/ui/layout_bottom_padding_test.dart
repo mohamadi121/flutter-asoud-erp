@@ -90,6 +90,18 @@ ScrollableState _scrollState(WidgetTester tester, Finder of) =>
     tester.state<ScrollableState>(
         find.descendant(of: of, matching: find.byType(Scrollable)));
 
+Future<void> _settleAtEnd(WidgetTester tester, Finder list) async {
+  // Lazy layout can refine maxScrollExtent after the drag builds the last rows.
+  // Reach the updated extent explicitly; do not relax the end/overlap assertions.
+  for (var attempt = 0; attempt < 5; attempt++) {
+    final position = _scrollState(tester, list).position;
+    position.jumpTo(position.maxScrollExtent);
+    await tester.pumpAndSettle();
+    if (position.pixels == position.maxScrollExtent) return;
+  }
+  fail('The workflow list did not settle at its final scroll extent.');
+}
+
 void main() {
   for (final width in [320.0, 390.0]) {
     testWidgets('workflow list reserves room for the bottom bar at $width',
@@ -114,6 +126,7 @@ void main() {
       expect(list, findsOneWidget);
       await tester.drag(list, const Offset(0, -3000));
       await tester.pumpAndSettle();
+      await _settleAtEnd(tester, list);
       expect(_scrollState(tester, list).position.pixels,
           _scrollState(tester, list).position.maxScrollExtent);
 
