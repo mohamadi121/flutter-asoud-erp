@@ -8,6 +8,24 @@ import 'package:asoud_erp/features/hr/presentation/pages/contracts/hr_contract_i
 import 'package:asoud_erp/features/hr/presentation/pages/contracts/hr_contract_print_page.dart';
 
 void main() {
+  for (final width in [320.0, 390.0, 430.0]) {
+    testWidgets('template management is denied by default at $width', (tester) async {
+      await tester.binding.setSurfaceSize(Size(width, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(MaterialApp(
+        builder: (_, child) => Directionality(textDirection: TextDirection.rtl, child: child!),
+        home: HrContractsPage(
+          company: 'شرکت نمونه',
+          repository: FakeHrContractsRepository(),
+          templateRepository: FakeHrContractTemplateRepository(),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('قالب قرارداد کار'), findsNothing);
+      expect(find.text('تنظیم قالب قرارداد'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
   group('Personnel Contracts Page & Issuance Tests', () {
     late FakeHrContractsRepository contractsRepo;
     late FakeHrContractTemplateRepository templateRepo;

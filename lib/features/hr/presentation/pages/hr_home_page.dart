@@ -29,7 +29,7 @@ Future<Capabilities> _hrCapabilities(BuildContext context) async {
   try {
     return await loadCapabilities(context.read<FrappeApiClient>());
   } on ProviderNotFoundException {
-    return Capabilities.full;
+    return Capabilities.fromRoles(const []);
   } catch (_) {
     return Capabilities.fromRoles(const []);
   }
@@ -134,7 +134,10 @@ class _HrHome extends StatelessWidget {
                   'صدور، پیگیری و چاپ قراردادهای کار',
                   Icons.badge_outlined,
                   AsoudColors.primary,
-                  () => _push(
+                  () async {
+                    final capabilities = await _hrCapabilities(context);
+                    if (!context.mounted) return;
+                    _push(
                     context,
                     HrContractsPage(
                       company: company,
@@ -142,9 +145,10 @@ class _HrHome extends StatelessWidget {
                           context.read<FrappeApiClient>()),
                       templateRepository: ServerHrContractTemplateRepository(
                           context.read<FrappeApiClient>()),
-                      canManageTemplate: data.managerAccess,
+                      canManageTemplate: capabilities.canManageContractTemplates,
                     ),
-                  ),
+                    );
+                  },
                 ),
                 _Action(
                   'تیم و ساختار سازمانی',
@@ -242,7 +246,10 @@ class _ManagerHrHome extends StatelessWidget {
               'صدور، پیگیری و چاپ قراردادهای کار',
               Icons.badge_outlined,
               AsoudColors.primary,
-              () => _push(
+              () async {
+                    final capabilities = await _hrCapabilities(context);
+                    if (!context.mounted) return;
+                    _push(
                     context,
                     HrContractsPage(
                       company: company,
@@ -250,9 +257,10 @@ class _ManagerHrHome extends StatelessWidget {
                           context.read<FrappeApiClient>()),
                       templateRepository: ServerHrContractTemplateRepository(
                           context.read<FrappeApiClient>()),
-                      canManageTemplate: true,
+                      canManageTemplate: capabilities.canManageContractTemplates,
                     ),
-                  )),
+                    );
+                  }),
           _Action(
               'درخواست‌های مرخصی',
               'مشاهده درخواست‌ها و وضعیت مرخصی',

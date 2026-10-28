@@ -15,7 +15,7 @@ class HrContractsPage extends StatefulWidget {
     required this.company,
     this.repository,
     this.templateRepository,
-    this.canManageTemplate = true,
+    this.canManageTemplate = false,
     super.key,
   });
 

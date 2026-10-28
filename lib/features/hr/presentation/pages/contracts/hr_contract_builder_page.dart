@@ -12,7 +12,7 @@ class HrContractBuilderPage extends StatefulWidget {
   const HrContractBuilderPage({
     required this.company,
     this.repository,
-    this.canManageTemplate = true,
+    this.canManageTemplate = false,
     super.key,
   });
 
