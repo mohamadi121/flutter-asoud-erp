@@ -10,11 +10,12 @@ import '../../domain/entities/workflow_definition.dart';
 
 class WorkflowTemplatePicker extends StatefulWidget {
   const WorkflowTemplatePicker({required this.repository, required this.company,
-    required this.modules, this.selected, super.key});
+    required this.modules, this.selected, this.includeExisting = false, super.key});
   final WorkflowTemplateRepository repository;
   final String company;
   final List<WorkflowModuleOption> modules;
   final WorkflowTemplate? selected;
+  final bool includeExisting;
   @override
   State<WorkflowTemplatePicker> createState() => _WorkflowTemplatePickerState();
 }
@@ -55,13 +56,13 @@ class _WorkflowTemplatePickerState extends State<WorkflowTemplatePicker> {
       child: Padding(padding: EdgeInsets.fromLTRB(16, 0, 16,
           12 + MediaQuery.viewInsetsOf(context).bottom),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Row(children: [const Expanded(child: Text('انتخاب الگوی آماده',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800))),
+          Row(children: [Expanded(child: Text(widget.includeExisting ? 'انتخاب گردش کار یا الگو' : 'انتخاب الگوی آماده',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800))),
             IconButton(tooltip: 'بستن انتخاب الگو', onPressed: () => Navigator.pop(context),
                 icon: const Icon(Icons.close))]),
           TextField(key: const ValueKey('workflow-template-search'), controller: search,
             hintLocales: const [Locale('fa')],
-            decoration: const InputDecoration(hintText: 'جست‌وجو در الگوها…', prefixIcon: Icon(Icons.search)),
+            decoration: InputDecoration(hintText: widget.includeExisting ? 'جست‌وجوی گردش کار یا الگو…' : 'جست‌وجو در الگوها…', prefixIcon: const Icon(Icons.search)),
             onChanged: (_) {
               debounce?.cancel();
               ++epoch;

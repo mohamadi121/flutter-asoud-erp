@@ -44,6 +44,13 @@ String workflowActivityLabel(String action) => switch (action.trim()) {
       'Reissued' => 'صدور مجدد سند',
       'Execution Effects' => 'ثبت وضعیت پیش از اجرا',
       'Workflow Started' => 'گردش کار آغاز شد',
+      'Claim' => 'اقدام از صف دریافت شد',
+      'Assigned' => 'اقدام ارجاع شد',
+      'Escalated' => 'مسئول اقدام تغییر کرد',
+      'Follow Up' => 'اقدام نیازمند پیگیری است',
+      'Blocked' => 'مانع انجام اقدام ثبت شد',
+      'Draft Saved' => 'پیش‌نویس اقدام ذخیره شد',
+      'Claimed Elsewhere' => 'اقدام توسط فرد دیگری دریافت شد',
       _ => persianWorkflowStageTitle(action),
     };
 

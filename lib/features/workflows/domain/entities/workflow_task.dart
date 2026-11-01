@@ -14,6 +14,7 @@ class WorkflowTask extends Equatable {
     this.escalatedOn,
     this.localOnly = false,
     this.followup = '',
+    this.action = '',
   });
 
   final String id;
@@ -28,6 +29,7 @@ class WorkflowTask extends Equatable {
   /// Kind of the follow-up the task asks for (`confirm_receipt`), empty for an
   /// ordinary workflow task (`followup` of `list_my_workflow_tasks`).
   final String followup;
+  final String action;
 
   @override
   List<Object?> get props => [
@@ -41,7 +43,8 @@ class WorkflowTask extends Equatable {
         reminderSentOn,
         escalatedOn,
         localOnly,
-        followup
+        followup,
+        action,
       ];
 }
 
@@ -123,6 +126,9 @@ class WorkflowTaskDetail extends Equatable {
     this.requestCompany = '',
     this.requestValues = const {},
     this.submittedForm = const {},
+    this.actionSchema = const {}, this.actionForm = '', this.actionCompany = '', this.actionMode = '',
+    this.requiresClaim = false, this.allowDraft = true, this.allowAddAttachments = false,
+    this.documentAccess = 'Read Only',
   });
   final String requestName, requestCompany;
   final WorkflowTask task;
@@ -138,6 +144,10 @@ class WorkflowTaskDetail extends Equatable {
   final List<WorkflowTaskDataValue> documentValues;
   final Map<String, dynamic> requestValues;
   final Map<String, dynamic> submittedForm;
+  final Map<String, dynamic> actionSchema;
+  final String actionForm, actionCompany, actionMode;
+  final bool requiresClaim, allowDraft, allowAddAttachments;
+  final String documentAccess;
   @override
   List<Object> get props => [
         task,
@@ -157,6 +167,7 @@ class WorkflowTaskDetail extends Equatable {
         requestCompany,
         requestValues,
         submittedForm,
+        actionSchema, actionForm, actionCompany, actionMode, requiresClaim, allowDraft, allowAddAttachments, documentAccess,
       ];
 }
 

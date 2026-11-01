@@ -7,8 +7,10 @@ import '../../../../core/utils/persian_format.dart';
 import '../../../form_builder/form_repository.dart';
 
 class StageFormSourcePicker extends StatefulWidget {
-  const StageFormSourcePicker({required this.repository, super.key});
+  const StageFormSourcePicker({required this.repository, this.height, this.initialModule = '', super.key});
   final FormRepository repository;
+  final double? height;
+  final String initialModule;
   @override
   State<StageFormSourcePicker> createState() => _StageFormSourcePickerState();
 }
@@ -21,7 +23,8 @@ class _StageFormSourcePickerState extends State<StageFormSourcePicker> {
   FormMap? picked;
   bool confirming = false, showAll = true;
   @override
-  void initState() { super.initState(); load(kind); }
+  void initState() { super.initState(); module = switch (widget.initialModule) {
+    'Accounting' => 'Finance', 'Support' => 'Admin', _ => widget.initialModule}; load(kind); }
 
   Future<void> load(String target) async {
     if (loading.contains(target)) return;
@@ -60,14 +63,16 @@ class _StageFormSourcePickerState extends State<StageFormSourcePicker> {
       }
       if (result['submission_source_version'] != 1) {
         throw const ApiException(kind: ApiFailureKind.validation,
-            message: 'برای اتصال ارسال فرم به گردش‌کار، بک‌اند باید به نسخهٔ جدید به‌روزرسانی شود.');
+            message: 'برای اتصال ارسال فرم به گردش‌کار، سامانه باید به نسخهٔ جدید به‌روزرسانی شود.');
       }
       if (result['name'] is! String || result['revision'] is! String || schema['title'] is! String) {
         throw StateError('پاسخ قالب معتبر نیست.');
       }
       if (mounted) {
         Navigator.pop(context, <String, dynamic>{'form': result['name'],
-          'revision': result['revision'], 'title': schema['title'], 'kind': schema['kind']});
+          'revision': result['revision'], 'title': schema['title'], 'kind': schema['kind'],
+          'workflow_module': switch (module.isEmpty ? _module(row) : module) {
+            'Finance' => 'Accounting', 'Admin' => 'Support', final key => key}});
       }
     } catch (failure) {
       if (mounted) setState(() => errors[kind] = failureDetail(failure));
@@ -82,8 +87,11 @@ class _StageFormSourcePickerState extends State<StageFormSourcePicker> {
       (module.isEmpty || _module(row) == module) &&
       '${row['title'] ?? ''}'.toLowerCase().contains(query.toLowerCase())).toList();
     return Directionality(textDirection: TextDirection.rtl,
-      child: SafeArea(child: SizedBox(height: MediaQuery.sizeOf(context).height * .9,
+      child: SafeArea(top: false, child: SizedBox(height: widget.height ?? MediaQuery.sizeOf(context).height * .9,
         child: Column(children: [
+          if (widget.height != null) Padding(padding: const EdgeInsets.symmetric(vertical: 10),
+            child: Container(width: 36, height: 4, decoration: BoxDecoration(color: AsoudColors.border,
+              borderRadius: BorderRadius.circular(4)))),
           Expanded(child: ListView(key: const ValueKey('stage-source-list'),
             padding: const EdgeInsets.symmetric(horizontal: 16), children: [
             Row(children: [const Expanded(child: Text('انتخاب درخواست یا سند',
@@ -138,11 +146,13 @@ class _StageFormSourcePickerState extends State<StageFormSourcePicker> {
           Container(padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + MediaQuery.viewInsetsOf(context).bottom),
             decoration: const BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: AsoudColors.border))),
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              if (MediaQuery.viewInsetsOf(context).bottom == 0) ...[
               Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(
                 color: AsoudColors.primary.withValues(alpha: .06), borderRadius: BorderRadius.circular(10)),
                 child: const Text('پس از تکمیل و ارسال این نوع درخواست یا سند، همین ثبت اصلی وارد گردش‌کار می‌شود؛ این انتخاب فرم یا سند تازه‌ای نمی‌سازد.',
                     style: TextStyle(fontSize: 11, height: 1.8, color: AsoudColors.muted))),
               const SizedBox(height: 10),
+              ],
               FilledButton(onPressed: picked == null || confirming ? null : confirm,
                   child: Text(confirming ? 'در حال بررسی انتخاب…' : 'انتخاب و تأیید')),
               const SizedBox(height: 8),
@@ -170,7 +180,7 @@ class _StageFormSourcePickerState extends State<StageFormSourcePicker> {
 
 String _module(FormMap row) {
   final key = '${row['module_key'] ?? formMap(row['schema'])['module'] ?? ''}';
-  return switch (key) {'Stock' => 'Inventory', 'Accounting' => 'Finance', 'Administration' => 'Admin', _ => key};
+  return switch (key) {'Stock' => 'Inventory', 'Accounting' => 'Finance', 'Administration' || 'Support' => 'Admin', _ => key};
 }
 const _modules = [('', 'همه', Icons.grid_view_rounded, Color(0xff2478e7)),
   ('HR', 'منابع انسانی', Icons.people_outline, Color(0xff279468)),

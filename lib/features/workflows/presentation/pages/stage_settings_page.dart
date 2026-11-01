@@ -18,6 +18,10 @@ import '../widgets/stage_people_sheet.dart';
 import '../widgets/workflow_form_builder.dart';
 import 'create_document_settings_page.dart';
 import 'automatic_action_page.dart';
+import '../widgets/action_result_form_picker.dart';
+import '../../../form_builder/form_runtime/form_fields_view.dart';
+
+part 'stage_user_action.dart';
 
 /// Decision routes by stage type; the first one is the main route.
 const _routeActions = {
@@ -101,6 +105,13 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
   OrgUnitChoice? unit;
   bool specificPerson = false;
   Set<String> selectedPeople = {};
+  late String resultMode = config['result_mode']?.toString() ?? 'Simple';
+  late FormMap? resultForm = config['result_form'] is Map ? formMap(config['result_form']) : null;
+  late FormMap resultSchema = config['result_schema'] is Map ? formMap(config['result_schema']) : {};
+  late bool addActionAttachments = config['allow_add_attachments'] == true;
+  String actionBasis = 'Subject', actionSubject = 'Initiator', actionEmployeeField = '', roleScope = 'Company';
+  List<FormMap> sourceEmployeeFields = [];
+  bool loadingEmployeeFields = false;
   late bool hasDeadline = ((config['deadline_value'] as num?) ?? 0) > 0;
   late int reminderMinutes = (config['reminder_before_minutes'] as num?)?.toInt() ?? 0;
 
@@ -122,8 +133,6 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
   late String requestDefinition =
       config['request_definition']?.toString() ?? '';
   late String requestLabel = config['request_label']?.toString() ?? '';
-  late Map<String, dynamic>? submissionSource = config['submission_source'] is Map
-      ? Map<String, dynamic>.from(config['submission_source'] as Map) : null;
   late List<WorkflowFormFieldDefinition> formFields =
       ((config['form_fields'] as List?) ?? const [])
           .whereType<Map>()
@@ -148,11 +157,13 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
 
   late Map<String, String> routes = stageRoutes(widget.design, widget.stage);
   bool saving = false;
+  void _updateAction(VoidCallback update) => setState(update);
 
   @override
   void initState() {
     super.initState();
     _initOwner();
+    if (type == WorkflowStageType.userTask) _initAction();
     document = CreateDocumentConfig(
         transferValues: config['transfer_values'] != false,
         remark: (config['document_remark'] ?? '').toString());
@@ -230,6 +241,7 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
 
   Map<String, dynamic> _assignment() {
+    if (type == WorkflowStageType.userTask) return _actionAssignment();
     if (ownerMode == 'role') {
       return switch (role) {
         directManagerRole => {'assignment_type': 'Direct Manager'},
@@ -273,24 +285,13 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
     return int.tryParse(value);
   }
 
-  bool get _hasAttachmentFields {
-    bool has(List fields) => fields.whereType<Map>().any((field) =>
-        const {'Attachment', 'File', 'Image', 'Signature'}.contains(field['type']) ||
-        (field['columns'] is List && has(field['columns'] as List)));
-    return formFields.any((field) => has([field.toMap()]));
-  }
-
   String? _validate() {
     if (type == WorkflowStageType.userTask) {
-      if (taskPurpose == 'Create Request' && requestDefinition.isEmpty) {
-        return 'نوع درخواست را انتخاب کنید.';
-      }
-      if (taskPurpose == 'Create Document' && document.template == null) {
-        return 'نوع سند و الگوی سند را انتخاب کنید.';
-      }
+      final problem = _validateAction();
+      if (problem != null) return problem;
     }
     if (title.text.trim().length < 2) return 'عنوان مرحله را وارد کنید.';
-    if (type != WorkflowStageType.systemAction && ownerMode == 'unit') {
+    if (type != WorkflowStageType.systemAction && type != WorkflowStageType.userTask && ownerMode == 'unit') {
       if (!specificPerson && unit == null) {
         return 'واحد سازمانی مسئول را انتخاب کنید.';
       }
@@ -325,7 +326,7 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
       }
     }
     final main = _routeActions[type]!.first;
-    if ((routes[main] ?? '').isEmpty) return 'مسیر خروجی اصلی را انتخاب کنید.';
+    if (type != WorkflowStageType.userTask && (routes[main] ?? '').isEmpty) return 'مسیر خروجی اصلی را انتخاب کنید.';
     return null;
   }
 
@@ -334,12 +335,14 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
     switch (type) {
       case WorkflowStageType.userTask:
         return {
+          'action_contract_version': 1, 'result_mode': resultMode,
+          'result_form': resultMode == 'Form' ? resultForm : null,
+          'allow_add_attachments': addActionAttachments,
           'title': title.text.trim(),
           'description': text,
           'instructions': text,
           'activity_type': activityType,
-          'task_purpose': submissionSource == null ? taskPurpose : 'Existing',
-          'submission_source': submissionSource,
+          'task_purpose': 'Existing',
           if (taskPurpose == 'Create Request') ...{
             'request_definition': requestDefinition,
             'request_label': requestLabel,
@@ -359,9 +362,9 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
                     formFields.any((field) => field.key == item['key']))
                   Map<String, dynamic>.from(item),
             ],
-          'allow_reject': allowReject,
-          'allow_return': allowReturn,
-          'comment_required': commentRequired,
+          'allow_reject': false,
+          'allow_return': false,
+          'comment_required': false,
           'reject_comment_required': rejectComment,
           'allow_draft': allowDraft,
           'require_all_fields': requireAll,
@@ -412,6 +415,7 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
       if (mounted) setState(() => saving = false);
       return;
     }
+    if (type == WorkflowStageType.userTask) { Navigator.pop(context); return; }
     final current = stageRoutes(widget.design, widget.stage);
     final wanted = {
       for (final action in _routeActions[type]!)
@@ -464,7 +468,7 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
       : Directionality(
           textDirection: TextDirection.rtl,
           child: Scaffold(
-            backgroundColor: AsoudColors.background,
+            backgroundColor: type == WorkflowStageType.userTask ? const Color(0xfff7f9fd) : AsoudColors.background,
             appBar: PreferredSize(
               preferredSize: const Size.fromHeight(64),
               child: SafeArea(
@@ -515,6 +519,8 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
                         ScrollViewKeyboardDismissBehavior.onDrag,
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
                     children: [
+                      if (type == WorkflowStageType.userTask) _actionTitleFields(),
+                      if (type != WorkflowStageType.userTask) ...[
                       _typeCard(),
                       const SizedBox(height: 14),
                       _label('عنوان مرحله', required: true),
@@ -539,6 +545,7 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
                         decoration: const InputDecoration(
                             hintText: 'شرح کوتاهی از کار این مرحله...'),
                       ),
+                      ],
                       ...switch (type) {
                         WorkflowStageType.userTask => _userTask(),
                         WorkflowStageType.approval => _approval(),
@@ -549,7 +556,7 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
 
   (String, String, IconData, Color) get _typeInfo => switch (type) {
         WorkflowStageType.userTask => (
-            'وظیفه کاربر',
+            'اقدام کاربر',
             'انجام کار توسط کاربر یا تکمیل فرم',
             Icons.assignment_ind_outlined,
             AsoudColors.primary
@@ -626,6 +633,9 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
   // --- responsible person -------------------------------------------------------------
 
   Future<void> _pickPeople() async {
+    if (type == WorkflowStageType.userTask && unit == null) {
+      _message('ابتدا واحد سازمانی را انتخاب کنید.'); return;
+    }
     if (unit == null && !specificPerson) {
       _message('ابتدا واحد سازمانی را انتخاب کنید.');
       return;
@@ -636,10 +646,10 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
     }
     final candidates = <String, WorkflowTargetOption>{
       for (final item in employees)
-        if (item.department == unit?.id || selectedPeople.contains(item.id))
+        if (item.department == unit?.id || (type != WorkflowStageType.userTask && selectedPeople.contains(item.id)))
           item.id: item,
       for (final id in selectedPeople)
-        if (!employees.any((item) => item.id == id))
+        if (type != WorkflowStageType.userTask && !employees.any((item) => item.id == id))
           id: WorkflowTargetOption(id: id, label: id),
     };
     final result = await showModalBottomSheet<Set<String>>(
@@ -651,7 +661,8 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
         employees: candidates.values.toList(),
         selected: selectedPeople,
         allSelected: !specificPerson,
-        allowAll: unit != null,
+        allowAll: unit != null && type != WorkflowStageType.userTask,
+        singleSelection: type == WorkflowStageType.userTask,
         unitLabel: unit?.label ?? 'واحد',
       ),
     );
@@ -663,7 +674,7 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
     }
   }
 
-  List<Widget> _owner() => [
+  List<Widget> _owner() => type == WorkflowStageType.userTask ? _actionOwner() : [
         const SizedBox(height: 6),
         _label('مسئول انجام', required: true),
         AsoudSegmentedControl<String>(
@@ -893,7 +904,7 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
                   subtitle: Text(mode.$3, style: const TextStyle(fontSize: 10, color: AsoudColors.muted)),
                   onTap: saving ? null : () => setState(() => access = mode.$1)))),
           const SizedBox(height: 4),
-          _notice('این انتخاب نباید مجوزهای اصلی اشخاص و وضعیت سند را دور بزند.'),
+          _notice('این انتخاب مجوز جدیدی نمی‌دهد. ویرایش پرونده از مسیر اصلی و فقط با مجوز و وضعیت مجاز آن انجام می‌شود؛ ثبت اصلی فرم ارسال‌شده تغییر نمی‌کند.'),
         ],
       );
 
@@ -963,10 +974,6 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
   }
 
   // --- user task --------------------------------------------------------------------------
-
-  Widget _taskPurpose() => const Padding(padding: EdgeInsets.only(bottom: 14), child: Text(
-          'نحوهٔ شروع و انتخاب درخواست یا سند در تنظیمات شروع فرایند مدیریت می‌شود.',
-          style: TextStyle(fontSize: 11, color: AsoudColors.muted)));
 
   Future<void> _editForm() async {
     final fields = await Navigator.push<List<WorkflowFormFieldDefinition>>(
@@ -1046,7 +1053,7 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
   }
 
   List<Widget> _userTask() => [
-        _taskPurpose(),
+        _actionResultSection(),
         ..._owner(),
         _deadlineRow(),
         const SizedBox(height: 6),
@@ -1054,12 +1061,12 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
           const Divider(height: 24),
           _accessControl(),
           const SizedBox(height: 6),
-          Tooltip(message: 'نمایش پیوست‌ها از مجوزهای فعلی سند پیروی می‌کند؛ تنظیم مستقل سروری ندارد.',
-            child: CheckboxListTile(value: true, onChanged: null,
-              controlAffinity: ListTileControlAffinity.leading, contentPadding: EdgeInsets.zero,
-              title: const Text('نمایش پیوست‌های موجود', style: TextStyle(fontSize: 12)))),
-          Tooltip(message: 'افزودن پیوست از فیلد پیوست فرم و مجوزهای موجود پیروی می‌کند؛ با این نمایش مجوزی اعطا نمی‌شود.',
-            child: CheckboxListTile(value: _hasAttachmentFields, onChanged: null,
+          const ListTile(contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.attach_file, size: 19),
+            title: Text('پیوست‌های قبلی پرونده حفظ می‌شوند.', style: TextStyle(fontSize: 12)),
+            subtitle: Text('مشاهدهٔ آن‌ها در پروندهٔ اصلی تابع مجوزهای فعلی است.', style: TextStyle(fontSize: 10))),
+          Tooltip(message: 'افزودن فایل فقط پس از دریافت اقدام و در حدود مجوزهای موجود مجاز است.',
+            child: CheckboxListTile(value: addActionAttachments, onChanged: (value) => setState(() => addActionAttachments = value == true),
               controlAffinity: ListTileControlAffinity.leading, contentPadding: EdgeInsets.zero,
               title: const Text('امکان افزودن پیوست جدید (در حدود مجوزهای موجود)', style: TextStyle(fontSize: 12)))),
           const Divider(height: 24),
@@ -1084,47 +1091,9 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
                 for (var i = 0; i < 10; i++) { text = text.replaceAll('۰۱۲۳۴۵۶۷۸۹'[i], '$i').replaceAll('٠١٢٣٤٥٦٧٨٩'[i], '$i'); }
                 reminderMinutes = int.tryParse(text) ?? 0;
               }),
-          ExpansionTile(tilePadding: EdgeInsets.zero,
-            title: const Text('سایر گزینه‌های مرحله', style: TextStyle(fontSize: 12)), children: [
-          DropdownButtonFormField<String>(
-            initialValue: activityType,
-            isExpanded: true,
-            decoration: const InputDecoration(labelText: 'نوع فعالیت'),
-            items: const [
-              DropdownMenuItem(
-                  value: 'Data Entry', child: Text('تکمیل اطلاعات')),
-              DropdownMenuItem(value: 'Review', child: Text('بررسی')),
-              DropdownMenuItem(value: 'Correction', child: Text('اصلاح')),
-              DropdownMenuItem(value: 'Task', child: Text('انجام کار')),
-            ],
-            onChanged: (value) {
-              if (value != null) setState(() => activityType = value);
-            },
-          ),
-          _switch('امکان ویرایش بعد از ارسال', editAfterSubmit,
-              (value) => setState(() => editAfterSubmit = value)),
-          _switch('الزام تکمیل تمام فیلدهای فرم', requireAll,
-              (value) => setState(() => requireAll = value)),
-          _switch('امکان ذخیره پیش‌نویس', allowDraft,
-              (value) => setState(() => allowDraft = value)),
-          _switch('امکان رد', allowReject,
-              (value) => setState(() => allowReject = value)),
-          _switch('امکان بازگشت برای اصلاح', allowReturn,
-              (value) => setState(() => allowReturn = value)),
-          ]),
+          _switch('امکان ذخیره پیش‌نویس', allowDraft, (value) => setState(() => allowDraft = value)),
         ]),
-        const SizedBox(height: 16),
-        _label('مسیرهای خروجی', required: true),
-        _route('Complete', 'پس از تکمیل', Icons.check_rounded,
-            AsoudColors.success),
-        if (allowReject)
-          _route(
-              'Reject', 'در صورت رد', Icons.close_rounded, AsoudColors.danger,
-              emptyLabel: 'پایان فرایند (رد درخواست)'),
-        if (allowReturn)
-          _route('Return', 'در صورت بازگشت برای اصلاح', Icons.undo_rounded,
-              AsoudColors.primary,
-              emptyLabel: 'آخرین مرحله قابل اصلاح'),
+        _notice('مرحلهٔ بعد فقط از اتصال‌های صفحهٔ طراحی فرایند تعیین می‌شود.'),
       ];
 
   // --- approval ---------------------------------------------------------------------------
@@ -1560,7 +1529,7 @@ class _StageRouteSheetState extends State<_StageRouteSheet> {
 
   (String, IconData, Color) _visual(WorkflowStageType type) => switch (type) {
         WorkflowStageType.userTask => (
-            'وظیفه کاربر',
+        'اقدام کاربر',
             Icons.person_outline,
             AsoudColors.primary
           ),

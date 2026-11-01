@@ -14,6 +14,9 @@ class WorkflowStartSection extends StatefulWidget {
       required this.onChanged,
       required this.company,
       required this.roles,
+      this.sourceSheetHeight,
+      this.moduleKey = '',
+      this.onModuleChanged,
       this.enabled = true,
       super.key});
   final WorkflowStartSettings value;
@@ -21,6 +24,9 @@ class WorkflowStartSection extends StatefulWidget {
   final String company;
   final List<String> roles;
   final bool enabled;
+  final double? Function()? sourceSheetHeight;
+  final String moduleKey;
+  final ValueChanged<String>? onModuleChanged;
   @override
   State<WorkflowStartSection> createState() => _WorkflowStartSectionState();
 }
@@ -31,15 +37,21 @@ class _WorkflowStartSectionState extends State<WorkflowStartSection> {
     if (selecting || !widget.enabled) return;
     setState(() => selecting = true);
     try {
+      FocusScope.of(context).unfocus();
+      final height = widget.sourceSheetHeight?.call();
       final selected = await showModalBottomSheet<Map<String, dynamic>>(
           context: context,
           isScrollControlled: true,
-          useSafeArea: true,
-          showDragHandle: true,
+          useSafeArea: height == null,
+          showDragHandle: height == null,
+          constraints: height == null ? null : BoxConstraints.tightFor(height: height),
           builder: (_) => StageFormSourcePicker(
+              height: height, initialModule: widget.value.source == null ? '' : widget.moduleKey,
               repository: FormRepository(
                   context.read<FrappeApiClient>(), widget.company)));
       if (selected != null && mounted) {
+        final module = selected['workflow_module'];
+        if (module is String && module.isNotEmpty) widget.onModuleChanged?.call(module);
         widget.onChanged(widget.value.copyWith(source: selected));
       }
     } finally {

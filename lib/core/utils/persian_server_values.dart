@@ -1,5 +1,11 @@
 import 'jalali_date.dart';
 
+String persianWorkflowTaskOutcome(String action) => switch (action) {
+  'Awaiting Claim' => 'در صف دریافت', 'Claimed' => 'دریافت‌شده',
+  'Follow Up' => 'نیازمند پیگیری', 'Blocked' => 'دارای مانع انجام',
+  'Claimed Elsewhere' => 'دریافت‌شده توسط فرد دیگر', _ => '',
+};
+
 const erpNextRoleLabels = <String, String>{
   '__direct_manager__': 'مدیر مستقیم',
   '__initiator__': 'درخواست‌کننده',
@@ -306,13 +312,13 @@ String persianWorkflowStageTitle(String title) {
   }
   return switch (normalized) {
     'start' => 'شروع',
-    'user task' => 'وظیفه کاربر',
+    'user task' || 'وظیفه کاربر' => 'اقدام کاربر',
     'approval' || 'approval or reject' || 'approval / reject' => 'تأیید',
     'condition' || 'condition and path' || 'condition / branch' => 'شرط',
     'system action' => 'اقدام خودکار',
     'wait' || 'wait and timing' || 'wait / schedule' => 'انتظار',
     'end' || 'end process' => 'پایان',
-    'start / user task' || 'start/user task' => 'شروع / وظیفه کاربر',
+    'start / user task' || 'start/user task' => 'شروع / اقدام کاربر',
     _ => title,
   };
 }

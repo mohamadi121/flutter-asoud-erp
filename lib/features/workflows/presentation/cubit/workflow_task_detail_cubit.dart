@@ -1,6 +1,8 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/utils/failure_message.dart';
+import '../../../../core/network/frappe_client.dart';
+import '../../data/workflow_action_repository.dart';
 
 import '../../domain/entities/workflow_task.dart';
 import '../../domain/repositories/workflow_task_repository.dart';
@@ -27,10 +29,38 @@ class WorkflowTaskDetailState extends Equatable {
 }
 
 class WorkflowTaskDetailCubit extends Cubit<WorkflowTaskDetailState> {
-  WorkflowTaskDetailCubit(this._repository, this.task)
+  WorkflowTaskDetailCubit(this._repository, this.task, {this.actionClient})
       : super(const WorkflowTaskDetailState());
   final WorkflowTaskRepository _repository;
   final String task;
+  final FrappeApiClient? actionClient;
+  WorkflowActionRepository get _action => WorkflowActionRepository(actionClient!, state.detail!.actionCompany, task,
+    uploads: state.detail!.allowAddAttachments);
+
+  void setValues(Map<String, dynamic> values) => emit(WorkflowTaskDetailState(
+    status: WorkflowTaskDetailStatus.ready, detail: state.detail, values: values, offline: state.offline));
+
+  Future<bool> performAction(String action) async {
+    if (state.status == WorkflowTaskDetailStatus.saving) return false;
+    if (actionClient == null || state.offline || !actionClient!.isAuthenticated) {
+      _failure(StateError('ثبت اقدام نیازمند ارتباط واقعی با سرور است.')); return false;
+    }
+    emit(WorkflowTaskDetailState(status: WorkflowTaskDetailStatus.saving, detail: state.detail,
+      values: state.values, offline: state.offline));
+    try {
+      await _action.perform(action, state.values);
+      if (isClosed) return false;
+      if (action == 'Complete') {
+        emit(WorkflowTaskDetailState(status: WorkflowTaskDetailStatus.success, detail: state.detail,
+          values: state.values, message: 'اقدام ثبت و تکمیل شد.')); return true;
+      }
+      await load();
+      if (isClosed || state.status == WorkflowTaskDetailStatus.failure) return false;
+      emit(WorkflowTaskDetailState(status: WorkflowTaskDetailStatus.ready, detail: state.detail, values: state.values,
+        message: action == 'Claim' ? 'اقدام دریافت شد.' : 'وضعیت اقدام ثبت شد؛ گردش کار در همین مرحله باقی ماند.'));
+      return true;
+    } catch (error) { if (!isClosed) _failure(error); return false; }
+  }
 
   Future<void> load() async {
     emit(const WorkflowTaskDetailState());
@@ -106,13 +136,18 @@ class WorkflowTaskDetailCubit extends Cubit<WorkflowTaskDetailState> {
   }
 
   Future<bool> saveDraft() async {
+    if (state.status == WorkflowTaskDetailStatus.saving) return false;
     emit(WorkflowTaskDetailState(
         status: WorkflowTaskDetailStatus.saving,
         detail: state.detail,
         values: state.values,
         offline: state.offline));
     try {
-      await _repository.saveDraft(task, state.values);
+      if (state.detail?.actionSchema.isNotEmpty == true) {
+        if (actionClient == null || !actionClient!.isAuthenticated || state.offline) throw StateError('ذخیرهٔ پیش‌نویس اقدام به ارتباط با سرور نیاز دارد.');
+        await _action.draft(state.values);
+      } else { await _repository.saveDraft(task, state.values); }
+      if (isClosed) return false;
       emit(WorkflowTaskDetailState(
           status: WorkflowTaskDetailStatus.ready,
           detail: state.detail,
@@ -200,10 +235,13 @@ class WorkflowTaskDetailCubit extends Cubit<WorkflowTaskDetailState> {
     }
   }
 
-  void _failure(Object error) => emit(WorkflowTaskDetailState(
+  void _failure(Object error) {
+    if (isClosed) return;
+    emit(WorkflowTaskDetailState(
       status: WorkflowTaskDetailStatus.failure,
       detail: state.detail,
       values: state.values,
       offline: state.offline,
       message: failureDetail(error), failure: error));
+  }
 }

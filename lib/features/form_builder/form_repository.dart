@@ -10,6 +10,11 @@ import 'form_runtime/schema_migration.dart';
 import 'execution_contract.dart';
 
 typedef FormMap = Map<String, dynamic>;
+abstract interface class FormAttachmentPolicy {
+  bool get allowUploads;
+  bool get appendUploads;
+  String fileLabel(Object? value);
+}
 FormMap formMap(Object? value) =>
     Map<String, dynamic>.from(value as Map? ?? {});
 List<FormMap> formMaps(Object? value) =>

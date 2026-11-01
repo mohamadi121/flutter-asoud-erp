@@ -11,6 +11,7 @@ class StagePeopleSheet extends StatefulWidget {
     required this.allSelected,
     required this.unitLabel,
     this.allowAll = true,
+    this.singleSelection = false,
     super.key,
   });
 
@@ -18,6 +19,7 @@ class StagePeopleSheet extends StatefulWidget {
   final Set<String> selected;
   final bool allSelected;
   final bool allowAll;
+  final bool singleSelection;
   final String unitLabel;
 
   @override
@@ -95,6 +97,7 @@ class _StagePeopleSheetState extends State<StagePeopleSheet> {
                     onChanged: (checked) => setState(() {
                       all = false;
                       if (checked == true) {
+                        if (widget.singleSelection) selected.clear();
                         selected.add(item.id);
                       } else {
                         selected.remove(item.id);
