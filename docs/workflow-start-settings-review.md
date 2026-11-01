@@ -37,7 +37,7 @@ new engine, API or production data mutation is introduced by opening the editor.
 
 - `flutter analyze --no-pub`: no issues.
 - `flutter test --no-pub --exclude-tags golden test/features/workflows test/ui/workflow_form_page_test.dart`:
-  **448 passed**, including **16** new Start behavior/layout tests.
+  **455 passed**, including **23** new Start/restart behavior/layout tests.
 - Real Vazirmatn/MaterialIcons layout captures reviewed at 320/390/430 px in RTL.
   Reproduce with `--dart-define=CAPTURE_WORKFLOW_START=true` and
   `test/features/workflows/workflow_start_layout_test.dart`; captures go to `build/`.
@@ -59,6 +59,17 @@ new engine, API or production data mutation is introduced by opening the editor.
   existing test; its rerun must be checked before claiming live verification.
 
 ## Not verified here
+
+The referenced-execution detail now uses the server's `can_restart` flag to offer
+an explicit restart with a fresh reason. It calls the same runtime RPC with the
+original reference and `restart: 1`, opens the new execution and preserves the
+previous history. No flag grants record read access or changes native ownership.
+
+The first isolated Start CI run (`41345995935`) exposed invalid test assignment:
+the special Administrator account is deliberately excluded from native task
+assignees. The fixtures now use an ordinary System Manager account with no
+Employee record; production assignment rules were not relaxed. The updated live
+suite, including restart eligibility assertions, still needs its rerun result.
 
 No Bench/Frappe site, Node/npm or disposable signed-in emulator session is
 available on this machine. Real-site integration and HTTP tests are registered
