@@ -122,6 +122,7 @@ class _AsoudErpAppState extends State<AsoudErpApp> {
           ),
           RepositoryProvider<OfficeRepository>.value(
             value: ServerFirstOfficeRepository(FrappeOfficeRepository(client),
+                  cacheIdentity: () => [client.serverIdentity, client.localStorageUserId ?? ''],
                 localPreview: () => _localPreview),
           ),
           RepositoryProvider<ChartOfAccountsRepository>.value(

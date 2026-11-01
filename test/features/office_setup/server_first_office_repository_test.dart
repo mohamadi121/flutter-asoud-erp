@@ -63,6 +63,23 @@ void main() {
 
     expect(await repository.getDefaultOffice(), isNull);
   });
+
+  test('reset-safe office cache isolates accounts and ignores ownerless legacy entries', () async {
+    final local = FakeLocalRecordStore();
+    await ServerFirstOfficeRepository(_OfficeRepository(office), local: local).createOffice(office);
+    final own = ServerFirstOfficeRepository(_OfficeRepository(office), local: local,
+      cacheIdentity: () => ['server', 'admin']);
+    // A deleted office must not reappear from a legacy cache on default lookup.
+    final empty = ServerFirstOfficeRepository(_HangingOfficeRepository(office), local: local,
+      cacheIdentity: () => ['server', 'admin'], defaultOfficeTimeout: const Duration(milliseconds: 10));
+    expect(await empty.getDefaultOffice(), isNull);
+    await own.createOffice(office);
+    expect((await empty.getDefaultOffice())?.name, office.name);
+    final other = ServerFirstOfficeRepository(_HangingOfficeRepository(office), local: local,
+      cacheIdentity: () => ['other-server', 'admin'], defaultOfficeTimeout: const Duration(milliseconds: 10));
+    expect(await other.getDefaultOffice(), isNull);
+    expect(local.records, hasLength(2)); // Legacy record was not erased or adopted.
+  });
 }
 
 const _networkError = ApiException(
