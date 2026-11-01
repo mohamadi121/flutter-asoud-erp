@@ -91,7 +91,7 @@ void main() {
   PreviewHrRepository previewHr() =>
       PreviewHrRepository(_ThrowingHr(), isPreview: () => true);
 
-  for (final width in [320.0, 390.0]) {
+  for (final width in [320.0, 390.0, 430.0]) {
     testWidgets('preview employee home greets and announces at $width',
         (tester) async {
       await tester.binding.setSurfaceSize(Size(width, 844));
@@ -117,10 +117,14 @@ void main() {
     });
 
     testWidgets('preview attendance shows history at $width', (tester) async {
+      // A completed month always has enough history for the sample leave day.
+      // The current month may contain only one to three days when CI runs.
+      final now = DateTime.now();
+      final completedMonth = DateTime(now.year, now.month, 0);
       await tester.binding.setSurfaceSize(Size(width, 844));
       addTearDown(() => tester.binding.setSurfaceSize(null));
       await tester.pumpWidget(_app(
-        MyAttendancePage(repository: SelfServiceRepository(client)),
+        MyAttendancePage(repository: SelfServiceRepository(client), today: completedMonth),
         client: client,
       ));
       await tester.pumpAndSettle();
@@ -133,6 +137,26 @@ void main() {
         const Offset(0, -200),
       );
       expect(find.text('مرخصی'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('preview attendance on month start has no invented leave at $width', (tester) async {
+      final now = DateTime.now();
+      final first = DateTime(now.year, now.month);
+      await tester.binding.setSurfaceSize(Size(width, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(_app(
+        MyAttendancePage(repository: SelfServiceRepository(client), today: first),
+        client: client,
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('آخرین ثبت: ورود'), findsOneWidget);
+      expect(find.text(first.weekday == DateTime.friday ? 'غایب' : 'حاضر'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('ثبت‌های اخیر'), 200,
+          scrollable: find.byType(Scrollable).first);
+      expect(find.text('مرخصی'), findsNothing);
+      expect(find.text('حضوری ثبت نشده'), findsNothing);
       expect(tester.takeException(), isNull);
     });
 
