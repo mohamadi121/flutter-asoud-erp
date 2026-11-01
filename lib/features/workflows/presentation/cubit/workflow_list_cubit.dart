@@ -16,24 +16,39 @@ class WorkflowListCubit extends Cubit<WorkflowListState> {
   final WorkflowRepository repository;
   final String? company;
   Timer? _searchTimer;
+  int _loadGeneration = 0;
 
-  Future<void> load() async {
+  void recordMutation(String id, {WorkflowDefinition? updated}) {
+    if (isClosed) return;
+    _loadGeneration++;
+    emit(state.copyWith(items: [for (final row in state.items)
+      if (row.id != id) row
+      else if (updated != null && (state.filter == null || updated.status == state.filter)) updated],
+      clearMessage: true));
+  }
+
+  Future<void> load({WorkflowRepository? authoritativeRepository}) async {
+    if (isClosed) return;
+    final generation = ++_loadGeneration;
+    final source = authoritativeRepository ?? repository;
     emit(state.copyWith(status: WorkflowListLoadStatus.loading));
     try {
-      final items = await repository.getWorkflows(
+      final items = await source.getWorkflows(
         search: state.search,
         status: state.filter,
         company: company,
         orderBy: state.orderBy,
       );
+      if (isClosed || generation != _loadGeneration) return;
       emit(state.copyWith(
         status: WorkflowListLoadStatus.success,
         items: items,
-        offlinePreview: repository is OfflinePreviewAware &&
-            (repository as OfflinePreviewAware).isOfflinePreview,
+        offlinePreview: source is OfflinePreviewAware &&
+            (source as OfflinePreviewAware).isOfflinePreview,
         clearMessage: true,
       ));
     } catch (error) {
+      if (isClosed || generation != _loadGeneration) return;
       emit(state.copyWith(
         status: WorkflowListLoadStatus.failure,
         message: failureMessage(error),

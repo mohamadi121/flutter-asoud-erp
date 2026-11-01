@@ -7,6 +7,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class _WorkflowRepository implements WorkflowRepository {
+  final openedDefinitions = <String>[];
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
   @override
@@ -42,8 +43,21 @@ class _WorkflowRepository implements WorkflowRepository {
       throw UnimplementedError();
 
   @override
-  Future<WorkflowDesign> getDesign(String definition) =>
-      throw UnimplementedError();
+  Future<WorkflowDesign> getDesign(String definition) async {
+    openedDefinitions.add(definition);
+    final workflow = (await getWorkflows()).singleWhere((item) => item.id == definition);
+    return WorkflowDesign(workflow: workflow, stages: [
+      WorkflowStage(id: 'start', key: 'start', type: WorkflowStageType.start, title: 'شروع',
+          sequence: 0, configurationComplete: !workflow.isLocked,
+          config: const {'trigger_type': 'Manual', 'initiator_roles': ['Employee']}),
+      const WorkflowStage(id: 'end', key: 'end', type: WorkflowStageType.end, title: 'پایان',
+          sequence: 1, configurationComplete: true, config: {'outcome': 'Completed'}),
+    ], transitions: [if (!workflow.isLocked)
+      const WorkflowTransition(id: 'route', fromStage: 'start', toStage: 'end')],
+      detailsSummary: WorkflowDetailsSummary(stepsCount: 1, stagesComplete: !workflow.isLocked,
+          routesComplete: !workflow.isLocked, requirements: workflow.isLocked
+              ? ['تنظیمات یا مسیر خروج یکی از مراحل کامل و معتبر نیست.'] : []));
+  }
 
   @override
   Future<WorkflowStage> saveStartSettings({
@@ -241,17 +255,25 @@ void main() {
     expect(find.text('گردش‌کارها'), findsOneWidget);
   });
 
-  testWidgets('جزئیات گردش‌کار دکمه طراحی مراحل دارد', (tester) async {
+  testWidgets('جزئیات گردش‌کار فعال، همان مراحل را با دکمه مشاهده مراحل باز می‌کند', (tester) async {
+    final repository = _WorkflowRepository();
     await tester.pumpWidget(
       RepositoryProvider<WorkflowRepository>.value(
-        value: _WorkflowRepository(),
-        child: const MaterialApp(home: WorkflowListPage()),
+        value: repository,
+        child: MaterialApp(builder: (_, child) => Directionality(
+            textDirection: TextDirection.rtl, child: child!), home: const WorkflowListPage()),
       ),
     );
     await tester.pumpAndSettle();
     await tester.tap(find.text('فرایند خرید کالا'));
     await tester.pumpAndSettle();
-    expect(find.text('طراحی مراحل'), findsOneWidget);
+    expect(find.text('مشاهده مراحل'), findsOneWidget);
+    expect(find.text('طراحی مراحل'), findsNothing);
+    await tester.tap(find.text('مشاهده مراحل'));
+    await tester.pumpAndSettle();
+    expect(find.text('طراحی فرایند'), findsOneWidget);
+    expect(repository.openedDefinitions, ['WF-1404-001', 'WF-1404-001']);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('a plain employee reaching the workflows page sees a denial state',
