@@ -61,6 +61,7 @@ class FrappeWorkflowTaskRepository
             DateTime.tryParse(item['reminder_sent_on']?.toString() ?? ''),
         escalatedOn: DateTime.tryParse(item['escalated_on']?.toString() ?? ''),
         followup: item['followup']?.toString() ?? '',
+        action: item['action']?.toString() ?? '',
       );
     }).toList(growable: false);
   }
@@ -160,6 +161,7 @@ class FrappeWorkflowTaskRepository
       stage: item['workflow_stage']?.toString() ?? '',
       title: item['task_title']?.toString() ?? '',
       status: item['status']?.toString() ?? '',
+      action: item['action']?.toString() ?? '',
     );
     return WorkflowTaskDetail(
       task: taskEntity,
@@ -170,7 +172,12 @@ class FrappeWorkflowTaskRepository
               .map(WorkflowFormFieldDefinition.fromMap)
               .toList(growable: false)
           : const [],
-      values: item['draft'] is Map
+      actionSchema: item['action_schema'] is Map ? Map<String, dynamic>.from(item['action_schema'] as Map) : const {},
+      actionForm: item['action_form']?.toString() ?? '', actionCompany: item['action_company']?.toString() ?? '',
+      actionMode: config['result_mode']?.toString() ?? '', requiresClaim: item['requires_claim'] == true,
+      allowDraft: item['allow_draft'] != false, allowAddAttachments: item['allow_add_attachments'] == true,
+      documentAccess: config['document_access']?.toString() ?? 'Read Only',
+      values: item['action_values'] is Map ? Map<String, dynamic>.from(item['action_values'] as Map) : item['draft'] is Map
           ? Map<String, dynamic>.from(item['draft'] as Map)
           : const {},
       activities: rawHistory is List

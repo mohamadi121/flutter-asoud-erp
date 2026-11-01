@@ -429,7 +429,7 @@ class _StagePickerSheet extends StatelessWidget {
     const items = [
       (
         WorkflowStageType.userTask,
-        'وظیفه کاربر',
+        'اقدام کاربر',
         'دریافت، بررسی یا اصلاح اطلاعات'
       ),
       (WorkflowStageType.approval, 'تأیید یا رد', 'ثبت تصمیم رسمی'),

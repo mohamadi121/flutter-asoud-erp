@@ -31,7 +31,7 @@ class _Templates extends Fake implements WorkflowTemplateRepository {
       'description': description, 'icon': icon, 'color': color};
     return WorkflowDefinition(id: 'independent-copy', code: 'WF-test', title: title,
         targetDoctype: source.targetDoctype, status: WorkflowDefinitionStatus.inactive,
-        isLocked: true, version: 1, stepsCount: 3, modified: null);
+        isLocked: true, version: 1, stepsCount: 3, modified: null, moduleKey: source.module);
   }
 }
 

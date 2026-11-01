@@ -111,7 +111,7 @@ class WorkflowFormCubit extends Cubit<WorkflowFormState> {
         status: WorkflowFormStatus.submitting, clearMessage: true));
     try {
       final old = existing ?? _workingDraft;
-      final draft = old != null
+      var draft = old != null
           ? await repository.saveRequestTypeInfo(
               definition: old.id,
               info: RequestTypeInfo(
@@ -142,6 +142,13 @@ class WorkflowFormCubit extends Cubit<WorkflowFormState> {
             );
       if (isClosed) return;
       _workingDraft = draft;
+      if (state.creationMode == 'Template' && draft.moduleKey != state.moduleKey) {
+        draft = await repository.saveRequestTypeInfo(definition: draft.id, info: RequestTypeInfo(
+          title: state.title.trim(), description: state.description.trim(), moduleKey: state.moduleKey,
+          iconKey: state.iconKey, colorHex: state.colorHex, shortTitle: draft.shortTitle ?? '',
+          category: draft.category ?? '', showInList: draft.showInList, userSubmittable: draft.userSubmittable));
+        _workingDraft = draft;
+      }
       if (supportsStart) {
         await (repository as WorkflowStartSettingsRepository).configureStart(draft.id, state.startSettings);
       }

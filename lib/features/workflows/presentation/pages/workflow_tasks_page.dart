@@ -360,6 +360,8 @@ class _TaskCard extends StatelessWidget {
             ),
           ]),
           const SizedBox(height: 12),
+          if (persianWorkflowTaskOutcome(task.action).isNotEmpty)
+            Text(persianWorkflowTaskOutcome(task.action), style: const TextStyle(color: AsoudColors.warning, fontSize: 11)),
           if (task.dueOn != null) ...[
             Row(children: [
               Icon(

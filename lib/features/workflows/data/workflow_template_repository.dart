@@ -29,8 +29,9 @@ class WorkflowTemplatePage {
 }
 
 class WorkflowTemplateRepository {
-  const WorkflowTemplateRepository(this.client);
+  const WorkflowTemplateRepository(this.client, {this.includeUser = false});
   final FrappeApiClient client;
+  final bool includeUser;
   void _requireOnline() {
     if (!client.isAuthenticated) {
       throw const ApiException(kind: ApiFailureKind.unauthenticated,
@@ -41,7 +42,8 @@ class WorkflowTemplateRepository {
       String module = '', int start = 0}) async {
     _requireOnline();
     final value = await client.callAsoudMethod('asoud_erp.api.v1.workflow_templates.catalog',
-        data: {'company': company, 'search': search, 'module_key': module, 'start': start, 'page_length': 20});
+        data: {'company': company, 'search': search, 'module_key': module, 'start': start, 'page_length': 20,
+          if (includeUser) 'include_user': 1});
     if (value is! Map || value['items'] is! List ||
         (value['next_start'] != null && value['next_start'] is! int)) {
       throw const ApiException.protocol();

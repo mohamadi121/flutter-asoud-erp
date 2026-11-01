@@ -383,6 +383,7 @@ class FormFieldsView extends StatelessWidget {
     }
 
     final fileWidget = buildFileInput(
+      enabled: editable,
       context: context,
       f: f,
       value: v,

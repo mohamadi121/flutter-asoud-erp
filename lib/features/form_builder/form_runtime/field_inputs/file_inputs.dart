@@ -14,11 +14,13 @@ Widget? buildFileInput({
   required FormRepository repository,
   required String? formName,
   required ValueChanged<dynamic> onChanged,
+  bool enabled = true,
 }) {
   final type = '${f['type']}';
   if (!['File', 'Image', 'Signature'].contains(type)) {
     return null;
   }
+  final policy = repository is FormAttachmentPolicy ? repository as FormAttachmentPolicy : null;
 
   return Column(
     children: [
@@ -26,19 +28,19 @@ Widget? buildFileInput({
         color: Colors.transparent,
         child: ListTile(
           title: Text(label),
-          subtitle: Text('${value ?? 'فایل انتخاب نشده'}'),
+          subtitle: Text(policy?.fileLabel(value) ?? '${value ?? 'فایل انتخاب نشده'}'),
           trailing: value == null
               ? null
               : IconButton(
-                  onPressed: () => onChanged(null),
+                  onPressed: enabled ? () => onChanged(null) : null,
                   icon: const Icon(Icons.close),
                 ),
         ),
       ),
-      OutlinedButton.icon(
+      if (enabled && policy?.allowUploads != false) OutlinedButton.icon(
         icon: const Icon(Icons.attach_file),
         label: const Text('انتخاب فایل خصوصی'),
-        onPressed: () async {
+        onPressed: !enabled || policy?.allowUploads == false ? null : () async {
           try {
             final maxFiles = (f['max_files'] as num?)?.toInt() ?? 1;
             final result = await FilePicker.platform.pickFiles(
@@ -63,7 +65,10 @@ Widget? buildFileInput({
                 file.size > ((f['max_mb'] as num?) ?? 10) * 1024 * 1024)) {
               throw StateError('حجم فایل بیش از حد مجاز است.');
             }
-            final names = <String>[];
+            final names = <String>[
+              if (policy?.appendUploads == true && maxFiles > 1)
+                ...(value is List ? value : value == null ? [] : [value]).map((name) => '$name'),
+            ];
             for (final file in result.files) {
               if (formName == null) {
                 names.add('پیش‌نمایش محلی: ${file.name}');
@@ -79,6 +84,7 @@ Widget? buildFileInput({
               names.add('${uploaded['name']}');
             }
             if (context.mounted) {
+              if (names.toSet().length > maxFiles) throw StateError('تعداد مجموع پیوست‌ها بیش از حد مجاز است.');
               onChanged(maxFiles > 1 ? names : names.single);
             }
           } catch (error) {

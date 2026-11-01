@@ -12,7 +12,7 @@ void main() {
     expect(persianGenderLabel('Male'), 'مرد');
     expect(persianRequestFieldTypeLabel('Date'), 'تاریخ');
     expect(persianWorkflowStageTitle('Start'), 'شروع');
-    expect(persianWorkflowStageTitle('User Task'), 'وظیفه کاربر');
+    expect(persianWorkflowStageTitle('User Task'), 'اقدام کاربر');
     expect(persianWorkflowStageTitle('Approval'), 'تأیید');
     expect(persianWorkflowStageTitle('System Action'), 'اقدام خودکار');
     expect(

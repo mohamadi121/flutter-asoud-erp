@@ -39,7 +39,7 @@ void main() {
   group('T2: Server Values Persian Localization (Bugs #13, #14, #15, #19)', () {
     test('workflow stage names and types translate correctly', () {
       expect(persianWorkflowStageTitle('Start'), 'شروع');
-      expect(persianWorkflowStageTitle('User Task'), 'وظیفه کاربر');
+      expect(persianWorkflowStageTitle('User Task'), 'اقدام کاربر');
       expect(persianWorkflowStageTitle('Approval'), 'تأیید');
       expect(persianWorkflowStageTitle('System Action'), 'اقدام خودکار');
       expect(persianWorkflowStageTitle('End'), 'پایان');
@@ -74,7 +74,7 @@ void main() {
       );
       expect(
         persianNotificationTitle('New workflow task: User Task'),
-        'کار جدید در گردش‌کار: وظیفه کاربر',
+        'کار جدید در گردش‌کار: اقدام کاربر',
       );
       expect(
         persianNotificationTitle('Workflow request approved'),

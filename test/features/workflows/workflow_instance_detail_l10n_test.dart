@@ -13,7 +13,7 @@ void main() {
         () {
       expect(persianWorkflowStageTitle('Approval'), 'تأیید');
       expect(persianWorkflowStageTitle('End'), 'پایان');
-      expect(persianWorkflowStageTitle('User Task'), 'وظیفه کاربر');
+      expect(persianWorkflowStageTitle('User Task'), 'اقدام کاربر');
       expect(persianWorkflowStageTitle('Start'), 'شروع');
       expect(persianWorkflowStageTitle('System Action'), 'اقدام خودکار');
       expect(persianWorkflowStageTitle('Condition'), 'شرط');

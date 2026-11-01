@@ -19,6 +19,7 @@ import '../widgets/request_custom_table.dart';
 import '../widgets/receipt_confirmation_bar.dart';
 import '../widgets/request_link_fields.dart';
 import '../widgets/workflow_activity_timeline.dart';
+import '../widgets/user_action_execution.dart';
 import '../../../directives/presentation/directive_pages.dart';
 import '../../../form_builder/form_repository.dart';
 import '../../../form_builder/form_runtime/form_fields_view.dart';
@@ -29,9 +30,11 @@ class WorkflowTaskDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => BlocProvider(
-        create: (_) => WorkflowTaskDetailCubit(
-            context.read<WorkflowTaskRepository>(), task)
-          ..load(),
+        create: (_) {
+          FrappeApiClient? client;
+          try { client = context.read<FrappeApiClient>(); } on ProviderNotFoundException { /* isolated repository preview */ }
+          return WorkflowTaskDetailCubit(context.read<WorkflowTaskRepository>(), task, actionClient: client)..load();
+        },
         child: const _TaskDetailView(),
       );
 }
@@ -108,11 +111,12 @@ class _TaskDetailView extends StatelessWidget {
                               const SizedBox(height: 10),
                             ],
                           ],
-                          if (detail.fields.isNotEmpty) ...[
+                          if (detail.actionSchema.isNotEmpty) UserActionExecution(detail: detail),
+                          if (detail.actionSchema.isEmpty && detail.fields.isNotEmpty) ...[
                             const SizedBox(height: 4),
                             const AsoudSectionTitle(title: 'اطلاعات این مرحله'),
                           ],
-                          for (final field in detail.fields) ...[
+                          for (final field in detail.actionSchema.isEmpty ? detail.fields : <WorkflowFormFieldDefinition>[]) ...[
                             _DynamicField(
                               field: field,
                               enabled: detail.task.status == 'Open',
@@ -138,7 +142,7 @@ class _TaskDetailView extends StatelessWidget {
                       ),
                     ),
                   ]),
-            bottomNavigationBar: detail == null || detail.task.status != 'Open'
+            bottomNavigationBar: detail == null || detail.task.status != 'Open' || detail.actionSchema.isNotEmpty
                 ? null
                 : _isReceipt(detail)
                     ? ReceiptConfirmationBar(task: detail.task.id)
@@ -173,7 +177,7 @@ void _openRequest(BuildContext context, WorkflowTaskDetail detail) {
           child: RequestDetailPage(
               name: detail.requestName,
               repository: repository,
-              readOnly: true))));
+              readOnly: detail.documentAccess == 'Read Only' || detail.task.status != 'Open' || detail.requiresClaim))));
 }
 
 /// The sticky decision bar. Approve is the primary action; Reject and Return
@@ -381,7 +385,9 @@ List<_SummaryRow> _summaryRows(WorkflowTaskDetail detail) {
       'اولویت / وضعیت',
       [
         if (priority != null) _priorityLabels[priority] ?? priority,
-        _taskStatusLabel(detail.task.status),
+        persianWorkflowTaskOutcome(detail.task.action).isNotEmpty
+            ? persianWorkflowTaskOutcome(detail.task.action)
+            : _taskStatusLabel(detail.task.status),
       ].where((value) => value.isNotEmpty).join(' • '));
   return rows.take(5).toList(growable: false);
 }

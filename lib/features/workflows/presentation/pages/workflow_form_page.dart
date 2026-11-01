@@ -24,14 +24,20 @@ class WorkflowFormPage extends StatelessWidget {
           return WorkflowFormCubit(
           repository: context.read<WorkflowRepository>(),
           existing: existing,
-          templates: client == null ? null : WorkflowTemplateRepository(client),
+          templates: client == null ? null : WorkflowTemplateRepository(client, includeUser: true),
         )..load(); },
         child: const _WorkflowFormView(),
       );
 }
 
-class _WorkflowFormView extends StatelessWidget {
+class _WorkflowFormView extends StatefulWidget {
   const _WorkflowFormView();
+  @override
+  State<_WorkflowFormView> createState() => _WorkflowFormViewState();
+}
+
+class _WorkflowFormViewState extends State<_WorkflowFormView> {
+  final subtitleKey = GlobalKey();
 
   @override
   Widget build(BuildContext context) =>
@@ -79,7 +85,7 @@ class _WorkflowFormView extends StatelessWidget {
                     style: const TextStyle(
                         fontSize: 17, fontWeight: FontWeight.w800)),
                 const SizedBox(height: 5),
-                const Text('اطلاعات پایه فرایند را وارد کنید',
+                Text('اطلاعات پایه فرایند را وارد کنید', key: subtitleKey,
                     style: TextStyle(fontSize: 10, color: AsoudColors.muted)),
               ]),
             ),
@@ -89,7 +95,7 @@ class _WorkflowFormView extends StatelessWidget {
                 const Center(child: CircularProgressIndicator()),
               WorkflowFormStatus.failure when state.options == null =>
                 _LoadFailure(message: state.message ?? 'خطا در دریافت اطلاعات'),
-              _ => _FormContent(state: state),
+              _ => _FormContent(state: state, subtitleKey: subtitleKey),
             },
             bottomNavigationBar: state.options == null
                 ? null
@@ -114,8 +120,9 @@ class _WorkflowFormView extends StatelessWidget {
 }
 
 class _FormContent extends StatefulWidget {
-  const _FormContent({required this.state});
+  const _FormContent({required this.state, required this.subtitleKey});
   final WorkflowFormState state;
+  final GlobalKey subtitleKey;
   @override
   State<_FormContent> createState() => _FormContentState();
 }
@@ -135,49 +142,9 @@ class _FormContentState extends State<_FormContent> {
   @override
   void dispose() { title.dispose(); description.dispose(); super.dispose(); }
 
-  Future<void> _more(BuildContext context) async {
+  Future<void> _pickTemplate(BuildContext context) async {
     FocusScope.of(context).unfocus();
     final cubit = context.read<WorkflowFormCubit>();
-    final mode = await showModalBottomSheet<String>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      showDragHandle: true,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (sheetContext) => BlocProvider.value(
-        value: cubit,
-        child: Directionality(
-          textDirection: TextDirection.rtl,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-                maxHeight: MediaQuery.sizeOf(sheetContext).height * .85),
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(children: [
-                  const Expanded(
-                      child: Text('روش ایجاد گردش کار',
-                          style: TextStyle(
-                              fontSize: 17, fontWeight: FontWeight.w800))),
-                  IconButton(
-                      tooltip: 'بستن تنظیمات',
-                      onPressed: () => Navigator.pop(sheetContext),
-                      icon: const Icon(Icons.close_rounded)),
-                ]),
-              ),
-              const Divider(height: 1),
-              Flexible(
-                  child: BlocBuilder<WorkflowFormCubit, WorkflowFormState>(
-                      builder: (context, state) =>
-                          _CreationModeOptions(state: state))),
-            ]),
-          ),
-        ),
-      ),
-    );
-    if (!context.mounted || cubit.isClosed || mode == null) return;
-    if (mode == 'Custom') { cubit.changeCreationMode(mode); return; }
     if (cubit.templates == null || state.offlinePreview) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text('انتخاب الگوی واقعی نیازمند ورود به سرور است.')));
@@ -186,7 +153,7 @@ class _FormContentState extends State<_FormContent> {
     final selected = await showModalBottomSheet<WorkflowTemplate>(context: context,
       isScrollControlled: true, useSafeArea: true, showDragHandle: true,
       builder: (_) => WorkflowTemplatePicker(repository: cubit.templates!, company: state.company,
-          modules: state.options!.modules, selected: state.selectedTemplate));
+          modules: state.options!.modules, selected: state.selectedTemplate, includeExisting: true));
     if (mounted && !cubit.isClosed && selected != null) cubit.selectTemplate(selected);
   }
 
@@ -256,8 +223,9 @@ class _FormContentState extends State<_FormContent> {
         if (cubit.existing == null)
         Card(
           margin: EdgeInsets.zero,
-          child: ListTile(
+          child: ExpansionTile(
             key: const ValueKey('workflow-more'),
+            initiallyExpanded: false,
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             leading:
@@ -269,14 +237,27 @@ class _FormContentState extends State<_FormContent> {
                     ? 'الگو: ${state.selectedTemplate?.title ?? 'انتخاب نشده'}'
                     : 'طراحی گردش کار جدید',
                 style: const TextStyle(fontSize: 11)),
-            trailing: const Icon(Icons.expand_more),
-            onTap: enabled ? () => _more(context) : null,
+            children: [_CreationModeOptions(state: state, onSelected: enabled ? (mode) {
+              if (mode == 'Custom') { cubit.changeCreationMode(mode); }
+              else { _pickTemplate(context).ignore(); }
+            } : null)],
           ),
         ),
         const SizedBox(height: 14),
         if (cubit.supportsStart) ...[
           WorkflowStartSection(value: state.startSettings, onChanged: cubit.changeStart,
-            company: state.company, roles: state.options!.roles, enabled: enabled),
+            company: state.company, roles: state.options!.roles, enabled: enabled,
+            moduleKey: state.moduleKey,
+            onModuleChanged: (module) {
+              if (state.options!.modules.any((item) => item.key == module)) cubit.changeModule(module);
+            },
+            sourceSheetHeight: () {
+              final header = widget.subtitleKey.currentContext?.findRenderObject();
+              final overlay = Navigator.of(context).overlay?.context.findRenderObject();
+              if (header is! RenderBox || overlay is! RenderBox || !header.hasSize || !overlay.hasSize) return null;
+              final bottom = overlay.globalToLocal(header.localToGlobal(Offset(0, header.size.height))).dy;
+              return (overlay.size.height - bottom).clamp(0.0, overlay.size.height).toDouble();
+            }),
           const SizedBox(height: 14),
         ],
         const _InfoBanner(icon: Icons.info_outline,
@@ -314,18 +295,20 @@ class _WorkflowSection extends StatelessWidget {
 }
 
 class _CreationModeOptions extends StatelessWidget {
-  const _CreationModeOptions({required this.state});
+  const _CreationModeOptions({required this.state, this.onSelected});
   final WorkflowFormState state;
+  final ValueChanged<String>? onSelected;
   @override
-  Widget build(BuildContext context) => ListView(shrinkWrap: true, children: [
+  Widget build(BuildContext context) => Column(mainAxisSize: MainAxisSize.min, children: [
     for (final mode in const [('Custom', 'طراحی گردش کار جدید', Icons.edit_note_rounded),
-        ('Template', 'استفاده از الگوی آماده', Icons.dashboard_customize_outlined)])
+        ('Template', 'بازطراحی گردش کار موجود', Icons.dashboard_customize_outlined)])
       ListTile(key: ValueKey('workflow-mode-${mode.$1}'),
         leading: Icon(mode.$3, color: AsoudColors.primary),
         title: Text(mode.$2),
+        subtitle: mode.$1 == 'Template' ? const Text('کپی مستقل؛ گردش اصلی و سوابق آن تغییر نمی‌کنند.', style: TextStyle(fontSize: 10)) : null,
         trailing: Icon(state.creationMode == mode.$1 ? Icons.radio_button_checked : Icons.radio_button_off,
             color: state.creationMode == mode.$1 ? AsoudColors.primary : AsoudColors.muted),
-        onTap: () => Navigator.pop(context, mode.$1)),
+        onTap: onSelected == null ? null : () => onSelected!(mode.$1)),
   ]);
 }
 

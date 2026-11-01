@@ -77,7 +77,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(confirm);
       await tester.pumpAndSettle();
-      expect(selected, {'form': 'leave', 'revision': 'revision-1', 'title': 'درخواست مرخصی', 'kind': 'Request'});
+      expect(selected, {'form': 'leave', 'revision': 'revision-1', 'title': 'درخواست مرخصی', 'kind': 'Request', 'workflow_module': 'HR'});
       expect(repository.calls, ['get_form']);
       expect(find.text('انتخاب درخواست یا سند'), findsNothing);
       expect(tester.takeException(), isNull);
