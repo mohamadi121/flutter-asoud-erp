@@ -5,13 +5,29 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/network/api_exception.dart';
 import '../../domain/entities/workflow_definition.dart';
+import '../../domain/entities/workflow_start_settings.dart';
 import '../../domain/repositories/workflow_repository.dart';
 
 class PreviewFallbackWorkflowRepository
-    implements WorkflowRepository, OfflinePreviewAware {
+    implements WorkflowRepository, OfflinePreviewAware, WorkflowStartSettingsRepository {
   PreviewFallbackWorkflowRepository(this._remote);
 
   final WorkflowRepository _remote;
+  @override
+  bool get localStartSettings => _remote is WorkflowStartSettingsRepository &&
+      (_remote as WorkflowStartSettingsRepository).localStartSettings;
+  @override
+  Future<WorkflowStage> configureStart(String definition, WorkflowStartSettings settings) async {
+    await _loadLocal();
+    final design = await getDesign(definition);
+    final old = design.stages.firstWhere((s) => s.type == WorkflowStageType.start);
+    final updated = localStartSettings && _offline
+        ? old.copyWith(config: {...old.config, ...settings.storedConfig}, configurationComplete: true)
+        : await (_remote as WorkflowStartSettingsRepository).configureStart(definition, settings);
+    await _remember(definition, WorkflowDesign(workflow: design.workflow, stages: [
+      for (final stage in design.stages) if (stage.id == old.id) updated else stage], transitions: design.transitions));
+    return updated;
+  }
   final Map<String, WorkflowDesign> _designs = {};
   bool _offline = false;
   int _draftSequence = 1;

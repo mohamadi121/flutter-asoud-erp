@@ -88,6 +88,7 @@ class FrappeWorkflowTaskRepository
     final rawActivities = item['activities'];
     return WorkflowInstanceDetail(
       summary: _instance(item),
+      canRestart: item['can_restart'] == true || item['can_restart'] == 1,
       activities: rawActivities is List
           ? rawActivities.whereType<Map>().map((raw) {
               final activity = Map<String, dynamic>.from(raw);

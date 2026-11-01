@@ -2,11 +2,32 @@ import '../../../../core/network/frappe_client.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/utils/persian_server_values.dart';
 import '../../domain/entities/workflow_definition.dart';
+import '../../domain/entities/workflow_start_settings.dart';
 import '../../domain/repositories/workflow_repository.dart';
 
-class FrappeWorkflowRepository implements WorkflowRepository {
+class FrappeWorkflowRepository implements WorkflowRepository, WorkflowStartSettingsRepository {
   const FrappeWorkflowRepository(this._client);
   final FrappeApiClient _client;
+  @override
+  bool get localStartSettings => !_client.isAuthenticated;
+  @override
+  Future<WorkflowStage> configureStart(String definition, WorkflowStartSettings settings) async {
+    final response = await _client.callMethod('asoud_erp.api.v1.workflow.save_start_settings', data: {
+      'definition': definition, 'trigger_type': settings.manual ? 'Manual' : 'Document Event',
+      'initiator_roles': settings.roles, 'subject_source': settings.manual ? 'General Subject' : 'Referenced Document',
+      'settings': settings.toMap(),
+    });
+    final envelope = response['message'];
+    final value = envelope is Map && envelope['ok'] == true ? envelope['data'] : null;
+    if (value is! Map) throw const ApiException.protocol();
+    final stage = _parseStage(value);
+    if (stage.config['start_settings_version'] != 1 ||
+        stage.config['trigger_type'] != (settings.manual ? 'Manual' : 'Document Event')) {
+      throw const ApiException(kind: ApiFailureKind.validation,
+        message: 'سرور هنوز از تنظیمات جدید شروع پشتیبانی نمی‌کند؛ ابتدا سرور را به‌روزرسانی کنید.');
+    }
+    return stage;
+  }
 
   Future<dynamic> _call(String method, {Map<String, dynamic>? data}) async {
     return _client.callAsoudMethod(method, data: data);
@@ -331,6 +352,7 @@ class FrappeWorkflowRepository implements WorkflowRepository {
     final missing = item['missing_requirements'];
     return WorkflowDefinition(
       id: item['name']?.toString() ?? '',
+      canStartManual: item['can_start_manual'] == true || item['can_start_manual'] == 1,
       code: item['workflow_code']?.toString() ?? '',
       title: item['workflow_title']?.toString() ?? '',
       targetDoctype: item['target_doctype']?.toString() ?? '',

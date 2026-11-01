@@ -200,9 +200,10 @@ class WorkflowInstanceSummary extends Equatable {
 
 class WorkflowInstanceDetail extends Equatable {
   const WorkflowInstanceDetail(
-      {required this.summary, this.activities = const []});
+      {required this.summary, this.activities = const [], this.canRestart = false});
   final WorkflowInstanceSummary summary;
   final List<WorkflowTaskActivity> activities;
+  final bool canRestart;
   @override
-  List<Object> get props => [summary, activities];
+  List<Object> get props => [summary, activities, canRestart];
 }

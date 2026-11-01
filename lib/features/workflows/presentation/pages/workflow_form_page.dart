@@ -9,6 +9,7 @@ import '../../domain/repositories/workflow_repository.dart';
 import '../../domain/entities/workflow_definition.dart';
 import '../cubit/workflow_form_cubit.dart';
 import '../widgets/workflow_template_picker.dart';
+import '../widgets/workflow_start_section.dart';
 import 'workflow_designer_page.dart';
 
 class WorkflowFormPage extends StatelessWidget {
@@ -273,6 +274,11 @@ class _FormContentState extends State<_FormContent> {
           ),
         ),
         const SizedBox(height: 14),
+        if (cubit.supportsStart) ...[
+          WorkflowStartSection(value: state.startSettings, onChanged: cubit.changeStart,
+            company: state.company, roles: state.options!.roles, enabled: enabled),
+          const SizedBox(height: 14),
+        ],
         const _InfoBanner(icon: Icons.info_outline,
             text: 'گردش کار ابتدا به‌صورت پیش‌نویس ذخیره می‌شود؛ طراحی و تکمیل مراحل در صفحهٔ بعد انجام می‌شود.',
             color: AsoudColors.primary),

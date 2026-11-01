@@ -26,6 +26,7 @@ class WorkflowFormState extends Equatable {
     this.createdDraft,
     this.offlinePreview = false,
     this.selectedTemplate,
+    this.startSettings = const WorkflowStartSettings(),
   });
 
   final WorkflowFormStatus status;
@@ -36,6 +37,7 @@ class WorkflowFormState extends Equatable {
   final WorkflowDefinition? createdDraft;
   final bool offlinePreview;
   final WorkflowTemplate? selectedTemplate;
+  final WorkflowStartSettings startSettings;
 
   WorkflowFormState copyWith({
     WorkflowFormStatus? status,
@@ -56,6 +58,7 @@ class WorkflowFormState extends Equatable {
     bool? offlinePreview,
     WorkflowTemplate? selectedTemplate,
     bool clearTemplate = false,
+    WorkflowStartSettings? startSettings,
   }) =>
       WorkflowFormState(
         status: status ?? this.status,
@@ -73,6 +76,7 @@ class WorkflowFormState extends Equatable {
         createdDraft: createdDraft ?? this.createdDraft,
         offlinePreview: offlinePreview ?? this.offlinePreview,
         selectedTemplate: clearTemplate ? null : selectedTemplate ?? this.selectedTemplate,
+        startSettings: startSettings ?? this.startSettings,
       );
 
   @override
@@ -92,5 +96,6 @@ class WorkflowFormState extends Equatable {
         createdDraft,
         offlinePreview,
         selectedTemplate,
+        startSettings,
       ];
 }

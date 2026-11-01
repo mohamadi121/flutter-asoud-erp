@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/workflow_manual_start_dialog.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/auth/access_denied.dart';
@@ -452,27 +453,36 @@ class _WorkflowCardState extends State<_WorkflowCard> {
             ),
             const SizedBox(width: 7),
             _StatusBadge(item: item),
-            if (widget.canManageWorkflows)
+            if (widget.canManageWorkflows || item.canStartManual)
               PopupMenuButton<String>(
                 enabled: !_busy,
                 tooltip: 'عملیات فرایند',
                 itemBuilder: (_) => [
                   const PopupMenuItem(
                       value: 'details', child: Text('مشاهده جزئیات')),
-                  const PopupMenuItem(
+                  if (item.canStartManual)
+                    const PopupMenuItem(value: 'start-manual', child: Text('شروع دستی')),
+                  if (widget.canManageWorkflows) const PopupMenuItem(
                       value: 'design',
                       child: Text('طراحی مراحل و فرم درخواست')),
-                  PopupMenuItem(
+                  if (widget.canManageWorkflows) PopupMenuItem(
                     value: 'activate',
                     child: Text(item.status == WorkflowDefinitionStatus.active
                         ? 'غیرفعال‌سازی' : 'فعال‌سازی'),
                   ),
-                  if (item.canDelete && !item.isSystemTemplate &&
+                  if (widget.canManageWorkflows && item.canDelete && !item.isSystemTemplate &&
                       item.templateKey?.isNotEmpty != true && !item.code.startsWith('SYS-'))
                     const PopupMenuItem(value: 'delete', child: Text('حذف')),
                 ],
                 onSelected: (value) {
-                  if (value == 'details') {
+                  if (value == 'start-manual') {
+                    showDialog<String>(context: context, barrierDismissible: false, builder: (_) => WorkflowManualStartDialog(
+                      definition: item.id, client: context.read<FrappeApiClient>())).then((instance) {
+                        if (instance != null && context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('گردش کار آغاز شد؛ در فهرست اجراها قابل پیگیری است.')));
+                        }
+                      }).ignore();
+                  } else if (value == 'details') {
                     _showDetails(context);
                   } else if (value == 'design') {
                     Navigator.of(context).push(MaterialPageRoute<void>(

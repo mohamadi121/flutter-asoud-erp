@@ -15,7 +15,6 @@ import '../cubit/workflow_designer_cubit.dart';
 import '../widgets/document_template_visuals.dart';
 import '../widgets/stage_pickers.dart';
 import '../widgets/stage_people_sheet.dart';
-import '../widgets/stage_form_source_picker.dart';
 import '../widgets/workflow_form_builder.dart';
 import 'create_document_settings_page.dart';
 import 'automatic_action_page.dart';
@@ -125,7 +124,6 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
   late String requestLabel = config['request_label']?.toString() ?? '';
   late Map<String, dynamic>? submissionSource = config['submission_source'] is Map
       ? Map<String, dynamic>.from(config['submission_source'] as Map) : null;
-  bool selectingForm = false;
   late List<WorkflowFormFieldDefinition> formFields =
       ((config['form_fields'] as List?) ?? const [])
           .whereType<Map>()
@@ -966,37 +964,9 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
 
   // --- user task --------------------------------------------------------------------------
 
-  Widget _taskPurpose() => Container(
-        margin: const EdgeInsets.only(bottom: 14),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: AsoudColors.border),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child:
-            Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Material(color: submissionSource == null ? Colors.white : const Color(0xfff4f8ff),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12),
-              side: BorderSide(color: submissionSource == null ? AsoudColors.border : AsoudColors.primary)),
-            child: CheckboxListTile(key: const ValueKey('stage-select-form'),
-              value: submissionSource != null, controlAffinity: ListTileControlAffinity.leading,
-              secondary: const Icon(Icons.description_outlined, color: AsoudColors.primary),
-              title: const Text('انتخاب درخواست یا سند', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-              subtitle: Text(selectingForm ? 'در حال دریافت…' : '${submissionSource?['title'] ?? 'نوع درخواست یا سند برای ورود به گردش‌کار'}',
-                style: const TextStyle(fontSize: 11, color: AsoudColors.muted)),
-              onChanged: saving || selectingForm ? null : (_) => _pickRequestType())),
-          if (submissionSource != null)
-            Align(alignment: AlignmentDirectional.centerEnd,
-              child: TextButton(onPressed: saving ? null : () => setState(() {
-                submissionSource = null; formFields = []; formLayout = []; taskPurpose = 'Existing';
-              }), child: const Text('حذف انتخاب'))),
-          if (submissionSource == null && (formFields.isNotEmpty || taskPurpose != 'Existing'))
-            const Padding(padding: EdgeInsets.only(top: 8), child: Text(
-              'این مرحله تنظیمات قبلی دارد؛ تا انتخاب منبع جدید، فرم و رفتار قبلی آن حفظ می‌شود.',
-              style: TextStyle(fontSize: 11, color: AsoudColors.muted))),
-        ]),
-      );
+  Widget _taskPurpose() => const Padding(padding: EdgeInsets.only(bottom: 14), child: Text(
+          'نحوهٔ شروع و انتخاب درخواست یا سند در تنظیمات شروع فرایند مدیریت می‌شود.',
+          style: TextStyle(fontSize: 11, color: AsoudColors.muted)));
 
   Future<void> _editForm() async {
     final fields = await Navigator.push<List<WorkflowFormFieldDefinition>>(
@@ -1006,54 +976,6 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
     );
     if (fields != null && mounted) {
       setState(() => formFields = fields);
-    }
-  }
-
-  Future<void> _pickRequestType() async {
-    if (selectingForm || saving) return;
-    setState(() => selectingForm = true);
-    try {
-      final picked = await showModalBottomSheet<Map<String, dynamic>>(
-        context: context,
-        isScrollControlled: true,
-        useSafeArea: true,
-        showDragHandle: true,
-        builder: (_) => StageFormSourcePicker(repository: FormRepository(automation.client, company ?? '')),
-      );
-      if (picked == null || !mounted) return;
-      if (formFields.isNotEmpty || taskPurpose != 'Existing') {
-        final confirm = await showDialog<bool>(
-            context: context,
-            builder: (context) => AlertDialog(
-                  title: const Text('اتصال ارسال درخواست یا سند'),
-                  content: const Text(
-                      'فرم قدیمی داخل مرحله حذف می‌شود؛ پس از ارسال فرم اصلی، ثبت موجود وارد این گردش‌کار خواهد شد. اطلاعات اصلی دوباره از کاربر پرسیده نمی‌شود. ادامه می‌دهید؟'),
-                  actions: [
-                    TextButton(
-                        onPressed: () => Navigator.pop(context, false),
-                        child: const Text('انصراف')),
-                    FilledButton(
-                        onPressed: () => Navigator.pop(context, true),
-                        child: const Text('جایگزینی'))
-                  ],
-                ));
-        if (confirm != true || !mounted) return;
-      }
-      setState(() {
-        submissionSource = Map<String, dynamic>.from(picked);
-        taskPurpose = 'Existing';
-        requestDefinition = ''; requestLabel = '';
-        formFields = [];
-        formLayout = [];
-      });
-    } catch (error) {
-      if (mounted) {
-        _message(error is ApiException
-            ? error.message
-            : 'دریافت انواع درخواست ممکن نشد؛ انتخاب قبلی حفظ شده است.');
-      }
-    } finally {
-      if (mounted) setState(() => selectingForm = false);
     }
   }
 

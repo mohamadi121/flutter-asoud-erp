@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/network/frappe_client.dart';
 import '../../../../core/utils/persian_server_values.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../domain/entities/workflow_task.dart';
 import '../../domain/repositories/workflow_task_repository.dart';
 import '../widgets/workflow_activity_timeline.dart';
+import '../widgets/workflow_manual_start_dialog.dart';
 import '../../../directives/presentation/directive_pages.dart';
 
 class WorkflowInstanceDetailPage extends StatelessWidget {
@@ -36,6 +38,21 @@ class WorkflowInstanceDetailPage extends StatelessWidget {
             children: [
               if (detail.summary.localOnly) const AsoudOfflinePreviewBanner(),
               _InstanceStatusCard(item: detail.summary),
+              if (detail.canRestart && !detail.summary.localOnly) ...[
+                const SizedBox(height: 12),
+                FilledButton.icon(icon: const Icon(Icons.restart_alt), label: const Text('شروع مجدد با ثبت علت'),
+                  onPressed: () async {
+                    final id = await showDialog<String>(context: context, barrierDismissible: false,
+                      builder: (_) => WorkflowManualStartDialog(client: context.read<FrappeApiClient>(),
+                        definition: detail.summary.workflowDefinition, restarting: true,
+                        initialSubject: detail.summary.subject, referenceDoctype: detail.summary.referenceDoctype,
+                        referenceName: detail.summary.referenceName));
+                    if (id != null && context.mounted) {
+                      await Navigator.of(context).pushReplacement(MaterialPageRoute<void>(
+                        builder: (_) => WorkflowInstanceDetailPage(instance: id)));
+                    }
+                  }),
+              ],
               const SizedBox(height: 16),
               const AsoudSectionTitle(title: 'تاریخچه گردش درخواست'),
               if (detail.activities.isEmpty &&

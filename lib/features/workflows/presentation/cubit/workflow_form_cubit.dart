@@ -5,6 +5,7 @@ import '../../../../core/utils/failure_message.dart';
 import '../../data/workflow_template_repository.dart';
 
 import '../../domain/entities/workflow_definition.dart';
+import '../../domain/entities/workflow_start_settings.dart';
 import '../../domain/repositories/workflow_repository.dart';
 
 part 'workflow_form_state.dart';
@@ -15,16 +16,22 @@ class WorkflowFormCubit extends Cubit<WorkflowFormState> {
   final WorkflowRepository repository;
   final WorkflowDefinition? existing;
   final WorkflowTemplateRepository? templates;
+  WorkflowDefinition? _workingDraft;
+  bool get supportsStart => repository is WorkflowStartSettingsRepository;
+  void changeStart(WorkflowStartSettings value) => emit(state.copyWith(startSettings: value));
 
   Future<void> load() async {
     emit(
         state.copyWith(status: WorkflowFormStatus.loading, clearMessage: true));
     try {
       final options = await repository.getFormOptions();
+      final start = existing != null && supportsStart
+          ? WorkflowStartSettings.fromDesign(await repository.getDesign(existing!.id)) : const WorkflowStartSettings();
       if (isClosed) return;
       final firstModule = options.modules.firstOrNull;
       emit(state.copyWith(
         status: WorkflowFormStatus.ready,
+        startSettings: start,
         options: options,
         company: existing?.company ?? options.companies.firstOrNull ?? '',
         moduleKey: existing?.moduleKey ?? firstModule?.key ?? '',
@@ -52,6 +59,7 @@ class WorkflowFormCubit extends Cubit<WorkflowFormState> {
       emit(state.copyWith(description: value));
   void changeCompany(String? value) =>
       emit(state.copyWith(company: value ?? '',
+          startSettings: value != state.company ? state.startSettings.copyWith(clearSource: true) : state.startSettings,
           clearTemplate: value != state.company));
   void changeCreationMode(String value) =>
       emit(state.copyWith(creationMode: value, clearTemplate: value != 'Template'));
@@ -76,6 +84,12 @@ class WorkflowFormCubit extends Cubit<WorkflowFormState> {
 
   Future<void> submit() async {
     if (state.status == WorkflowFormStatus.submitting) return;
+    if (supportsStart && ((!state.startSettings.manual && state.startSettings.source == null) ||
+        (state.startSettings.manual && state.startSettings.roles.isEmpty))) {
+      emit(state.copyWith(message: state.startSettings.manual
+          ? 'حداقل یک نقش مجاز برای شروع دستی انتخاب کنید.' : 'درخواست یا سند منتشرشده را برای شروع انتخاب کنید.'));
+      return;
+    }
     if (state.title.trim().length < 3 || state.title.trim().length > 140) {
       emit(state.copyWith(titleError: 'عنوان فرایند باید بین ۳ تا ۱۴۰ نویسه باشد.'));
       return;
@@ -96,7 +110,7 @@ class WorkflowFormCubit extends Cubit<WorkflowFormState> {
     emit(state.copyWith(
         status: WorkflowFormStatus.submitting, clearMessage: true));
     try {
-      final old = existing;
+      final old = existing ?? _workingDraft;
       final draft = old != null
           ? await repository.saveRequestTypeInfo(
               definition: old.id,
@@ -127,6 +141,11 @@ class WorkflowFormCubit extends Cubit<WorkflowFormState> {
               colorHex: state.colorHex,
             );
       if (isClosed) return;
+      _workingDraft = draft;
+      if (supportsStart) {
+        await (repository as WorkflowStartSettingsRepository).configureStart(draft.id, state.startSettings);
+      }
+      if (isClosed) return;
       emit(state.copyWith(
         status: WorkflowFormStatus.success,
         createdDraft: draft,
@@ -141,7 +160,9 @@ class WorkflowFormCubit extends Cubit<WorkflowFormState> {
       if (isClosed) return;
       emit(state.copyWith(
         status: WorkflowFormStatus.failure,
-        message: failureDetail(error),
+        message: existing == null && _workingDraft != null
+            ? 'پیش‌نویس ساخته شد، اما ذخیرهٔ تنظیمات شروع تأیید نشد؛ با ذخیرهٔ دوباره همان پیش‌نویس تکمیل می‌شود. ${failureDetail(error)}'
+            : failureDetail(error),
       ));
     }
   }
