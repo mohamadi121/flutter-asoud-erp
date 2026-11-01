@@ -29,6 +29,7 @@ class WorkflowDefinition extends Equatable {
     this.isSystemTemplate = false,
     this.templateKey,
     this.canDelete = false,
+    this.canStartManual = false,
   });
 
   final String id, code, title, targetDoctype;
@@ -42,6 +43,7 @@ class WorkflowDefinition extends Equatable {
   final String? templateKey;
   final bool showInList, userSubmittable, isSystemTemplate;
   final bool canDelete;
+  final bool canStartManual;
   final List<String> missingRequirements;
 
   @override
@@ -71,6 +73,7 @@ class WorkflowDefinition extends Equatable {
         isSystemTemplate,
         templateKey,
         canDelete,
+        canStartManual,
       ];
 }
 

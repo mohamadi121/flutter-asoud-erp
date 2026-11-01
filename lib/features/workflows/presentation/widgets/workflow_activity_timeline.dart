@@ -43,6 +43,7 @@ String workflowActivityLabel(String action) => switch (action.trim()) {
       'Voided' => 'ابطال سند',
       'Reissued' => 'صدور مجدد سند',
       'Execution Effects' => 'ثبت وضعیت پیش از اجرا',
+      'Workflow Started' => 'گردش کار آغاز شد',
       _ => persianWorkflowStageTitle(action),
     };
 
