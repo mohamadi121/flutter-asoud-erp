@@ -277,7 +277,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('افزودن مرحله').last);
     await tester.pumpAndSettle();
-    expect(find.text('وظیفه کاربر'), findsOneWidget);
+    expect(find.text('اقدام کاربر'), findsOneWidget);
     expect(find.text('انتظار و زمان‌بندی'), findsOneWidget);
     expect(find.text('پایان فرایند'), findsOneWidget);
     await expectLater(find.byType(MaterialApp),

@@ -106,12 +106,14 @@ void main() {
       expect(cubit.state.colorHex, '#16A765');
       expect(cubit.state.creationMode, 'Custom');
       await _tapControl(tester, 'workflow-more');
+      expect(find.byKey(const ValueKey('workflow-mode-Custom')), findsNothing);
+      await _tapControl(tester, 'workflow-more');
+      await _tapControl(tester, 'workflow-mode-Custom');
       expect(find.byKey(const ValueKey('workflow-mode-Custom')), findsOneWidget);
       expect(cubit.state.iconKey, 'purchase');
       expect(cubit.state.colorHex, '#16A765');
       expect(cubit.state.targetDoctype, 'ASOUD Workflow Request');
-      await tester.tap(find.byTooltip('بستن تنظیمات'));
-      await tester.pumpAndSettle();
+      await _tapControl(tester, 'workflow-more');
       expect(find.text('ذخیره و طراحی مراحل').hitTestable(), findsOneWidget);
       await tester.tap(find.text('ذخیره و طراحی مراحل'));
       await tester.pumpAndSettle();
