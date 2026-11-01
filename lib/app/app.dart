@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../features/workflows/data/workflow_card_repository.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -121,6 +122,7 @@ class _AsoudErpAppState extends State<AsoudErpApp> {
           ),
           RepositoryProvider<OfficeRepository>.value(
             value: ServerFirstOfficeRepository(FrappeOfficeRepository(client),
+                  cacheIdentity: () => [client.serverIdentity, client.localStorageUserId ?? ''],
                 localPreview: () => _localPreview),
           ),
           RepositoryProvider<ChartOfAccountsRepository>.value(
@@ -148,6 +150,7 @@ class _AsoudErpAppState extends State<AsoudErpApp> {
               FrappeWorkflowRepository(client),
             ),
           ),
+          RepositoryProvider<WorkflowCardRepository>.value(value: WorkflowCardRepository(client)),
           RepositoryProvider<WorkflowTaskRepository>.value(
             value: PreviewWorkflowTaskRepository(
               FrappeWorkflowTaskRepository(client),

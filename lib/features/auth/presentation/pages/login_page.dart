@@ -632,7 +632,7 @@ class _LoginPageState extends State<LoginPage> {
                             style: TextButton.styleFrom(foregroundColor: AsoudColors.danger),
                             onPressed: _busy ? null : () => _login(resetSetup: true),
                             icon: const Icon(Icons.restart_alt),
-                            label: const Text('بازنشانی موقت اطلاعات سرور (فقط مدیر سیستم)',
+                            label: const Text('حذف اطلاعات دفتر و شروع دوباره (فقط مدیر سیستم)',
                                 textAlign: TextAlign.center, style: TextStyle(fontSize: 11))),
                           if (canRecover)
                             Align(

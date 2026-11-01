@@ -1,9 +1,12 @@
+import 'package:asoud_erp/core/network/api_exception.dart';
 import 'package:asoud_erp/features/workflows/domain/entities/workflow_definition.dart';
 import 'package:asoud_erp/features/workflows/domain/repositories/workflow_repository.dart';
 import 'package:asoud_erp/features/workflows/presentation/cubit/workflow_list_cubit.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class _FakeRepository implements WorkflowRepository {
+  int calls = 0;
+  List<WorkflowDefinition> items = [sampleWorkflow];
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
   @override
@@ -76,9 +79,23 @@ class _FakeRepository implements WorkflowRepository {
     String? company,
     String orderBy = 'modified desc',
   }) async {
+    calls++;
     receivedSearch = search;
     receivedStatus = status;
-    return [sampleWorkflow];
+    return items;
+  }
+}
+
+class _PreviewRepository extends _FakeRepository implements OfflinePreviewAware {
+  @override
+  bool get isOfflinePreview => true;
+}
+
+class _FailedRepository extends _FakeRepository {
+  @override
+  Future<List<WorkflowDefinition>> getWorkflows({String? search, WorkflowDefinitionStatus? status,
+      String? company, String orderBy = 'modified desc'}) async {
+    throw const ApiException(kind: ApiFailureKind.network, message: 'قطع ارتباط');
   }
 }
 
@@ -95,6 +112,32 @@ const sampleWorkflow = WorkflowDefinition(
 );
 
 void main() {
+  test('confirmed deletion reloads authoritative list, not cached preview', () async {
+    final preview = _PreviewRepository();
+    final live = _FakeRepository()..items = [];
+    final cubit = WorkflowListCubit(repository: preview);
+    await cubit.load();
+    expect(cubit.state.offlinePreview, isTrue);
+    cubit.recordMutation(sampleWorkflow.id);
+    await cubit.load(authoritativeRepository: live);
+    expect(cubit.state.items, isEmpty);
+    expect(cubit.state.offlinePreview, isFalse);
+    expect(preview.calls, 1);
+    expect(live.calls, 1);
+    await cubit.close();
+  });
+
+  test('failed authoritative refresh preserves confirmed deletion without fallback', () async {
+    final preview = _PreviewRepository();
+    final cubit = WorkflowListCubit(repository: preview);
+    await cubit.load();
+    cubit.recordMutation(sampleWorkflow.id);
+    await cubit.load(authoritativeRepository: _FailedRepository());
+    expect(cubit.state.items, isEmpty);
+    expect(cubit.state.status, WorkflowListLoadStatus.failure);
+    expect(preview.calls, 1);
+    await cubit.close();
+  });
   test('فهرست فرایندها را فقط از repository دریافت می‌کند', () async {
     final repository = _FakeRepository();
     final cubit = WorkflowListCubit(repository: repository);

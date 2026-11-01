@@ -6,6 +6,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/network/frappe_client.dart';
 import '../../../../core/offline/offline_mutation_store.dart';
+import '../../../../core/offline/local_database_store.dart';
+import '../../../../core/offline/local_record.dart';
+import '../../data/setup_reset_cache.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/failure_message.dart';
 import '../../../../core/utils/persian_format.dart';
@@ -13,7 +16,8 @@ import '../../../../core/widgets/asoud_ui.dart';
 
 /// Always reached through real sign-in; destructive authority remains server-side.
 class SetupResetPage extends StatefulWidget {
-  const SetupResetPage({super.key});
+  const SetupResetPage({this.onResetConfirmed, super.key});
+  final Future<void> Function(String actor, List<String> companies)? onResetConfirmed;
   @override
   State<SetupResetPage> createState() => _SetupResetPageState();
 }
@@ -46,11 +50,15 @@ class _SetupResetPageState extends State<SetupResetPage> {
     final user = await client.getCurrentUser();
     final server = client is FrappeClient ? (client as FrappeClient).serverIdentity : null;
     final pending = await OfflineMutationStore.instance.pending();
-    return pending.where((row) {
+    final queuedMutations = pending.where((row) {
       final data = row['payload'];
       return data is Map && data['_asoud_owner'] == user.userId &&
           (server == null || data['_asoud_server'] == server);
     }).length;
+    if (server == null) return queuedMutations;
+    final records = await LocalDatabaseStore.instance.list(statuses: {LocalSyncStatus.pendingSync});
+    return queuedMutations + records.where((row) => isPendingResetRecord(row,
+        actor: user.userId, server: server)).length;
   }
 
   Future<void> load() async {
@@ -116,6 +124,31 @@ class _SetupResetPageState extends State<SetupResetPage> {
       if (!mounted) return;
       if (result['state'] == 'completed') {
         poll?.cancel();
+        // Completion is authoritative even if local cleanup later fails. Never
+        // repeat perform() to recover a local-cache failure.
+        final actor = result['actor'];
+        final companies = result['companies'];
+        try {
+          if (actor is! String || actor.isEmpty || companies is! List || companies.any((c) => c is! String)) {
+            throw const ApiException.protocol();
+          }
+          final scope = List<String>.from(companies);
+          if (widget.onResetConfirmed != null) {
+            await widget.onResetConfirmed!(actor, scope);
+          } else if (client is FrappeClient) {
+            await clearResetCaches(store: LocalDatabaseStore.instance, actor: actor,
+                server: (client as FrappeClient).serverIdentity, companies: scope.toSet());
+          }
+        } catch (_) {
+          if (mounted) {
+            setState(() => error =
+                'حذف اطلاعات از سرور تأیید شد، اما پاک‌سازی حافظهٔ دستگاه تکمیل نشد. دریافت دوبارهٔ وضعیت را بزنید؛ حذف سرور را تکرار نکنید.');
+          }
+          return;
+        }
+        if (!mounted) {
+          return;
+        }
         setState(() { busy = false; job = null; });
         Navigator.pop(context, true);
       } else if (result['state'] == 'failed') {
@@ -144,17 +177,23 @@ class _SetupResetPageState extends State<SetupResetPage> {
     final companies = (plan?['companies'] as List?) ?? [];
     final counts = plan?['counts'] is Map ? plan!['counts'] as Map : const {};
     return PopScope(canPop: !busy || job != null, child: Directionality(textDirection: TextDirection.rtl,
-      child: Scaffold(appBar: const AsoudHeader(title: 'بازنشانی موقت راه‌اندازی'),
+      child: Scaffold(appBar: const AsoudHeader(title: 'حذف اطلاعات و شروع دوباره'),
         body: ListView(padding: const EdgeInsets.all(16), children: [
           if (job != null) ...[
             Text(progress?.isNotEmpty == true ? progress! : 'عملیات بازنشانی در صف یا در حال اجراست؛ نتیجه را از سرور پیگیری می‌کنیم. بستن صفحه عملیات سرور را لغو نمی‌کند.'),
             const SizedBox(height: 12),
-            const LinearProgressIndicator(),
+            if (error == null) const LinearProgressIndicator(),
             TextButton(onPressed: checkStatus, child: const Text('دریافت دوبارهٔ وضعیت')),
           ],
           const Text('این عملیات اطلاعات محدودهٔ تأییدشده را از سرور حذف می‌کند؛ صرفاً پاک‌کردن حافظهٔ گوشی نیست.',
               style: TextStyle(color: AsoudColors.danger, fontWeight: FontWeight.bold, height: 1.8)),
           const SizedBox(height: 12),
+          const Text('دفترهای ایجادشدهٔ شما، ساختار و جایگاه‌های سازمانی، پرسنل و نقش‌های سفارشی مرتبط حذف می‌شوند. ورود بعدی به مراحل راه‌اندازی اولیه برمی‌گردد.',
+              style: TextStyle(height: 1.8)),
+          const Text('پس از تأیید حذف در سرور، پیش‌نویس‌های ساختار و نقش‌ها و نسخه‌های محلی مرتبط نیز پاک می‌شوند.',
+              style: TextStyle(height: 1.8)),
+          const Text('اگر دفتر یا پرسنل سابقهٔ عملیاتی وابسته داشته باشند، برای جلوگیری از حذف ناقص، بازنشانی متوقف می‌شود و علت نمایش داده می‌شود.',
+              style: TextStyle(height: 1.8)),
           if (loading) const LinearProgressIndicator(),
           if (error != null) Text(error!, style: const TextStyle(color: AsoudColors.danger)),
           if (!loading) OutlinedButton(onPressed: busy ? null : load, child: const Text('دریافت پیش‌نمایش تازه')),
@@ -207,6 +246,7 @@ String _typeLabel(String name) => const {
   'ASOUD Workflow Definition': 'تعریف گردش‌کار', 'ASOUD Workflow Stage': 'مراحل گردش‌کار',
   'ASOUD Workflow Transition': 'مسیرهای گردش‌کار', 'ASOUD Document Template': 'الگوهای سند',
   'User Permission': 'دسترسی دفتر', 'User': 'حساب‌های پرسنلی ایجادشده',
+  'Version': 'سوابق ویرایش تنظیمات',
   'Fiscal Year': 'سال مالی', 'Account': 'حساب‌های دفتر', 'Cost Center': 'مراکز هزینه',
   'Warehouse': 'انبارهای دفتر', 'Sales Taxes and Charges Template': 'تنظیمات مالیات فروش',
   'Purchase Taxes and Charges Template': 'تنظیمات مالیات خرید', 'Item Tax Template': 'تنظیمات مالیات کالا',

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/offline/local_database_store.dart';
@@ -18,6 +19,7 @@ class ServerFirstOfficeRepository
     this._remote, {
     LocalRecordStore? local,
     this.localPreview,
+    this.cacheIdentity,
     this.defaultOfficeTimeout = const Duration(seconds: 4),
   }) : _local = local ?? LocalDatabaseStore.instance;
 
@@ -28,10 +30,13 @@ class ServerFirstOfficeRepository
   final LocalRecordStore _local;
   final Duration defaultOfficeTimeout;
   final bool Function()? localPreview;
+  final List<String> Function()? cacheIdentity;
   @override
   bool get isLocalPreview => localPreview?.call() ?? false;
   String get _preferenceId =>
+      !isLocalPreview && cacheIdentity != null ? '${_namespace}default' :
       '${isLocalPreview ? 'preview:' : ''}$_defaultOfficeId';
+  String get _namespace => 'office-v2:${Uri.encodeComponent(jsonEncode(cacheIdentity!()))}:';
 
   @override
   Future<Office> createOffice(Office office) async {
@@ -195,7 +200,9 @@ class ServerFirstOfficeRepository
         entityType: _entityType,
       ))
           .where((record) =>
-              localPreview == null ||
+              (!isLocalPreview && cacheIdentity != null)
+                  ? record.id == _id('${record.payload['company']}')
+                  : localPreview == null ||
               (isLocalPreview
                   ? record.status == LocalSyncStatus.localOnly
                   : record.status != LocalSyncStatus.localOnly))
@@ -213,6 +220,7 @@ class ServerFirstOfficeRepository
   }
 
   String _id(String name) =>
+      !isLocalPreview && cacheIdentity != null ? '$_namespace${Uri.encodeComponent(name.trim())}' :
       '${isLocalPreview ? 'preview:' : ''}office:${Uri.encodeComponent(name.trim())}';
 
   Map<String, dynamic> _toPayload(Office office) => {

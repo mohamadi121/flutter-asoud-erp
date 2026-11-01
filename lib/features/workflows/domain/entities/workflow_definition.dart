@@ -28,6 +28,7 @@ class WorkflowDefinition extends Equatable {
     this.userSubmittable = true,
     this.isSystemTemplate = false,
     this.templateKey,
+    this.canDelete = false,
   });
 
   final String id, code, title, targetDoctype;
@@ -40,6 +41,7 @@ class WorkflowDefinition extends Equatable {
   final String? shortTitle, category;
   final String? templateKey;
   final bool showInList, userSubmittable, isSystemTemplate;
+  final bool canDelete;
   final List<String> missingRequirements;
 
   @override
@@ -68,6 +70,7 @@ class WorkflowDefinition extends Equatable {
         userSubmittable,
         isSystemTemplate,
         templateKey,
+        canDelete,
       ];
 }
 
@@ -254,13 +257,26 @@ class WorkflowDesign extends Equatable {
   const WorkflowDesign(
       {required this.workflow,
       required this.stages,
-      required this.transitions});
+      required this.transitions,
+      this.detailsSummary});
   final WorkflowDefinition workflow;
   final List<WorkflowStage> stages;
   final List<WorkflowTransition> transitions;
+  final WorkflowDetailsSummary? detailsSummary;
 
   @override
-  List<Object> get props => [workflow, stages, transitions];
+  List<Object?> get props => [workflow, stages, transitions, detailsSummary];
+}
+
+class WorkflowDetailsSummary extends Equatable {
+  const WorkflowDetailsSummary({required this.stepsCount, required this.stagesComplete,
+    required this.routesComplete, required this.requirements});
+  final int stepsCount;
+  final bool stagesComplete, routesComplete;
+  final List<String> requirements;
+  bool get needsCompletion => !stagesComplete || !routesComplete || requirements.isNotEmpty;
+  @override
+  List<Object> get props => [stepsCount, stagesComplete, routesComplete, requirements];
 }
 
 class WorkflowFieldOption extends Equatable {

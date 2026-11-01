@@ -1,4 +1,5 @@
 import '../../../../core/network/frappe_client.dart';
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/utils/persian_server_values.dart';
 import '../../domain/entities/workflow_definition.dart';
 import '../../domain/repositories/workflow_repository.dart';
@@ -362,6 +363,7 @@ class FrappeWorkflowRepository implements WorkflowRepository {
       isSystemTemplate:
           item['is_system_template'] == 1 || item['is_system_template'] == true,
       templateKey: item['template_key']?.toString(),
+      canDelete: item['can_delete'] == true || item['can_delete'] == 1,
     );
   }
 
@@ -371,11 +373,23 @@ class FrappeWorkflowRepository implements WorkflowRepository {
     final workflow = raw['workflow'];
     final stages = raw['stages'];
     final transitions = raw['transitions'];
+    final details = raw['details_summary'];
+    if (details != null && (details is! Map || details['steps_count'] is! int ||
+        details['stages_complete'] is! bool || details['routes_complete'] is! bool ||
+        details['requirements'] is! List ||
+        (details['requirements'] as List).any((value) => value is! String))) {
+      throw const ApiException.protocol();
+    }
     if (workflow is! Map || stages is! List || transitions is! List) {
       throw StateError('Incomplete workflow design response');
     }
     return WorkflowDesign(
       workflow: _parse(workflow),
+      detailsSummary: details == null ? null : WorkflowDetailsSummary(
+        stepsCount: details['steps_count'] as int,
+        stagesComplete: details['stages_complete'] as bool,
+        routesComplete: details['routes_complete'] as bool,
+        requirements: List<String>.from(details['requirements'] as List)),
       stages: stages.whereType<Map>().map(_parseStage).toList(growable: false),
       transitions: transitions.whereType<Map>().map((item) {
         final value = Map<String, dynamic>.from(item);

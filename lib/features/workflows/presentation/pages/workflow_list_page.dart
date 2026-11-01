@@ -6,15 +6,18 @@ import '../../../../core/auth/capabilities.dart';
 import '../../../../core/network/frappe_client.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/jalali_date.dart';
-import '../../../../core/utils/persian_server_values.dart';
 import '../../../../core/utils/persian_format.dart';
+import '../../../../core/utils/failure_message.dart';
 import '../../../../core/widgets/asoud_bottom_bar.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../../core/widgets/states.dart';
 import '../../domain/entities/workflow_definition.dart';
+import '../../data/workflow_card_repository.dart';
 import '../../domain/repositories/workflow_repository.dart';
 import '../../domain/repositories/workflow_notification_repository.dart';
 import '../cubit/workflow_list_cubit.dart';
+import '../widgets/workflow_details_dialog.dart';
+import '../../data/repositories/frappe_workflow_repository.dart';
 import 'workflow_form_page.dart';
 import 'workflow_notifications_page.dart';
 import 'workflow_designer_page.dart';
@@ -78,7 +81,13 @@ class _WorkflowListView extends StatelessWidget {
                   : const SizedBox.shrink(),
             ),
             Expanded(
-              child: BlocBuilder<WorkflowListCubit, WorkflowListState>(
+              child: BlocConsumer<WorkflowListCubit, WorkflowListState>(
+                listener: (context, state) {
+                  if (state.status == WorkflowListLoadStatus.failure && state.items.isNotEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(
+                        state.message ?? 'دریافت دوبارهٔ فهرست ممکن نشد.')));
+                  }
+                },
                 builder: (context, state) {
                   if (state.status == WorkflowListLoadStatus.loading &&
                       state.items.isEmpty) {
@@ -114,6 +123,7 @@ class _WorkflowListView extends StatelessWidget {
                         const SizedBox(height: 8),
                         for (final item in state.items)
                           _WorkflowCard(
+                              key: ValueKey(item.id),
                               item: item,
                               canManageWorkflows: canManageWorkflows),
                       ],
@@ -336,10 +346,68 @@ class _FilterTab extends StatelessWidget {
   }
 }
 
-class _WorkflowCard extends StatelessWidget {
-  const _WorkflowCard({required this.item, required this.canManageWorkflows});
+class _WorkflowCard extends StatefulWidget {
+  const _WorkflowCard({required this.item, required this.canManageWorkflows, super.key});
   final WorkflowDefinition item;
   final bool canManageWorkflows;
+
+  @override
+  State<_WorkflowCard> createState() => _WorkflowCardState();
+}
+
+class _WorkflowCardState extends State<_WorkflowCard> {
+  WorkflowDefinition get item => widget.item;
+  bool _busy = false;
+
+  Future<void> _operate(String action) async {
+    if (_busy) return;
+    final cubit = context.read<WorkflowListCubit>();
+    final id = item.id;
+    final oldStatus = item.status;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _busy = true);
+    try {
+      if (action == 'delete') {
+        if (!item.canDelete || item.isSystemTemplate ||
+            item.templateKey?.isNotEmpty == true || item.code.startsWith('SYS-')) {
+          return;
+        }
+        final confirmed = await showDialog<bool>(context: context, builder: (dialogContext) => AlertDialog(
+          title: const Text('حذف گردش‌کار'),
+          content: Text('«${item.title}» حذف شود؟ این کار برگشت‌پذیر نیست. اگر سابقه یا وابستگی داشته باشد، حذف انجام نمی‌شود.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('انصراف')),
+            TextButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('حذف')),
+          ],
+        ));
+        if (confirmed != true || !mounted) return;
+      }
+      if (!mounted) return;
+      final repository = context.read<WorkflowCardRepository>();
+      final title = item.title;
+      WorkflowDefinition? updated;
+      if (action == 'delete') {
+        await repository.delete(id);
+      } else {
+        updated = await repository.setStatus(id, oldStatus == WorkflowDefinitionStatus.active
+            ? WorkflowDefinitionStatus.inactive : WorkflowDefinitionStatus.active);
+      }
+      if (!cubit.isClosed && messenger.mounted) {
+        messenger.showSnackBar(SnackBar(content:
+            Text(action == 'delete' ? 'گردش‌کار «$title» حذف شد.' : 'وضعیت گردش‌کار ذخیره شد.')));
+      }
+      if (!cubit.isClosed) {
+        cubit.recordMutation(id, updated: updated);
+        await cubit.load(authoritativeRepository: repository.authoritativeListing);
+      }
+    } catch (error) {
+      if (!cubit.isClosed && messenger.mounted) {
+        messenger.showSnackBar(SnackBar(content: Text(failureDetail(error))));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -384,8 +452,9 @@ class _WorkflowCard extends StatelessWidget {
             ),
             const SizedBox(width: 7),
             _StatusBadge(item: item),
-            if (canManageWorkflows)
+            if (widget.canManageWorkflows)
               PopupMenuButton<String>(
+                enabled: !_busy,
                 tooltip: 'عملیات فرایند',
                 itemBuilder: (_) => [
                   const PopupMenuItem(
@@ -395,10 +464,12 @@ class _WorkflowCard extends StatelessWidget {
                       child: Text('طراحی مراحل و فرم درخواست')),
                   PopupMenuItem(
                     value: 'activate',
-                    enabled: !item.isLocked,
-                    child:
-                        Text(item.isLocked ? 'فعال‌سازی (قفل)' : 'فعال‌سازی'),
+                    child: Text(item.status == WorkflowDefinitionStatus.active
+                        ? 'غیرفعال‌سازی' : 'فعال‌سازی'),
                   ),
+                  if (item.canDelete && !item.isSystemTemplate &&
+                      item.templateKey?.isNotEmpty != true && !item.code.startsWith('SYS-'))
+                    const PopupMenuItem(value: 'delete', child: Text('حذف')),
                 ],
                 onSelected: (value) {
                   if (value == 'details') {
@@ -407,6 +478,8 @@ class _WorkflowCard extends StatelessWidget {
                     Navigator.of(context).push(MaterialPageRoute<void>(
                       builder: (_) => WorkflowDesignerPage(definition: item.id),
                     ));
+                  } else if (value == 'activate' || value == 'delete') {
+                    _operate(value).ignore();
                   }
                 },
               ),
@@ -426,39 +499,21 @@ class _WorkflowCard extends StatelessWidget {
     return '${toPersianDigits(item.stepsCount)} مرحله • آخرین ویرایش: $date';
   }
 
-  Future<void> _showDetails(BuildContext context) => showDialog<void>(
-        context: context,
-        builder: (_) => AlertDialog(
-          title: Text(item.title),
-          content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('کد: ${item.code}'),
-                Text('سند مقصد: ${persianDoctypeLabel(item.targetDoctype)}'),
-                Text('نسخه: ${toPersianDigits(item.version)}'),
-                if (item.isLocked) ...[
-                  const SizedBox(height: 12),
-                  const Text('موارد باقی‌مانده:',
-                      style: TextStyle(fontWeight: FontWeight.w900)),
-                  for (final requirement in item.missingRequirements)
-                    Text('• $requirement'),
-                ],
-              ]),
-          actions: [
-            OutlinedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  Navigator.of(context).push(MaterialPageRoute<void>(
-                      builder: (_) => WorkflowDesignerPage(definition: item.id)));
-                },
-                child: const Text('طراحی مراحل')),
-            TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('بستن'))
-          ],
-        ),
-      );
+  Future<void> _showDetails(BuildContext context) async {
+    WorkflowRepository repository = context.read<WorkflowRepository>();
+    try {
+      final client = context.read<FrappeApiClient>();
+      if (client.isAuthenticated) repository = FrappeWorkflowRepository(client);
+    } on ProviderNotFoundException {
+      // Injected repositories also serve local previews and widget tests.
+    }
+    final openStages = await showDialog<bool>(context: context,
+        builder: (_) => WorkflowDetailsDialog(load: () => repository.getDesign(item.id)));
+    if (openStages == true && context.mounted) {
+      await Navigator.of(context).push(MaterialPageRoute<void>(
+          builder: (_) => WorkflowDesignerPage(definition: item.id)));
+    }
+  }
 }
 
 class _StatusBadge extends StatelessWidget {
