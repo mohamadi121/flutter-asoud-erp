@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/persian_server_values.dart';
 import '../../domain/entities/workflow_definition.dart';
+import 'workflow_graph_geometry.dart';
 
 class WorkflowGraphCanvas extends StatefulWidget {
   const WorkflowGraphCanvas({
@@ -83,6 +84,8 @@ class _WorkflowGraphCanvasState extends State<WorkflowGraphCanvas> {
                     stages: widget.design.stages,
                     transitions: widget.design.transitions,
                     positions: positions,
+                    labelStyle: Theme.of(context).textTheme.labelSmall!.copyWith(
+                      color: AsoudColors.primary, fontSize: 11, fontWeight: FontWeight.w700),
                   ),
                 ),
               ),
@@ -120,6 +123,7 @@ class _WorkflowGraphCanvasState extends State<WorkflowGraphCanvas> {
                   left: positions[stage.id]!.dx,
                   top: positions[stage.id]!.dy,
                   child: GestureDetector(
+                    key: ValueKey('workflow-node-${stage.id}'),
                     onPanUpdate: (details) {
                       final current = positions[stage.id]!;
                       widget.onMoveStage(
@@ -167,60 +171,58 @@ class _GraphNode extends StatelessWidget {
       child: SizedBox(
         width: WorkflowGraphCanvas.nodeSize.width,
         height: WorkflowGraphCanvas.nodeSize.height,
-        child: Material(
+        child: Stack(clipBehavior: Clip.none, children: [Positioned.fill(child: Material(
           color: Colors.transparent,
+          shape: _NodeBorder(stage.type),
+          clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: onTap,
+            customBorder: _NodeBorder(stage.type),
             child: Padding(
               padding: EdgeInsets.symmetric(
-                  horizontal: stage.type == WorkflowStageType.start || stage.type == WorkflowStageType.end ? 40 : 18,
-                  vertical: 12),
+                  horizontal: switch (stage.type) {
+                    WorkflowStageType.start || WorkflowStageType.end => 55,
+                    WorkflowStageType.condition => 49,
+                    _ => 28,
+                  },
+                  vertical: stage.type == WorkflowStageType.condition ? 30 : 21),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(visual.icon, size: 20, color: visual.color),
-                      const SizedBox(width: 7),
-                      Flexible(
-                        child: Text(stage.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                                fontSize: 13, fontWeight: FontWeight.w900)),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Text(visual.label,
-                      style: const TextStyle(
-                          fontSize: 8, color: AsoudColors.muted)),
-                  if (outgoing.isNotEmpty) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      outgoing
-                          .map((e) => '${persianTransitionLabel(e.label)} ←')
-                          .join('  '),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 8, color: visual.color),
-                    ),
-                  ],
-                  if (stage.type != WorkflowStageType.end)
-                    Align(
-                      alignment: AlignmentDirectional.centerEnd,
-                      child: InkWell(
-                        onTap: onConnect,
-                        child: Icon(Icons.add_link_rounded,
-                            size: 19, color: visual.color),
-                      ),
-                    ),
+                  Icon(visual.icon, size: 18, color: visual.color),
+                  const SizedBox(height: 4),
+                  Flexible(child: Tooltip(
+                    message: '${stage.title}\n${visual.label}'
+                        '${outgoing.isEmpty ? '' : '\n${outgoing.map((e) => persianTransitionLabel(e.label)).join('، ')}'}',
+                    child: LayoutBuilder(builder: (_, constraints) => FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: SizedBox(width: constraints.maxWidth,
+                        child: Text(stage.title, textAlign: TextAlign.center, softWrap: true,
+                          style: const TextStyle(fontSize: 13, height: 1.2,
+                            fontWeight: FontWeight.w900, color: AsoudColors.text))),
+                    )),
+                  )),
                 ],
               ),
             ),
           ),
-        ),
+        )),
+          if (outgoing.isNotEmpty && stage.type != WorkflowStageType.approval)
+            Positioned(left: WorkflowGraphCanvas.nodeSize.width / 2 + 24,
+              top: WorkflowGraphCanvas.nodeSize.height + 3,
+              child: SizedBox(width: 130, child: Text(
+                outgoing.map((e) => '${persianTransitionLabel(e.label)} ←').join('  '),
+                maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 10, color: visual.color))),
+            ),
+          if (stage.type != WorkflowStageType.end)
+            Positioned(right: 0, bottom: 0, child: Tooltip(
+              message: 'ایجاد مسیر جدید',
+              child: InkWell(onTap: onConnect, borderRadius: BorderRadius.circular(20),
+                child: SizedBox(width: 40, height: 40,
+                  child: Icon(Icons.add_link_rounded, size: 20, color: visual.color))),
+            )),
+        ]),
       ),
     );
   }
@@ -230,10 +232,11 @@ class _GraphPainter extends CustomPainter {
   const _GraphPainter(
       {required this.stages,
       required this.transitions,
-      required this.positions});
+      required this.positions, required this.labelStyle});
   final List<WorkflowStage> stages;
   final List<WorkflowTransition> transitions;
   final Map<String, Offset> positions;
+  final TextStyle labelStyle;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -247,21 +250,25 @@ class _GraphPainter extends CustomPainter {
       ..color = AsoudColors.primary.withValues(alpha: .55)
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke;
+    final nodes = {for (final stage in stages) stage.id: stage};
+    final outgoing = <String, List<WorkflowTransition>>{};
+    for (final edge in transitions) {
+      outgoing.putIfAbsent(edge.fromStage, () => []).add(edge);
+    }
+    final labels = <WorkflowEdgeGeometry>[];
     for (final edge in transitions) {
       final from = positions[edge.fromStage];
       final to = positions[edge.toStage];
       if (from == null || to == null) continue;
-      final start = from +
-          Offset(WorkflowGraphCanvas.nodeSize.width / 2,
-              WorkflowGraphCanvas.nodeSize.height / 2);
-      final end = to +
-          Offset(WorkflowGraphCanvas.nodeSize.width / 2,
-              WorkflowGraphCanvas.nodeSize.height / 2);
-      final path = Path()..moveTo(start.dx, start.dy);
-      final middle = (start.dy + end.dy) / 2;
-      path.cubicTo(start.dx, middle, end.dx, middle, end.dx, end.dy);
-      canvas.drawPath(path, line);
-      final angle = math.atan2(end.dy - middle, end.dx - end.dx);
+      final source = nodes[edge.fromStage], target = nodes[edge.toStage];
+      if (source == null || target == null) continue;
+      final geometry = WorkflowGraphGeometry.edge(from: source, to: target,
+        fromPosition: from, toPosition: to, transition: edge,
+        outgoing: outgoing[source.id] ?? const [],
+        nodeSize: WorkflowGraphCanvas.nodeSize);
+      final end = geometry.end;
+      canvas.drawPath(geometry.path, line);
+      final angle = math.atan2(end.dy - geometry.control2.dy, end.dx - geometry.control2.dx);
       final arrow = Path()
         ..moveTo(end.dx, end.dy)
         ..lineTo(end.dx - 7 * math.cos(angle - .55),
@@ -270,12 +277,31 @@ class _GraphPainter extends CustomPainter {
         ..lineTo(end.dx - 7 * math.cos(angle + .55),
             end.dy - 7 * math.sin(angle + .55));
       canvas.drawPath(arrow, line);
+      if (geometry.action != null) labels.add(geometry);
+    }
+    // Paint labels after every line, so another route cannot cross their text.
+    for (final geometry in labels) {
+      if (geometry.action case final action?) {
+        canvas.drawCircle(geometry.start, 3, Paint()..color = AsoudColors.primary);
+        final text = TextPainter(text: TextSpan(text: switch (action) {
+          'Approve' => 'تأیید', 'Reject' => 'رد', _ => 'اصلاح',
+        }, style: labelStyle), textDirection: TextDirection.rtl)..layout();
+        final direction = geometry.direction;
+        final label = geometry.start + Offset(
+          direction.dx > 0 ? 8 : direction.dx < 0 ? -text.width - 8 : 24,
+          direction.dy > 0 ? 8 : -text.height - 8);
+        canvas.drawRRect(RRect.fromRectAndRadius((label & text.size).inflate(3),
+          const Radius.circular(4)), Paint()..color = Colors.white);
+        text.paint(canvas, label);
+      }
     }
   }
 
   @override
   bool shouldRepaint(covariant _GraphPainter oldDelegate) =>
       oldDelegate.positions != positions ||
+      oldDelegate.labelStyle != labelStyle ||
+      oldDelegate.stages != stages ||
       oldDelegate.transitions != transitions;
 }
 
@@ -286,49 +312,36 @@ class _NodeShapePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final terminal = type == WorkflowStageType.start || type == WorkflowStageType.end;
     final fill = Paint()
-      ..shader = LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter,
-          colors: [Colors.white, color.withValues(alpha: terminal ? .12 : .035)])
-          .createShader(Offset.zero & size);
+      ..color = Color.alphaBlend(color.withValues(alpha: .08), Colors.white);
     final border = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
-      ..strokeWidth = terminal ? 2.2 : 1.6;
-    final path = switch (type) {
-      WorkflowStageType.condition => Path()
-        ..moveTo(size.width / 2, 0)
-        ..lineTo(size.width, size.height / 2)
-        ..lineTo(size.width / 2, size.height)
-        ..lineTo(0, size.height / 2)
-        ..close(),
-      WorkflowStageType.systemAction => Path()
-        ..moveTo(20, 0)
-        ..lineTo(size.width - 20, 0)
-        ..lineTo(size.width, size.height / 2)
-        ..lineTo(size.width - 20, size.height)
-        ..lineTo(20, size.height)
-        ..lineTo(0, size.height / 2)
-        ..close(),
-      WorkflowStageType.start || WorkflowStageType.end => Path()
-        ..addOval(Rect.fromLTWH(28, 0, size.width - 56, size.height)),
-      _ => Path()
-        ..addRRect(RRect.fromRectAndRadius(
-            Offset.zero & size, const Radius.circular(18))),
-    };
-    canvas.drawShadow(path, Colors.black.withValues(alpha: .13), 7, false);
+      ..strokeWidth = 1.6;
+    final path = WorkflowGraphGeometry.shape(type, size);
     canvas.drawPath(path, fill);
     canvas.drawPath(path, border);
-    if (terminal) {
-      canvas.drawOval(Rect.fromLTWH(33, 5, size.width - 66, size.height - 10),
-          Paint()..color = color.withValues(alpha: .18)
-            ..style = PaintingStyle.stroke..strokeWidth = 1);
-    }
   }
 
   @override
   bool shouldRepaint(covariant _NodeShapePainter oldDelegate) =>
       oldDelegate.type != type || oldDelegate.color != color;
+}
+
+class _NodeBorder extends ShapeBorder {
+  const _NodeBorder(this.type);
+  final WorkflowStageType type;
+  @override
+  EdgeInsetsGeometry get dimensions => EdgeInsets.zero;
+  @override
+  Path getOuterPath(Rect rect, {TextDirection? textDirection}) =>
+      WorkflowGraphGeometry.shape(type, rect.size).shift(rect.topLeft);
+  @override
+  Path getInnerPath(Rect rect, {TextDirection? textDirection}) => getOuterPath(rect);
+  @override
+  void paint(Canvas canvas, Rect rect, {TextDirection? textDirection}) {}
+  @override
+  ShapeBorder scale(double t) => this;
 }
 
 ({IconData icon, Color color, String label}) _visual(WorkflowStageType type) =>
