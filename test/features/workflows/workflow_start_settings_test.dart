@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:asoud_erp/core/network/api_exception.dart';
 import 'package:asoud_erp/core/network/frappe_client.dart';
 import 'package:asoud_erp/core/theme/asoud_theme.dart';
@@ -90,12 +92,14 @@ class Client extends Fake implements FrappeApiClient {
   int calls = 0;
   Map<String, dynamic>? sent;
   bool protocolFailure = false;
+  Completer<void>? hold;
   @override
   Future<Map<String, dynamic>> callMethod(String method,
       {Map<String, dynamic>? data}) async {
     expect(method, 'asoud_erp.api.v1.workflow_runtime.start_workflow_instance');
     calls++;
     sent = data;
+    await hold?.future;
     if (protocolFailure) throw const ApiException.protocol();
     return {
       'message': {
@@ -107,6 +111,29 @@ class Client extends Fake implements FrappeApiClient {
 }
 
 void main() {
+  testWidgets('a pending manual start cannot be dismissed or submitted twice',
+      (tester) async {
+    final client = Client()..hold = Completer<void>();
+    await tester.pumpWidget(MaterialApp(
+        theme: AsoudTheme.light,
+        home:
+            WorkflowManualStartDialog(definition: 'created', client: client)));
+    await tester.enterText(find.byType(TextField).first, 'بررسی امروز');
+    await tester.enterText(find.byType(TextField).last, 'بازبینی درخواست');
+    await tester.tap(find.text('شروع گردش کار'));
+    await tester.pump();
+    expect(client.calls, 1);
+    expect(
+        find.byWidgetPredicate(
+            (widget) => widget is PopScope && !widget.canPop),
+        findsOneWidget);
+    expect(tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
+        isNull);
+    client.hold!.complete();
+    await tester.pumpAndSettle();
+    expect(client.calls, 1);
+  });
+
   test('form start requires a published identity before creating any draft',
       () async {
     final repository = Repository();

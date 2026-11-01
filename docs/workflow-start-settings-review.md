@@ -30,26 +30,33 @@ new engine, API or production data mutation is introduced by opening the editor.
 - User Task source metadata moves only on explicit Start save. Existing task
   fields/layout/content, historical instances and prior records remain intact.
 - Running instances block actual Start-policy changes; identical settings are a no-op.
-- Manual execution blocks double taps and stops retries after an uncertain network
+- Manual execution blocks double taps and dismissing the pending dialog, and stops retries after an uncertain network
   response. The user must inspect existing runs before another intentional start.
 
 ## Verification (Windows, 2026-11-01)
 
 - `flutter analyze --no-pub`: no issues.
 - `flutter test --no-pub --exclude-tags golden test/features/workflows test/ui/workflow_form_page_test.dart`:
-  **447 passed**, including **15** new Start behavior/layout tests.
+  **448 passed**, including **16** new Start behavior/layout tests.
 - Real Vazirmatn/MaterialIcons layout captures reviewed at 320/390/430 px in RTL.
   Reproduce with `--dart-define=CAPTURE_WORKFLOW_START=true` and
   `test/features/workflows/workflow_start_layout_test.dart`; captures go to `build/`.
   Reviewed captures: [form](workflow-start-form-390.png),
   [additional settings](workflow-start-additional-390.png),
   [remaining settings](workflow-start-additional-bottom-390.png).
-- Full `flutter test --no-pub --exclude-tags golden`: **1924 passed, 10 failed**.
+- Full `flutter test --no-pub --exclude-tags golden` before the final dialog-dismissal guard: **1924 passed, 10 failed**.
   Failures are in unchanged offline database/queue/session/retry/reconnect tests
   (including a Windows file-lock cleanup error) and the untagged
   `new_request_sheet_golden_test.dart` reference image. No assertions or golden
   baselines were weakened or regenerated to conceal these failures.
 - Backend pure suite and Ruff are reported with the paired backend PR.
+- GitHub Linux test/build and form-builder goldens succeeded for the initial
+  client commit `d0ee74d`; the subsequent dismissal guard has its own regression.
+  The paired backend integration run `41344818476` stopped in the unchanged
+  `test_document_templates.test_privileged_roles_request_query_and_permission_pinned`
+  (expected an empty HR list, received a request), before reaching the new module.
+  The Start module was moved to the front of the same loop without removing any
+  existing test; its rerun must be checked before claiming live verification.
 
 ## Not verified here
 

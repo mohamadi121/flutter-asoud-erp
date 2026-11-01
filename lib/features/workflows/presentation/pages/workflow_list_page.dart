@@ -476,7 +476,7 @@ class _WorkflowCardState extends State<_WorkflowCard> {
                 ],
                 onSelected: (value) {
                   if (value == 'start-manual') {
-                    showDialog<String>(context: context, builder: (_) => WorkflowManualStartDialog(
+                    showDialog<String>(context: context, barrierDismissible: false, builder: (_) => WorkflowManualStartDialog(
                       definition: item.id, client: context.read<FrappeApiClient>())).then((instance) {
                         if (instance != null && context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('گردش کار آغاز شد؛ در فهرست اجراها قابل پیگیری است.')));

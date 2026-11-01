@@ -71,41 +71,43 @@ class _WorkflowManualStartDialogState extends State<WorkflowManualStartDialog> {
   @override
   Widget build(BuildContext context) => Directionality(
       textDirection: TextDirection.rtl,
-      child: AlertDialog(
-          title: const Text('شروع دستی گردش کار'),
-          content: SizedBox(
-              width: 360,
-              child: SingleChildScrollView(
-                  child: Column(mainAxisSize: MainAxisSize.min, children: [
-                TextField(
-                    controller: subject,
-                    enabled: !busy && !unknown,
-                    maxLength: 140,
-                    hintLocales: const [Locale('fa')],
-                    decoration: const InputDecoration(
-                        labelText: 'عنوان اجرای گردش کار *')),
-                const SizedBox(height: 16),
-                TextField(
-                    controller: reason,
-                    enabled: !busy && !unknown,
-                    minLines: 2,
-                    maxLines: 5,
-                    maxLength: 1000,
-                    hintLocales: const [Locale('fa')],
-                    decoration: const InputDecoration(
-                        labelText: 'علت شروع گردش کار *',
-                        hintText: 'علت شروع دستی را وارد کنید…')),
-                if (error != null)
-                  Text(error!,
-                      style: TextStyle(
-                          color: Theme.of(context).colorScheme.error)),
-              ]))),
-          actions: [
-            TextButton(
-                onPressed: busy ? null : () => Navigator.pop(context),
-                child: const Text('انصراف')),
-            FilledButton(
-                onPressed: busy || unknown ? null : start,
-                child: Text(busy ? 'در حال شروع…' : 'شروع گردش کار'))
-          ]));
+      child: PopScope(
+          canPop: !busy,
+          child: AlertDialog(
+              title: const Text('شروع دستی گردش کار'),
+              content: SizedBox(
+                  width: 360,
+                  child: SingleChildScrollView(
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    TextField(
+                        controller: subject,
+                        enabled: !busy && !unknown,
+                        maxLength: 140,
+                        hintLocales: const [Locale('fa')],
+                        decoration: const InputDecoration(
+                            labelText: 'عنوان اجرای گردش کار *')),
+                    const SizedBox(height: 16),
+                    TextField(
+                        controller: reason,
+                        enabled: !busy && !unknown,
+                        minLines: 2,
+                        maxLines: 5,
+                        maxLength: 1000,
+                        hintLocales: const [Locale('fa')],
+                        decoration: const InputDecoration(
+                            labelText: 'علت شروع گردش کار *',
+                            hintText: 'علت شروع دستی را وارد کنید…')),
+                    if (error != null)
+                      Text(error!,
+                          style: TextStyle(
+                              color: Theme.of(context).colorScheme.error)),
+                  ]))),
+              actions: [
+                TextButton(
+                    onPressed: busy ? null : () => Navigator.pop(context),
+                    child: const Text('انصراف')),
+                FilledButton(
+                    onPressed: busy || unknown ? null : start,
+                    child: Text(busy ? 'در حال شروع…' : 'شروع گردش کار'))
+              ])));
 }
