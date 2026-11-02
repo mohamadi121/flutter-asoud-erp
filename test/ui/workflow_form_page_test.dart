@@ -57,11 +57,17 @@ Future<void> _tapControl(WidgetTester tester, String key) async {
   if (target.evaluate().isEmpty) {
     await tester.scrollUntilVisible(target, 160, scrollable: scrollable);
   }
-  await tester.ensureVisible(target);
+  final widget = tester.widget(target);
+  // An expanded tile's bounds include its choices. Tapping its center may
+  // select a choice instead of toggling the header, so target the title itself.
+  final tapTarget = widget is ExpansionTile
+      ? find.descendant(of: target, matching: find.byWidget(widget.title))
+      : target;
+  await tester.ensureVisible(tapTarget);
   // Jumping a ScrollPosition requires a layout frame before measuring/tapping.
   await tester.pumpAndSettle();
-  expect(target.hitTestable(), findsOneWidget);
-  await tester.tap(target.hitTestable());
+  expect(tapTarget.hitTestable(), findsOneWidget);
+  await tester.tap(tapTarget.hitTestable());
   await tester.pumpAndSettle();
 }
 
