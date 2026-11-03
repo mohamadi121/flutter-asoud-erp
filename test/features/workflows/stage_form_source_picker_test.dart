@@ -64,6 +64,13 @@ void main() {
       expect(find.text('درخواست‌ها'), findsOneWidget);
       expect(find.text('سندها'), findsOneWidget);
       final confirm = find.widgetWithText(FilledButton, 'انتخاب و تأیید');
+      final cancel = find.widgetWithText(OutlinedButton, 'انصراف');
+      expect(tester.getRect(confirm).top, tester.getRect(cancel).top);
+      expect(tester.getRect(confirm).size, tester.getRect(cancel).size);
+      final explanation = find.textContaining('پس از تکمیل و ارسال این نوع درخواست یا سند');
+      await _reveal(tester, explanation, interactive: false);
+      expect(find.descendant(of: find.byKey(const ValueKey('stage-source-list')),
+          matching: explanation), findsOneWidget);
       expect(tester.widget<FilledButton>(confirm).onPressed, isNull);
       final draft = find.byKey(const ValueKey('stage-source-draft'));
       await _reveal(tester, draft, interactive: false);
