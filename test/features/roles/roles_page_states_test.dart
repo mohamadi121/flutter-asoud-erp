@@ -8,8 +8,9 @@ import 'package:mocktail/mocktail.dart';
 class _Repository extends Mock implements RoleRepository {}
 
 void main() {
-  Future<void> pump(WidgetTester tester, RoleRepository repository) async {
-    tester.view.physicalSize = const Size(390, 780);
+  Future<void> pump(WidgetTester tester, RoleRepository repository,
+      {double width = 390, bool openList = true}) async {
+    tester.view.physicalSize = Size(width, 780);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -22,8 +23,32 @@ void main() {
     await tester.pumpWidget(
         MaterialApp(home: RolesPage(repository: repository)));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('مشاهده و تکمیل نقش‌ها'));
-    await tester.pumpAndSettle();
+    if (openList) {
+      await tester.tap(find.text('مشاهده و تکمیل نقش‌ها'));
+      await tester.pumpAndSettle();
+    }
+  }
+
+  for (final width in [320.0, 390.0, 430.0]) {
+    testWidgets('role setup keeps real counts and reference card order at $width', (tester) async {
+      final repository = _Repository();
+      when(() => repository.load()).thenAnswer((_) async => const RoleCatalog(
+          categories: [RoleCategory(code: 'c1', title: 'دسته اصلی', style: 'system')],
+          roles: [ManagedRole(code: 'r1', title: 'نقش موجود', category: 'c1', baseRoles: [])]));
+      await pump(tester, repository, width: width, openList: false);
+      expect(find.text('۱ دسته · ۱ نقش'), findsOneWidget);
+      expect(find.text('قالب‌های پیشنهادی آسود'), findsOneWidget);
+      expect(find.text('انتخاب نقش‌های پیشنهادی'), findsOneWidget);
+      expect(find.text('تعریف دستی نقش'), findsOneWidget);
+      expect(find.text('انتقال نقش‌های موجود'), findsOneWidget);
+      expect(find.text('ایجاد دسته'), findsNothing);
+      final create = find.text('ایجاد نقش جدید');
+      final excel = find.text('ورود از اکسل');
+      expect(tester.getCenter(create).dx, greaterThan(tester.getCenter(excel).dx));
+      expect(tester.getCenter(create).dy, closeTo(tester.getCenter(excel).dy, 2));
+      expect(find.text('مشاهده و تکمیل نقش‌ها').hitTestable(), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
   }
 
   testWidgets('empty role catalog explains how to start', (tester) async {

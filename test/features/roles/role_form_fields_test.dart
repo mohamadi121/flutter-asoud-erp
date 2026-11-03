@@ -2,6 +2,7 @@ import 'package:asoud_erp/core/network/frappe_client.dart';
 import 'package:asoud_erp/core/theme/asoud_theme.dart';
 import 'package:asoud_erp/core/widgets/app_fields.dart';
 import 'package:asoud_erp/features/roles/data/role_repository.dart';
+import 'package:asoud_erp/features/roles/domain/bundled_role_catalog.dart';
 import 'package:asoud_erp/features/roles/presentation/roles_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -72,11 +73,16 @@ Future<void> _openCreateForm(WidgetTester tester, double width) async {
   ));
   await tester.pumpAndSettle();
 
-  await tester.tap(find.text('ایجاد نقش دستی'));
+  await tester.tap(find.text('ایجاد نقش جدید'));
   await tester.pumpAndSettle();
 }
 
 void main() {
+  test('fresh installed catalog contains suggestions but no assigned business roles', () {
+    expect(bundledRoleCatalog.roles, isEmpty);
+    expect(bundledRoleCatalog.categories, isEmpty);
+    expect(bundledRoleCatalog.templates, isNotEmpty);
+  });
   for (final width in [320.0, 390.0]) {
     testWidgets(
         'role create form renders the shared AppTextField, AppSelectField and '
