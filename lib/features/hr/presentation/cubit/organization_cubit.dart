@@ -117,4 +117,22 @@ class OrganizationCubit extends Cubit<OrganizationState> {
       }
     }
   }
+
+  Future<bool> resetChart() async {
+    if (state.busy || isClosed || state.sessionChanged) return false;
+    final previous = state.snapshot;
+    final epoch = _epoch;
+    emit(OrganizationState(snapshot: previous, busy: true));
+    try {
+      final result = await repository.resetChart(company, previous.revision);
+      if (isClosed || epoch != _epoch) return false;
+      emit(OrganizationState(snapshot: result));
+      return true;
+    } catch (failure) {
+      if (!isClosed && epoch == _epoch) {
+        emit(OrganizationState(snapshot: previous, error: failureMessage(failure)));
+      }
+      return false;
+    }
+  }
 }

@@ -1,4 +1,6 @@
 import 'package:asoud_erp/core/theme/asoud_theme.dart';
+import 'package:asoud_erp/core/network/frappe_client.dart';
+import 'package:asoud_erp/features/form_builder/form_runtime/form_fields_view.dart';
 import 'package:asoud_erp/features/workflows/data/workflow_automation_repository.dart';
 import 'package:asoud_erp/features/workflows/domain/entities/document_template.dart';
 import 'package:asoud_erp/features/workflows/domain/entities/workflow_definition.dart';
@@ -71,9 +73,11 @@ const _options = WorkflowFormOptions(
 );
 
 class _Workflows extends Fake implements WorkflowRepository {
+  _Workflows([this.design]);
+  final WorkflowDesign? design;
   final saved = <Map<String, dynamic>>[];
   @override
-  Future<WorkflowDesign> getDesign(String definition) async => _design;
+  Future<WorkflowDesign> getDesign(String definition) async => design ?? _design;
   @override
   Future<WorkflowFormOptions> getFormOptions() async => _options;
   @override
@@ -82,7 +86,7 @@ class _Workflows extends Fake implements WorkflowRepository {
       required String stage,
       required Map<String, dynamic> config}) async {
     saved.add(config);
-    return _design;
+    return design ?? _design;
   }
 }
 
@@ -93,7 +97,28 @@ const _template = DocumentTemplate(
     documentType: 'Journal Entry',
     description: 'ثبت سند هزینه');
 
+class _FormClient extends Fake implements FrappeApiClient {
+  final calls = <Map<String, dynamic>>[];
+  @override
+  bool get isAuthenticated => true;
+  @override
+  Future<FrappeUserContext> getCurrentUser() async => const FrappeUserContext(
+      userId: 'designer', fullName: 'طراح', roles: ['System Manager']);
+  @override
+  Future<Map<String, dynamic>> callMethod(String method, {Map<String, dynamic>? data}) async {
+    calls.add({'method': method, ...?data});
+    expect(method, 'asoud_erp.api.v1.forms.get_form');
+    return {'message': {'ok': true, 'meta': {'api_version': 'v1'}, 'data': {
+      'schema': {'kind': 'Request', 'title': 'درخواست مرخصی', 'sections': [
+        {'id': 'main', 'fields': [{'key': 'note', 'label': 'شرح درخواست', 'type': 'Text'}]}
+      ]}
+    }}};
+  }
+}
+
 class _Automation extends Fake implements WorkflowAutomationRepository {
+  @override
+  final _FormClient client = _FormClient();
   @override
   bool get isLocal => false;
   final routes = <Map<String, String>>[];
@@ -125,8 +150,9 @@ class _Automation extends Fake implements WorkflowAutomationRepository {
 }
 
 Future<(_Workflows, _Automation)> _open(
-    WidgetTester tester, String stageId) async {
-  final workflows = _Workflows();
+    WidgetTester tester, String stageId, {WorkflowDesign? designOverride}) async {
+  final design = designOverride ?? _design;
+  final workflows = _Workflows(design);
   final automation = _Automation();
   final cubit =
       WorkflowDesignerCubit(repository: workflows, definition: 'WF-1');
@@ -147,9 +173,9 @@ Future<(_Workflows, _Automation)> _open(
                       builder: (_) => BlocProvider.value(
                           value: cubit,
                           child: StageSettingsPage(
-                              stage: _design.stages
+                              stage: design.stages
                                   .firstWhere((stage) => stage.id == stageId),
-                              design: _design,
+                              design: design,
                               options: _options,
                               automation: automation)))),
               child: const Text('باز کردن'),
@@ -196,6 +222,85 @@ Future<void> _choose(WidgetTester tester, String label, String option) async {
 }
 
 void main() {
+  testWidgets('approval source preview uses Start revision and never submits an entry', (tester) async {
+    final design = WorkflowDesign(workflow: _design.workflow, transitions: _design.transitions,
+        stages: [for (final stage in _design.stages) stage.id == 'S0'
+            ? stage.copyWith(config: {'submission_source': {'form': 'form-1', 'revision': 'rev-1', 'title': 'درخواست مرخصی'}})
+            : stage]);
+    final (_, automation) = await _open(tester, 'S2', designOverride: design);
+    await _tap(tester, find.byKey(const ValueKey('approval-source-preview')));
+    final preview = tester.widget<FormFieldsView>(find.byType(FormFieldsView));
+    expect(preview.enabled, isFalse);
+    expect(preview.snapshot, isTrue);
+    expect(preview.values, isEmpty);
+    expect(automation.client.calls.single['name'], 'form-1');
+    expect(automation.client.calls.single['revision_name'], 'rev-1');
+    expect(automation.client.calls.single['method'], endsWith('.get_form'));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('unrelated approval edit preserves an already-disabled stored route', (tester) async {
+    final design = WorkflowDesign(workflow: _design.workflow,
+        stages: [for (final stage in _design.stages) stage.id == 'S2'
+            ? stage.copyWith(config: {...stage.config, 'allow_reject': false}) : stage],
+        transitions: [..._design.transitions, const WorkflowTransition(id: 'R1',
+            fromStage: 'S2', toStage: 'S5', label: 'رد', condition: {'action': 'Reject'})]);
+    final (workflows, automation) = await _open(tester, 'S2', designOverride: design);
+    await _tap(tester, find.text('ذخیره'));
+    expect(workflows.saved.single['allow_reject'], isFalse);
+    expect(automation.routes, isEmpty);
+  });
+  for (final width in [320.0, 390.0, 430.0]) {
+    testWidgets('approval information is readonly and owner is not duplicated at $width', (tester) async {
+      await tester.binding.setSurfaceSize(Size(width, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await _open(tester, 'S2');
+      await _scrollToFinder(tester, find.text('اطلاعات موردنیاز برای تأیید'));
+      expect(find.text('فرم اصلی درخواست'), findsOneWidget);
+      expect(find.text('فرم قابل پیش‌نمایش در شروع انتخاب نشده است.'), findsOneWidget);
+      expect(find.byKey(const ValueKey('approval-source-preview')), findsNothing);
+      await _scrollToFinder(tester, find.text('مسئول تأیید *'));
+      expect(find.text('مسئول تأیید *'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('new pending approval defaults to All without converting legacy Any', (tester) async {
+    final pending = WorkflowStage(id: 'S2', key: 'S2', type: WorkflowStageType.approval,
+        title: 'تأیید مدیر مستقیم', sequence: 3, configurationComplete: false);
+    final design = WorkflowDesign(workflow: _design.workflow,
+        stages: [for (final stage in _design.stages) stage.id == 'S2' ? pending : stage],
+        transitions: _design.transitions);
+    final (workflows, _) = await _open(tester, 'S2', designOverride: design);
+    await _tap(tester, find.text('ذخیره'));
+    expect(workflows.saved.single['approval_mode'], 'All');
+  });
+
+  for (final confirm in [false, true]) {
+    testWidgets('disabling an existing Reject route requires confirmation: $confirm', (tester) async {
+      final design = WorkflowDesign(workflow: _design.workflow, stages: _design.stages,
+          transitions: [..._design.transitions, const WorkflowTransition(id: 'R1',
+              fromStage: 'S2', toStage: 'S5', label: 'رد', condition: {'action': 'Reject'})]);
+      final (workflows, automation) = await _open(tester, 'S2', designOverride: design);
+      await _tap(tester, find.text('امکان رد'));
+      expect(find.text('غیرفعال‌کردن تصمیم'), findsOneWidget);
+      if (confirm) {
+        await tester.tap(find.text('تأیید غیرفعال‌سازی'));
+      } else {
+        await tester.tap(find.widgetWithText(TextButton, 'انصراف').last);
+      }
+      await tester.pumpAndSettle();
+      await _tap(tester, find.text('ذخیره'));
+      expect(workflows.saved.single['allow_reject'], !confirm);
+      expect(workflows.saved.single['approval_mode'], 'Any');
+      if (confirm) {
+        expect(automation.routes.single, {'Reject': ''});
+      } else {
+        expect(automation.routes, isEmpty);
+      }
+      expect(tester.takeException(), isNull);
+    });
+  }
   for (final width in [320.0, 390.0, 430.0]) {
     testWidgets('user action keeps report and four independent capabilities at $width', (tester) async {
       await tester.binding.setSurfaceSize(Size(width, 900));
@@ -231,7 +336,9 @@ void main() {
       addTearDown(() => tester.binding.setSurfaceSize(null));
       final (workflows, automation) = await _open(tester, 'S2');
       expect(find.text('تأیید / رد'), findsWidgets);
+      await _scrollToFinder(tester, find.text('مدیر مستقیم'));
       expect(find.text('مدیر مستقیم'), findsOneWidget);
+      await _scrollToFinder(tester, find.text('امکان تأیید'));
       expect(find.text('امکان تأیید'), findsOneWidget);
       await _tap(tester, find.text('تنظیمات اضافی (اختیاری)'));
       expect(find.text('طبق قواعد سامانه، دلیل رد همواره الزامی است.'), findsOneWidget);

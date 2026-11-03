@@ -65,6 +65,12 @@ class _QueueingClient implements FrappeApiClient {
   @override
   Future<Map<String, dynamic>> callMethod(String method,
       {Map<String, dynamic>? data}) async {
+    if (method.endsWith('.reset_chart')) {
+      rawWrites++;
+      if (offline) throw _offline;
+      return {'message': {'ok': true, 'meta': {'api_version': 'v1'},
+        'data': {'rows': <dynamic>[], 'revision': (data!['revision'] as int) + 1, 'reset': true}}};
+    }
     if (method.endsWith('.save_chart')) {
       rawWrites++;
       if (offline) throw _offline;
@@ -101,6 +107,35 @@ class _QueueingClient implements FrappeApiClient {
 }
 
 void main() {
+  for (final offline in [true, false]) {
+    test('reset is online-only and supersedes only own company queue on success (offline=$offline)', () async {
+      final store = FakeLocalRecordStore();
+      final client = _QueueingClient(store);
+      final repository = OrganizationRepository(client, local: store);
+      addTearDown(repository.dispose);
+      await repository.save('شرکت نمونه', standardOrganization, 3);
+      final staged = store.records.values.singleWhere((r) => r.payload['operation'] is String);
+      await store.save(id: 'other-owner', entityType: staged.entityType,
+          payload: {...staged.payload, '_asoud_owner': 'another-user'}, status: LocalSyncStatus.pendingSync);
+      client.offline = offline;
+      if (offline) {
+        await expectLater(repository.resetChart('شرکت نمونه', 3), throwsA(isA<ApiException>()));
+      } else {
+        final result = await repository.resetChart('شرکت نمونه', 3);
+        expect(result.rows, isEmpty);
+        expect(result.pending, isFalse);
+        expect(result.revision, 4);
+      }
+      expect(client.asoudWrites, 1); // reset never enters the mutation queue
+      expect(client.rawWrites, 1);
+      expect((await store.get(staged.id))!.status,
+          offline ? LocalSyncStatus.pendingSync : LocalSyncStatus.synced);
+      expect((await store.get('other-owner'))!.status, LocalSyncStatus.pendingSync);
+      expect(store.records.values.where((r) => r.entityType == 'organization_draft'),
+          offline ? hasLength(1) : isEmpty);
+    });
+  }
+
   test('organization save offline stages a mutation; manual save replays once',
       () async {
     final store = FakeLocalRecordStore();

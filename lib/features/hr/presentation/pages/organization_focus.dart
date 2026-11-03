@@ -35,8 +35,9 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
   bool branchOpen = true;
   OrgPosition? assigningPosition;
   String? position;
-  int page = 0, positionPage = 0, photoVersion = 0;
-  bool busy = false, canPop = false;
+  int positionPage = 0, photoVersion = 0;
+  bool busy = false;
+  final selectionHistory = <String?>[];
   late bool canManage = widget.canManage;
   late _OrgEdit? action = widget.initialAction;
   OrgPosition? editingPosition;
@@ -120,12 +121,12 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
     if (!await leaveEditor() || !mounted) return;
     final same = selected == id;
     setState(() {
+      if (!same) selectionHistory.add(selected);
       selected = id;
       branchOpen = id != null && same ? !branchOpen : true;
       position = null;
       action = null;
       assigningPosition = null;
-      page = 0;
       positionPage = 0;
       highlighted = null;
     });
@@ -167,13 +168,8 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
         }
         if (newUnit != null) {
           branchOpen = true;
-          final index =
-              nav.children(selected).indexWhere((u) => u['name'] == newUnit);
-          if (index >= 0) page = index ~/ 4;
           highlighted = newUnit;
         }
-        final total = nav.children(selected).length;
-        if (page * 4 >= total) page = 0;
       });
       remember();
       highlightTimer?.cancel();
@@ -210,6 +206,29 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
     setState(() { photoVersion++; people = loadPeople(); });
   }
 
+  Future<void> resetStructure() async {
+    if (!canManage || busy || cubit.state.busy) return;
+    final confirmed = await showDialog<bool>(context: context,
+        builder: (dialog) => AlertDialog(title: const Text('حذف ساختار سازمانی'),
+          content: const Text('تمام چارت و جایگاه‌های این دفتر، حتی دارای متصدی یا سابقه، پاک می‌شوند. نسخهٔ قبلی در سابقهٔ سرور می‌ماند. دفتر، پرسنل، نقش‌ها و واحدهای مرجع سامانه حذف نمی‌شوند. ادامه می‌دهید؟'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('انصراف')),
+            FilledButton(onPressed: () => Navigator.pop(dialog, true), child: const Text('حذف ساختار')),
+          ]));
+    if (confirmed != true || !mounted) return;
+    final controller = cubit;
+    final done = await controller.resetChart();
+    if (mounted) _orgMessage(context, done ? 'ساختار سازمانی پاک شد.' : controller.state.error ?? 'حذف تأیید نشد.');
+  }
+
+  Future<void> editPositionAction(_OrgEdit next, OrgPosition row) async {
+    if (unit != null) { await open(next, row); return; }
+    if (!canManage || !await leaveEditor() || !mounted) return;
+    final saved = await _openOrganizationPage<bool>(context,
+        _OrgSheetTheme(child: _OrganizationPositionForm(item: row)));
+    if (saved == true && mounted) await reload();
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -222,7 +241,7 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
         final children = nav.children(selected);
         final path = nav.path(selected);
         final positions = state.snapshot.rows
-            .where((r) => selected != null && r.departmentId == selected)
+            .where((r) => selected == null ? r.parent.isEmpty : r.departmentId == selected)
             .toList();
         final selectedPosition =
             positions.where((p) => p.code == position).firstOrNull;
@@ -276,17 +295,24 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
                       )),
         ];
         return PopScope(
-          canPop: canPop || (!busy && action == null && assigningPosition == null),
+          canPop: !locked && action == null && assigningPosition == null &&
+              position == null && selectionHistory.isEmpty,
           onPopInvokedWithResult: (didPop, result) async {
-            if (didPop || !await leaveEditor() || !mounted) return;
+            if (didPop || locked || !await leaveEditor() || !mounted) return;
             setState(() {
-              canPop = true;
-              action = null;
-              assigningPosition = null;
+              if (action != null || assigningPosition != null) {
+                action = null;
+                assigningPosition = null;
+                editingPosition = null;
+              } else if (position != null) {
+                position = null;
+              } else if (selectionHistory.isNotEmpty) {
+                selected = selectionHistory.removeLast();
+                branchOpen = true;
+                positionPage = 0;
+              }
             });
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) Navigator.pop(context);
-            });
+            remember();
           },
           child: ListView(
               key: const PageStorageKey('organization-focused-scroll'),
@@ -305,6 +331,7 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
                       onSelected: (value) async {
                         if (!await leaveEditor() || !context.mounted) return;
                         if (value == 'reload') { await reload(); return; }
+                        if (value == 'reset') { await resetStructure(); return; }
                         await _openOrganizationPage<void>(context,
                           value == 'units'
                             ? _OrgDetailPage(title: 'واحدهای سازمانی', children: [
@@ -314,16 +341,15 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
                               ? _OrgDetailPage(title: 'جایگاه‌های سازمانی', children: [
                                   SizedBox(height: MediaQuery.sizeOf(context).height * .7,
                                     child: _PositionList(canManage: canManage))])
-                              : value == 'summary'
-                                ? const _OrgDetailPage(title: 'خلاصه ساختار', children: [_OrganizationSummary()])
-                                : const _OrganizationSetup(returnToWorkspace: true));
+                              : const _OrganizationSetup(returnToWorkspace: true));
                         if (mounted) await reload();
                       },
                       itemBuilder: (_) => [
                         const PopupMenuItem(value: 'reload', child: Text('بازخوانی ساختار')),
                         const PopupMenuItem(value: 'units', child: Text('واحدها')),
                         const PopupMenuItem(value: 'positions', child: Text('جایگاه‌ها')),
-                        const PopupMenuItem(value: 'summary', child: Text('خلاصه ساختار')),
+                        if (canManage && widget.initialUnit == null)
+                          const PopupMenuItem(value: 'reset', child: Text('حذف ساختار سازمانی')),
                         if (canManage) const PopupMenuItem(value: 'setup',
                           child: Text('انتخاب روش ایجاد: قالب، اکسل یا دستی')),
                       ]),
@@ -375,7 +401,19 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
                         style: TextStyle(fontSize: 12))),
                   if (branchOpen && children.isNotEmpty)
                     LayoutBuilder(builder: (context, bounds) {
-                      final shown = nav.page(selected, page);
+                      final shown = children;
+                      final textWidth = (bounds.maxWidth - 8) / 2 - 20;
+                      final textStyle = Theme.of(context).textTheme.bodyMedium!.copyWith(
+                          fontSize: 13, fontWeight: FontWeight.bold);
+                      var maxTitleHeight = 0.0;
+                      for (final child in shown) {
+                        final painter = TextPainter(text: TextSpan(text: organizationUnitLabel(child), style: textStyle),
+                            textDirection: TextDirection.rtl, textAlign: TextAlign.center,
+                            textScaler: MediaQuery.textScalerOf(context))..layout(maxWidth: math.max(1, textWidth));
+                        maxTitleHeight = math.max(maxTitleHeight, painter.height);
+                        painter.dispose();
+                      }
+                      final cardHeight = math.max(120.0, maxTitleHeight + 80 + MediaQuery.textScalerOf(context).scale(16));
                       return Column(children: [
                         for (var offset = 0; offset < shown.length; offset += 2) ...[
                           CustomPaint(painter: _OrganizationChildConnector(
@@ -385,6 +423,7 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
                             for (var i = offset; i < math.min(offset + 2, shown.length); i++) ...[
                               if (i > offset) const SizedBox(width: 8),
                               Expanded(child: _unitCard(shown[i],
+                                height: cardHeight,
                                 index: children.indexOf(shown[i]) + (selected == null ? 0 : 2),
                                 onTap: locked ? null : () => selectUnit('${shown[i]['name']}'))),
                             ],
@@ -395,16 +434,6 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
                         ],
                       ]);
                     }),
-                  if (branchOpen && children.length > 4)
-                    Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      IconButton(tooltip: 'صفحه قبل',
-                        onPressed: locked || page == 0 ? null : () => setState(() => page--),
-                        icon: const Icon(Icons.chevron_right)),
-                      Text('${formatCount(page + 1)} از ${formatCount((children.length / 4).ceil())}'),
-                      IconButton(tooltip: 'صفحه بعد',
-                        onPressed: locked || (page + 1) * 4 >= children.length ? null : () => setState(() => page++),
-                        icon: const Icon(Icons.chevron_left)),
-                    ]),
                   if (!branchOpen) const Padding(padding: EdgeInsets.all(12),
                     child: Text('شاخه بسته است؛ برای بازکردن، کارت انتخاب‌شده را لمس کنید.',
                       textAlign: TextAlign.center, style: TextStyle(fontSize: 11))),
@@ -438,8 +467,8 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
                         onPressed: () => refresh(),
                         child: const Text('تلاش دوباره'))
                   ]),
-                if (unit == null) ...operations,
-                if (unit != null) ...[
+                if (unit == null && roots.isEmpty) ...operations,
+                if (unit != null || roots.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   if (action == _OrgEdit.addPosition) ...operations,
                   if (action != _OrgEdit.addPosition) _OrgPanel(children: [
@@ -474,12 +503,12 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
                                         leading: PopupMenuButton<String>(
                                           tooltip: 'عملیات ${row.displayTitle}', enabled: !locked && canManage,
                                           icon: const AsoudIconBox(icon: Icons.work_outline, color: AsoudColors.primary, size: 36),
-                                          onSelected: (v) => v == 'assign' ? assign(row) : open(_OrgEdit.values.byName(v), row),
-                                          itemBuilder: (_) => const [
+                                          onSelected: (v) => v == 'assign' ? assign(row) : editPositionAction(_OrgEdit.values.byName(v), row),
+                                          itemBuilder: (_) => [
                                             PopupMenuItem(value: 'editPosition', child: Text('ویرایش جایگاه')),
                                             PopupMenuItem(value: 'movePosition', child: Text('جابه‌جایی جایگاه')),
                                             PopupMenuItem(value: 'assign', child: Text('مدیریت انتصاب پرسنل')),
-                                            PopupMenuItem(value: 'deletePosition', child: Text('حذف ایمن جایگاه')),
+                                            if (unit != null) const PopupMenuItem(value: 'deletePosition', child: Text('حذف ایمن جایگاه')),
                                           ]),
                                         title: Text(row.displayTitle,
                                             style: TextStyle(
@@ -492,7 +521,7 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
                                                 color: const Color(0xff737e90))),
                                         trailing: canManage ? IconButton(
                                           tooltip: 'ویرایش ${row.displayTitle}',
-                                          onPressed: locked ? null : () => open(_OrgEdit.editPosition, row),
+                                          onPressed: locked ? null : () => editPositionAction(_OrgEdit.editPosition, row),
                                           icon: const Icon(Icons.edit_outlined, size: 18)) : null,
                                         onTap: locked
                                             ? null
@@ -514,7 +543,7 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
                       const Expanded(
                           child: Text('جزئیات واحد انتخاب‌شده',
                               style: TextStyle(fontWeight: FontWeight.bold))),
-                      if (canManage)
+                      if (canManage && unit != null)
                         PopupMenuButton<_OrgEdit>(
                             tooltip: 'عملیات واحد',
                             enabled: !locked,
@@ -534,11 +563,11 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
                     Container(padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(color: const Color(0xfff4f6fb), borderRadius: BorderRadius.circular(12)),
                       child: Column(children: [
-                        _detail('عنوان واحد', organizationUnitLabel(unit!)),
-                        _detail('واحد بالادستی', _parentLabel(unit!)),
+                        _detail('عنوان واحد', unit == null ? (roots.length == 1 ? roots.single.displayTitle : 'ریشه سازمان') : organizationUnitLabel(unit!)),
+                        _detail('واحد بالادستی', unit == null ? 'بدون بالادست' : _parentLabel(unit!)),
                         _detail('زیرواحدهای مستقیم', formatCount(children.length)),
                         _detail('جایگاه‌های مستقیم', formatCount(positions.length)),
-                        if ('${unit!['description'] ?? ''}'.trim().isNotEmpty)
+                        if (unit != null && '${unit!['description'] ?? ''}'.trim().isNotEmpty)
                           _detail('توضیحات', '${unit!['description']}'),
                       ])),
                   ]),
@@ -548,7 +577,7 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
                     _OrgPanel(children: [
                       Text('جزئیات جایگاه: ${selectedPosition.displayTitle}',
                           style: const TextStyle(fontWeight: FontWeight.bold)),
-                      _detail('واحد سازمانی', organizationUnitLabel(unit!)),
+                      _detail('واحد سازمانی', unit == null ? (selectedPosition.department.isEmpty ? 'ریشه سازمان' : selectedPosition.department) : organizationUnitLabel(unit!)),
                       _detail(
                           'جایگاه بالادستی',
                           state.snapshot.rows
@@ -656,6 +685,7 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
           {bool active = false,
           bool current = false,
           int index = 0,
+          double? height,
           VoidCallback? onTap}) =>
       Material(
         color: active
@@ -673,6 +703,7 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
             borderRadius: BorderRadius.circular(14),
             child: Container(
                 width: double.infinity,
+                height: height,
                 constraints: BoxConstraints(minHeight: active ? 76 : 100),
                 padding: const EdgeInsets.all(10),
                 child: Column(children: [
