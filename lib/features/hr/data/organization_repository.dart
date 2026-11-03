@@ -281,8 +281,9 @@ class OrganizationRepository {
   /// Marks staged queue rows for an already-applied chart as synced so the
   /// automatic replay does not send the same rows a second time. Matching on
   /// company plus the exact row payload keeps other companies' drafts intact.
-  Future<void> _supersedeStaged(String company, List<OrgPosition> rows) async {
-    final fingerprint = jsonEncode(rows.map((row) => row.toJson()).toList());
+  Future<void> _supersedeStaged(String company, List<OrgPosition>? rows,
+      {String? owner, String? server}) async {
+    final fingerprint = rows == null ? null : jsonEncode(rows.map((row) => row.toJson()).toList());
     final staged = await local.list(statuses: {
       LocalSyncStatus.localOnly,
       LocalSyncStatus.pendingSync,
@@ -291,10 +292,12 @@ class OrganizationRepository {
     for (final record in staged) {
       if (record.payload['operation'] is! String) continue;
       if (!record.entityType.endsWith('.save_chart')) continue;
+      if (owner != null && record.payload['_asoud_owner'] != owner) continue;
+      if (server != null && record.payload['_asoud_server'] != server) continue;
       final payload = record.payload['payload'];
       if (payload is! Map) continue;
       if ('${payload['company']}' != company) continue;
-      if (jsonEncode(payload['rows']) != fingerprint) continue;
+      if (fingerprint != null && jsonEncode(payload['rows']) != fingerprint) continue;
       await local.setStatus(record.id, LocalSyncStatus.synced);
     }
   }
@@ -334,6 +337,25 @@ class OrganizationRepository {
         : decode(draft.payload, true,
             server: server,
             rejected: draft.status == LocalSyncStatus.syncFailed);
+  }
+
+  Future<OrganizationSnapshot> resetChart(String company, int revision) async {
+    final (key, epoch) = await _scope(company, write: true);
+    final user = await client.getCurrentUser();
+    _check(epoch);
+    final data = await _call('reset_chart', {'company': company, 'revision': revision});
+    _check(epoch);
+    if (data['reset'] != true || (data['rows'] as List?)?.isNotEmpty != false) {
+      throw const ApiException.protocol();
+    }
+    final result = decode(data, false);
+    await local.save(id: key, entityType: 'organization_chart', payload: data,
+        status: LocalSyncStatus.synced);
+    await local.delete('$key:draft');
+    await _supersedeStaged(company, null, owner: user.userId,
+        server: client is FrappeClient ? (client as FrappeClient).serverIdentity : null);
+    _check(epoch);
+    return result;
   }
 
   Future<List<OrganizationEmployee>> employees(String company) async {

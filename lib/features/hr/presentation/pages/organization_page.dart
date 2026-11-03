@@ -140,9 +140,7 @@ class _OrganizationEntryState extends State<_OrganizationEntry> {
       builder: (context, state) => FutureBuilder<Map<String, dynamic>>(
           future: units,
           builder: (context, snapshot) {
-            if (state.snapshot.rows.isNotEmpty ||
-                (snapshot.data?['units'] as List? ?? []).isNotEmpty ||
-                !widget.canManage) {
+            if (state.snapshot.rows.isNotEmpty) {
               return _OrganizationWorkspace(canManage: widget.canManage);
             }
             if (state.busy ||

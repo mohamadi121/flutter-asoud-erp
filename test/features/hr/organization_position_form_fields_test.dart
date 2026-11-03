@@ -19,6 +19,8 @@ class _OrgClient extends Fake implements FrappeApiClient {
   final List<Map<String, dynamic>>? positions;
   bool failUnits = false;
   bool rejectSave = false;
+  bool rejectReset = false;
+  int resetCalls = 0;
   Map<String, dynamic>? lastUnitPayload;
   final writes = <String>[];
   Map<String, dynamic>? lastSavePayload;
@@ -47,6 +49,12 @@ class _OrgClient extends Fake implements FrappeApiClient {
   @override
   Future<Map<String, dynamic>> callMethod(String method,
       {Map<String, dynamic>? data}) async {
+    if (method == 'asoud_erp.api.v1.organization.reset_chart') {
+      resetCalls++;
+      if (rejectReset) throw const ApiException(kind: ApiFailureKind.network, message: 'offline');
+      lastSavePayload = {'rows': <dynamic>[], 'revision': data!['revision']};
+      return _envelope({'rows': <dynamic>[], 'revision': (data['revision'] as int) + 1, 'reset': true});
+    }
     if (method == 'asoud_erp.api.v1.organization.get_chart') {
       return _envelope({
         'rows': lastSavePayload?['rows'] ?? positions ?? [
@@ -358,31 +366,65 @@ void main() {
     }, tags: 'golden', skip: !const bool.fromEnvironment('ORG_VISUAL'));
   }
 
-  testWidgets('focused children paginate four at a time and retain native path', (tester) async {
+  testWidgets('all direct children scroll in equal two-column cards and back restores selection', (tester) async {
     final client = _OrgClient(units: [unit, for (var i = 0; i < 9; i++) {
       ...unit, 'name': 'CHILD-$i', 'department_name': 'واحد $i', 'parent_department': 'HR-CO',
     }]);
     await _openCreateForm(tester, client, openForm: false);
     expect(find.byKey(const ValueKey('focus-unit-CHILD-0')), findsOneWidget);
     expect(find.byKey(const ValueKey('focus-unit-CHILD-3')), findsOneWidget);
-    expect(find.byKey(const ValueKey('focus-unit-CHILD-4')), findsNothing);
+    expect(find.byKey(const ValueKey('focus-unit-CHILD-8')), findsOneWidget);
     final first = tester.getRect(find.byKey(const ValueKey('focus-unit-CHILD-0')));
     final second = tester.getRect(find.byKey(const ValueKey('focus-unit-CHILD-1')));
     final third = tester.getRect(find.byKey(const ValueKey('focus-unit-CHILD-2')));
     expect(first.top, second.top);
     expect(third.top, greaterThan(first.bottom));
-    await tester.tap(find.byTooltip('صفحه بعد'));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('focus-unit-CHILD-0')), findsNothing);
-    expect(find.byKey(const ValueKey('focus-unit-CHILD-7')), findsOneWidget);
-    await tester.tap(find.byTooltip('صفحه بعد'));
-    await tester.pumpAndSettle();
+    expect(first.size, second.size);
+    expect(first.size, third.size);
+    expect(find.byTooltip('صفحه بعد'), findsNothing);
+    expect(find.byTooltip('صفحه قبل'), findsNothing);
+    await tester.ensureVisible(find.byKey(const ValueKey('focus-unit-CHILD-8')));
     await tester.tap(find.byKey(const ValueKey('focus-unit-CHILD-8')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('focus-unit-HR-CO')), findsOneWidget);
     expect(find.text('هنوز زیرواحدی تعریف نشده است.'), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('focus-unit-CHILD-8')), findsOneWidget);
+    expect(find.byType(OrganizationPage), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('جزئیات واحد انتخاب‌شده'), findsOneWidget);
+    expect(find.byKey(const ValueKey('focus-position-CEO')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('native reference units alone do not create a structure on first entry', (tester) async {
+    final client = _OrgClient(units: [unit], positions: []);
+    await _openCreateForm(tester, client, openForm: false, focusFirst: false);
+    expect(find.text('ایجاد ساختار سازمانی'), findsOneWidget);
+    expect(find.byKey(const ValueKey('focus-root-CEO')), findsNothing);
+    expect(client.writes, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final reject in [false, true]) {
+    testWidgets('whole chart reset confirms and preserves native records (rejected=$reject)', (tester) async {
+      final client = _OrgClient(units: [unit])..rejectReset = reject;
+      await _openCreateForm(tester, client, openForm: false, focusFirst: false);
+      expect(find.byKey(const ValueKey('focus-position-CEO')), findsOneWidget);
+      await _openStructureTool(tester, 'حذف ساختار سازمانی');
+      expect(client.resetCalls, 0);
+      await tester.tap(find.text('حذف ساختار'));
+      await tester.pumpAndSettle();
+      expect(client.resetCalls, 1);
+      expect(client.units, hasLength(1));
+      expect(client.writes, isEmpty);
+      expect(find.text('ایجاد ساختار سازمانی'), reject ? findsNothing : findsOneWidget);
+      expect(find.byKey(const ValueKey('focus-root-CEO')), reject ? findsOneWidget : findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   testWidgets('rejected inline save retains input and never announces success', (tester) async {
     final client = _OrgClient(units: [unit])..rejectSave = true;
