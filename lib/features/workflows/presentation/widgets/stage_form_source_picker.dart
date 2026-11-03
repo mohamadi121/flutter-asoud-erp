@@ -142,22 +142,20 @@ class _StageFormSourcePickerState extends State<StageFormSourcePicker> {
               const Padding(padding: EdgeInsets.all(20), child: Text('درخواست یا سندی با این جست‌وجو و فیلتر پیدا نشد.')),
             for (final row in rows) _row(row),
             const SizedBox(height: 12),
+            Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(
+              color: AsoudColors.primary.withValues(alpha: .06), borderRadius: BorderRadius.circular(10)),
+              child: const Text('پس از تکمیل و ارسال این نوع درخواست یا سند، همین ثبت اصلی وارد گردش‌کار می‌شود؛ این انتخاب فرم یا سند تازه‌ای نمی‌سازد.',
+                  style: TextStyle(fontSize: 11, height: 1.8, color: AsoudColors.muted))),
+            const SizedBox(height: 12),
           ])),
           Container(padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + MediaQuery.viewInsetsOf(context).bottom),
             decoration: const BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: AsoudColors.border))),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              if (MediaQuery.viewInsetsOf(context).bottom == 0) ...[
-              Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(
-                color: AsoudColors.primary.withValues(alpha: .06), borderRadius: BorderRadius.circular(10)),
-                child: const Text('پس از تکمیل و ارسال این نوع درخواست یا سند، همین ثبت اصلی وارد گردش‌کار می‌شود؛ این انتخاب فرم یا سند تازه‌ای نمی‌سازد.',
-                    style: TextStyle(fontSize: 11, height: 1.8, color: AsoudColors.muted))),
-              const SizedBox(height: 10),
-              ],
-              FilledButton(onPressed: picked == null || confirming ? null : confirm,
-                  child: Text(confirming ? 'در حال بررسی انتخاب…' : 'انتخاب و تأیید')),
-              const SizedBox(height: 8),
-              OutlinedButton(onPressed: confirming ? null : () => Navigator.pop(context), child: const Text('انصراف')),
-            ])),
+            child: SizedBox(height: 50, child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Expanded(child: FilledButton(onPressed: picked == null || confirming ? null : confirm,
+                  child: Text(confirming ? 'در حال بررسی انتخاب…' : 'انتخاب و تأیید'))),
+              const SizedBox(width: 8),
+              Expanded(child: OutlinedButton(onPressed: confirming ? null : () => Navigator.pop(context), child: const Text('انصراف'))),
+            ]))),
         ]))));
   }
 

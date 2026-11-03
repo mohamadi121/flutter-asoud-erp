@@ -267,8 +267,15 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    expect(find.text('مدیرعامل'), findsOneWidget);
+    // The root is intentionally also shown in its position list and details.
+    // Assert one real chart card and one position row, not global text count.
+    expect(find.descendant(of: find.byKey(const ValueKey('focus-root-CEO')),
+        matching: find.text('مدیرعامل')), findsOneWidget);
+    expect(find.descendant(of: find.byKey(const ValueKey('focus-position-CEO')),
+        matching: find.text('مدیرعامل')), findsOneWidget);
+    expect(find.text('جزئیات واحد انتخاب‌شده'), findsOneWidget);
     expect(find.text('جایگاهی برای نمایش وجود ندارد.'), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 
   for (final width in [320.0, 390.0]) {
@@ -378,7 +385,11 @@ void main() {
     expect(find.text('ایجاد ساختار دستی'), findsNothing);
     expect(find.text('ورود از اکسل'), findsNothing);
 
-    expect(find.text('مدیرعامل'), findsOneWidget);
+    expect(find.descendant(of: find.byKey(const ValueKey('focus-root-CEO')),
+        matching: find.text('مدیرعامل')), findsOneWidget);
+    expect(find.descendant(of: find.byKey(const ValueKey('focus-position-CEO')),
+        matching: find.text('مدیرعامل')), findsOneWidget);
+    expect(find.text('جزئیات واحد انتخاب‌شده'), findsOneWidget);
     expect(find.text('جایگاهی برای نمایش وجود ندارد.'), findsNothing);
     expect(tester.takeException(), isNull);
   });
