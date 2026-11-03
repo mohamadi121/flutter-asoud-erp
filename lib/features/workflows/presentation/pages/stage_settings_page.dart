@@ -22,6 +22,7 @@ import '../widgets/action_result_form_picker.dart';
 import '../../../form_builder/form_runtime/form_fields_view.dart';
 
 part 'stage_user_action.dart';
+part 'stage_approval.dart';
 
 /// Decision routes by stage type; the first one is the main route.
 const _routeActions = {
@@ -128,7 +129,8 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
   late bool allowDraft = config['allow_draft'] != false;
   late bool requireAll = config['require_all_fields'] == true;
   late bool editAfterSubmit = config['allow_edit_after_submit'] == true;
-  late String approvalMode = config['approval_mode']?.toString() ?? 'Any';
+  late String approvalMode = config['approval_mode']?.toString() ??
+      (type == WorkflowStageType.approval && !widget.stage.configurationComplete ? 'All' : 'Any');
   late String access = config['document_access']?.toString() ?? 'Read Only';
   late String activityType =
       config['activity_type']?.toString() ?? 'Data Entry';
@@ -160,6 +162,9 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
 
   late Map<String, String> routes = stageRoutes(widget.design, widget.stage);
   bool saving = false;
+  bool previewingApprovalSource = false;
+  bool changingApprovalDecision = false;
+  final confirmedDisabledApprovalRoutes = <String>{};
   void _updateAction(VoidCallback update) => setState(update);
 
   @override
@@ -426,8 +431,8 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
     final wanted = {
       for (final action in _routeActions[type]!)
         action: switch (action) {
-          'Reject' when !allowReject => '',
-          'Return' when !allowReturn => '',
+          'Reject' when !allowReject => type == WorkflowStageType.approval && !confirmedDisabledApprovalRoutes.contains('Reject') ? current['Reject'] ?? '' : '',
+          'Return' when !allowReturn => type == WorkflowStageType.approval && !confirmedDisabledApprovalRoutes.contains('Return') ? current['Return'] ?? '' : '',
           _ => routes[action] ?? '',
         },
     };
@@ -525,8 +530,14 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
                         ScrollViewKeyboardDismissBehavior.onDrag,
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
                     children: [
+                      if (type == WorkflowStageType.approval) ...[
+                        _typeCard(),
+                        const SizedBox(height: 14),
+                        _actionTitleFields(),
+                        const SizedBox(height: 14),
+                      ],
                       if (type == WorkflowStageType.userTask) _actionTitleFields(),
-                      if (type != WorkflowStageType.userTask) ...[
+                      if (type != WorkflowStageType.userTask && type != WorkflowStageType.approval) ...[
                       _typeCard(),
                       const SizedBox(height: 14),
                       _label('عنوان مرحله', required: true),
@@ -682,7 +693,7 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
 
   List<Widget> _owner() => type == WorkflowStageType.userTask ? _actionOwner() : [
         const SizedBox(height: 6),
-        _label('مسئول انجام', required: true),
+        _label(type == WorkflowStageType.approval ? 'مسئول تأیید' : 'مسئول انجام', required: true),
         AsoudSegmentedControl<String>(
           value: ownerMode,
           options: const [
@@ -1070,20 +1081,27 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
   // --- approval ---------------------------------------------------------------------------
 
   List<Widget> _approval() => [
+        _approvalInformation(),
+        _approvalPanel([
         ..._owner(),
+        ]),
+        _approvalPanel([
         _deadlineRow(),
         if (hasDeadline) ...[
           const SizedBox(height: 8),
           _notice('مهلت از زمان ارجاع کار در این مرحله محاسبه می‌شود.'),
         ],
-        const SizedBox(height: 16),
+        ]),
+        _approvalPanel([
         _label('تصمیم‌های قابل انجام'),
         _decision('امکان تأیید', true, AsoudColors.success, null),
         _decision('امکان رد', allowReject, AsoudColors.danger,
-            (value) => setState(() => allowReject = value)),
+            (value) => _setApprovalDecision('Reject', value).ignore()),
         _decision('امکان بازگشت برای اصلاح', allowReturn, AsoudColors.warning,
-            (value) => setState(() => allowReturn = value)),
-        const SizedBox(height: 12),
+            (value) => _setApprovalDecision('Return', value).ignore()),
+        ]),
+        _approvalPanel([
+        _label('مسیرهای خروجی'),
         _approvalRoute('Approve', 'در صورت تأیید', Icons.check_circle_outline,
             AsoudColors.success),
         if (allowReject)
@@ -1094,26 +1112,8 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
           _approvalRoute('Return', 'در صورت بازگشت برای اصلاح',
               Icons.undo_rounded, AsoudColors.warning,
               emptyLabel: 'آخرین مرحله قابل اصلاح'),
+        ]),
         _extra([
-          _label('فرم تکمیلی تأیید (اختیاری)'),
-          PickerField(
-            value: formFields.isEmpty
-                ? ''
-                : 'فرم تکمیلی · ${formatCount(formFields.length, 'فیلد')}',
-            placeholder: 'انتخاب یا ساخت فرم تکمیلی',
-            icon: Icons.description_outlined,
-            onTap: _pickForm,
-          ),
-          if (formFields.isNotEmpty)
-            Row(children: [
-              Expanded(
-                  child: TextButton.icon(
-                      onPressed: _editForm,
-                      icon: const Icon(Icons.edit_outlined, size: 16),
-                      label: const Text('ویرایش فرم'))),
-              TextButton(
-                  onPressed: _removeApprovalForm, child: const Text('حذف فرم')),
-            ]),
           _switch(
               'الزام توضیح هنگام رد',
               true,
@@ -1210,7 +1210,7 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
         const SizedBox(height: 6),
         PickerField(
           value:
-              selected?.title ?? (target.isEmpty ? emptyLabel ?? '' : target),
+              selected?.title ?? (target.isEmpty ? emptyLabel ?? '' : 'مقصد نیازمند بازبینی است'),
           placeholder:
               action == 'Return' ? 'انتخاب مقصد برگشت' : 'انتخاب مرحله بعد',
           icon: action == 'Return'
