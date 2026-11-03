@@ -100,7 +100,11 @@ void main() {
       expect(
           find.byKey(const ValueKey('workflow-select-source')), findsOneWidget);
       await capture(tester, 'workflow-start-form-${width.toInt()}');
-      await tester.tap(find.byKey(const ValueKey('workflow-start-manual')));
+      final manual = find.byKey(const ValueKey('workflow-start-manual'));
+      await tester.ensureVisible(manual);
+      await tester.pumpAndSettle();
+      expect(manual.hitTestable(), findsOneWidget);
+      await tester.tap(manual.hitTestable());
       await tester.pumpAndSettle();
       expect(
           find.byKey(const ValueKey('workflow-select-source')), findsNothing);
