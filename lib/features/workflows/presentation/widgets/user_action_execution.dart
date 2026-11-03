@@ -7,6 +7,7 @@ import '../../../form_builder/form_runtime/form_fields_view.dart';
 import '../../data/workflow_action_repository.dart';
 import '../../domain/entities/workflow_task.dart';
 import '../cubit/workflow_task_detail_cubit.dart';
+import 'user_action_reassignment_picker.dart';
 
 class UserActionExecution extends StatefulWidget {
   const UserActionExecution({required this.detail, super.key});
@@ -38,6 +39,15 @@ class _UserActionExecutionState extends State<UserActionExecution> {
     if (done && action == 'Complete' && mounted) Navigator.pop(context, true);
   }
 
+  Future<void> reassign() async {
+    final user = await showModalBottomSheet<String>(context: context,
+        isScrollControlled: true, useSafeArea: true, showDragHandle: true,
+        builder: (_) => UserActionReassignmentPicker(repository: repository));
+    if (user == null || !mounted) return;
+    final done = await context.read<WorkflowTaskDetailCubit>().reassign(user);
+    if (done && mounted) Navigator.pop(context, true);
+  }
+
   @override
   Widget build(BuildContext context) =>
       BlocBuilder<WorkflowTaskDetailCubit, WorkflowTaskDetailState>(
@@ -48,7 +58,9 @@ class _UserActionExecutionState extends State<UserActionExecution> {
             state.status == WorkflowTaskDetailStatus.saving || uploading;
         final outcome = '${state.values['action_result'] ?? 'done'}';
         final schema = copyForm(detail.actionSchema);
-        if (detail.actionMode == 'Simple') {
+        final hasOutcome = formMaps(schema['sections']).any((section) =>
+            formMaps(section['fields']).any((field) => field['key'] == 'action_result'));
+        if (detail.actionMode == 'Simple' && hasOutcome) {
           // Requiredness is also enforced independently by the server.
           schema['sections'] = [
             for (final section in formMaps(schema['sections']))
@@ -65,7 +77,7 @@ class _UserActionExecutionState extends State<UserActionExecution> {
               }
           ];
         }
-        final action = detail.actionMode != 'Simple' || outcome == 'done'
+        final action = detail.actionMode != 'Simple' || !hasOutcome || outcome == 'done'
             ? 'Complete'
             : outcome == 'follow_up'
                 ? 'Follow Up'
@@ -118,6 +130,10 @@ class _UserActionExecutionState extends State<UserActionExecution> {
                                         .read<WorkflowTaskDetailCubit>()
                                         .saveDraft,
                                 child: const Text('ذخیره پیش‌نویس')),
+                          if (detail.allowReassign)
+                            TextButton.icon(onPressed: saving ? null : reassign,
+                                icon: const Icon(Icons.person_add_alt_outlined),
+                                label: const Text('واگذاری مجدد')),
                         ],
                       ],
                     ])));

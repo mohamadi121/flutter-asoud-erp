@@ -80,6 +80,26 @@ class WorkflowTaskDetailCubit extends Cubit<WorkflowTaskDetailState> {
     }
   }
 
+  Future<bool> reassign(String user) async {
+    if (state.status == WorkflowTaskDetailStatus.saving) return false;
+    if (state.detail?.allowReassign != true || state.detail?.task.status != 'Open' || state.detail?.requiresClaim == true ||
+        actionClient == null || !actionClient!.isAuthenticated || state.offline) {
+      _failure(StateError('واگذاری این اقدام در وضعیت فعلی مجاز نیست.'));
+      return false;
+    }
+    emit(WorkflowTaskDetailState(status: WorkflowTaskDetailStatus.saving, detail: state.detail, values: state.values));
+    try {
+      await _action.reassign(user);
+      if (isClosed) return false;
+      emit(WorkflowTaskDetailState(status: WorkflowTaskDetailStatus.success, detail: state.detail,
+          values: state.values, message: 'وظیفه به مسئول جدید واگذار شد.'));
+      return true;
+    } catch (error) {
+      if (!isClosed) _failure(error);
+      return false;
+    }
+  }
+
   void setValue(String key, dynamic value) => emit(WorkflowTaskDetailState(
         status: WorkflowTaskDetailStatus.ready,
         detail: state.detail,

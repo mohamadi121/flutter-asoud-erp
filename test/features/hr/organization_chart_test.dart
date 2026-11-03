@@ -40,7 +40,7 @@ void main() {
     final decoded = OrgPosition.fromJson(row.toJson());
     expect(decoded.toJson(), row.toJson());
   });
-  test('offline preview loads the seeded organization chart', () async {
+  test('fresh preview starts without an automatically seeded organization', () async {
     final client = _PreviewClient();
     when(() => client.isAuthenticated).thenReturn(false);
     when(() => client.authenticationChanges)
@@ -50,8 +50,7 @@ void main() {
 
     final snapshot = await repository.load('شرکت نمونه آسود');
 
-    expect(snapshot.rows, hasLength(standardOrganization.length));
-    expect(snapshot.rows.first.title, 'مدیرعامل');
+    expect(snapshot.rows, isEmpty);
     expect(snapshot.pending, isFalse);
   });
 

@@ -129,6 +129,7 @@ class WorkflowTaskDetail extends Equatable {
     this.actionSchema = const {}, this.actionForm = '', this.actionCompany = '', this.actionMode = '',
     this.requiresClaim = false, this.allowDraft = true, this.allowAddAttachments = false,
     this.documentAccess = 'Read Only',
+    this.allowReassign = false, this.allowOriginalAccess = true,
   });
   final String requestName, requestCompany;
   final WorkflowTask task;
@@ -148,6 +149,7 @@ class WorkflowTaskDetail extends Equatable {
   final String actionForm, actionCompany, actionMode;
   final bool requiresClaim, allowDraft, allowAddAttachments;
   final String documentAccess;
+  final bool allowReassign, allowOriginalAccess;
   @override
   List<Object> get props => [
         task,
@@ -168,6 +170,7 @@ class WorkflowTaskDetail extends Equatable {
         requestValues,
         submittedForm,
         actionSchema, actionForm, actionCompany, actionMode, requiresClaim, allowDraft, allowAddAttachments, documentAccess,
+        allowReassign, allowOriginalAccess,
       ];
 }
 

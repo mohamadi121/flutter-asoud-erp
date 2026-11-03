@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/network/frappe_client.dart';
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/widgets/asoud_ui.dart';
 import '../../../../core/utils/persian_server_values.dart';
 import '../../../form_builder/form_repository.dart';
 import '../../domain/entities/workflow_start_settings.dart';
@@ -33,12 +34,21 @@ class WorkflowStartSection extends StatefulWidget {
 
 class _WorkflowStartSectionState extends State<WorkflowStartSection> {
   bool selecting = false;
+  final additionalController = ExpansibleController();
+
+  @override
+  void dispose() {
+    additionalController.dispose();
+    super.dispose();
+  }
   Future<void> pick() async {
     if (selecting || !widget.enabled) return;
     setState(() => selecting = true);
     try {
       FocusScope.of(context).unfocus();
-      final height = widget.sourceSheetHeight?.call();
+      final measuredHeight = widget.sourceSheetHeight?.call();
+      // Approximately 3 mm in the logical design; physical size varies by device.
+      final height = measuredHeight == null ? null : (measuredHeight - 12).clamp(0.0, measuredHeight).toDouble();
       final selected = await showModalBottomSheet<Map<String, dynamic>>(
           context: context,
           isScrollControlled: true,
@@ -196,48 +206,44 @@ class _WorkflowStartSectionState extends State<WorkflowStartSection> {
         const SizedBox(height: 14),
         Card(
             margin: EdgeInsets.zero,
-            child: ListTile(
-                key: const ValueKey('workflow-start-additional'),
-                leading:
-                    const Icon(Icons.tune_rounded, color: AsoudColors.primary),
+            key: const ValueKey('workflow-start-additional'),
+            child: ExpansionTile(
+                controller: additionalController,
+                enabled: widget.enabled,
+                leading: const AsoudIconBox(icon: Icons.tune_rounded,
+                    color: AsoudColors.primary, size: 34),
                 title: const Text('تنظیمات اضافی (اختیاری)',
                     style: TextStyle(fontWeight: FontWeight.bold)),
                 subtitle: const Text('کنترل شروع و سوابق گردش کار',
                     style: TextStyle(fontSize: 11, color: AsoudColors.muted)),
-                trailing: const Icon(Icons.expand_more),
-                onTap: widget.enabled
-                    ? () async {
-                        final result =
-                            await showModalBottomSheet<WorkflowStartSettings>(
-                                context: context,
-                                isScrollControlled: true,
-                                useSafeArea: true,
-                                showDragHandle: true,
-                                builder: (_) => WorkflowStartAdditionalSheet(
-                                    value: widget.value));
-                        if (result != null && mounted) widget.onChanged(result);
-                      }
-                    : null)),
+                childrenPadding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+                children: [WorkflowStartAdditionalFields(value: widget.value,
+                    enabled: widget.enabled, onConfirmed: (value) {
+                      widget.onChanged(value);
+                      additionalController.collapse();
+                    })])),
       ]);
 }
 
-class WorkflowStartAdditionalSheet extends StatefulWidget {
-  const WorkflowStartAdditionalSheet({required this.value, super.key});
+class WorkflowStartAdditionalFields extends StatefulWidget {
+  const WorkflowStartAdditionalFields({required this.value, required this.onConfirmed,
+      this.enabled = true, super.key});
   final WorkflowStartSettings value;
+  final ValueChanged<WorkflowStartSettings> onConfirmed;
+  final bool enabled;
   @override
-  State<WorkflowStartAdditionalSheet> createState() =>
-      _WorkflowStartAdditionalSheetState();
+  State<WorkflowStartAdditionalFields> createState() =>
+      _WorkflowStartAdditionalFieldsState();
 }
 
-class _WorkflowStartAdditionalSheetState
-    extends State<WorkflowStartAdditionalSheet> {
+class _WorkflowStartAdditionalFieldsState
+    extends State<WorkflowStartAdditionalFields> {
   late bool exception = widget.value.allowManagerRestart;
   Widget notice(String text, {Color color = AsoudColors.primary}) => Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-          color: color.withValues(alpha: .06),
+          color: const Color(0xfff4f7fc),
           borderRadius: BorderRadius.circular(12)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Align(
@@ -257,20 +263,13 @@ class _WorkflowStartAdditionalSheetState
   @override
   Widget build(BuildContext context) => Directionality(
       textDirection: TextDirection.rtl,
-      child: SizedBox(
-          height: MediaQuery.sizeOf(context).height * .92,
-          child: Column(children: [
-            const ListTile(
-                leading: Icon(Icons.tune_rounded, color: AsoudColors.primary),
-                title: Text('تنظیمات اضافی (اختیاری)',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: Text('کنترل شروع و سوابق گردش کار')),
-            Expanded(
-                child: ListView(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    children: [
-                  Card(
-                      child: ExpansionTile(
+      child: Container(
+          decoration: BoxDecoration(color: Colors.white,
+              border: Border.all(color: AsoudColors.border), borderRadius: BorderRadius.circular(14)),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  ExpansionTile(
+                          enabled: widget.enabled,
+                          trailing: const _StartPolicyArrow(),
                           initiallyExpanded: true,
                           title: const Text('۱. جلوگیری از شروع تکراری',
                               style: TextStyle(
@@ -283,9 +282,11 @@ class _WorkflowStartAdditionalSheetState
                         notice(
                             'فعال\nبه ازای هر درخواست یا سند، شروع هم‌زمان برای همان رکورد مسدود است.',
                             color: AsoudColors.success)
-                      ])),
-                  Card(
-                      child: ExpansionTile(
+                      ]),
+                  const Divider(height: 1, indent: 12, endIndent: 12),
+                  ExpansionTile(
+                          enabled: widget.enabled,
+                          trailing: const _StartPolicyArrow(),
                           initiallyExpanded: true,
                           title: const Text(
                               '۲. جلوگیری از شروع مجدد پس از خاتمه',
@@ -309,11 +310,13 @@ class _WorkflowStartAdditionalSheetState
                                 'اجازه شروع مجدد با مجوز مدیریتی و ثبت علت',
                                 style: TextStyle(fontSize: 10)),
                             value: exception,
-                            onChanged: (checked) =>
+                            onChanged: !widget.enabled ? null : (checked) =>
                                 setState(() => exception = checked == true)),
-                      ])),
-                  Card(
-                      child: ExpansionTile(
+                      ]),
+                  const Divider(height: 1, indent: 12, endIndent: 12),
+                  ExpansionTile(
+                          enabled: widget.enabled,
+                          trailing: const _StartPolicyArrow(),
                           initiallyExpanded: true,
                           title: const Text('۳. الزام ثبت علت شروع دستی',
                               style: TextStyle(
@@ -332,9 +335,9 @@ class _WorkflowStartAdditionalSheetState
                                 labelText: 'علت شروع گردش کار *',
                                 hintText: 'علت شروع دستی را وارد کنید…')),
                         const SizedBox(height: 12),
-                      ])),
-                  Card(
-                      child: ListTile(
+                      ]),
+                  const Divider(height: 1, indent: 12, endIndent: 12),
+                  ListTile(
                           leading: const Icon(Icons.verified_user_outlined,
                               color: AsoudColors.success),
                           title: const Text('۴. ثبت سوابق آغاز گردش کار',
@@ -343,21 +346,29 @@ class _WorkflowStartAdditionalSheetState
                           subtitle: const Text(
                               'ثبت ایجادکننده، زمان شروع و شناسه گردش کار.',
                               style: TextStyle(fontSize: 10)),
-                          trailing: const Text('همیشه فعال',
-                              style: TextStyle(
-                                  fontSize: 10, color: AsoudColors.success)))),
-                ])),
+                          trailing: Container(padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                              decoration: BoxDecoration(color: AsoudColors.success.withValues(alpha: .1),
+                                  borderRadius: BorderRadius.circular(14)),
+                              child: const Text('همیشه فعال',
+                                  style: TextStyle(fontSize: 10, color: AsoudColors.success)))),
             Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(10),
                 child: SizedBox(
                     width: double.infinity,
                     child: FilledButton(
                         style: FilledButton.styleFrom(
-                            backgroundColor: const Color(0xff172137)),
-                        onPressed: () => Navigator.pop(
-                            context,
-                            widget.value
-                                .copyWith(allowManagerRestart: exception)),
+                            backgroundColor: const Color(0xff191919),
+                            minimumSize: const Size.fromHeight(42), shape: const StadiumBorder()),
+                        onPressed: !widget.enabled ? null : () => widget.onConfirmed(
+                            widget.value.copyWith(allowManagerRestart: exception)),
                         child: const Text('تأیید تنظیمات اضافی')))),
           ])));
+}
+
+class _StartPolicyArrow extends StatelessWidget {
+  const _StartPolicyArrow();
+  @override
+  Widget build(BuildContext context) => const CircleAvatar(radius: 8,
+      backgroundColor: Color(0xff191919),
+      child: Icon(Icons.keyboard_arrow_down, color: Colors.white, size: 13));
 }

@@ -196,6 +196,34 @@ Future<void> _choose(WidgetTester tester, String label, String option) async {
 }
 
 void main() {
+  for (final width in [320.0, 390.0, 430.0]) {
+    testWidgets('user action keeps report and four independent capabilities at $width', (tester) async {
+      await tester.binding.setSurfaceSize(Size(width, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final (workflows, automation) = await _open(tester, 'S1');
+      expect(find.text('روش اول: ثبت گزارش ساده'), findsOneWidget);
+      expect(find.byKey(const ValueKey('action-result-preview')), findsNothing);
+      await _tap(tester, find.text('تنظیمات تکمیلی (اختیاری)'));
+      expect(find.byType(BottomSheet), findsNothing);
+      for (final label in ['دسترسی به درخواست اصلی', 'امکان افزودن پیوست', 'ذخیره پیش‌نویس', 'امکان واگذاری مجدد']) {
+        await _scrollToFinder(tester, find.text(label));
+        expect(find.text(label), findsOneWidget);
+      }
+      await _tap(tester, find.text('امکان واگذاری مجدد'));
+      await _tap(tester, find.text('ذخیره پیش‌نویس'));
+      await _tap(tester, find.text('دسترسی به درخواست اصلی'));
+      expect(find.text('فقط مشاهده درخواست'), findsNothing);
+      await _tap(tester, find.text('ذخیره'));
+      final saved = workflows.saved.single;
+      expect(saved['simple_result_style'], 'Report');
+      expect(saved['allow_reassign'], isTrue);
+      expect(saved['allow_draft'], isFalse);
+      expect(saved['allow_original_access'], isFalse);
+      expect(saved['allow_add_attachments'], isFalse);
+      expect(automation.routes, isEmpty); // Canvas, not assignment, owns routes.
+      expect(tester.takeException(), isNull);
+    });
+  }
   for (final width in [320.0, 390.0]) {
     testWidgets('approval stage saves decisions and a reject route at $width',
         (tester) async {

@@ -300,6 +300,7 @@ void main() {
 
       expect(find.text('۲ دسته · ۲ نقش'), findsOneWidget);
       expect(find.text('ایجاد نقش دستی'), findsNothing);
+      expect(find.text('ایجاد نقش جدید'), findsNothing);
       expect(find.text('ایجاد دسته'), findsNothing);
       expect(find.text('ورود از اکسل'), findsNothing);
       expect(find.text('استفاده از قالب آماده'), findsNothing);
@@ -332,6 +333,7 @@ void main() {
 
     expect(find.text('۲ دسته · ۲ نقش'), findsOneWidget);
     expect(find.text('ایجاد نقش دستی'), findsNothing);
+    expect(find.text('ایجاد نقش جدید'), findsNothing);
     expect(find.text('ایجاد دسته'), findsNothing);
     expect(find.text('ورود از اکسل'), findsNothing);
     expect(find.text('استفاده از قالب آماده'), findsNothing);

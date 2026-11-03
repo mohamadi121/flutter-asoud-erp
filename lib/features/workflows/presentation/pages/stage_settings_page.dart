@@ -109,6 +109,9 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
   late FormMap? resultForm = config['result_form'] is Map ? formMap(config['result_form']) : null;
   late FormMap resultSchema = config['result_schema'] is Map ? formMap(config['result_schema']) : {};
   late bool addActionAttachments = config['allow_add_attachments'] == true;
+  late bool allowOriginalAccess = config['allow_original_access'] != false;
+  late bool allowReassign = config['allow_reassign'] == true;
+  bool selectingActionForm = false;
   String actionBasis = 'Subject', actionSubject = 'Initiator', actionEmployeeField = '', roleScope = 'Company';
   List<FormMap> sourceEmployeeFields = [];
   bool loadingEmployeeFields = false;
@@ -336,6 +339,9 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
       case WorkflowStageType.userTask:
         return {
           'action_contract_version': 1, 'result_mode': resultMode,
+          'simple_result_style': 'Report',
+          'allow_original_access': allowOriginalAccess,
+          'allow_reassign': allowReassign,
           'result_form': resultMode == 'Form' ? resultForm : null,
           'allow_add_attachments': addActionAttachments,
           'title': title.text.trim(),
@@ -506,8 +512,8 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
               padding: EdgeInsets.only(
                   bottom: MediaQuery.viewInsetsOf(context).bottom),
               child: AsoudBottomActions(
-                primaryLabel: saving ? 'در حال ذخیره...' : 'ذخیره',
-                onPrimary: saving ? null : save,
+                primaryLabel: saving ? 'در حال ذخیره...' : selectingActionForm ? 'در حال دریافت فرم…' : 'ذخیره',
+                onPrimary: saving || selectingActionForm ? null : save,
                 secondaryLabel: 'انصراف',
                 onSecondary: saving ? null : () => Navigator.pop(context),
               ),
@@ -1057,42 +1063,7 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
         ..._owner(),
         _deadlineRow(),
         const SizedBox(height: 6),
-        _extra([
-          const Divider(height: 24),
-          _accessControl(),
-          const SizedBox(height: 6),
-          const ListTile(contentPadding: EdgeInsets.zero,
-            leading: Icon(Icons.attach_file, size: 19),
-            title: Text('پیوست‌های قبلی پرونده حفظ می‌شوند.', style: TextStyle(fontSize: 12)),
-            subtitle: Text('مشاهدهٔ آن‌ها در پروندهٔ اصلی تابع مجوزهای فعلی است.', style: TextStyle(fontSize: 10))),
-          Tooltip(message: 'افزودن فایل فقط پس از دریافت اقدام و در حدود مجوزهای موجود مجاز است.',
-            child: CheckboxListTile(value: addActionAttachments, onChanged: (value) => setState(() => addActionAttachments = value == true),
-              controlAffinity: ListTileControlAffinity.leading, contentPadding: EdgeInsets.zero,
-              title: const Text('امکان افزودن پیوست جدید (در حدود مجوزهای موجود)', style: TextStyle(fontSize: 12)))),
-          const Divider(height: 24),
-          _label('تکمیل وظیفه'),
-          _notice('بستن مرحله فقط پس از ثبت اقدام مجاز انجام می‌شود. کلید «الزام به تکمیل» از این طرح حذف شده؛ منطق تکمیل مرحله تغییری نکرده است.'),
-          const Divider(height: 24),
-          CheckboxListTile(key: const ValueKey('stage-reminder'),
-            value: hasDeadline && reminderMinutes > 0,
-            controlAffinity: ListTileControlAffinity.leading, contentPadding: EdgeInsets.zero,
-            title: const Text('یادآوری پیش از پایان مهلت', style: TextStyle(fontSize: 12)),
-            subtitle: !hasDeadline ? const Text('ابتدا مهلت انجام را تعیین کنید.', style: TextStyle(fontSize: 10)) : null,
-            onChanged: saving || !hasDeadline || (_deadlineValue ?? 0) <= 0 ? null : (value) => setState(() {
-              final total = (_deadlineValue ?? 1) * (deadlineUnit == 'Day' ? 1440 : deadlineUnit == 'Hour' ? 60 : 1);
-              reminderMinutes = value == true ? 30.clamp(1, total) : 0;
-            })),
-          if (hasDeadline && reminderMinutes > 0)
-            TextFormField(key: ValueKey('reminder-minutes-$reminderMinutes'),
-              initialValue: '$reminderMinutes', keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'چند دقیقه پیش از مهلت؟'),
-              onChanged: (value) {
-                var text = value.trim();
-                for (var i = 0; i < 10; i++) { text = text.replaceAll('۰۱۲۳۴۵۶۷۸۹'[i], '$i').replaceAll('٠١٢٣٤٥٦٧٨٩'[i], '$i'); }
-                reminderMinutes = int.tryParse(text) ?? 0;
-              }),
-          _switch('امکان ذخیره پیش‌نویس', allowDraft, (value) => setState(() => allowDraft = value)),
-        ]),
+        _actionExtras(),
         _notice('مرحلهٔ بعد فقط از اتصال‌های صفحهٔ طراحی فرایند تعیین می‌شود.'),
       ];
 

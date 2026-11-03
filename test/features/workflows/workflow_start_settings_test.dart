@@ -221,7 +221,7 @@ void main() {
 
   for (final width in [320.0, 390.0, 430.0]) {
     testWidgets(
-        'additional settings contain only four sections and return an editable copy at $width RTL',
+        'inline additional settings contain four sections and confirm an editable copy at $width RTL',
         (tester) async {
       tester.view.physicalSize = Size(width, 840);
       tester.view.devicePixelRatio = 1;
@@ -231,21 +231,10 @@ void main() {
       WorkflowStartSettings? result;
       await tester.pumpWidget(MaterialApp(
           theme: AsoudTheme.light,
-          home: Builder(
-              builder: (context) => Scaffold(
-                  body: TextButton(
-                      child: const Text('باز کردن'),
-                      onPressed: () async {
-                        result =
-                            await showModalBottomSheet<WorkflowStartSettings>(
-                                context: context,
-                                isScrollControlled: true,
-                                builder: (_) =>
-                                    const WorkflowStartAdditionalSheet(
-                                        value: original));
-                      })))));
-      await tester.tap(find.text('باز کردن'));
+          home: Scaffold(body: SingleChildScrollView(child:
+              WorkflowStartAdditionalFields(value: original, onConfirmed: (value) => result = value)))));
       await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsNothing);
       expect(find.text('۱. جلوگیری از شروع تکراری'), findsOneWidget);
       expect(find.text('۲. جلوگیری از شروع مجدد پس از خاتمه'), findsOneWidget);
       await tester.ensureVisible(
@@ -254,21 +243,17 @@ void main() {
       await tester.pumpAndSettle();
       await tester.scrollUntilVisible(
           find.text('۳. الزام ثبت علت شروع دستی'), 160,
-          scrollable: find
-              .descendant(
-                  of: find.byType(WorkflowStartAdditionalSheet),
-                  matching: find.byType(Scrollable))
-              .first);
+          scrollable: find.byType(Scrollable).first);
       expect(find.text('۳. الزام ثبت علت شروع دستی'), findsOneWidget);
       await tester.scrollUntilVisible(
           find.text('۴. ثبت سوابق آغاز گردش کار'), 160,
-          scrollable: find
-              .descendant(
-                  of: find.byType(WorkflowStartAdditionalSheet),
-                  matching: find.byType(Scrollable))
-              .first);
+          scrollable: find.byType(Scrollable).first);
       expect(find.text('۴. ثبت سوابق آغاز گردش کار'), findsOneWidget);
-      await tester.tap(find.text('تأیید تنظیمات اضافی'));
+      await tester.scrollUntilVisible(find.text('تأیید تنظیمات اضافی'), 120,
+          scrollable: find.byType(Scrollable).first);
+      await tester.ensureVisible(find.text('تأیید تنظیمات اضافی'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('تأیید تنظیمات اضافی').hitTestable());
       await tester.pumpAndSettle();
       expect(result!.allowManagerRestart, isTrue);
       expect(original.allowManagerRestart, isFalse);
