@@ -1,6 +1,45 @@
 part of 'stage_settings_page.dart';
 
 extension _UserActionSettings on _StageSettingsPageState {
+  Widget _actionExtras() => Card(
+      margin: const EdgeInsets.only(top: 16),
+      child: ExpansionTile(
+        key: const ValueKey('action-additional-settings'),
+        leading: const AsoudIconBox(icon: Icons.tune_rounded, color: AsoudColors.primary, size: 34),
+        title: const Text('تنظیمات تکمیلی (اختیاری)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
+        subtitle: const Text('امکانات انجام‌دهنده در همین مرحله', style: TextStyle(fontSize: 10, color: AsoudColors.muted)),
+        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        children: [
+          const Divider(),
+          _actionCapability('دسترسی به درخواست اصلی', 'مشاهده یا ویرایش فقط در حدود مجوزهای فعلی درخواست یا سند.',
+              allowOriginalAccess, (value) => allowOriginalAccess = value),
+          if (allowOriginalAccess) ...[
+            for (final mode in const [('Read Only', 'فقط مشاهده درخواست'), ('Edit', 'مشاهده و ویرایش درخواست')])
+              ListTile(dense: true, contentPadding: EdgeInsets.zero,
+                leading: Icon((access == mode.$1 || (mode.$1 == 'Edit' && access == 'Limited Edit')) ? Icons.radio_button_checked : Icons.radio_button_off,
+                    color: AsoudColors.primary, size: 20),
+                title: Text(mode.$2, style: const TextStyle(fontSize: 12)),
+                onTap: saving ? null : () => _updateAction(() => access = mode.$1)),
+            _notice('این انتخاب مجوز جدیدی نمی‌دهد؛ ثبت ارسال‌شدهٔ تغییرناپذیر و سند قفل‌شده قابل ویرایش نیستند.'),
+          ],
+          const Divider(),
+          _actionCapability('امکان افزودن پیوست', 'فایل‌ها به سابقه همین اقدام متصل می‌شوند، نه پیوست‌های اولیه درخواست.',
+              addActionAttachments, (value) => addActionAttachments = value),
+          const Divider(),
+          _actionCapability('ذخیره پیش‌نویس', 'ذخیره و ادامه در آینده؛ وظیفه تکمیل نمی‌شود و گردش کار جلو نمی‌رود.',
+              allowDraft, (value) => allowDraft = value),
+          const Divider(),
+          _actionCapability('امکان واگذاری مجدد', 'انتقال همین وظیفه به فرد واجد شرایط با حفظ اطلاعات و ثبت سابقه.',
+              allowReassign, (value) => allowReassign = value),
+        ],
+      ));
+
+  Widget _actionCapability(String title, String description, bool value, void Function(bool) change) =>
+      SwitchListTile.adaptive(contentPadding: EdgeInsets.zero,
+        title: Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+        subtitle: Text(description, style: const TextStyle(fontSize: 10, height: 1.7, color: AsoudColors.muted)),
+        value: value, onChanged: saving ? null : (next) => _updateAction(() => change(next)));
+
   void _initAction() {
     final rule = formMap(config['assignment_rule']);
     if (rule.isNotEmpty) {
@@ -117,10 +156,11 @@ extension _UserActionSettings on _StageSettingsPageState {
   }
 
   String? _validateAction() {
+    if (selectingActionForm) return 'ابتدا منتظر تأیید انتخاب فرم بمانید.';
     if (resultMode == 'Form' && resultForm == null) {
       return 'فرم ثبت نتیجه را انتخاب کنید.';
     }
-    if (!addActionAttachments && formMaps(resultSchema['sections'])
+    if (resultMode == 'Form' && !addActionAttachments && formMaps(resultSchema['sections'])
         .expand((section) => formMaps(section['fields']))
         .expand((field) => [field, ...formMaps(field['columns'])])
         .any((field) => field['required'] == true && {'File', 'Image', 'Signature'}.contains(field['type']))) {
@@ -176,58 +216,69 @@ extension _UserActionSettings on _StageSettingsPageState {
                     hintText: 'شرح کوتاهی از کار این مرحله...')),
           ])));
 
-  Future<void> _pickActionForm() async {
-    final selected = await showModalBottomSheet<FormMap>(
-        context: context,
-        isScrollControlled: true,
-        useSafeArea: true,
-        showDragHandle: true,
-        builder: (_) => ActionResultFormPicker(
-            repository: FormRepository(automation.client, company ?? '')));
-    if (selected != null && mounted) {
-      _updateAction(() {
-        resultForm = {
-          'form': selected['form'],
-          'revision': selected['revision']
-        };
-        resultSchema = formMap(selected['schema']);
-      });
-    }
-  }
-
   Widget _actionResultSection() => Card(
       margin: const EdgeInsets.symmetric(vertical: 14),
       child: Padding(
           padding: const EdgeInsets.all(16),
           child:
               Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            _label('اطلاعات موردنیاز برای انجام اقدام', required: true),
+            const Row(children: [Expanded(child: Text('۲. اطلاعات موردنیاز برای انجام اقدام',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800))),
+              SizedBox(width: 8), AsoudIconBox(icon: Icons.edit_note_outlined,
+                  color: AsoudColors.primary, size: 32)]),
+            const SizedBox(height: 10),
+            const Text('مشخص کنید مجری چگونه نتیجهٔ کار را ثبت کند.',
+                style: TextStyle(fontSize: 11, color: AsoudColors.muted)),
+            const SizedBox(height: 14),
             for (final item in const [
-              ('Simple', 'فرم ساده ثبت نتیجه'),
-              ('Form', 'استفاده از فرم موجود در فرم‌ساز آسود')
+              ('Simple', 'روش اول: ثبت گزارش ساده'),
+              ('Form', 'روش دوم: استفاده از فرم موجود')
             ])
-              ListTile(
-                  title: Text(item.$2, style: const TextStyle(fontSize: 12)),
-                  trailing: Icon(
+              Container(margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                    color: resultMode == item.$1 ? const Color(0xfff6f8fc) : Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: resultMode == item.$1 ? AsoudColors.primary : AsoudColors.border)),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  title: Text(item.$2, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
+                  trailing: item.$1 == 'Simple' ? Container(padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      decoration: BoxDecoration(color: AsoudColors.success.withValues(alpha: .1), borderRadius: BorderRadius.circular(12)),
+                      child: const Text('پیشنهادی', style: TextStyle(fontSize: 9, color: AsoudColors.success))) : null,
+                  subtitle: Text(item.$1 == 'Simple' ? 'مجری نتیجه کار را با نوشتن توضیحات ثبت می‌کند.' : 'اگر برای ثبت نتیجه به اطلاعات و فیلدهای بیشتری نیاز دارید، یک فرم از فرم‌ساز آسود انتخاب کنید.',
+                      style: const TextStyle(fontSize: 10, color: AsoudColors.muted)),
+                  leading: Icon(
                       resultMode == item.$1
-                          ? Icons.radio_button_checked
+                          ? Icons.check_circle_outline
                           : Icons.radio_button_off,
+                      size: 18,
                       color: resultMode == item.$1
                           ? AsoudColors.primary
                           : AsoudColors.muted),
-                  onTap: () => _updateAction(() => resultMode = item.$1)),
-            if (resultMode == 'Simple')
-              _notice(
-                  'مجری هنگام اجرا، نتیجهٔ اقدام، شرح نتیجه و پیوست مجاز را ثبت می‌کند. پیگیری و مانع، گردش کار را به مرحله بعد نمی‌برند.')
-            else ...[
-              PickerField(
-                  label: 'انتخاب فرم',
-                  value: resultForm == null
-                      ? ''
-                      : '${resultSchema['title'] ?? 'فرم انتخاب‌شده'}',
-                  placeholder: 'فرم منتشرشده را انتخاب کنید',
-                  icon: Icons.description_outlined,
-                  onTap: _pickActionForm),
+                  onTap: saving || selectingActionForm ? null : () => _updateAction(() => resultMode = item.$1)),
+                if (resultMode == item.$1) Padding(padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                    const Divider(height: 18),
+                    if (item.$1 == 'Simple') ...[
+                      _label('گزارش انجام اقدام'),
+                      const TextField(readOnly: true, canRequestFocus: false,
+                          enableInteractiveSelection: false, minLines: 2, maxLines: 3,
+                          decoration: InputDecoration(hintText: 'نتیجه بررسی و اقدامات انجام‌شده را بنویسید…')),
+                      const SizedBox(height: 8),
+                      const Row(children: [Icon(Icons.info_outline, size: 15, color: AsoudColors.primary),
+                        SizedBox(width: 6), Expanded(child: Text('امکان ثبت توضیحات در صفحه انجام وظیفه',
+                          style: TextStyle(fontSize: 10, height: 1.7, color: AsoudColors.muted)))]),
+                    ] else ...[
+              _label('انتخاب فرم', required: true),
+              ActionResultFormPicker(key: const ValueKey('stage-result-form'),
+                  repository: FormRepository(automation.client, company ?? ''),
+                  inline: true, enabled: !saving, selected: resultForm,
+                  onBusyChanged: (busy) => _updateAction(() => selectingActionForm = busy),
+                  onSelected: (selected) => _updateAction(() {
+                    resultForm = {'form': selected['form'], 'revision': selected['revision']};
+                    resultSchema = formMap(selected['schema']);
+                  })),
               if (resultSchema.isNotEmpty)
                 TextButton.icon(
                     icon: const Icon(Icons.visibility_outlined),
@@ -251,9 +302,9 @@ extension _UserActionSettings on _StageSettingsPageState {
                                         automation.client, company ?? ''),
                                     formName:
                                         resultForm?['form'] as String?))))),
-            ],
-            _notice(
-                'در این صفحه فقط روش ثبت نتیجه تعیین می‌شود؛ طراح اطلاعات واقعی اقدام را وارد نمی‌کند.'),
+                    ],
+                  ])),
+              ])),
           ])));
 
   Future<void> _actionPickUnit() async {
@@ -265,6 +316,7 @@ extension _UserActionSettings on _StageSettingsPageState {
         builder: (_) => SizedBox(
             height: MediaQuery.sizeOf(context).height * .7,
             child: OrgUnitPickerPage(
+                initiatorDepartment: false,
                 departments: departments
                     .where((item) =>
                         item.company == null || item.company == company)

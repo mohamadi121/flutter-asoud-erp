@@ -75,7 +75,7 @@ class _TaskDetailView extends StatelessWidget {
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
                         children: [
                           _TaskSummaryCard(rows: _summaryRows(detail)),
-                          if (detail.submittedForm.isNotEmpty) ...[
+                          if (detail.allowOriginalAccess && detail.submittedForm.isNotEmpty) ...[
                             const SizedBox(height: 14),
                             const AsoudSectionTitle(title: 'درخواست یا سند ارسال‌شده'),
                             const Text('اطلاعات ثبت اصلی؛ فقط مشاهده',
@@ -88,7 +88,7 @@ class _TaskDetailView extends StatelessWidget {
                               repository: FormRepository(context.read<FrappeApiClient>(),
                                   '${detail.submittedForm['company'] ?? ''}')),
                           ],
-                          if (detail.requestName.isNotEmpty)
+                          if (detail.allowOriginalAccess && detail.requestName.isNotEmpty)
                             Align(
                               alignment: AlignmentDirectional.centerStart,
                               child: TextButton.icon(

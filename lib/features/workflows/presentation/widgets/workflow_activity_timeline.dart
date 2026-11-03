@@ -47,6 +47,7 @@ String workflowActivityLabel(String action) => switch (action.trim()) {
       'Claim' => 'اقدام از صف دریافت شد',
       'Assigned' => 'اقدام ارجاع شد',
       'Escalated' => 'مسئول اقدام تغییر کرد',
+      'Reassigned' => 'وظیفه به مسئول جدید واگذار شد',
       'Follow Up' => 'اقدام نیازمند پیگیری است',
       'Blocked' => 'مانع انجام اقدام ثبت شد',
       'Draft Saved' => 'پیش‌نویس اقدام ذخیره شد',

@@ -5,13 +5,19 @@ import '../../../form_builder/form_repository.dart';
 
 /// Selects a published definition only; never submits a form or creates a record.
 class ActionResultFormPicker extends StatefulWidget {
-  const ActionResultFormPicker({required this.repository, super.key});
+  const ActionResultFormPicker({required this.repository, this.inline = false,
+      this.enabled = true, this.selected, this.onSelected, this.onBusyChanged, super.key});
   final FormRepository repository;
+  final bool inline, enabled;
+  final FormMap? selected;
+  final ValueChanged<FormMap>? onSelected;
+  final ValueChanged<bool>? onBusyChanged;
   @override
   State<ActionResultFormPicker> createState() => _ActionResultFormPickerState();
 }
 
 class _ActionResultFormPickerState extends State<ActionResultFormPicker> {
+  final selectionText = TextEditingController();
   List<FormMap> rows = [];
   String query = '';
   String? error;
@@ -20,6 +26,12 @@ class _ActionResultFormPickerState extends State<ActionResultFormPicker> {
   void initState() {
     super.initState();
     load();
+  }
+
+  @override
+  void dispose() {
+    selectionText.dispose();
+    super.dispose();
   }
 
   Future<void> load() async {
@@ -50,11 +62,12 @@ class _ActionResultFormPickerState extends State<ActionResultFormPicker> {
   }
 
   Future<void> choose(FormMap row) async {
-    if (selecting) return;
+    if (selecting || !widget.enabled) return;
     setState(() {
       selecting = true;
       error = null;
     });
+    widget.onBusyChanged?.call(true);
     try {
       final identity = row['builtin_pending'] == true
           ? formMap(await widget.repository.call('open_builtin', {
@@ -80,21 +93,36 @@ class _ActionResultFormPickerState extends State<ActionResultFormPicker> {
         throw StateError('این فرم منتشرشده و فعال نیست؛ فهرست را تازه کنید.');
       }
       if (mounted) {
-        Navigator.pop(context, {
+        final selection = <String, dynamic>{
           'form': result['name'],
           'revision': result['revision'],
           'schema': result['schema']
-        });
+        };
+        if (widget.inline) {
+          FocusScope.of(context).unfocus();
+          widget.onSelected?.call(selection);
+        } else {
+          Navigator.pop(context, selection);
+        }
       }
     } catch (failure) {
-      if (mounted) setState(() => error = failureDetail(failure));
+      if (mounted) {
+        if (widget.inline) {
+          final previous = rows.where((row) => row['name'] == widget.selected?['form']).firstOrNull;
+          selectionText.text = previous?['title']?.toString() ?? '';
+        }
+        setState(() => error = failureDetail(failure));
+      }
     } finally {
-      if (mounted) setState(() => selecting = false);
+      if (mounted) {
+        setState(() => selecting = false);
+        widget.onBusyChanged?.call(false);
+      }
     }
   }
 
   @override
-  Widget build(BuildContext context) => Directionality(
+  Widget build(BuildContext context) => widget.inline ? _inlinePicker() : Directionality(
       textDirection: TextDirection.rtl,
       child: SizedBox(
           height: (MediaQuery.sizeOf(context).height * .75 -
@@ -135,4 +163,37 @@ class _ActionResultFormPickerState extends State<ActionResultFormPicker> {
                     onPressed: loading || selecting ? null : load,
                     child: const Text('دریافت دوباره')),
               ]))));
+
+  Widget _inlinePicker() => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+    if (loading || selecting) const LinearProgressIndicator(),
+    LayoutBuilder(builder: (context, constraints) => DropdownMenu<String>(
+      controller: selectionText,
+      key: ValueKey('action-result-form-${widget.selected?['form']}-${widget.selected?['revision']}-${rows.length}'),
+      width: constraints.maxWidth,
+      menuHeight: 240,
+      menuStyle: MenuStyle(backgroundColor: const WidgetStatePropertyAll(Colors.white),
+          shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)))),
+      enabled: widget.enabled && !loading && !selecting,
+      enableFilter: true,
+      enableSearch: true,
+      requestFocusOnTap: true,
+      initialSelection: rows.any((row) => row['name'] == widget.selected?['form'])
+          ? (widget.selected?['form'] as String?) : null,
+      hintText: 'انتخاب یا جست‌وجوی فرم…',
+      textStyle: const TextStyle(fontSize: 12),
+      dropdownMenuEntries: [for (final row in rows)
+        DropdownMenuEntry(value: '${row['name']}', label: '${row['title'] ?? 'فرم بدون عنوان'}')],
+      onSelected: (name) {
+        final row = rows.where((row) => row['name'] == name).firstOrNull;
+        if (row != null) choose(row).ignore();
+      },
+    )),
+    if (error != null) Padding(padding: const EdgeInsets.only(top: 8),
+        child: Text(error!, style: const TextStyle(color: Colors.red, fontSize: 11))),
+    if (!loading && rows.isEmpty) const Padding(padding: EdgeInsets.only(top: 8),
+        child: Text('فرم منتشرشده‌ای در دسترس نیست؛ ابتدا فرم را در فرم‌ساز منتشر کنید.',
+            style: TextStyle(fontSize: 11))),
+    if (error != null || (!loading && rows.isEmpty)) TextButton(
+        onPressed: !widget.enabled || loading || selecting ? null : load, child: const Text('دریافت دوباره')),
+  ]);
 }

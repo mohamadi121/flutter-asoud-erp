@@ -24,7 +24,7 @@ const schema = <String, dynamic>{
   ]
 };
 
-WorkflowTaskDetail detail({bool claim = false, bool draft = true}) =>
+WorkflowTaskDetail detail({bool claim = false, bool draft = true, bool reassign = false}) =>
     WorkflowTaskDetail(
         task: WorkflowTask(
             id: 'task',
@@ -39,6 +39,7 @@ WorkflowTaskDetail detail({bool claim = false, bool draft = true}) =>
         actionCompany: 'company',
         actionMode: 'Simple',
         requiresClaim: claim,
+        allowReassign: reassign,
         allowDraft: draft);
 
 class Client extends Fake implements FrappeApiClient {
@@ -63,6 +64,7 @@ class Client extends Fake implements FrappeApiClient {
           'task': 'task',
           'saved': true,
           'claimed': true,
+          'reassigned': true,
           'instance_status': 'Running'
         }
       }
@@ -80,6 +82,42 @@ class Tasks extends Fake implements WorkflowTaskRepository {
 }
 
 void main() {
+  test('manual reassignment uses the same task API and blocks duplicate taps', () async {
+    final client = Client()..hold = Completer<void>();
+    final cubit = WorkflowTaskDetailCubit(Tasks(detail(reassign: true)), 'task', actionClient: client);
+    addTearDown(cubit.close);
+    await cubit.load();
+    cubit.setValues({'action_note': 'اطلاعات واردشده'});
+    final first = cubit.reassign('qualified-user');
+    expect(await cubit.reassign('another-user'), isFalse);
+    expect(client.calls.single['method'], endsWith('.complete_workflow_task'));
+    expect(client.calls.single['action'], 'Reassign');
+    expect(client.calls.single['assignee'], 'qualified-user');
+    client.hold!.complete();
+    expect(await first, isTrue);
+    expect(cubit.state.status, WorkflowTaskDetailStatus.success);
+  });
+
+  test('disabled reassignment never calls the server', () async {
+    final client = Client();
+    final cubit = WorkflowTaskDetailCubit(Tasks(detail()), 'task', actionClient: client);
+    addTearDown(cubit.close);
+    await cubit.load();
+    expect(await cubit.reassign('other'), isFalse);
+    expect(client.calls, isEmpty);
+  });
+
+  test('failed reassignment preserves responsibility and current input', () async {
+    final client = Client()..fail = true;
+    final cubit = WorkflowTaskDetailCubit(Tasks(detail(reassign: true)), 'task', actionClient: client);
+    addTearDown(cubit.close);
+    await cubit.load();
+    cubit.setValues({'action_note': 'اطلاعات محفوظ'});
+    expect(await cubit.reassign('other'), isFalse);
+    expect(cubit.state.detail, detail(reassign: true));
+    expect(cubit.state.values['action_note'], 'اطلاعات محفوظ');
+    expect(cubit.state.status, WorkflowTaskDetailStatus.failure);
+  });
   test('failed writes preserve entered action values and do not report success',
       () async {
     final client = Client()..fail = true;

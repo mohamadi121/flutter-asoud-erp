@@ -58,6 +58,16 @@ class WorkflowActionRepository extends FormRepository
     }
   }
 
+  Future<FormMap> candidates(String query, int start) => runtime(
+      'get_workflow_task', {'candidate_query': query, 'candidate_start': start});
+
+  Future<void> reassign(String user) async {
+    final result = await runtime('complete_workflow_task', {'action': 'Reassign', 'assignee': user});
+    if (result['task'] != task || result['reassigned'] != true) {
+      throw const ApiException.protocol();
+    }
+  }
+
   @override
   Future<dynamic> call(String method, [FormMap data = const {}]) async {
     if (method != 'upload_file') return super.call(method, data);

@@ -177,6 +177,8 @@ class FrappeWorkflowTaskRepository
       actionMode: config['result_mode']?.toString() ?? '', requiresClaim: item['requires_claim'] == true,
       allowDraft: item['allow_draft'] != false, allowAddAttachments: item['allow_add_attachments'] == true,
       documentAccess: config['document_access']?.toString() ?? 'Read Only',
+      allowReassign: item['allow_reassign'] == true,
+      allowOriginalAccess: item['allow_original_access'] != false,
       values: item['action_values'] is Map ? Map<String, dynamic>.from(item['action_values'] as Map) : item['draft'] is Map
           ? Map<String, dynamic>.from(item['draft'] as Map)
           : const {},

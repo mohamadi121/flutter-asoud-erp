@@ -185,22 +185,6 @@ class _FormContentState extends State<_FormContent> {
           ),
         ),
         const SizedBox(height: 22),
-        DropdownButtonFormField<String>(
-          key: ValueKey('workflow-module-${state.moduleKey}'),
-          isExpanded: true,
-          initialValue: state.moduleKey.isEmpty ? null : state.moduleKey,
-          decoration:
-              const InputDecoration(labelText: 'ماژول *',
-                  floatingLabelBehavior: FloatingLabelBehavior.always),
-          items: state.options!.modules
-              .map((item) => DropdownMenuItem(
-                  value: item.key,
-                  child: Text(_moduleLabel(item.key),
-                      overflow: TextOverflow.ellipsis)))
-              .toList(),
-          onChanged: enabled && state.creationMode != 'Template' ? cubit.changeModule : null,
-        ),
-        const SizedBox(height: 22),
         TextFormField(
           key: const ValueKey('workflow-description'),
           controller: description,
@@ -500,13 +484,3 @@ class _LoadFailure extends StatelessWidget {
         ]),
       );
 }
-
-String _moduleLabel(String key) => switch (key) {
-      'Purchase' => 'خرید',
-      'Accounting' => 'مالی',
-      'Sales' => 'فروش',
-      'Inventory' => 'انبار',
-      'Support' => 'پشتیبانی',
-      'HR' => 'منابع انسانی',
-      _ => key,
-    };
