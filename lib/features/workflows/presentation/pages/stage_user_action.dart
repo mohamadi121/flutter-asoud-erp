@@ -234,11 +234,12 @@ extension _UserActionSettings on _StageSettingsPageState {
               ('Simple', 'روش اول: ثبت گزارش ساده'),
               ('Form', 'روش دوم: استفاده از فرم موجود')
             ])
-              Container(margin: const EdgeInsets.only(bottom: 12),
-                decoration: BoxDecoration(
+              Padding(padding: const EdgeInsets.only(bottom: 12),
+                child: Material(
                     color: resultMode == item.$1 ? const Color(0xfff6f8fc) : Colors.white,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: resultMode == item.$1 ? AsoudColors.primary : AsoudColors.border)),
+                    clipBehavior: Clip.antiAlias,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14),
+                        side: BorderSide(color: resultMode == item.$1 ? AsoudColors.primary : AsoudColors.border)),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                 ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -304,7 +305,7 @@ extension _UserActionSettings on _StageSettingsPageState {
                                         resultForm?['form'] as String?))))),
                     ],
                   ])),
-              ])),
+              ]))),
           ])));
 
   Future<void> _actionPickUnit() async {

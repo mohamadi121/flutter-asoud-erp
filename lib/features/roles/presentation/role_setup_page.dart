@@ -19,9 +19,11 @@ class _RoleSetupView extends StatelessWidget {
                   child: Column(mainAxisAlignment: MainAxisAlignment.start, children: [
                     AsoudIconBox(icon: icon, color: AsoudColors.primary, size: 52),
                     const SizedBox(height: 20),
-                    Text(title,
+                    ConstrainedBox(
+                        constraints: BoxConstraints(minHeight: MediaQuery.textScalerOf(context).scale(15) * 2.8),
+                        child: Center(child: Text(title,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+                        style: const TextStyle(fontSize: 15, height: 1.4, fontWeight: FontWeight.w800)))),
                     const SizedBox(height: 20),
                     Text(subtitle, textAlign: TextAlign.center,
                         style: const TextStyle(fontSize: 12, height: 1.6, color: AsoudColors.muted)),

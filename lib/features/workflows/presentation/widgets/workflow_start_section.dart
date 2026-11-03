@@ -263,9 +263,11 @@ class _WorkflowStartAdditionalFieldsState
   @override
   Widget build(BuildContext context) => Directionality(
       textDirection: TextDirection.rtl,
-      child: Container(
-          decoration: BoxDecoration(color: Colors.white,
-              border: Border.all(color: AsoudColors.border), borderRadius: BorderRadius.circular(14)),
+      child: Material(
+          color: Colors.white,
+          clipBehavior: Clip.antiAlias,
+          shape: RoundedRectangleBorder(side: const BorderSide(color: AsoudColors.border),
+              borderRadius: BorderRadius.circular(14)),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                   ExpansionTile(
                           enabled: widget.enabled,
