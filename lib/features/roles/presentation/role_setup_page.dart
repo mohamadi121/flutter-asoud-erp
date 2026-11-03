@@ -7,8 +7,11 @@ class _RoleSetupView extends StatelessWidget {
   final bool canManage;
 
   Widget _choice(BuildContext context, String title, String subtitle,
-          IconData icon, Widget page, bool enabled) =>
+          IconData icon, Widget page, bool enabled,
+          {required double titleHeight, required TextStyle titleStyle,
+          required EdgeInsetsGeometry margin}) =>
       Card(
+          margin: margin,
           child: InkWell(
               onTap: enabled ? () => _roleRoute<bool>(context, page) : null,
               borderRadius: BorderRadius.circular(14),
@@ -19,15 +22,45 @@ class _RoleSetupView extends StatelessWidget {
                   child: Column(mainAxisAlignment: MainAxisAlignment.start, children: [
                     AsoudIconBox(icon: icon, color: AsoudColors.primary, size: 52),
                     const SizedBox(height: 20),
-                    ConstrainedBox(
-                        constraints: BoxConstraints(minHeight: MediaQuery.textScalerOf(context).scale(15) * 2.8),
+                    SizedBox(height: titleHeight, width: double.infinity,
                         child: Center(child: Text(title,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 15, height: 1.4, fontWeight: FontWeight.w800)))),
+                        style: titleStyle))),
                     const SizedBox(height: 20),
                     Text(subtitle, textAlign: TextAlign.center,
                         style: const TextStyle(fontSize: 12, height: 1.6, color: AsoudColors.muted)),
                   ])))));
+
+  Widget _choices(BuildContext context, bool enabled, bool hasCategories) =>
+      LayoutBuilder(builder: (context, constraints) {
+        const titles = ['ایجاد نقش جدید', 'ورود از اکسل'];
+        final margin = CardTheme.of(context).margin ?? const EdgeInsets.all(4);
+        final direction = Directionality.of(context);
+        final titleStyle = Theme.of(context).textTheme.bodyMedium!.copyWith(
+            fontSize: 15, height: 1.4, fontWeight: FontWeight.w800);
+        final textWidth = ((constraints.maxWidth - 12) / 2 -
+            margin.resolve(direction).horizontal - 24).clamp(1.0, double.infinity).toDouble();
+        // Reserve the actual tallest title, not an assumed number of lines.
+        // The default test font can wrap into three lines at 320 px.
+        final titleHeight = titles.fold<double>(0, (height, title) {
+          final painter = TextPainter(text: TextSpan(text: title, style: titleStyle),
+              textDirection: direction, textAlign: TextAlign.center,
+              textScaler: MediaQuery.textScalerOf(context),
+              locale: Localizations.maybeLocaleOf(context))..layout(maxWidth: textWidth);
+          final measured = painter.height.ceilToDouble();
+          painter.dispose();
+          return measured > height ? measured : height;
+        });
+        return IntrinsicHeight(child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Expanded(child: _choice(context, titles[0], 'تعریف دستی نقش', Icons.add,
+              const _RoleForm(), enabled && hasCategories,
+              titleHeight: titleHeight, titleStyle: titleStyle, margin: margin)),
+          const SizedBox(width: 12),
+          Expanded(child: _choice(context, titles[1], 'انتقال نقش‌های موجود', Icons.table_chart_outlined,
+              const _RoleExcelPage(), enabled,
+              titleHeight: titleHeight, titleStyle: titleStyle, margin: margin)),
+        ]));
+      });
 
   @override
   Widget build(BuildContext context) =>
@@ -80,25 +113,7 @@ class _RoleSetupView extends StatelessWidget {
                           _roleRoute<bool>(context, const _RoleTemplates()))),
             if (canManage) const SizedBox(height: 12),
             if (canManage)
-              IntrinsicHeight(child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                Expanded(
-                    child: _choice(
-                        context,
-                        'ایجاد نقش جدید',
-                        'تعریف دستی نقش',
-                        Icons.add,
-                        const _RoleForm(),
-                        enabled && state.catalog.categories.isNotEmpty)),
-                const SizedBox(width: 12),
-                Expanded(
-                    child: _choice(
-                        context,
-                        'ورود از اکسل',
-                        'انتقال نقش‌های موجود',
-                        Icons.table_chart_outlined,
-                        const _RoleExcelPage(),
-                        enabled)),
-              ])),
+              _choices(context, enabled, state.catalog.categories.isNotEmpty),
           ]),
           bottomNavigationBar: Container(
               decoration: const BoxDecoration(color: Colors.white,
