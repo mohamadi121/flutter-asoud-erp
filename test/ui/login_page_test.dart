@@ -47,6 +47,29 @@ void main() {
     expect(find.text('ورود به نسخه نمایشی (آفلاین)'), findsNothing);
   });
 
+  testWidgets('setup reset button visibility is controlled by showSetupReset flag',
+      (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('fa'),
+      theme: AsoudTheme.light,
+      home: const Directionality(
+        textDirection: TextDirection.rtl,
+        child: LoginPage(showSetupReset: true),
+      ),
+    ));
+    expect(find.byKey(const ValueKey('temporary_setup_reset')), findsOneWidget);
+
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('fa'),
+      theme: AsoudTheme.light,
+      home: const Directionality(
+        textDirection: TextDirection.rtl,
+        child: LoginPage(showSetupReset: false),
+      ),
+    ));
+    expect(find.byKey(const ValueKey('temporary_setup_reset')), findsNothing);
+  });
+
   testWidgets('ورود نخستین نشانی سرور خالی با راهنمای فارسی دارد', (
     tester,
   ) async {
