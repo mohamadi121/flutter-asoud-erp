@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 
 import '../../../../core/network/api_exception.dart';
@@ -28,8 +30,16 @@ class WorkflowManualStartDialog extends StatefulWidget {
 class _WorkflowManualStartDialogState extends State<WorkflowManualStartDialog> {
   late final subject = TextEditingController(text: widget.initialSubject);
   final reason = TextEditingController();
+  late final String requestId = _generateRequestId();
   bool busy = false, unknown = false;
   String? error;
+
+  static String _generateRequestId() {
+    final rand = Random();
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-';
+    return List.generate(28, (_) => chars[rand.nextInt(chars.length)]).join();
+  }
+
   @override
   void dispose() {
     subject.dispose();
@@ -55,6 +65,7 @@ class _WorkflowManualStartDialogState extends State<WorkflowManualStartDialog> {
               reason: reason.text.trim(),
               referenceDoctype: widget.referenceDoctype,
               referenceName: widget.referenceName,
+              requestId: requestId,
               restart: widget.restarting);
       if (mounted) {
         Navigator.pop(context, instance);

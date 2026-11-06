@@ -49,10 +49,10 @@ class _Server extends Mock implements FrappeApiClient {
       throw ApiException(kind: ApiFailureKind.validation, message: rejection);
     }
     final row = rows.singleWhere((row) => row['name'] == data!['name']);
-    if (method == 'frappe.client.delete') {
-      expect(data!['doctype'], 'ASOUD Workflow Definition');
+    if (method == 'asoud_erp.api.v1.workflow.delete_workflow') {
+      final row = rows.singleWhere((row) => row['name'] == data!['name']);
       rows.remove(row);
-      return {'message': null};
+      return {'message': {'ok': true, 'data': {'name': data!['name'], 'deleted': true}}};
     }
     expect(method, 'asoud_erp.api.v1.workflow.set_workflow_status');
     row['status'] = data!['status'];

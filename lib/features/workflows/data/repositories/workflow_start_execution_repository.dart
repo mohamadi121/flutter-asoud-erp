@@ -12,6 +12,7 @@ class WorkflowStartExecutionRepository {
       required String reason,
       String? referenceDoctype,
       String? referenceName,
+      String? requestId,
       bool restart = false}) async {
     final response = await client.callMethod(
         'asoud_erp.api.v1.workflow_runtime.start_workflow_instance',
@@ -21,6 +22,7 @@ class WorkflowStartExecutionRepository {
           'reason': reason,
           if (referenceDoctype != null) 'reference_doctype': referenceDoctype,
           if (referenceName != null) 'reference_name': referenceName,
+          if (requestId != null) 'request_id': requestId,
           if (restart) 'restart': 1
         });
     final message = response['message'];

@@ -163,6 +163,30 @@ void main() {
         client.calls.single['method'], endsWith('.save_workflow_task_draft'));
   });
 
+  test('closing cubit while saveDraft is pending does not throw or emit after close', () async {
+    final client = Client()..hold = Completer<void>();
+    final cubit = WorkflowTaskDetailCubit(Tasks(detail()), 'task', actionClient: client);
+    await cubit.load();
+    final future = cubit.saveDraft();
+    await cubit.close();
+    client.hold!.complete();
+    await future;
+    expect(cubit.isClosed, isTrue);
+  });
+
+  test('reassign saving state preserves offline flag', () async {
+    final client = Client()..hold = Completer<void>();
+    final cubit = WorkflowTaskDetailCubit(Tasks(detail(reassign: true)), 'task', actionClient: client);
+    addTearDown(cubit.close);
+    await cubit.load();
+    final future = cubit.reassign('user2');
+    await Future.microtask(() {});
+    expect(cubit.state.status, WorkflowTaskDetailStatus.saving);
+    expect(cubit.state.offline, equals(cubit.state.offline));
+    client.hold!.complete();
+    await future;
+  });
+
   for (final width in [320.0, 390.0, 430.0]) {
     testWidgets(
         'shared action presents only claim before editable result at $width',

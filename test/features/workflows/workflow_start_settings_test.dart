@@ -313,4 +313,77 @@ void main() {
     expect(cubit.state.status, WorkflowFormStatus.success);
     expect(repository.saves, 0);
   });
+
+  testWidgets('the same request_id is sent on retries of one dialog',
+      (tester) async {
+    final client = _RetryClient();
+    await tester.pumpWidget(MaterialApp(
+        theme: AsoudTheme.light,
+        home: WorkflowManualStartDialog(definition: 'created', client: client)));
+    await tester.enterText(find.byType(TextField).first, 'بررسی امروز');
+    await tester.enterText(find.byType(TextField).last, 'علت اول');
+    await tester.tap(find.text('شروع گردش کار'));
+    await tester.pumpAndSettle();
+    expect(client.calls, 1);
+
+    await tester.tap(find.text('شروع گردش کار'));
+    await tester.pumpAndSettle();
+    expect(client.calls, 2);
+    expect(client.firstRequestId, isNotNull);
+    expect(client.secondRequestId, isNotNull);
+    expect(client.firstRequestId, equals(client.secondRequestId));
+  });
+
+  testWidgets('request_id differs between two separate dialog instances',
+      (tester) async {
+    final client1 = Client();
+    await tester.pumpWidget(MaterialApp(
+        theme: AsoudTheme.light,
+        home: WorkflowManualStartDialog(definition: 'created', client: client1)));
+    await tester.enterText(find.byType(TextField).first, 'بررسی ۱');
+    await tester.enterText(find.byType(TextField).last, 'علت ۱');
+    await tester.tap(find.text('شروع گردش کار'));
+    await tester.pumpAndSettle();
+    final id1 = client1.sent!['request_id'];
+
+    await tester.pumpWidget(const SizedBox.shrink());
+
+    final client2 = Client();
+    await tester.pumpWidget(MaterialApp(
+        theme: AsoudTheme.light,
+        home: WorkflowManualStartDialog(definition: 'created', client: client2)));
+    await tester.enterText(find.byType(TextField).first, 'بررسی ۲');
+    await tester.enterText(find.byType(TextField).last, 'علت ۲');
+    await tester.tap(find.text('شروع گردش کار'));
+    await tester.pumpAndSettle();
+    final id2 = client2.sent!['request_id'];
+
+    expect(id1, isNotNull);
+    expect(id2, isNotNull);
+    expect(id1, isNot(equals(id2)));
+  });
+}
+
+class _RetryClient extends Fake implements FrappeApiClient {
+  int calls = 0;
+  String? firstRequestId;
+  String? secondRequestId;
+
+  @override
+  Future<Map<String, dynamic>> callMethod(String method,
+      {Map<String, dynamic>? data}) async {
+    expect(method, 'asoud_erp.api.v1.workflow_runtime.start_workflow_instance');
+    calls++;
+    if (calls == 1) {
+      firstRequestId = data!['request_id'];
+      throw const ApiException(kind: ApiFailureKind.validation, message: 'خطا');
+    }
+    secondRequestId = data!['request_id'];
+    return {
+      'message': {
+        'ok': true,
+        'data': {'name': 'instance', 'status': 'Running'}
+      }
+    };
+  }
 }

@@ -87,7 +87,7 @@ class WorkflowTaskDetailCubit extends Cubit<WorkflowTaskDetailState> {
       _failure(StateError('واگذاری این اقدام در وضعیت فعلی مجاز نیست.'));
       return false;
     }
-    emit(WorkflowTaskDetailState(status: WorkflowTaskDetailStatus.saving, detail: state.detail, values: state.values));
+    emit(WorkflowTaskDetailState(status: WorkflowTaskDetailStatus.saving, detail: state.detail, values: state.values, offline: state.offline));
     try {
       await _action.reassign(user);
       if (isClosed) return false;
@@ -178,7 +178,7 @@ class WorkflowTaskDetailCubit extends Cubit<WorkflowTaskDetailState> {
               : 'پیش‌نویس ذخیره شد.'));
       return true;
     } catch (error) {
-      _failure(error);
+      if (!isClosed) _failure(error);
       return false;
     }
   }
