@@ -110,6 +110,21 @@ class Client extends Fake implements FrappeApiClient {
   }
 }
 
+class LegacyRepository extends Repository {
+  @override
+  Future<WorkflowDesign> getDesign(String id) async =>
+      WorkflowDesign(workflow: definition, stages: [
+        WorkflowStage(
+            id: 'start',
+            key: 'start',
+            type: WorkflowStageType.start,
+            title: 'شروع',
+            sequence: 0,
+            configurationComplete: false,
+            config: const {'trigger_type': 'Manual'})
+      ], transitions: const []);
+}
+
 void main() {
   testWidgets('a pending manual start cannot be dismissed or submitted twice',
       (tester) async {
@@ -285,4 +300,17 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  test('editing legacy workflow without start changes does not call configureStart',
+      () async {
+    final repository = LegacyRepository();
+    final cubit =
+        WorkflowFormCubit(repository: repository, existing: definition);
+    addTearDown(cubit.close);
+    await cubit.load();
+    cubit.changeTitle('عنوان جدید برای گردش کار قدیمی');
+    await cubit.submit();
+    expect(cubit.state.status, WorkflowFormStatus.success);
+    expect(repository.saves, 0);
+  });
 }
