@@ -26,6 +26,7 @@ bool isPendingResetRecord(LocalRecord row, {required String actor, required Stri
 
   final organization = key('org-v2:');
   if (organization != null) {
+    if (row.entityType == 'organization_draft_archive') return false;
     return organization.length == 3 && organization[0] == server && organization[1] == actor;
   }
   return false;
