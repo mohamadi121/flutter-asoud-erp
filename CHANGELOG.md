@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.30.0+51
+
+Paired backend: the merged `fix/review-followups` and setup reset changes (preview keys `blocking_users`/`blocking_roles` are optional, older servers work).
+
+- Setup reset: the page shows the users and roles that block a reset, reaches `perform`, and never clears non-synced local records.
+- Workflow delete uses the dedicated `delete_workflow` endpoint; manual starts send an idempotent `request_id`.
+- Workflow designer and task detail fixes from the colleague-commit review (End-stage failure reload, no emit after close, offline flag kept on reassign).
+
 - بازنشانی راه‌اندازی: بایگانی پیش‌نویس‌های ساختار سازمانی دیگر به‌اشتباه عملیات ارسال‌نشده محسوب نمی‌شود؛ کاربران و نقش‌های مانع حذف با عنوان فارسی در پیش‌نمایش نمایش داده می‌شوند.
 
 - دکمهٔ بازنشانی موقت دفتر در صفحهٔ لاگین تنها با فعال‌سازی پرچم کامپایل ASOUD_SETUP_RESET یا حالت دیباگ نمایش داده می‌شود. ویرایش گردش‌کار قدیمی (بدون تنظیمات نسخه ۱ شروع) بدون نیاز به تنظیم دوبارهٔ شروع ذخیره می‌شود. افزودن مرحله در طراح با خطای افزودن گام پایان، مرحله را حفظ کرده، طرح را دوباره بارگذاری می‌کند و پیام مشخص نشان می‌دهد.
