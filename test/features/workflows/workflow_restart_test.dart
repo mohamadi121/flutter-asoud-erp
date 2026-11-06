@@ -68,14 +68,14 @@ void main() {
       await tester.tap(find.text('شروع مجدد با ثبت علت'));
       await tester.pumpAndSettle();
       expect(client.calls, 1);
-      expect(client.sent, {
-        'definition': 'definition',
-        'subject': 'بررسی قرارداد',
-        'reason': 'بازبینی مدیریتی',
-        'reference_doctype': 'ASOUD Form Entry',
-        'reference_name': 'entry',
-        'restart': 1
-      });
+      expect(client.sent!['definition'], 'definition');
+      expect(client.sent!['subject'], 'بررسی قرارداد');
+      expect(client.sent!['reason'], 'بازبینی مدیریتی');
+      expect(client.sent!['reference_doctype'], 'ASOUD Form Entry');
+      expect(client.sent!['reference_name'], 'entry');
+      expect(client.sent!['restart'], 1);
+      expect(client.sent!['request_id'], isA<String>());
+      expect(client.sent!['request_id'], matches(RegExp(r'^[A-Za-z0-9_-]{8,64}$')));
       expect(tester.takeException(), isNull);
     });
     testWidgets(
