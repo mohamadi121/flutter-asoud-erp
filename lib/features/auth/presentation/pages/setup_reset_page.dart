@@ -5,10 +5,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/network/frappe_client.dart';
-import '../../../../core/offline/offline_mutation_store.dart';
 import '../../../../core/offline/local_database_store.dart';
 import '../../../../core/offline/local_record.dart';
 import '../../data/setup_reset_cache.dart';
+import '../../data/setup_reset_preview.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/failure_message.dart';
 import '../../../../core/utils/persian_format.dart';
@@ -16,7 +16,8 @@ import '../../../../core/widgets/asoud_ui.dart';
 
 /// Always reached through real sign-in; destructive authority remains server-side.
 class SetupResetPage extends StatefulWidget {
-  const SetupResetPage({this.onResetConfirmed, super.key});
+  const SetupResetPage({this.onResetConfirmed, this.localStore, super.key});
+  final LocalRecordStore? localStore;
   final Future<void> Function(String actor, List<String> companies)? onResetConfirmed;
   @override
   State<SetupResetPage> createState() => _SetupResetPageState();
@@ -49,20 +50,17 @@ class _SetupResetPageState extends State<SetupResetPage> {
   Future<int> pendingWrites() async {
     final user = await client.getCurrentUser();
     final server = client is FrappeClient ? (client as FrappeClient).serverIdentity : null;
-    final pending = await OfflineMutationStore.instance.pending();
-    final queuedMutations = pending.where((row) {
-      final data = row['payload'];
-      return data is Map && data['_asoud_owner'] == user.userId &&
-          (server == null || data['_asoud_server'] == server);
-    }).length;
-    if (server == null) return queuedMutations;
-    final records = await LocalDatabaseStore.instance.list(statuses: {
+    final records = await (widget.localStore ?? LocalDatabaseStore.instance).list(statuses: {
       LocalSyncStatus.pendingSync,
       LocalSyncStatus.localOnly,
       LocalSyncStatus.syncFailed,
     });
-    return queuedMutations + records.where((row) => isPendingResetRecord(row,
-        actor: user.userId, server: server)).length;
+    return records.where((row) {
+      final data = row.payload;
+      return (data['_asoud_owner'] == user.userId &&
+          (server == null || data['_asoud_server'] == server)) ||
+          (server != null && isPendingResetRecord(row, actor: user.userId, server: server));
+    }).length;
   }
 
   Future<void> load() async {
@@ -84,6 +82,7 @@ class _SetupResetPageState extends State<SetupResetPage> {
 
   Future<void> reset() async {
     if (busy || loading || plan == null || !backup || password.text.isEmpty || confirmation.text != 'شروع دوباره') return;
+    if (_hasBlockers || queued > 0) return;
     setState(() { busy = true; error = null; });
     final previewToken = plan!['token'];
     try {
@@ -140,7 +139,7 @@ class _SetupResetPageState extends State<SetupResetPage> {
           if (widget.onResetConfirmed != null) {
             await widget.onResetConfirmed!(actor, scope);
           } else if (client is FrappeClient) {
-            await clearResetCaches(store: LocalDatabaseStore.instance, actor: actor,
+            await clearResetCaches(store: widget.localStore ?? LocalDatabaseStore.instance, actor: actor,
                 server: (client as FrappeClient).serverIdentity, companies: scope.toSet());
           }
         } catch (_) {
@@ -175,9 +174,18 @@ class _SetupResetPageState extends State<SetupResetPage> {
     } finally { checking = false; }
   }
 
+  List<String> get _blockers {
+    final value = plan?['blockers'];
+    return value is List ? value.whereType<String>().where((s) => s.trim().isNotEmpty).toList() : [];
+  }
+
+  bool get _hasBlockers => _blockers.isNotEmpty ||
+      SetupResetPreviewDetails.fromJson(plan ?? {}).hasBlockers;
+
   @override
   Widget build(BuildContext context) {
-    final blockers = (plan?['blockers'] as List?)?.map((v) => '$v').toList() ?? [];
+    final blockers = _blockers;
+    final details = SetupResetPreviewDetails.fromJson(plan ?? {});
     final companies = (plan?['companies'] as List?) ?? [];
     final counts = plan?['counts'] is Map ? plan!['counts'] as Map : const {};
     return PopScope(canPop: !busy || job != null, child: Directionality(textDirection: TextDirection.rtl,
@@ -220,7 +228,17 @@ class _SetupResetPageState extends State<SetupResetPage> {
                 style: const TextStyle(color: AsoudColors.danger)),
             for (final blocker in blockers) Padding(padding: const EdgeInsets.symmetric(vertical: 6),
                 child: Text(blocker, style: const TextStyle(color: AsoudColors.danger))),
-            if (blockers.isEmpty && queued == 0) ...[
+            if (details.hasBlockers) ...[
+              const AsoudSectionTitle(title: 'کاربران و نقش‌های مانع بازنشانی'),
+              const Text('این دسترسی‌ها به حساب‌های خارج از محدوده متصل‌اند؛ ابتدا وابستگی آن‌ها را بررسی کنید.'),
+              for (final user in details.users)
+                ListTile(title: const Text('حساب کاربری وابسته'),
+                    subtitle: Text(user, textDirection: user.contains('@') ? TextDirection.ltr : TextDirection.rtl)),
+              for (final role in details.roles)
+                ListTile(title: Text(role.label),
+                    subtitle: Text(role.user, textDirection: role.user.contains('@') ? TextDirection.ltr : TextDirection.rtl)),
+            ],
+            if (!_hasBlockers && queued == 0) ...[
               CheckboxListTile(value: backup, onChanged: busy ? null : (value) => setState(() => backup = value == true),
                   title: const Text('نسخهٔ پشتیبان قابل‌بازیابی دارم و حذف اطلاعات نمایش‌داده‌شده را تأیید می‌کنم.')),
               TextField(controller: confirmation, enabled: !busy, hintLocales: const [Locale('fa')],

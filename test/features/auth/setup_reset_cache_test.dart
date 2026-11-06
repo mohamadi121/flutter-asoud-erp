@@ -74,6 +74,19 @@ void main() {
     }
   });
 
+  test('archived organization drafts never block reset as unsent work', () {
+    for (final status in LocalSyncStatus.values) {
+      final archive = record('org-v2:', ['server', 'admin', 'office'],
+          suffix: ':archive:123', type: 'organization_draft_archive', status: status);
+      expect(isPendingResetRecord(archive, actor: 'admin', server: 'server'), isFalse);
+      expect(belongsToReset(archive, actor: 'admin', server: 'server', companies: {'office'}), isTrue);
+      final draft = record('org-v2:', ['server', 'admin', 'office'],
+          suffix: ':draft', type: 'organization_draft', status: status);
+      expect(isPendingResetRecord(draft, actor: 'admin', server: 'server'),
+          status != LocalSyncStatus.synced);
+    }
+  });
+
   test('all status and kind combinations for isPendingResetRecord and belongsToReset', () {
     for (final status in LocalSyncStatus.values) {
       final outbox = LocalRecord(
