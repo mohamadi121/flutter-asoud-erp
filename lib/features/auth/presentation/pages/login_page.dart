@@ -19,6 +19,7 @@ import '../../data/demo_transfer_service.dart';
 import '../../data/saved_credentials_store.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../../domain/server_url_policy.dart';
+import '../../domain/setup_reset_flag.dart';
 import 'demo_transfer_page.dart';
 import 'forgot_password_page.dart';
 import 'post_login_page.dart';
@@ -41,17 +42,22 @@ class LoginPage extends StatefulWidget {
   const LoginPage(
       {super.key,
       bool? showDemoButton,
+      bool? showSetupReset,
       this.transferService,
       this.initialServerUrl,
       this.credentials,
       this.urlPolicy = const ServerUrlPolicy(),
       this.notice})
-      : showDemoButton = showDemoButton ?? AppConfig.offlineDemoMode;
+      : showDemoButton = showDemoButton ?? AppConfig.offlineDemoMode,
+        showSetupReset = showSetupReset ?? kAsoudSetupReset;
 
   /// `OFFLINE_DEMO_MODE` only decides whether the demo entry exists.
   /// Exposed as a parameter so widget tests can cover both values even
   /// though the flag itself is compile-time.
   final bool showDemoButton;
+
+  /// Whether the setup reset button is visible.
+  final bool showSetupReset;
 
   /// Overridable for tests; defaults to the on-device preview stores.
   final DemoTransferService? transferService;
@@ -627,13 +633,14 @@ class _LoginPageState extends State<LoginPage> {
                                   Text(_busy ? 'در حال ورود…' : 'ورود به آسود'),
                             ),
                           ),
-                          TextButton.icon(
-                            key: const ValueKey('temporary_setup_reset'),
-                            style: TextButton.styleFrom(foregroundColor: AsoudColors.danger),
-                            onPressed: _busy ? null : () => _login(resetSetup: true),
-                            icon: const Icon(Icons.restart_alt),
-                            label: const Text('حذف اطلاعات دفتر و شروع دوباره (فقط مدیر سیستم)',
-                                textAlign: TextAlign.center, style: TextStyle(fontSize: 11))),
+                          if (widget.showSetupReset)
+                            TextButton.icon(
+                              key: const ValueKey('temporary_setup_reset'),
+                              style: TextButton.styleFrom(foregroundColor: AsoudColors.danger),
+                              onPressed: _busy ? null : () => _login(resetSetup: true),
+                              icon: const Icon(Icons.restart_alt),
+                              label: const Text('حذف اطلاعات دفتر و شروع دوباره (فقط مدیر سیستم)',
+                                  textAlign: TextAlign.center, style: TextStyle(fontSize: 11))),
                           if (canRecover)
                             Align(
                               alignment: Alignment.center,

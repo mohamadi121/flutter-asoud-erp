@@ -113,10 +113,17 @@ void main() {
       final client = _QueueingClient(store);
       final repository = OrganizationRepository(client, local: store);
       addTearDown(repository.dispose);
-      await repository.save('شرکت نمونه', standardOrganization, 3);
-      final staged = store.records.values.singleWhere((r) => r.payload['operation'] is String);
-      await store.save(id: 'other-owner', entityType: staged.entityType,
-          payload: {...staged.payload, '_asoud_owner': 'another-user'}, status: LocalSyncStatus.pendingSync);
+      await store.save(
+        id: 'staged-chart',
+        entityType: 'asoud_erp.api.v1.organization.save_chart',
+        payload: {
+          'operation': 'asoud_method',
+          '_asoud_owner': 'another-user',
+          '_asoud_server': 'test-server',
+          'payload': {'company': 'شرکت نمونه', 'rows': []}
+        },
+        status: LocalSyncStatus.pendingSync,
+      );
       client.offline = offline;
       if (offline) {
         await expectLater(repository.resetChart('شرکت نمونه', 3), throwsA(isA<ApiException>()));
@@ -126,15 +133,35 @@ void main() {
         expect(result.pending, isFalse);
         expect(result.revision, 4);
       }
-      expect(client.asoudWrites, 1); // reset never enters the mutation queue
+      expect(client.asoudWrites, 0); // reset never enters the mutation queue
       expect(client.rawWrites, 1);
-      expect((await store.get(staged.id))!.status,
-          offline ? LocalSyncStatus.pendingSync : LocalSyncStatus.synced);
-      expect((await store.get('other-owner'))!.status, LocalSyncStatus.pendingSync);
-      expect(store.records.values.where((r) => r.entityType == 'organization_draft'),
-          offline ? hasLength(1) : isEmpty);
+      expect((await store.get('staged-chart'))!.status, LocalSyncStatus.pendingSync);
+      expect(store.records.values.where((r) => r.entityType == 'organization_draft'), isEmpty);
     });
   }
+
+  test('resetChart throws validation exception when pending or localOnly save_chart edits exist', () async {
+    final store = FakeLocalRecordStore();
+    final client = _QueueingClient(store);
+    final repository = OrganizationRepository(client, local: store);
+    addTearDown(repository.dispose);
+    client.offline = false;
+    await store.save(
+      id: 'pending-chart',
+      entityType: 'asoud_erp.api.v1.organization.save_chart',
+      payload: {
+        'operation': 'asoud_method',
+        '_asoud_owner': 'hr-manager',
+        '_asoud_server': 'test-server',
+        'payload': {'company': 'شرکت نمونه', 'rows': []}
+      },
+      status: LocalSyncStatus.pendingSync,
+    );
+    await expectLater(
+      repository.resetChart('شرکت نمونه', 3),
+      throwsA(isA<ApiException>().having((e) => e.kind, 'kind', ApiFailureKind.validation)),
+    );
+  });
 
   test('organization save offline stages a mutation; manual save replays once',
       () async {

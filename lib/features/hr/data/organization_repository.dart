@@ -339,10 +339,35 @@ class OrganizationRepository {
             rejected: draft.status == LocalSyncStatus.syncFailed);
   }
 
+  Future<bool> _hasPendingStagedChart(String company, {String? owner, String? server}) async {
+    final staged = await local.list(statuses: {
+      LocalSyncStatus.localOnly,
+      LocalSyncStatus.pendingSync,
+      LocalSyncStatus.syncFailed,
+    });
+    for (final record in staged) {
+      if (record.payload['operation'] is! String) continue;
+      if (!record.entityType.endsWith('.save_chart')) continue;
+      if (owner != null && record.payload['_asoud_owner'] != owner) continue;
+      if (server != null && record.payload['_asoud_server'] != server) continue;
+      final payload = record.payload['payload'];
+      if (payload is! Map) continue;
+      if ('${payload['company']}' != company) continue;
+      return true;
+    }
+    return false;
+  }
+
   Future<OrganizationSnapshot> resetChart(String company, int revision) async {
     final (key, epoch) = await _scope(company, write: true);
     final user = await client.getCurrentUser();
     _check(epoch);
+    final server = client is FrappeClient ? (client as FrappeClient).serverIdentity : null;
+    if (await _hasPendingStagedChart(company, owner: user.userId, server: server)) {
+      throw const ApiException(
+          kind: ApiFailureKind.validation,
+          message: 'تغییرات ساختار آفلاینِ ارسال‌نشده وجود دارد؛ ابتدا آن‌ها را همگام‌سازی یا حذف کنید.');
+    }
     final data = await _call('reset_chart', {'company': company, 'revision': revision});
     _check(epoch);
     if (data['reset'] != true || (data['rows'] as List?)?.isNotEmpty != false) {

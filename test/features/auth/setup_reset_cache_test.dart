@@ -35,17 +35,18 @@ void main() {
         type: 'organization_draft', status: LocalSyncStatus.localOnly);
     final ownRoles = record('role-drafts-v1:', ['server', 'admin'], type: 'role_drafts');
     final ownPersonnel = record('personnel-cache:', ['admin', 'server', 'office', 'get_record', {}], type: 'personnel_cache');
+    final ownPersonnelPending = record('personnel-cache:', ['admin', 'server', 'office'], type: 'personnel_cache', status: LocalSyncStatus.pendingSync);
     final unrelated = [
       record('org-v2:', ['other-server', 'admin', 'office']),
       record('org-v2:', ['server', 'other-admin', 'office']),
       record('org-v2:', ['server', 'admin', 'other-office'], suffix: ':draft'),
       record('role-drafts-v1:', ['server', 'other-admin']),
-      record('personnel-cache:', ['admin', 'server', 'office'], status: LocalSyncStatus.pendingSync),
+      record('personnel-cache:', ['other-admin', 'server', 'office'], status: LocalSyncStatus.pendingSync),
       record('unknown:', ['server', 'admin']),
     ];
-    final store = _Store([own, ownRoles, ownPersonnel, ...unrelated]);
+    final store = _Store([own, ownRoles, ownPersonnel, ownPersonnelPending, ...unrelated]);
     await clearResetCaches(store: store, actor: 'admin', server: 'server', companies: {'office'});
-    expect(store.removed, [own.id, ownRoles.id, ownPersonnel.id]);
+    expect(store.removed, [own.id, ownRoles.id, ownPersonnel.id, ownPersonnelPending.id]);
     expect(store.removed.any((id) => unrelated.any((row) => row.id == id)), isFalse);
   });
 
@@ -62,7 +63,7 @@ void main() {
     expect(matches(office(['server', 'admin'])), isTrue);
     expect(matches(office(['other-server', 'admin'])), isFalse);
     expect(matches(office(['server', 'other-admin'])), isFalse);
-    expect(matches(office(['server', 'admin'], status: LocalSyncStatus.pendingSync)), isFalse);
+    expect(matches(office(['server', 'admin'], status: LocalSyncStatus.pendingSync)), isTrue);
   });
 
   test('malformed or ownerless legacy cache is never guessed to belong to this reset', () {
@@ -70,6 +71,53 @@ void main() {
       final row = LocalRecord(id: id, entityType: 'office', payload: const {'company': 'office'},
         status: LocalSyncStatus.synced, createdAt: DateTime(2025), updatedAt: DateTime(2025));
       expect(belongsToReset(row, actor: 'admin', server: 'server', companies: {'office'}), isFalse);
+    }
+  });
+
+  test('all status and kind combinations for isPendingResetRecord and belongsToReset', () {
+    for (final status in LocalSyncStatus.values) {
+      final outbox = LocalRecord(
+        id: 'outbox-$status',
+        entityType: 'personnel_outbox',
+        payload: const {'owner': 'admin', 'server': 'server'},
+        status: status,
+        createdAt: DateTime(2025),
+        updatedAt: DateTime(2025),
+      );
+      expect(
+        isPendingResetRecord(outbox, actor: 'admin', server: 'server'),
+        status != LocalSyncStatus.synced,
+      );
+
+      final officeRecord = LocalRecord(
+        id: 'office-v2:${Uri.encodeComponent(jsonEncode(['server', 'admin']))}:default',
+        entityType: 'office_preference',
+        payload: const {'company': 'office'},
+        status: status,
+        createdAt: DateTime(2025),
+        updatedAt: DateTime(2025),
+      );
+      expect(
+        isPendingResetRecord(officeRecord, actor: 'admin', server: 'server'),
+        status != LocalSyncStatus.synced,
+      );
+      expect(
+        belongsToReset(officeRecord, actor: 'admin', server: 'server', companies: {'office'}),
+        isTrue,
+      );
+
+      final personnelRecord = LocalRecord(
+        id: 'personnel-cache:${Uri.encodeComponent(jsonEncode(['admin', 'server', 'office', 'get_record', {}]))}',
+        entityType: 'personnel_cache',
+        payload: const {},
+        status: status,
+        createdAt: DateTime(2025),
+        updatedAt: DateTime(2025),
+      );
+      expect(
+        belongsToReset(personnelRecord, actor: 'admin', server: 'server', companies: {'office'}),
+        isTrue,
+      );
     }
   });
 }

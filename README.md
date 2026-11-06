@@ -34,13 +34,14 @@ flutter analyze
 flutter test
 ```
 
-تنظیم اتصال سرور:
+تنظیم اتصال سرور و پرچم‌های ساخت:
 
 ```bash
 flutter run \
   --dart-define=ERPNEXT_BASE_URL=https://example.com \
   --dart-define=ERPNEXT_API_KEY=key \
-  --dart-define=ERPNEXT_API_SECRET=secret
+  --dart-define=ERPNEXT_API_SECRET=secret \
+  --dart-define=ASOUD_SETUP_RESET=true
 ```
 
 کلیدهای واقعی نباید داخل سورس یا GitHub ثبت شوند.

@@ -50,6 +50,17 @@ class Repository extends Fake implements WorkflowRepository {
   }
 }
 
+class FailingEndRepository extends Repository {
+  @override
+  Future<WorkflowDesign> addStage({required String definition,
+      required String afterStage, required WorkflowStageType type}) async {
+    if (type == WorkflowStageType.end) {
+      throw Exception('End stage failed');
+    }
+    return super.addStage(definition: definition, afterStage: afterStage, type: type);
+  }
+}
+
 void main() {
   test('first user task returns its own identity and supplies a real End', () async {
     final repository = Repository();
@@ -81,5 +92,18 @@ void main() {
     expect(repository.insertions, 0);
     expect(repository.additions, 0);
     expect(cubit.state.status, WorkflowDesignerStatus.failure);
+  });
+
+  test('failing second call to add End preserves created stage and reloads design with failure', () async {
+    final repository = FailingEndRepository();
+    final cubit = WorkflowDesignerCubit(repository: repository, definition: 'design');
+    addTearDown(cubit.close);
+    await cubit.load();
+    final created = await cubit.addStage(WorkflowStageType.userTask);
+    expect(created, isNotNull);
+    expect(created?.id, 'task');
+    expect(cubit.state.status, WorkflowDesignerStatus.failure);
+    expect(cubit.state.message, contains('مرحله ایجاد شد اما گام پایان ثبت نشد'));
+    expect(cubit.state.design?.stages.any((s) => s.type == WorkflowStageType.end), isFalse);
   });
 }
