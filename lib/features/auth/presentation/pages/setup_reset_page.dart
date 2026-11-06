@@ -56,7 +56,11 @@ class _SetupResetPageState extends State<SetupResetPage> {
           (server == null || data['_asoud_server'] == server);
     }).length;
     if (server == null) return queuedMutations;
-    final records = await LocalDatabaseStore.instance.list(statuses: {LocalSyncStatus.pendingSync});
+    final records = await LocalDatabaseStore.instance.list(statuses: {
+      LocalSyncStatus.pendingSync,
+      LocalSyncStatus.localOnly,
+      LocalSyncStatus.syncFailed,
+    });
     return queuedMutations + records.where((row) => isPendingResetRecord(row,
         actor: user.userId, server: server)).length;
   }
