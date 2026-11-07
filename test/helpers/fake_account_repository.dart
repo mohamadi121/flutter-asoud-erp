@@ -9,6 +9,7 @@ class FakeAccountRepository implements AccountRepository {
       AccountProfile? profile,
       this.saveError,
       this.saveGate,
+      this.selectError,
       this.recoveryAvailable = false})
       : state = state ?? const LoginState(userId: 'admin@example.com'),
         profile = profile ?? const AccountProfile(username: 'admin@example.com');
@@ -29,6 +30,7 @@ class FakeAccountRepository implements AccountRepository {
   Map<String, Object?> lastConfirm = {};
   String? lastReset;
   String? selected;
+  Object? selectError;
 
   @override
   Future<LoginState> loginState() async => state;
@@ -36,6 +38,7 @@ class FakeAccountRepository implements AccountRepository {
   @override
   Future<LoginState> selectOffice(String company) async {
     selected = company;
+    if (selectError != null) throw selectError!;
     return state;
   }
 
