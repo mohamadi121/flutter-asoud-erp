@@ -19,6 +19,10 @@ import '../widgets/workflow_form_builder.dart';
 import 'create_document_settings_page.dart';
 import 'automatic_action_page.dart';
 import '../widgets/action_result_form_picker.dart';
+import '../widgets/workflow_graph_geometry.dart';
+import '../widgets/workflow_graph_canvas.dart';
+import 'workflow_end_settings_page.dart';
+import 'workflow_stage_settings_page.dart';
 import '../../../form_builder/form_runtime/form_fields_view.dart';
 
 part 'stage_user_action.dart';
@@ -106,6 +110,9 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
   OrgUnitChoice? unit;
   bool specificPerson = false;
   Set<String> selectedPeople = {};
+  late final String initialApprovalOwner;
+  String get approvalOwnerFingerprint => [ownerMode, role, unit?.kind,
+      unit?.id, specificPerson, ...(selectedPeople.toList()..sort())].join('|');
   late String resultMode = config['result_mode']?.toString() ?? 'Simple';
   late FormMap? resultForm = config['result_form'] is Map ? formMap(config['result_form']) : null;
   late FormMap resultSchema = config['result_schema'] is Map ? formMap(config['result_schema']) : {};
@@ -171,6 +178,7 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
   void initState() {
     super.initState();
     _initOwner();
+    initialApprovalOwner = approvalOwnerFingerprint;
     if (type == WorkflowStageType.userTask) _initAction();
     document = CreateDocumentConfig(
         transferValues: config['transfer_values'] != false,
@@ -250,6 +258,14 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
 
   Map<String, dynamic> _assignment() {
     if (type == WorkflowStageType.userTask) return _actionAssignment();
+    if (type == WorkflowStageType.approval && approvalOwnerFingerprint == initialApprovalOwner) {
+      final kind = config['assignment_type'];
+      final key = kind == 'Role' ? 'approver_roles' : 'approver_departments';
+      final original = config[key];
+      if ((kind == 'Role' || kind == 'Department') && original is List && original.length > 1) {
+        return {'assignment_type': kind, key: List<String>.from(original)};
+      }
+    }
     if (ownerMode == 'role') {
       return switch (role) {
         directManagerRole => {'assignment_type': 'Direct Manager'},
@@ -941,7 +957,7 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
   // --- routes --------------------------------------------------------------------------
 
   List<WorkflowStage> get _destinations => [
-        ...widget.design.stages.where((stage) =>
+        ...(context.read<WorkflowDesignerCubit>().state.design ?? widget.design).stages.where((stage) =>
             stage.id != widget.stage.id &&
             stage.type != WorkflowStageType.start),
       ]..sort((a, b) => a.sequence.compareTo(b.sequence));
@@ -1084,6 +1100,7 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
         _approvalInformation(),
         _approvalPanel([
         ..._owner(),
+        _existingApprovalOwners(),
         ]),
         _approvalPanel([
         _deadlineRow(),
@@ -1113,6 +1130,7 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
               Icons.undo_rounded, AsoudColors.warning,
               emptyLabel: 'آخرین مرحله قابل اصلاح'),
         ]),
+        _approvalDiagram(),
         _extra([
           _switch(
               'الزام توضیح هنگام رد',
@@ -1194,6 +1212,7 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
     final selected =
         _destinations.where((stage) => stage.id == target).firstOrNull;
     return Container(
+      key: ValueKey('approval-route-$action'),
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
@@ -1216,23 +1235,7 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
           icon: action == 'Return'
               ? Icons.undo_rounded
               : Icons.account_tree_outlined,
-          onTap: () async {
-            final result = await showModalBottomSheet<String>(
-              context: context,
-              isScrollControlled: true,
-              useSafeArea: true,
-              showDragHandle: true,
-              builder: (_) => _StageRouteSheet(
-                stages: _destinations,
-                selected: target,
-                emptyLabel: emptyLabel,
-                returning: action == 'Return',
-              ),
-            );
-            if (result != null && mounted) {
-              setState(() => routes[action] = result);
-            }
-          },
+          onTap: () => _pickApprovalRoute(action, emptyLabel: emptyLabel),
         ),
       ]),
     );
