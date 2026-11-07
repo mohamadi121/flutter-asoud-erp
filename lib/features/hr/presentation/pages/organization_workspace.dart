@@ -579,10 +579,9 @@ class _OrganizationUnitsState extends State<_OrganizationUnits> {
 
 class _UnitForm extends StatefulWidget {
   const _UnitForm(
-      {required this.units,
-      this.parent = ''});
+      {required this.units});
   final List<Map<String, dynamic>> units;
-  final String parent;
+  final String parent = '';
   @override
   State<_UnitForm> createState() => _UnitFormState();
 }
