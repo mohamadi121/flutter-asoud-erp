@@ -2,6 +2,70 @@ part of 'stage_settings_page.dart';
 
 /// Reference styling over existing approval settings, without a second engine.
 extension _ApprovalSettings on _StageSettingsPageState {
+  Widget _existingApprovalOwners() {
+    if (approvalOwnerFingerprint != initialApprovalOwner) return const SizedBox.shrink();
+    final byRole = config['assignment_type'] == 'Role';
+    final values = config[byRole ? 'approver_roles' : 'approver_departments'];
+    if (values is! List || values.length < 2) return const SizedBox.shrink();
+    final names = values.map((id) => byRole ? roleLabel('$id') :
+        departments.where((item) => item.id == id).firstOrNull?.label ?? 'واحد ثبت‌شده').join('، ');
+    return Padding(padding: const EdgeInsets.only(top: 8),
+      child: Text('مسئولان ثبت‌شده: $names',
+        style: const TextStyle(fontSize: 11, color: AsoudColors.muted)));
+  }
+
+  Future<void> _pickApprovalRoute(String action, {String? emptyLabel}) async {
+    if (saving) return;
+    final result = await showModalBottomSheet<String>(
+      context: context, isScrollControlled: true, useSafeArea: true,
+      showDragHandle: true,
+      builder: (_) => _StageRouteSheet(stages: _destinations,
+          selected: routes[action] ?? '', emptyLabel: emptyLabel,
+          returning: action == 'Return'));
+    if (result != null && mounted) _updateAction(() => routes[action] = result);
+  }
+
+  Future<void> _openApprovalDestination(WorkflowStage stage) async {
+    if (saving || stage.id == widget.stage.id) return;
+    final cubit = context.read<WorkflowDesignerCubit>();
+    final design = cubit.state.design ?? widget.design;
+    final page = switch (stage.type) {
+      WorkflowStageType.end => WorkflowEndSettingsPage(stage: stage),
+      WorkflowStageType.condition || WorkflowStageType.wait => WorkflowStageSettingsPage(
+          stage: stage, roles: roles, departments: departments, employees: employees),
+      _ => StageSettingsPage(stage: stage, design: design,
+          options: widget.options, automation: automation),
+    };
+    await Navigator.of(context).push<void>(MaterialPageRoute(builder: (_) =>
+        BlocProvider.value(value: cubit, child: page)));
+    if (mounted) _updateAction(() {});
+  }
+
+  Widget _approvalDiagram() => Card(
+    margin: const EdgeInsets.only(bottom: 14),
+    child: ExpansionTile(
+      key: const ValueKey('approval-diagram-expand'),
+      title: const Text('پیش‌نمایش نمودار گردش کار',
+          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
+      childrenPadding: const EdgeInsets.fromLTRB(10, 0, 10, 12),
+      children: [ValueListenableBuilder<TextEditingValue>(
+        valueListenable: title,
+        builder: (context, value, _) => _ApprovalDiagram(
+          key: const ValueKey('approval-diagram-preview'),
+          stage: widget.stage.copyWith(title: value.text),
+          stages: (context.read<WorkflowDesignerCubit>().state.design ?? widget.design).stages,
+          routes: routes,
+          actions: ['Approve', if (allowReject) 'Reject', if (allowReturn) 'Return'],
+          onOpen: (stage) => _openApprovalDestination(stage).ignore(),
+          onPick: (action) => _pickApprovalRoute(action,
+            emptyLabel: action == 'Reject' ? 'پایان فرایند (رد درخواست)' :
+                action == 'Return' ? 'آخرین مرحله قابل اصلاح' : null).ignore(),
+        )),
+        const SizedBox(height: 8),
+        const Text('انتخاب‌ها تا ذخیرهٔ فرم پیش‌نویس‌اند؛ لمس مقصد، تنظیمات همان مرحله را باز می‌کند.',
+            style: TextStyle(fontSize: 10, color: AsoudColors.muted)),
+      ]));
+
   Widget _approvalPanel(List<Widget> children) => Card(
       margin: const EdgeInsets.only(bottom: 14),
       child: Padding(
@@ -175,4 +239,96 @@ extension _ApprovalSettings on _StageSettingsPageState {
       if (mounted) _updateAction(() => changingApprovalDecision = false);
     }
   }
+}
+
+// Projection of the existing stages and route selection only; it never creates
+// a stage, transition or execution record. Geometry is shared with the Canvas.
+class _ApprovalDiagram extends StatelessWidget {
+  const _ApprovalDiagram({super.key, required this.stage, required this.stages,
+    required this.routes, required this.actions, required this.onOpen, required this.onPick});
+  final WorkflowStage stage;
+  final List<WorkflowStage> stages;
+  final Map<String, String> routes;
+  final List<String> actions;
+  final ValueChanged<WorkflowStage> onOpen;
+  final ValueChanged<String> onPick;
+  Color color(String action) => action == 'Approve' ? AsoudColors.success :
+      action == 'Reject' ? AsoudColors.danger : AsoudColors.warning;
+  @override
+  Widget build(BuildContext context) => Column(children: [
+    Center(child: _ApprovalShape(stage: stage)),
+    LayoutBuilder(builder: (_, constraints) => CustomPaint(
+      size: Size(constraints.maxWidth, 20), painter: _ApprovalBranches(actions.map(color).toList()))),
+    Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      for (final action in actions) Expanded(child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 3),
+        child: Builder(builder: (context) {
+          final target = stages.where((s) => s.id == routes[action]).firstOrNull;
+          return Column(children: [
+            Text(action == 'Approve' ? 'تأیید' : action == 'Reject' ? 'رد' : 'اصلاح',
+              style: TextStyle(fontSize: 11, color: color(action))),
+            Container(width: 1, height: 16, color: color(action)),
+            if (target != null) InkWell(
+              key: ValueKey('approval-preview-target-$action-${target.id}'),
+              onTap: () => onOpen(target),
+              child: _ApprovalShape(stage: target))
+            else OutlinedButton(
+              key: ValueKey('approval-preview-unset-$action'),
+              onPressed: () => onPick(action),
+              style: OutlinedButton.styleFrom(padding: const EdgeInsets.all(8)),
+              child: Text((routes[action] ?? '').isNotEmpty ? 'بازبینی مقصد' :
+                action == 'Reject' ? 'پایان با نتیجه رد' : action == 'Return'
+                    ? 'انتخاب از سابقه اجرا' : 'انتخاب مقصد',
+                textAlign: TextAlign.center, style: const TextStyle(fontSize: 10))),
+          ]);
+        }))),
+    ]),
+  ]);
+}
+
+class _ApprovalShape extends StatelessWidget {
+  const _ApprovalShape({required this.stage});
+  final WorkflowStage stage;
+  @override
+  Widget build(BuildContext context) => CustomPaint(
+    painter: _ApprovalShapePainter(stage.type, workflowStageVisual(stage.type).color),
+    child: SizedBox(height: 74, width: 140, child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Center(child: Text(stage.title, textAlign: TextAlign.center,
+        style: TextStyle(fontSize: 10, color: workflowStageVisual(stage.type).color, fontWeight: FontWeight.w700))))));
+}
+
+class _ApprovalBranches extends CustomPainter {
+  const _ApprovalBranches(this.colors);
+  final List<Color> colors;
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (var i = 0; i < colors.length; i++) {
+      final x = size.width * (1 - (i + .5) / colors.length);
+      final path = Path()..moveTo(size.width / 2, 0)
+        ..lineTo(size.width / 2, size.height / 2)
+        ..lineTo(x, size.height / 2)..lineTo(x, size.height);
+      canvas.drawPath(path, Paint()..color = colors[i].withValues(alpha: .5)
+        ..style = PaintingStyle.stroke..strokeWidth = 1);
+    }
+  }
+  @override
+  bool shouldRepaint(covariant _ApprovalBranches oldDelegate) =>
+      oldDelegate.colors.length != colors.length ||
+      List.generate(colors.length, (i) => oldDelegate.colors[i] != colors[i]).contains(true);
+}
+
+class _ApprovalShapePainter extends CustomPainter {
+  const _ApprovalShapePainter(this.type, this.color);
+  final WorkflowStageType type;
+  final Color color;
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = WorkflowGraphGeometry.shape(type, size);
+    canvas.drawPath(path, Paint()..color = color.withValues(alpha: .08));
+    canvas.drawPath(path, Paint()..color = color..style = PaintingStyle.stroke..strokeWidth = 1);
+  }
+  @override
+  bool shouldRepaint(covariant _ApprovalShapePainter oldDelegate) =>
+      oldDelegate.type != type || oldDelegate.color != color;
 }

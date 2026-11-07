@@ -31,7 +31,6 @@ part 'organization_visual_report.dart';
 part 'organization_style.dart';
 part 'organization_create.dart';
 part 'organization_assignments.dart';
-part 'organization_unit_management.dart';
 part 'organization_unit_details.dart';
 part 'organization_focus.dart';
 part 'organization_focus_editor.dart';

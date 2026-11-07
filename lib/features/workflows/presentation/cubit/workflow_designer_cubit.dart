@@ -107,6 +107,7 @@ class WorkflowDesignerCubit extends Cubit<WorkflowDesignerState> {
     required String fromStage,
     required String toStage,
     required String action,
+    Map<String, dynamic> condition = const {},
   }) async {
     if (state.design == null) return;
     emit(state.copyWith(status: WorkflowDesignerStatus.saving));
@@ -116,6 +117,7 @@ class WorkflowDesignerCubit extends Cubit<WorkflowDesignerState> {
         fromStage: fromStage,
         toStage: toStage,
         action: action,
+        condition: condition,
       );
       emit(
           state.copyWith(status: WorkflowDesignerStatus.ready, design: design));
@@ -204,8 +206,8 @@ class WorkflowDesignerCubit extends Cubit<WorkflowDesignerState> {
     }
   }
 
-  Future<List<WorkflowFieldOption>> conditionFields() =>
-      repository.getConditionFields(definition);
+  Future<List<WorkflowFieldOption>> conditionFields({String? beforeStage}) =>
+      repository.getConditionFields(definition, beforeStage: beforeStage);
 
   Future<bool> saveStage(
       WorkflowStage stage, Map<String, dynamic> config) async {

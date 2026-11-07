@@ -287,11 +287,17 @@ class WorkflowFieldOption extends Equatable {
       {required this.name,
       required this.label,
       required this.type,
-      this.source = 'Document'});
+      this.source = 'Document', this.sourceStage = '', this.stageTitle = '',
+      this.choices = const [], this.choiceLabels = const {}, this.conditionVersion = 0});
   final String name, label, type;
   final String source;
+  final String sourceStage, stageTitle;
+  final List<String> choices;
+  final Map<String, String> choiceLabels;
+  final int conditionVersion;
   @override
-  List<Object> get props => [name, label, type, source];
+  List<Object> get props => [name, label, type, source, sourceStage, stageTitle,
+    choices, choiceLabels, conditionVersion];
 }
 
 /// `visible_when` of a form field: shown only while the controlling field's

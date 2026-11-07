@@ -20,6 +20,10 @@ class _OrgClient extends Fake implements FrappeApiClient {
   bool failUnits = false;
   bool rejectSave = false;
   bool rejectReset = false;
+  bool manage = true;
+  bool deleteBlocked = false;
+  int deleteCalls = 0;
+  List<Map<String, dynamic>> employeeRows = [];
   int resetCalls = 0;
   Map<String, dynamic>? lastUnitPayload;
   final writes = <String>[];
@@ -35,7 +39,7 @@ class _OrgClient extends Fake implements FrappeApiClient {
   Future<FrappeUserContext> getCurrentUser() async => FrappeUserContext(
         userId: 'Administrator',
         fullName: 'Administrator',
-        roles: const ['Administrator'],
+        roles: manage ? const ['Administrator'] : const ['HR User'],
       );
 
   Map<String, dynamic> _envelope(Map<String, dynamic> data) => {
@@ -71,23 +75,34 @@ class _OrgClient extends Fake implements FrappeApiClient {
       });
     }
     if (method == 'asoud_erp.api.v1.organization.list_employees') {
-      return _envelope({'employees': <dynamic>[]});
+      return _envelope({'employees': employeeRows});
     }
     if (method == 'asoud_erp.api.v1.organization.list_units') {
       if (failUnits) {
         throw const ApiException(
             kind: ApiFailureKind.network, message: 'offline');
       }
-      return _envelope({'units': units, 'can_manage': true});
+      return _envelope({'units': units, 'can_manage': manage});
     }
     if (method == 'asoud_erp.api.v1.organization.save_unit') {
       lastUnitPayload = Map<String, dynamic>.from(data!['payload'] as Map);
       final id = lastUnitPayload!['name'] ?? 'NEW-UNIT';
+      final previous = units.where((u) => u['name'] == id).firstOrNull;
       units.removeWhere((u) => u['name'] == id);
       units.add({'name': id, 'department_name': lastUnitPayload!['title'],
         'parent_department': lastUnitPayload!['parent'], 'is_group': 1,
-        'disabled': 0, 'description': lastUnitPayload!['description'] ?? '', 'modified': '2026-10-25 10:00:00'});
+        'disabled': 0, 'description': lastUnitPayload!['description'] ?? previous?['description'] ?? '', 'modified': '2026-10-25 10:00:00'});
       return _envelope({'name': id, 'modified': '2026-10-25 10:00:00'});
+    }
+    if (method == 'asoud_erp.api.v1.organization.preview_delete_unit') {
+      return _envelope({'can_delete': !deleteBlocked,
+        'blockers': deleteBlocked ? ['این واحد دارای زیرواحد است؛ حذف مجاز نیست.'] : <String>[],
+        'modified': data!['modified']});
+    }
+    if (method == 'asoud_erp.api.v1.organization.delete_unit') {
+      deleteCalls++;
+      units.removeWhere((u) => u['name'] == data!['name']);
+      return _envelope({'deleted': data!['name']});
     }
     if (method == 'asoud_erp.api.v1.organization.employee_photo') return _envelope({'content': null});
     throw StateError('Unexpected organization read: $method');
@@ -168,6 +183,73 @@ Future<void> _openStructureTool(WidgetTester tester, String label) async {
 }
 
 void main() {
+  if (const bool.fromEnvironment('ORG_VISUAL')) {
+    setUpAll(() async {
+      await (FontLoader('Vazirmatn')
+        ..addFont(rootBundle.load('assets/fonts/Vazirmatn-Regular.ttf'))
+        ..addFont(rootBundle.load('assets/fonts/Vazirmatn-Bold.ttf'))).load();
+      await (FontLoader('MaterialIcons')
+        ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'))).load();
+    });
+  }
+  for (final width in [320.0, 390.0, 430.0]) {
+    testWidgets('full unit management opens from selected chart and edits description at $width', (tester) async {
+      final client = _OrgClient(units: [{
+        'name': 'QUALITY', 'department_name': 'مدیریت کیفیت',
+        'parent_department': '', 'is_group': 1, 'disabled': 0,
+        'description': 'شرح ثبت‌شده', 'modified': '2026-10-25 10:00:00',
+      }]);
+      await _openCreateForm(tester, client, openForm: false);
+      tester.view.physicalSize = Size(width, 900);
+      await tester.pumpAndSettle();
+      final details = find.byKey(const ValueKey('organization-full-unit-details'));
+      await tester.scrollUntilVisible(details, 250,
+          scrollable: find.descendant(of: find.byKey(const PageStorageKey('organization-focused-scroll')),
+              matching: find.byType(Scrollable)).first);
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(details);
+      await tester.pumpAndSettle();
+      await tester.tap(details);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('unit-details-QUALITY')), findsOneWidget);
+      expect(find.text('شرح ثبت‌شده'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('organization-unit-edit')));
+      await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsNothing);
+      expect(find.byType(SwitchListTile), findsNothing);
+      await tester.enterText(find.byKey(const ValueKey('focus-editor-title')), 'تضمین کیفیت');
+      await tester.enterText(find.byKey(const ValueKey('focus-editor-description')), 'شرح تازه');
+      FocusManager.instance.primaryFocus?.unfocus();
+      final detailsScroll = tester.state<ScrollableState>(find.descendant(
+        of: find.byKey(const PageStorageKey('unit-details-scroll')),
+        matching: find.byType(Scrollable)).first);
+      detailsScroll.position.jumpTo(detailsScroll.position.maxScrollExtent);
+      await tester.pumpAndSettle();
+      detailsScroll.position.jumpTo(0);
+      await tester.pumpAndSettle();
+      expect(tester.widget<AppTextField>(find.byKey(const ValueKey('focus-editor-description'))).controller!.text,
+          'شرح تازه', reason: 'Scrolling must not discard the inline draft.');
+      final save = find.byKey(const ValueKey('focus-editor-save'));
+      await tester.ensureVisible(save);
+      await tester.pumpAndSettle();
+      await tester.tap(save);
+      await tester.pumpAndSettle();
+      expect(client.lastUnitPayload!['name'], 'QUALITY');
+      expect(client.lastUnitPayload!['description'], 'شرح تازه');
+      expect(client.lastUnitPayload!['parent'], '');
+      await tester.tap(find.byTooltip('بازگشت'));
+      await tester.pumpAndSettle();
+      tester.state<ScrollableState>(find.descendant(
+        of: find.byKey(const PageStorageKey('organization-focused-scroll')),
+        matching: find.byType(Scrollable)).first).position.jumpTo(0);
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(const ValueKey('focus-unit-QUALITY')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('focus-unit-QUALITY')), findsOneWidget);
+      expect(find.text('تضمین کیفیت'), findsWidgets);
+      expect(tester.takeException(), isNull);
+    });
+  }
   for (final width in [320.0, 390.0, 430.0]) {
     testWidgets('root entry, path selection and branch toggle at $width', (tester) async {
       final client = _OrgClient(units: [
@@ -235,6 +317,161 @@ void main() {
     'disabled': 0,
     'modified': '2026-10-22 10:00:00'
   };
+
+  Future<void> openDetails(WidgetTester tester, _OrgClient client) async {
+    await _openCreateForm(tester, client, openForm: false);
+    await _openStructureTool(tester, 'واحدها');
+    await tester.tap(find.text('منابع انسانی').first);
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('full details transfer excludes descendants and preserves native identity and positions', (tester) async {
+    final client = _OrgClient(units: [
+      {...unit, 'description': 'شرح محفوظ'},
+      {...unit, 'name': 'CHILD', 'department_name': 'آموزش', 'parent_department': 'HR-CO'},
+      {...unit, 'name': 'OTHER', 'department_name': 'فروش'},
+    ], positions: [
+      {'code': 'CEO', 'title': 'مدیرعامل', 'parent': '', 'occupants': <String>[]},
+      {'code': 'HR', 'title': 'مدیر منابع انسانی', 'department_id': 'HR-CO', 'parent': 'CEO',
+        'occupants': <String>[], 'capacity': 2, 'assignment_history': <dynamic>[]},
+    ]);
+    await openDetails(tester, client);
+    final move = find.byKey(const ValueKey('organization-unit-move-action'));
+    await tester.ensureVisible(move);
+    await tester.pumpAndSettle();
+    await tester.tap(move);
+    await tester.pumpAndSettle();
+    final parent = find.widgetWithText(AppSelectField, 'واحد بالادستی جدید');
+    await tester.ensureVisible(parent);
+    await tester.pumpAndSettle();
+    await tester.tap(parent);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('option-HR-CO')), findsNothing);
+    expect(find.byKey(const ValueKey('option-CHILD')), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('option-OTHER')));
+    await tester.pumpAndSettle();
+    final save = find.byKey(const ValueKey('focus-editor-save'));
+    await tester.ensureVisible(save);
+    await tester.pumpAndSettle();
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+    expect(client.lastUnitPayload!['name'], 'HR-CO');
+    expect(client.lastUnitPayload!['parent'], 'OTHER');
+    expect(client.units.singleWhere((u) => u['name'] == 'CHILD')['parent_department'], 'HR-CO');
+    expect(client.units.singleWhere((u) => u['name'] == 'HR-CO')['description'], 'شرح محفوظ');
+    expect(client.lastSavePayload, isNull, reason: 'Moving a unit must not rewrite positions or history.');
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final blocked in [true, false]) {
+    testWidgets('full details safe delete respects server blockers ($blocked)', (tester) async {
+      final client = _OrgClient(units: [unit])..deleteBlocked = blocked;
+      await openDetails(tester, client);
+      final delete = find.byKey(const ValueKey('organization-unit-delete-action'));
+      await tester.ensureVisible(delete);
+      await tester.pumpAndSettle();
+      await tester.tap(delete);
+      await tester.pumpAndSettle();
+      final confirm = find.widgetWithText(FilledButton, 'حذف با تأیید نهایی');
+      if (blocked) {
+        expect(find.text('این واحد دارای زیرواحد است؛ حذف مجاز نیست.'), findsOneWidget);
+        expect(tester.widget<FilledButton>(confirm).onPressed, isNull);
+      } else {
+        await tester.ensureVisible(confirm);
+        await tester.pumpAndSettle();
+        await tester.tap(confirm);
+        await tester.pumpAndSettle();
+        expect(client.deleteCalls, 0);
+        await tester.tap(find.text('تأیید حذف').last);
+        await tester.pumpAndSettle();
+        expect(client.deleteCalls, 1);
+        expect(client.units, isEmpty);
+      }
+      expect(client.deleteCalls, blocked ? 0 : 1);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('full details hides all write actions for read-only HR', (tester) async {
+    final client = _OrgClient(units: [unit])..manage = false;
+    await openDetails(tester, client);
+    expect(find.byKey(const ValueKey('unit-details-HR-CO')), findsOneWidget);
+    expect(find.byKey(const ValueKey('organization-unit-edit')), findsNothing);
+    expect(find.byKey(const ValueKey('organization-unit-delete-action')), findsNothing);
+    expect(find.byKey(const ValueKey('organization-subunit-add')), findsNothing);
+    expect(find.byKey(const ValueKey('organization-inline-position-open')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final width in [320.0, 390.0, 430.0]) {
+    testWidgets('full details edits position and opens HR history inline at $width', (tester) async {
+      final client = _OrgClient(units: [unit], positions: [
+        {'code': 'CEO', 'title': 'مدیرعامل', 'parent': '', 'occupants': <String>[]},
+        {'code': 'HR', 'title': 'مدیر منابع انسانی', 'department_id': 'HR-CO', 'parent': 'CEO',
+          'occupants': ['employee:ONE'], 'capacity': 2, 'assignment_history': [
+            {'employee': 'employee:ONE', 'started_at': '2026-01-01 00:00:00', 'ended_at': null},
+          ]},
+      ])..employeeRows = [{'id': 'employee:ONE', 'display_name': 'پرسنل ثبت‌شده', 'personnel_code': '۱'}];
+      await openDetails(tester, client);
+      tester.view.physicalSize = Size(width, 900);
+      await tester.pumpAndSettle();
+      final edit = find.byKey(const ValueKey('unit-position-edit-HR'));
+      final pageScroll = tester.state<ScrollableState>(find.descendant(
+        of: find.byKey(const PageStorageKey('unit-details-scroll')),
+        matching: find.byType(Scrollable)).first);
+      pageScroll.position.jumpTo(pageScroll.position.maxScrollExtent);
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(edit);
+      await tester.pumpAndSettle();
+      await tester.tap(edit);
+      await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsNothing);
+      await tester.enterText(find.byKey(const ValueKey('focus-editor-title')), 'مدیر امور کارکنان');
+      await tester.enterText(find.byKey(const ValueKey('focus-editor-capacity')), '۳');
+      final save = find.byKey(const ValueKey('focus-editor-save'));
+      await tester.ensureVisible(save);
+      await tester.pumpAndSettle();
+      await tester.tap(save);
+      await tester.pumpAndSettle();
+      final saved = (client.lastSavePayload!['rows'] as List).cast<Map>().singleWhere((r) => r['code'] == 'HR');
+      expect(saved['department_id'], 'HR-CO');
+      expect(saved['parent'], 'CEO');
+      expect(saved['occupants'], ['employee:ONE']);
+      expect(saved['assignment_history'], hasLength(1));
+      expect(saved['capacity'], 3);
+      final history = find.byKey(const ValueKey('unit-position-history-HR'));
+      await tester.ensureVisible(history);
+      await tester.pumpAndSettle();
+      await tester.tap(history);
+      await tester.pumpAndSettle();
+      final panel = find.byKey(const ValueKey('unit-assignment-HR-true'));
+      expect(panel, findsOneWidget);
+      await tester.ensureVisible(panel);
+      await tester.pumpAndSettle();
+      expect(find.text('پرسنل ثبت‌شده'), findsOneWidget);
+      expect(find.textContaining('شروع:'), findsOneWidget);
+      expect(find.text('پایان: فعال'), findsOneWidget);
+      expect(find.byKey(const ValueKey('focus-editor-save')), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('full unit details reference render', (tester) async {
+    final client = _OrgClient(units: [unit,
+      {...unit, 'name': 'TRAINING', 'department_name': 'آموزش', 'parent_department': 'HR-CO'},
+      {...unit, 'name': 'STAFFING', 'department_name': 'جذب و استخدام', 'parent_department': 'HR-CO'},
+    ], positions: [
+      {'code': 'CEO', 'title': 'مدیرعامل', 'parent': '', 'occupants': <String>[]},
+      {'code': 'HR', 'title': 'مدیر منابع انسانی', 'department_id': 'HR-CO', 'parent': 'CEO',
+        'occupants': <String>[], 'capacity': 2},
+    ]);
+    await openDetails(tester, client);
+    tester.view.physicalSize = const Size(390, 1600);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await expectLater(find.byKey(const ValueKey('unit-details-HR-CO')),
+        matchesGoldenFile('../../../build/full-unit-details.png'));
+  }, tags: 'golden', skip: !const bool.fromEnvironment('ORG_VISUAL'));
 
   testWidgets('root creates a real top-level unit inline, without a fabricated parent', (tester) async {
     final client = _OrgClient(units: [unit]);
@@ -602,16 +839,17 @@ void main() {
     await tester.tap(find.text('منابع انسانی'));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('organization-unit-edit')), findsOneWidget);
-    expect(find.text('ویرایش مشخصات واحد'), findsNothing);
+    expect(find.text('ویرایش مشخصات واحد'), findsOneWidget);
     expect(find.byType(BottomSheet), findsNothing);
     expect(find.text('جزئیات واحد سازمانی'), findsOneWidget);
-    expect(find.text('جابه‌جایی واحد'), findsOneWidget);
-    expect(find.text('حذف واحد'), findsOneWidget);
+    expect(find.text('انتقال واحد'), findsOneWidget);
+    expect(find.text('حذف ایمن واحد'), findsOneWidget);
     expect(find.textContaining('All Departments'), findsNothing);
     await tester.tap(find.byKey(const ValueKey('organization-unit-edit')));
     await tester.pumpAndSettle();
-    expect(find.widgetWithText(TextFormField, 'عنوان واحد'), findsOneWidget);
-    expect(find.text('ذخیره'), findsOneWidget);
+    expect(find.byKey(const ValueKey('focus-editor-title')), findsOneWidget);
+    expect(find.byKey(const ValueKey('focus-editor-description')), findsOneWidget);
+    expect(find.byKey(const ValueKey('focus-editor-save')), findsOneWidget);
     expect(client.lastUnitPayload, isNull);
     expect(tester.takeException(), isNull);
   });
@@ -628,12 +866,13 @@ void main() {
     await tester.ensureVisible(add);
     await tester.tap(add);
     await tester.pumpAndSettle();
-    final title = find.widgetWithText(TextFormField, 'عنوان واحد *');
-    expect(tester.widget<TextFormField>(title).controller!.text, isEmpty);
+    final title = find.byKey(const ValueKey('focus-editor-title'));
+    expect(tester.widget<AppTextField>(title).controller!.text, isEmpty);
     await tester.enterText(title, 'آموزش');
-    final submit = find.byKey(const ValueKey('organization-unit-submit'));
+    final submit = find.byKey(const ValueKey('focus-editor-save'));
     expect(submit, findsOneWidget);
     await tester.ensureVisible(submit);
+    await tester.pumpAndSettle();
     await tester.tap(submit);
     await tester.pumpAndSettle();
     expect(client.lastUnitPayload!.containsKey('name'), isFalse);
@@ -655,16 +894,15 @@ void main() {
     await tester.ensureVisible(add);
     await tester.tap(add);
     await tester.pumpAndSettle();
-    final save =
-        find.byKey(const ValueKey('organization-inline-position-save'));
-    expect(tester.widget<FilledButton>(save).onPressed, isNull);
+    final save = find.byKey(const ValueKey('focus-editor-save'));
     await tester.enterText(
-        find.widgetWithText(TextFormField, 'عنوان جایگاه جدید'),
+        find.byKey(const ValueKey('focus-editor-title')),
         'کارشناس آموزش');
     // onChanged schedules the rebuild that enables the save button.
     await tester.pumpAndSettle();
     expect(tester.widget<FilledButton>(save).onPressed, isNotNull);
     await tester.ensureVisible(save);
+    await tester.pumpAndSettle();
     await tester.tap(save);
     await tester.pumpAndSettle();
     expect(client.lastSavePayload, isNotNull,

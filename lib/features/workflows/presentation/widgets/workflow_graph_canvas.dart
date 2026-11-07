@@ -165,7 +165,7 @@ class _GraphNode extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final visual = _visual(stage.type);
+    final visual = workflowStageVisual(stage.type);
     return CustomPaint(
       painter: _NodeShapePainter(type: stage.type, color: visual.color),
       child: SizedBox(
@@ -267,7 +267,10 @@ class _GraphPainter extends CustomPainter {
         outgoing: outgoing[source.id] ?? const [],
         nodeSize: WorkflowGraphCanvas.nodeSize);
       final end = geometry.end;
-      canvas.drawPath(geometry.path, line);
+      final edgeLine = source.type == WorkflowStageType.condition && edge.condition['result'] is bool
+          ? (Paint()..color = edge.condition['result'] == true ? AsoudColors.success : AsoudColors.danger
+            ..strokeWidth = 2..style = PaintingStyle.stroke) : line;
+      canvas.drawPath(geometry.path, edgeLine);
       final angle = math.atan2(end.dy - geometry.control2.dy, end.dx - geometry.control2.dx);
       final arrow = Path()
         ..moveTo(end.dx, end.dy)
@@ -276,16 +279,19 @@ class _GraphPainter extends CustomPainter {
         ..moveTo(end.dx, end.dy)
         ..lineTo(end.dx - 7 * math.cos(angle + .55),
             end.dy - 7 * math.sin(angle + .55));
-      canvas.drawPath(arrow, line);
+      canvas.drawPath(arrow, edgeLine);
       if (geometry.action != null) labels.add(geometry);
     }
     // Paint labels after every line, so another route cannot cross their text.
     for (final geometry in labels) {
       if (geometry.action case final action?) {
-        canvas.drawCircle(geometry.start, 3, Paint()..color = AsoudColors.primary);
+        final color = action == 'True' ? AsoudColors.success :
+            action == 'False' ? AsoudColors.danger : AsoudColors.primary;
+        canvas.drawCircle(geometry.start, 3, Paint()..color = color);
         final text = TextPainter(text: TextSpan(text: switch (action) {
-          'Approve' => 'تأیید', 'Reject' => 'رد', _ => 'اصلاح',
-        }, style: labelStyle), textDirection: TextDirection.rtl)..layout();
+          'Approve' => 'تأیید', 'Reject' => 'رد', 'True' => 'برقرار',
+          'False' => 'برقرار نیست', _ => 'اصلاح',
+        }, style: labelStyle.copyWith(color: color)), textDirection: TextDirection.rtl)..layout();
         final direction = geometry.direction;
         final label = geometry.start + Offset(
           direction.dx > 0 ? 8 : direction.dx < 0 ? -text.width - 8 : 24,
@@ -313,7 +319,8 @@ class _NodeShapePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final fill = Paint()
-      ..color = Color.alphaBlend(color.withValues(alpha: .08), Colors.white);
+      ..color = type == WorkflowStageType.condition ? const Color(0xffFFF3DE)
+          : Color.alphaBlend(color.withValues(alpha: .08), Colors.white);
     final border = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
@@ -344,7 +351,7 @@ class _NodeBorder extends ShapeBorder {
   ShapeBorder scale(double t) => this;
 }
 
-({IconData icon, Color color, String label}) _visual(WorkflowStageType type) =>
+({IconData icon, Color color, String label}) workflowStageVisual(WorkflowStageType type) =>
     switch (type) {
       WorkflowStageType.start => (
           icon: Icons.play_arrow_rounded,
@@ -363,7 +370,7 @@ class _NodeBorder extends ShapeBorder {
         ),
       WorkflowStageType.condition => (
           icon: Icons.alt_route_rounded,
-          color: AsoudColors.warning,
+          color: Color(0xffBA8427),
           label: 'تصمیم و انشعاب'
         ),
       WorkflowStageType.systemAction => (

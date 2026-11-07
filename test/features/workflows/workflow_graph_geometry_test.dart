@@ -11,6 +11,22 @@ WorkflowTransition route(String action) => WorkflowTransition(
     condition: {'action': action});
 
 void main() {
+  test('condition boolean exits are independent and retain saved identities', () {
+    const source = WorkflowStage(id: 'gate', key: 'gate', type: WorkflowStageType.condition,
+      title: 'شرط و مسیر', sequence: 2, configurationComplete: true);
+    const destination = WorkflowStage(id: 'end', key: 'end', type: WorkflowStageType.end,
+      title: 'پایان', sequence: 3, configurationComplete: true);
+    for (final result in [true, false]) {
+      final edge = WorkflowTransition(id: 'edge-$result', fromStage: 'gate', toStage: 'end', condition: {'result': result});
+      final geometry = WorkflowGraphGeometry.edge(from: source, to: destination,
+        fromPosition: const Offset(100, 100), toPosition: const Offset(100, 400),
+        transition: edge, outgoing: [edge], nodeSize: size);
+      expect(geometry.direction.dx, result ? 1 : -1);
+      expect(geometry.action, result ? 'True' : 'False');
+      expect(edge.condition, {'result': result});
+      expect(edge.id, 'edge-$result');
+    }
+  });
   final combinations = <Map<String, Offset>>[
     {'Approve': const Offset(0, 1)},
     {'Reject': const Offset(0, 1)},
