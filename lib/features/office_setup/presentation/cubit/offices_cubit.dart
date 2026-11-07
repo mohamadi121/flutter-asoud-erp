@@ -71,7 +71,7 @@ class OfficesCubit extends Cubit<OfficesState> {
       }
       emit(state.copyWith(
         changingDefault: false,
-        message: 'تغییر دفتر فعال انجام نشد.',
+        message: failureMessage(error),
       ));
     }
   }

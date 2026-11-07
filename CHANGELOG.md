@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- تغییر دفتر فعال: هنگام شکست، دلیل واقعی (دسترسی، اعتبارسنجی، شبکه) به‌جای جملهٔ عمومی «تغییر دفتر فعال انجام نشد.» نمایش داده می‌شود.
+- انتخاب دفتر پس از ورود: اگر انتخاب دفتر رد شود، دلیل فارسی نمایش داده می‌شود و دکمه‌ها دوباره قابل لمس می‌مانند (بدون صفحهٔ مرده یا حالت در‌حال‌انتظار بی‌پایان).
+
 ## 0.30.0+51
 
 Paired backend: the merged `fix/review-followups` and setup reset changes (preview keys `blocking_users`/`blocking_roles` are optional, older servers work).
