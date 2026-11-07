@@ -1,3 +1,7 @@
+import 'package:asoud_erp/core/network/api_exception.dart';
+import 'package:asoud_erp/core/offline/queued_offline_exception.dart';
+import 'package:asoud_erp/core/utils/failure_message.dart';
+import 'package:asoud_erp/features/parties/data/repositories/server_first_party_repository.dart';
 import 'package:asoud_erp/core/theme/asoud_theme.dart';
 import 'package:asoud_erp/core/widgets/app_fields.dart';
 import 'package:asoud_erp/features/accounting/domain/entities/detail_group.dart';
@@ -9,13 +13,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../helpers/fake_local_record_store.dart';
+
 class _CapturingPartyRepository implements PartyRepository {
   PartyProfile? saved;
+  Object? failure;
   @override
   Future<PartyProfile> save(PartyProfile profile,
       {PartyRole? primaryRole,
       Set<String> detailGroups = const {}}) async {
     saved = profile;
+    if (failure != null) throw failure!;
     return profile;
   }
 
@@ -71,8 +79,8 @@ class _Groups implements DetailGroupRepository {
 }
 
 Future<void> _open(WidgetTester tester, PartyRole role,
-    _CapturingPartyRepository repository) async {
-  tester.view.physicalSize = const Size(390, 1600);
+    PartyRepository repository, {double width = 390, PartyProfile? profile}) async {
+  tester.view.physicalSize = Size(width, 1600);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(MultiRepositoryProvider(
@@ -82,6 +90,7 @@ Future<void> _open(WidgetTester tester, PartyRole role,
     ],
     child: MaterialApp(
       theme: AsoudTheme.light,
+      builder: (context, child) => Directionality(textDirection: TextDirection.rtl, child: child!),
       home: Directionality(
         textDirection: TextDirection.rtl,
         child: Builder(
@@ -90,7 +99,7 @@ Future<void> _open(WidgetTester tester, PartyRole role,
               child: TextButton(
                 onPressed: () => Navigator.of(context).push(MaterialPageRoute(
                     builder: (_) => PartyFormPage(
-                        company: 'شرکت نمونه', initialRole: role))),
+                        company: 'شرکت نمونه', initialRole: role, profile: profile))),
                 child: const Text('باز کردن'),
               ),
             ),
@@ -110,6 +119,82 @@ Future<void> _expand(WidgetTester tester, String title) async {
 }
 
 void main() {
+  for (final width in [320.0, 390.0, 430.0]) {
+    for (final queued in ['exception', 'pending new', 'pending existing']) {
+      testWidgets('$queued save waits for notice then closes at $width',
+          (tester) async {
+        final remote = _CapturingPartyRepository()
+          ..failure = queued == 'exception'
+              ? const QueuedOfflineException(localId: 'queued-party')
+              : const ApiException(
+                  kind: ApiFailureKind.network, message: 'offline');
+        final repository = queued == 'exception'
+            ? remote
+            : ServerFirstPartyRepository(remote, local: FakeLocalRecordStore());
+        await _open(tester, PartyRole.employee, repository, width: width,
+            profile: _validProfile(
+                queued == 'pending existing' ? 'PARTY-1' : null));
+        await tester.tap(find.text('ذخیره'));
+        // The saving spinner remains active behind the modal notice.
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(find.text(_queuedNotice), findsOneWidget);
+        expect(find.byType(PartyFormPage), findsOneWidget);
+        await tester.tap(find.text('باشه'));
+        await tester.pumpAndSettle();
+        expect(find.byType(PartyFormPage), findsNothing);
+        expect(tester.takeException(), isNull);
+      });
+    }
+    for (final kind in [ApiFailureKind.forbidden, ApiFailureKind.validation]) {
+      testWidgets('$kind keeps personnel form and values at $width', (tester) async {
+        final failure = ApiException(
+            kind: kind,
+            statusCode: kind == ApiFailureKind.forbidden ? 403 : 417,
+            message: 'سمت شغلی ثبت نشده است.');
+        final repository = _CapturingPartyRepository()..failure = failure;
+        await _open(tester, PartyRole.employee, repository,
+            width: width, profile: _validProfile('PARTY-1'));
+        await tester.tap(find.text('ذخیره'));
+        await tester.pumpAndSettle();
+        expect(find.byType(PartyFormPage), findsOneWidget);
+        expect(find.text(failureMessage(failure)), findsOneWidget);
+        await _expand(tester, 'اطلاعات اصلی');
+        expect(find.widgetWithText(TextFormField, 'علی'), findsOneWidget);
+        expect(find.text(_queuedNotice), findsNothing);
+        expect(tester.takeException(), isNull);
+      });
+    }
+    testWidgets('designation hint fits below both fields at $width',
+        (tester) async {
+      await _open(tester, PartyRole.employee, _CapturingPartyRepository(),
+          width: width);
+      await _expand(tester, 'اطلاعات اصلی');
+      final hint = find.text(
+          'سمت باید از سمت‌های ثبت‌شده در سرور باشد؛ اگر مطمئن نیستید خالی بگذارید.');
+      expect(hint, findsOneWidget);
+      expect(
+          tester.getTopLeft(hint).dy,
+          greaterThanOrEqualTo(tester.getBottomLeft(
+              find.widgetWithText(AppTextField, 'واحد سازمانی')).dy));
+      expect(tester.takeException(), isNull);
+    });
+    testWidgets('gender selection rebuilds at $width', (tester) async {
+      await _open(tester, PartyRole.employee, _CapturingPartyRepository(),
+          width: width);
+      await tester.pumpAndSettle();
+      await _expand(tester, 'اطلاعات شغلی و بانکی');
+      final field = find.byType(AppSelectField);
+      await tester.ensureVisible(field);
+      await tester.tap(field);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('مرد').last);
+      await tester.pumpAndSettle();
+      expect(tester.widget<AppSelectField>(field).displayValue, 'مرد');
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('the employee party form uses AppTextField and AppSelectField',
       (tester) async {
     await _open(tester, PartyRole.employee, _CapturingPartyRepository());
@@ -147,3 +232,10 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 }
+
+const _queuedNotice = 'ذخیره روی گوشی انجام شد و هنوز به سرور ارسال نشده است';
+PartyProfile _validProfile(String? id) => PartyProfile(
+  id: id, kind: PartyKind.individual, displayName: 'علی رضایی',
+  roles: const {PartyRole.employee}, employeeGender: 'Male',
+  birthDate: '1992-05-11', dateOfJoining: '2024-04-21',
+);

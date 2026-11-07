@@ -1130,7 +1130,7 @@ class _ProfileEditorState extends State<_ProfileEditor> {
       error = null;
     });
     try {
-      await widget.repository.update(
+      final result = await widget.repository.update(
           '${widget.profile['id']}',
           {
             for (final e in fields.entries)
@@ -1140,13 +1140,26 @@ class _ProfileEditorState extends State<_ProfileEditor> {
                 e.key: e.value.text.trim(),
           },
           widget.revision);
+      if (mounted &&
+          (result['offline'] == true || result['pending_sync'] == true)) {
+        await showDialog<void>(
+            context: context,
+            builder: (context) => AlertDialog(
+                  content: const Text(
+                      'ذخیره روی گوشی انجام شد و هنوز به سرور ارسال نشده است'),
+                  actions: [
+                    TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('باشه')),
+                  ],
+                ));
+      }
       if (mounted) Navigator.pop(context, true);
-    } catch (_) {
+    } catch (failure) {
       if (mounted) {
         setState(() {
           saving = false;
-          error =
-              'ذخیره انجام نشد؛ اتصال یا تغییر هم‌زمان اطلاعات را بررسی کنید. اطلاعات فرم حفظ شده است.';
+          error = failureMessage(failure);
         });
       }
     }
