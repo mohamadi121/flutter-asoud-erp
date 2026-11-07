@@ -54,8 +54,11 @@ class PartyProfile extends Equatable {
     this.detailGroups = const {},
     this.floatingDetails = const [],
     this.disabled = false,
+    this.pendingSync = false,
   });
 
+  /// Local save result metadata; never sent to the server.
+  final bool pendingSync;
   final String? id, company;
   final PartyKind kind;
   final String displayName;
@@ -80,6 +83,7 @@ class PartyProfile extends Equatable {
   @override
   List<Object?> get props => [
         id,
+        pendingSync,
         company,
         kind,
         displayName,
