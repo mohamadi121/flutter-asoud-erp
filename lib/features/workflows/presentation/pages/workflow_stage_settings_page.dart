@@ -3,9 +3,14 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/widgets/asoud_ui.dart';
+import '../../../../core/widgets/app_fields.dart';
+import '../../../../core/widgets/asoud_jalali_picker.dart';
+import '../../../../core/utils/persian_format.dart';
 import '../../domain/entities/workflow_definition.dart';
 import '../cubit/workflow_designer_cubit.dart';
 import '../widgets/workflow_form_builder.dart';
+
+part 'workflow_condition_settings.dart';
 
 class WorkflowStageSettingsPage extends StatefulWidget {
   const WorkflowStageSettingsPage({
@@ -46,6 +51,8 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
   List<WorkflowFieldOption> fields = const [];
   List<WorkflowFormFieldDefinition> formFields = const [];
   bool loadingFields = false;
+  String conditionSource = 'Document';
+  String? conditionFieldsError;
 
   Map<String, dynamic> get config => widget.stage.config;
 
@@ -95,6 +102,7 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
         function = config['approval_mode']?.toString() ?? 'Any';
       case WorkflowStageType.condition:
         function = config['source_field']?.toString() ?? '';
+        conditionSource = config['source_kind']?.toString() ?? 'Document';
         secondary = config['operator']?.toString() ?? 'Equals';
       case WorkflowStageType.systemAction:
         assignmentType = 'Role';
@@ -128,8 +136,15 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
   Future<void> _loadFields() async {
     setState(() => loadingFields = true);
     try {
-      fields = await context.read<WorkflowDesignerCubit>().conditionFields();
-      if (function.isEmpty && fields.isNotEmpty) function = fields.first.name;
+      fields = await context.read<WorkflowDesignerCubit>().conditionFields(beforeStage: widget.stage.id);
+      if (!mounted) return;
+      if (function.isEmpty && fields.isNotEmpty) {
+        function = fields.first.name;
+        conditionSource = fields.first.source;
+      }
+      conditionFieldsError = null;
+    } catch (_) {
+      if (mounted) conditionFieldsError = 'دریافت فیلدهای شرط ممکن نشد؛ دوباره تلاش کنید.';
     } finally {
       if (mounted) setState(() => loadingFields = false);
     }
@@ -146,7 +161,10 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => widget.stage.type == WorkflowStageType.condition &&
+      fields.any((field) => field.conditionVersion == 2)
+      ? _ConditionSettings(stage: widget.stage, fields: fields)
+      : Scaffold(
         appBar: AsoudHeader(
           title: 'تنظیمات مرحله',
           subtitle: 'عملکرد، مسئول و تصمیم‌های این مرحله را مشخص کنید',
@@ -172,7 +190,8 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
         ),
         bottomNavigationBar: AsoudBottomActions(
           primaryLabel: 'ذخیره مرحله',
-          onPrimary: _save,
+          onPrimary: widget.stage.type == WorkflowStageType.condition &&
+              (loadingFields || conditionFieldsError != null || config['condition_version'] == 2) ? null : _save,
           secondaryLabel: 'انصراف',
           onSecondary: () => Navigator.pop(context),
         ),
@@ -226,6 +245,10 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
           ],
         WorkflowStageType.condition => [
             if (loadingFields) const LinearProgressIndicator(),
+            if (conditionFieldsError != null) ...[
+              Text(conditionFieldsError!, style: const TextStyle(color: AsoudColors.danger)),
+              TextButton(onPressed: _loadFields, child: const Text('تلاش دوباره')),
+            ],
             _conditionField(),
             const SizedBox(height: 10),
             _dropdown(
@@ -544,16 +567,20 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
 
   Widget _conditionField() => DropdownButtonFormField<String>(
         isExpanded: true,
-        initialValue:
-            fields.any((field) => field.name == function) ? function : null,
+        initialValue: fields.any((field) => field.name == function && field.source == conditionSource)
+            ? '$conditionSource:$function' : null,
         decoration: const InputDecoration(labelText: 'فیلد سند اصلی *'),
         items: fields
             .map((field) => DropdownMenuItem(
-                  value: field.name,
+                  value: '${field.source}:${field.name}',
                   child: Text(field.label, overflow: TextOverflow.ellipsis),
                 ))
             .toList(growable: false),
-        onChanged: (next) => setState(() => function = next ?? function),
+        onChanged: (next) {
+          if (next == null) return;
+          final chosen = fields.firstWhere((field) => '${field.source}:${field.name}' == next);
+          setState(() { function = chosen.name; conditionSource = chosen.source; });
+        },
       );
 
   Widget _detailsField(String label) => TextField(
@@ -599,7 +626,7 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
         });
       case WorkflowStageType.condition:
         output.addAll({
-          'source_kind': 'Document',
+          'source_kind': conditionSource,
           'source_field': function,
           'operator': secondary,
           'compare_value': value.text.trim(),
