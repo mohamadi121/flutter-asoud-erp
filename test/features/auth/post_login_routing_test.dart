@@ -1,3 +1,4 @@
+import 'package:asoud_erp/core/network/api_exception.dart';
 import 'package:asoud_erp/core/network/frappe_client.dart';
 import 'package:asoud_erp/core/theme/asoud_theme.dart';
 import 'package:asoud_erp/features/auth/data/account_repository.dart';
@@ -153,6 +154,32 @@ void main() {
     expect(find.byType(OfficePickerPage), findsOneWidget);
     expect(find.text('دفتر A'), findsOneWidget);
     expect(find.text('دفتر B'), findsOneWidget);
+  });
+
+  testWidgets('a refused office pick shows the real reason and stays tappable',
+      (tester) async {
+    final accounts = FakeAccountRepository(
+      state: _s(offices: ['A', 'B']),
+      selectError: const ApiException(
+        kind: ApiFailureKind.forbidden,
+        message: 'به این دفتر دسترسی ندارید.',
+        statusCode: 403,
+      ),
+    );
+    await tester.pumpWidget(_app(accounts, _Auth(), const PostLoginPage()));
+    await tester.pumpAndSettle();
+    expect(find.byType(OfficePickerPage), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('office_A')));
+    await tester.pumpAndSettle();
+
+    // The failure is explained in Persian, not swallowed.
+    expect(find.byKey(const Key('office_picker_error')), findsOneWidget);
+    expect(find.text('اجازه دسترسی به این بخش را ندارید'), findsOneWidget);
+    // The user is not stranded: the office is still on screen and tappable.
+    expect(find.byType(OfficePickerPage), findsOneWidget);
+    expect(find.byKey(const Key('office_A')), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('no-office screen signs out to the login with the server kept',

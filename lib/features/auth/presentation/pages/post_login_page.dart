@@ -213,7 +213,7 @@ class NoOfficeAccessView extends StatelessWidget {
 }
 
 /// Lets a multi-office account choose among its permitted offices only.
-class OfficePickerPage extends StatelessWidget {
+class OfficePickerPage extends StatefulWidget {
   const OfficePickerPage(
       {required this.offices,
       required this.onPicked,
@@ -224,6 +224,31 @@ class OfficePickerPage extends StatelessWidget {
   final VoidCallback onSignOut;
 
   @override
+  State<OfficePickerPage> createState() => _OfficePickerPageState();
+}
+
+class _OfficePickerPageState extends State<OfficePickerPage> {
+  bool _picking = false;
+  String? _error;
+
+  Future<void> _pick(OfficeRef office) async {
+    if (_picking) return;
+    setState(() {
+      _picking = true;
+      _error = null;
+    });
+    try {
+      await widget.onPicked(office);
+    } catch (error) {
+      if (mounted) {
+        setState(() => _error = failureMessage(error));
+      }
+    } finally {
+      if (mounted) setState(() => _picking = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) => Scaffold(
         body: SafeArea(
           child: ListView(padding: const EdgeInsets.all(16), children: [
@@ -232,19 +257,39 @@ class OfficePickerPage extends StatelessWidget {
             const SizedBox(height: 4),
             const Text('دفتری را که می‌خواهید با آن کار کنید انتخاب کنید.',
                 style: TextStyle(color: AsoudColors.muted)),
+            if (_error case final message?) ...[
+              const SizedBox(height: 12),
+              Container(
+                key: const Key('office_picker_error'),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AsoudColors.dangerSurface,
+                  border: Border.all(
+                      color: AsoudColors.danger.withValues(alpha: .3)),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(children: [
+                  const Icon(Icons.error_outline_rounded,
+                      color: AsoudColors.danger),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(message)),
+                ]),
+              ),
+            ],
             const SizedBox(height: 12),
-            for (final office in offices)
+            for (final office in widget.offices)
               Card(
                 child: ListTile(
                   key: Key('office_${office.name}'),
                   leading: const Icon(Icons.business_rounded),
                   title: Text(office.title),
                   trailing: const Icon(Icons.chevron_left_rounded),
-                  onTap: () => onPicked(office),
+                  onTap: _picking ? null : () => _pick(office),
                 ),
               ),
             TextButton(
-                onPressed: onSignOut, child: const Text('خروج از حساب')),
+                onPressed: _picking ? null : widget.onSignOut,
+                child: const Text('خروج از حساب')),
           ]),
         ),
       );
