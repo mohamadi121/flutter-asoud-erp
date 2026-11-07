@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- عنوان، توضیح، دکمهٔ ذخیره و پیام انصراف فرم ویرایش دفتر کار با حالت ویرایش هماهنگ شد؛ پیشنهاد اطلاعات نمونه فقط در ایجاد دفتر نمایش داده می‌شود.
+
 ## 0.30.0+51
 
 Paired backend: the merged `fix/review-followups` and setup reset changes (preview keys `blocking_users`/`blocking_roles` are optional, older servers work).

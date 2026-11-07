@@ -133,10 +133,12 @@ class _OfficeFormViewState extends State<_OfficeFormView> {
             if (!didPop) _cancel();
           },
           child: Scaffold(
-            appBar: const AsoudHeader(
-              title: 'ایجاد دفتر کار',
-              subtitle: 'تعریف یک دفتر کاری جدید',
-              action: AsoudIconBox(
+            appBar: AsoudHeader(
+              title: widget.editing ? 'ویرایش دفتر کار' : 'ایجاد دفتر کار',
+              subtitle: widget.editing
+                  ? 'ویرایش اطلاعات ثبت‌شدهٔ دفتر'
+                  : 'تعریف یک دفتر کاری جدید',
+              action: const AsoudIconBox(
                   icon: Icons.person_outline_rounded,
                   color: AsoudColors.primary),
             ),
@@ -174,7 +176,7 @@ class _OfficeFormViewState extends State<_OfficeFormView> {
             bottomNavigationBar: AsoudBottomActions(
               primaryLabel: state.status == OfficeFormStatus.submitting
                   ? 'در حال ارسال…'
-                  : 'ایجاد دفتر کار',
+                  : widget.editing ? 'ذخیرهٔ تغییرات' : 'ایجاد دفتر کار',
               onPrimary: state.status == OfficeFormStatus.submitting
                   ? null
                   : () => context
@@ -222,8 +224,10 @@ class _OfficeFormViewState extends State<_OfficeFormView> {
         final leave = await showDialog<bool>(
             context: context,
             builder: (c) => AlertDialog(
-              title: const Text('انصراف از ایجاد دفتر؟'),
-              content: Text(root
+              title: Text(widget.editing
+                  ? 'انصراف از ویرایش دفتر؟'
+                  : 'انصراف از ایجاد دفتر؟'),
+              content: Text(root && !widget.editing
                   ? 'دفتر ایجاد نمی‌شود و به صفحه ورود برمی‌گردید. اطلاعات ثبت‌نشده کنار گذاشته می‌شوند.'
                   : 'اطلاعات واردشده ذخیره نشده‌اند.'),
               actions: [
