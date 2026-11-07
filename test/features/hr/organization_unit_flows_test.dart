@@ -187,7 +187,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('منابع انسانی'));
     await tester.pumpAndSettle();
-    final deleteAction = find.text('حذف واحد').last;
+    final deleteAction = find.byKey(const ValueKey('organization-unit-delete-action'));
     await tester.ensureVisible(deleteAction);
     await tester.tap(deleteAction);
     await tester.pumpAndSettle();

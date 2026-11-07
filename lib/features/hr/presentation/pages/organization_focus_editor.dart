@@ -7,6 +7,8 @@ class _OrganizationInlineEditor extends StatefulWidget {
       required this.unit,
       required this.units,
       this.position,
+      this.detailsMode = false,
+      this.background,
       required this.onBusy,
       required this.onCancel,
       required this.onSaved});
@@ -14,6 +16,8 @@ class _OrganizationInlineEditor extends StatefulWidget {
   final Map<String, dynamic> unit;
   final List<Map<String, dynamic>> units;
   final OrgPosition? position;
+  final bool detailsMode;
+  final Color? background;
   final ValueChanged<bool> onBusy;
   final Future<void> Function() onCancel;
   final Future<void> Function(String?, String?) onSaved;
@@ -239,7 +243,7 @@ class _OrganizationInlineEditorState extends State<_OrganizationInlineEditor> {
   }
 
   @override
-  Widget build(BuildContext context) => _OrgPanel(form: true, children: [
+  Widget build(BuildContext context) => _OrgPanel(form: true, background: widget.background, children: [
         Row(children: [
           const AsoudIconBox(icon: Icons.edit_outlined, size: 34, color: Color(0xff448fff)),
           const SizedBox(width: 8),
@@ -334,7 +338,7 @@ class _OrganizationInlineEditorState extends State<_OrganizationInlineEditor> {
                         _fixed('واحد سازمانی مربوط',
                             organizationUnitLabel(sourceUnit)),
                       const SizedBox(height: 14),
-                      if (!adding) AppSelectField(
+                      if (!adding || widget.detailsMode) AppSelectField(
                           rounded: true,
                           value: parent,
                           label: 'جایگاه بالادستی',
@@ -444,7 +448,7 @@ class _OrganizationInlineEditorState extends State<_OrganizationInlineEditor> {
                               ? organizationUnitLabel(sourceUnit)
                               : _nullableOrgUnitLabel(nav.byId(parent)) ??
                                   'ریشه بالادستی'),
-                      if (!adding)
+                      if (!adding && !widget.detailsMode)
                         SwitchListTile(
                             contentPadding: EdgeInsets.zero,
                             value: group,

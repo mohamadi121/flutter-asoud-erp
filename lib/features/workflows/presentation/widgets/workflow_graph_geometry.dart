@@ -110,7 +110,10 @@ abstract final class WorkflowGraphGeometry {
       required List<WorkflowTransition> outgoing,
       required Size nodeSize}) {
     final delta = toPosition - fromPosition;
-    final direction = from.type == WorkflowStageType.approval &&
+    final boolean = from.type == WorkflowStageType.condition && transition.condition['result'] is bool
+        ? transition.condition['result'] as bool : null;
+    final direction = boolean != null ? Offset(boolean ? 1 : -1, 0)
+        : from.type == WorkflowStageType.approval &&
             decision(transition) != null
         ? approvalDirection(transition, outgoing)
         : (delta.distance == 0 ? const Offset(0, 1) : delta / delta.distance);
@@ -125,7 +128,8 @@ abstract final class WorkflowGraphGeometry {
         start + direction * control,
         end + entry * control,
         end,
-        from.type == WorkflowStageType.approval ? decision(transition) : null,
+        boolean != null ? (boolean ? 'True' : 'False') :
+            from.type == WorkflowStageType.approval ? decision(transition) : null,
         direction,
         (fromPosition + toPosition) / 2 + (Offset.zero & nodeSize).center,
         shape(from.type, nodeSize).getBounds().shift(fromPosition));

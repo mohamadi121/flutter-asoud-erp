@@ -222,6 +222,62 @@ Future<void> _choose(WidgetTester tester, String label, String option) async {
 }
 
 void main() {
+  testWidgets('unrelated approval edits retain every previously saved role', (tester) async {
+    final design = WorkflowDesign(workflow: _design.workflow, transitions: _design.transitions,
+      stages: [for (final stage in _design.stages) stage.id == 'S2'
+        ? stage.copyWith(config: {...stage.config, 'assignment_type': 'Role',
+          'approver_roles': ['Accounts Manager', 'Purchase Manager']}) : stage]);
+    final (workflows, _) = await _open(tester, 'S2', designOverride: design);
+    await _tap(tester, find.text('ذخیره').last);
+    expect(workflows.saved.single['approver_roles'], ['Accounts Manager', 'Purchase Manager']);
+  });
+  testWidgets('unrelated approval edits retain every previously saved department', (tester) async {
+    final design = WorkflowDesign(workflow: _design.workflow, transitions: _design.transitions,
+      stages: [for (final stage in _design.stages) stage.id == 'S2'
+        ? stage.copyWith(config: {...stage.config, 'assignment_type': 'Department',
+          'approver_departments': ['FIN', 'BUY']}) : stage]);
+    final (workflows, _) = await _open(tester, 'S2', designOverride: design);
+    await _tap(tester, find.text('ذخیره').last);
+    expect(workflows.saved.single['approver_departments'], ['FIN', 'BUY']);
+  });
+  for (final width in [320.0, 390.0, 430.0]) {
+    testWidgets('approval diagram preview uses actual routes at $width', (tester) async {
+      tester.view.physicalSize = Size(width, 1000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final (workflows, automation) = await _open(tester, 'S2');
+      await _tap(tester, find.byKey(const ValueKey('approval-diagram-expand')));
+      final preview = find.byKey(const ValueKey('approval-diagram-preview'));
+      await _scrollToFinder(tester, preview);
+      expect(find.descendant(of: preview, matching: find.text('ثبت سند')), findsOneWidget);
+      expect(find.descendant(of: preview, matching: find.text('پایان فرایند')), findsNothing);
+      expect(find.byKey(const ValueKey('approval-preview-target-Approve-S3')), findsOneWidget);
+      expect(find.byKey(const ValueKey('approval-preview-unset-Reject')), findsOneWidget);
+      expect(workflows.saved, isEmpty);
+      expect(automation.routes, isEmpty);
+      expect(tester.takeException(), isNull);
+    });
+  }
+  testWidgets('approval preview changes with route selection and opens the existing stage form', (tester) async {
+    final (workflows, automation) = await _open(tester, 'S2');
+    await _tap(tester, find.byKey(const ValueKey('approval-diagram-expand')));
+    await _tap(tester, find.byKey(const ValueKey('approval-preview-unset-Reject')));
+    await tester.enterText(find.widgetWithText(TextField, 'جستجو در مراحل گردش کار...'), 'رد درخواست');
+    await tester.pumpAndSettle();
+    await _tap(tester, find.text('رد درخواست').last);
+    expect(find.byKey(const ValueKey('approval-preview-target-Reject-S5')), findsOneWidget);
+    expect(find.byKey(const ValueKey('approval-preview-unset-Reject')), findsNothing);
+    expect(workflows.saved, isEmpty);
+    expect(automation.routes, isEmpty);
+    await _tap(tester, find.byKey(const ValueKey('approval-preview-target-Approve-S3')));
+    await _scrollToFinder(tester, find.text('در حال ثبت'));
+    expect(find.text('در حال ثبت'), findsOneWidget);
+    await _tap(tester, find.byTooltip('بازگشت'));
+    expect(find.byKey(const ValueKey('approval-preview-target-Reject-S5')), findsOneWidget);
+    expect(workflows.saved, isEmpty);
+    expect(automation.routes, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
   testWidgets('approval source preview uses Start revision and never submits an entry', (tester) async {
     final design = WorkflowDesign(workflow: _design.workflow, transitions: _design.transitions,
         stages: [for (final stage in _design.stages) stage.id == 'S0'

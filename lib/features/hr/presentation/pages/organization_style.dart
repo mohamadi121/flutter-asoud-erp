@@ -23,13 +23,14 @@ class _OrgSheetTheme extends StatelessWidget {
 }
 
 class _OrgPanel extends StatelessWidget {
-  const _OrgPanel({required this.children, this.form = false});
+  const _OrgPanel({required this.children, this.form = false, this.background});
   final List<Widget> children;
   final bool form;
+  final Color? background;
   @override
   Widget build(BuildContext context) => Container(
       padding: const EdgeInsets.all(14),
-      decoration: form ? _orgWhiteCard().copyWith(
+      decoration: form ? _orgWhiteCard().copyWith(color: background,
           borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0xff83aaff))) : _orgWhiteCard(),
       child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch, children: children));

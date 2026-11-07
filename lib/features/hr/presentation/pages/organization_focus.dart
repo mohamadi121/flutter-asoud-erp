@@ -15,14 +15,10 @@ class _OrganizationFocus extends StatefulWidget {
   const _OrganizationFocus(
       {required this.units,
       required this.canManage,
-      this.initialUnit,
-      this.initialError,
-      this.initialAction});
+      this.initialError});
   final List<Map<String, dynamic>> units;
   final bool canManage;
-  final String? initialUnit;
   final String? initialError;
-  final _OrgEdit? initialAction;
   @override
   State<_OrganizationFocus> createState() => _OrganizationFocusState();
 }
@@ -31,7 +27,7 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
   @override
   bool get wantKeepAlive => action != null || assigningPosition != null;
   late List<Map<String, dynamic>> units = widget.units;
-  late String? selected = widget.initialUnit;
+  String? selected;
   bool branchOpen = true;
   OrgPosition? assigningPosition;
   String? position;
@@ -39,7 +35,7 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
   bool busy = false;
   final selectionHistory = <String?>[];
   late bool canManage = widget.canManage;
-  late _OrgEdit? action = widget.initialAction;
+  _OrgEdit? action;
   OrgPosition? editingPosition;
   final editor = GlobalKey<_OrganizationInlineEditorState>();
   final rootEditor = GlobalKey<_OrganizationCreateFormState>();
@@ -229,6 +225,17 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
     if (saved == true && mounted) await reload();
   }
 
+  Future<void> openFullDetails() async {
+    if (unit == null || !await leaveEditor() || !mounted) return;
+    final current = Map<String, dynamic>.of(unit!);
+    String? fallback;
+    setState(() { action = null; assigningPosition = null; });
+    await _openOrganizationPage<void>(context, _OrgSheetTheme(child: _UnitDetails(
+      unit: current, units: units, canManage: canManage,
+      onDeleted: (parent) => fallback = parent)));
+    if (mounted) await refresh(fallback: fallback);
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -348,7 +355,7 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
                         const PopupMenuItem(value: 'reload', child: Text('بازخوانی ساختار')),
                         const PopupMenuItem(value: 'units', child: Text('واحدها')),
                         const PopupMenuItem(value: 'positions', child: Text('جایگاه‌ها')),
-                        if (canManage && widget.initialUnit == null)
+                        if (canManage)
                           const PopupMenuItem(value: 'reset', child: Text('حذف ساختار سازمانی')),
                         if (canManage) const PopupMenuItem(value: 'setup',
                           child: Text('انتخاب روش ایجاد: قالب، اکسل یا دستی')),
@@ -570,6 +577,13 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
                         if (unit != null && '${unit!['description'] ?? ''}'.trim().isNotEmpty)
                           _detail('توضیحات', '${unit!['description']}'),
                       ])),
+                    if (unit != null) ...[
+                      const SizedBox(height: 10),
+                      FilledButton(
+                        key: const ValueKey('organization-full-unit-details'),
+                        onPressed: locked ? null : openFullDetails,
+                        child: const Text('مشاهده جزئیات کامل و مدیریت واحد')),
+                    ],
                   ]),
                   const SizedBox(height: 12),
                   if (selectedPosition != null) ...[

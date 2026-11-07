@@ -165,6 +165,14 @@ class FrappeWorkflowRepository implements WorkflowRepository, WorkflowStartSetti
     if (data is! Map || data['fields'] is! List) {
       throw StateError('Invalid workflow fields response');
     }
+    if (beforeStage != null && data['condition_fields_v2'] is List) {
+      return (data['condition_fields_v2'] as List).whereType<Map>().map((raw) => WorkflowFieldOption(
+        name: '${raw['source_field']}', label: persianDocumentFieldLabel('${raw['label']}'), type: '${raw['field_type']}',
+        source: '${raw['source_kind']}', sourceStage: '${raw['source_stage'] ?? ''}',
+        stageTitle: '${raw['stage_title'] ?? ''}', conditionVersion: 2,
+        choices: List<String>.from(raw['options'] as List? ?? []),
+        choiceLabels: Map<String, String>.from(raw['option_labels'] as Map? ?? {}))).toList();
+    }
     return (data['fields'] as List).whereType<Map>().map((raw) {
       final item = Map<String, dynamic>.from(raw);
       return WorkflowFieldOption(

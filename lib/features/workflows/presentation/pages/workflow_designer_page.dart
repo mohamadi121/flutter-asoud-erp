@@ -188,27 +188,31 @@ class _DesignerView extends StatelessWidget {
   Future<void> _connectStage(
       BuildContext context, WorkflowStage from, WorkflowDesign design) async {
     final candidates = design.stages
-        .where((stage) => stage.id != from.id)
+        .where((stage) => stage.id != from.id &&
+            (from.type != WorkflowStageType.condition || stage.type != WorkflowStageType.start))
         .toList(growable: false);
     if (candidates.isEmpty) return;
     final result = await showModalBottomSheet<({String target, String action})>(
       context: context,
       showDragHandle: true,
-      builder: (sheetContext) => _ConnectSheet(stages: candidates),
+      builder: (sheetContext) => _ConnectSheet(stages: candidates,
+        condition: from.type == WorkflowStageType.condition),
     );
     if (result != null && context.mounted) {
       await context.read<WorkflowDesignerCubit>().connectStages(
             fromStage: from.id,
             toStage: result.target,
             action: result.action,
+            condition: from.type == WorkflowStageType.condition ? {'result': result.action == 'شرط برقرار است'} : const {},
           );
     }
   }
 }
 
 class _ConnectSheet extends StatefulWidget {
-  const _ConnectSheet({required this.stages});
+  const _ConnectSheet({required this.stages, this.condition = false});
   final List<WorkflowStage> stages;
+  final bool condition;
 
   @override
   State<_ConnectSheet> createState() => _ConnectSheetState();
@@ -216,7 +220,7 @@ class _ConnectSheet extends StatefulWidget {
 
 class _ConnectSheetState extends State<_ConnectSheet> {
   late String target = widget.stages.first.id;
-  String action = 'تأیید';
+  late String action = widget.condition ? 'شرط برقرار است' : 'تأیید';
 
   @override
   Widget build(BuildContext context) => SafeArea(
@@ -229,25 +233,26 @@ class _ConnectSheetState extends State<_ConnectSheet> {
             DropdownButtonFormField<String>(
               initialValue: target,
               decoration: const InputDecoration(labelText: 'مرحله مقصد'),
-              items: widget.stages
+              items: [if (widget.condition) const DropdownMenuItem(value: '', child: Text('قطع اتصال این خروجی')),
+                ...widget.stages.where((stage) => !widget.condition || stage.type != WorkflowStageType.start)
                   .map((stage) => DropdownMenuItem(
                         value: stage.id,
                         child: Text(stage.title),
                       ))
-                  .toList(growable: false),
+                  ],
               onChanged: (value) => setState(() => target = value ?? target),
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
               initialValue: action,
               decoration: const InputDecoration(labelText: 'عملیات مسیر'),
-              items: const [
+              items: (widget.condition ? const ['شرط برقرار است', 'شرط برقرار نیست'] : const [
                 'تأیید',
                 'رد',
                 'بازگشت برای اصلاح',
                 'ارجاع',
                 'ادامه'
-              ]
+              ])
                   .map((value) =>
                       DropdownMenuItem(value: value, child: Text(value)))
                   .toList(growable: false),

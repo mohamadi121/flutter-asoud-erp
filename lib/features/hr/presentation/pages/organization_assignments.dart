@@ -2,10 +2,11 @@ part of 'organization_page.dart';
 
 class _OrganizationAssignments extends StatefulWidget {
   const _OrganizationAssignments({super.key, required this.code, required this.canManage,
-    this.embedded = false, this.onClose, this.onBusy});
+    this.embedded = false, this.onClose, this.onBusy, this.initialHistory = false});
   final String code;
   final bool canManage;
   final bool embedded;
+  final bool initialHistory;
   final VoidCallback? onClose;
   final ValueChanged<bool>? onBusy;
   @override
@@ -16,7 +17,7 @@ class _OrganizationAssignments extends StatefulWidget {
 class _OrganizationAssignmentsState extends State<_OrganizationAssignments> {
   late String code = widget.code;
   late Future<List<OrganizationEmployee>> people;
-  bool history = false;
+  late bool history = widget.initialHistory;
   bool saving = false;
   @override
   void initState() {
@@ -370,7 +371,7 @@ class _OrganizationAssignmentsState extends State<_OrganizationAssignments> {
                                         ],
                                       ])),
                               if (widget.embedded) ...[
-                                const Text('تاریخ شروع و پایان واقعی را سرور هنگام ثبت و پایان انتساب نگه می‌دارد؛ تعیین بازهٔ دلخواه در API فعلی پشتیبانی نمی‌شود.',
+                                const Text('تاریخ شروع هنگام ثبت و تاریخ پایان هنگام پایان انتساب در سوابق نگهداری می‌شود.',
                                   style: TextStyle(fontSize: 11, color: AsoudColors.muted)),
                                 OutlinedButton(onPressed: saving ? null : widget.onClose, child: const Text('بستن انتساب')),
                               ] else const _OrgTabFooter(),
@@ -381,167 +382,5 @@ class _OrganizationAssignmentsState extends State<_OrganizationAssignments> {
           backgroundColor: _orgCanvas,
           appBar: const _OrganizationReferenceHeader(title: 'انتساب پرسنل', form: true),
           body: body)));
-      });
-}
-
-class _UnitPositions extends StatefulWidget {
-  const _UnitPositions({required this.unit, required this.canManage});
-  final Map<String, dynamic> unit;
-  final bool canManage;
-  @override
-  State<_UnitPositions> createState() => _UnitPositionsState();
-}
-
-class _UnitPositionsState extends State<_UnitPositions> {
-  final title = TextEditingController();
-  bool adding = false, saving = false;
-  bool allowClose = false;
-  bool confirming = false;
-  String? error;
-  String? draftCode;
-  Future<void> _discard({bool close = false}) async {
-    if (saving || confirming) return;
-    confirming = true;
-    final discard =
-        title.text.trim().isEmpty || await _confirmOrgDiscard(context);
-    confirming = false;
-    if (!mounted || !discard) return;
-    setState(() {
-      adding = false;
-      title.clear();
-      error = null;
-      allowClose = close;
-    });
-    if (close) Navigator.pop(context);
-  }
-
-  @override
-  void dispose() {
-    title.dispose();
-    super.dispose();
-  }
-
-  Future<void> save() async {
-    final c = context.read<OrganizationCubit>();
-    if (saving ||
-        c.state.busy ||
-        title.text.trim().isEmpty ||
-        !widget.canManage) {
-      return;
-    }
-    draftCode ??=
-        'POS-${List.generate(16, (_) => math.Random.secure().nextInt(256).toRadixString(16).padLeft(2, '0')).join()}';
-    final row = OrgPosition(
-        code: draftCode!,
-        title: title.text.trim(),
-        departmentId: '${widget.unit['name']}',
-        department: '${widget.unit['department_name']}',
-        occupants: const []);
-    final rows = [
-      ...c.state.snapshot.rows.where((r) => r.code != draftCode),
-      row
-    ];
-    try {
-      validateOrganization(rows);
-    } on FormatException catch (e) {
-      setState(() => error = e.message);
-      return;
-    }
-    setState(() {
-      saving = true;
-      error = null;
-    });
-    final saved = await c.save(rows);
-    if (!mounted) return;
-    setState(() {
-      saving = false;
-      error = saved ? null : c.state.error;
-      if (saved) {
-        adding = false;
-        title.clear();
-        draftCode = null;
-      }
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) =>
-      BlocBuilder<OrganizationCubit, OrganizationState>(
-          builder: (context, state) {
-        final rows = state.snapshot.rows
-            .where((r) => r.departmentId == widget.unit['name']);
-        return PopScope(
-            canPop:
-                !saving && (allowClose || !adding || title.text.trim().isEmpty),
-            onPopInvokedWithResult: (didPop, result) {
-              if (!didPop) _discard(close: true);
-            },
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _OrgDetailSection(
-                      title: 'جایگاه‌های شغلی',
-                      icon: Icons.work_outline,
-                      color: _orgAccents[2],
-                      addKey:
-                          const ValueKey('organization-inline-position-open'),
-                      onAdd: widget.canManage && !adding
-                          ? () => setState(() => adding = true)
-                          : null),
-                  if (rows.isEmpty)
-                    const _OrgNotice(
-                        icon: Icons.work_outline,
-                        color: AsoudColors.success,
-                        text: 'هنوز جایگاه شغلی تعریف نشده است.'),
-                  for (final row in rows)
-                    _OrgDetailRow(
-                        title: row.displayTitle,
-                        position: true,
-                        onTap: () => _orgSheet<void>(
-                            context,
-                            _PositionDetails(
-                                code: row.code, canManage: widget.canManage))),
-                  if (adding)
-                    Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                            color: const Color(0xfff2faf7),
-                            borderRadius: BorderRadius.circular(16)),
-                        child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              AppTextField(
-                                  controller: title,
-                                  label: 'عنوان جایگاه جدید',
-                                  enabled: !saving,
-                                  onChanged: (_) => setState(() {})),
-                              if (error != null)
-                                Text(error!,
-                                    style: const TextStyle(
-                                        color: AsoudColors.danger)),
-                              const SizedBox(height: 10),
-                              Row(children: [
-                                Expanded(
-                                    child: FilledButton(
-                                        key: const ValueKey(
-                                            'organization-inline-position-save'),
-                                        onPressed: saving ||
-                                                state.busy ||
-                                                title.text.trim().isEmpty
-                                            ? null
-                                            : save,
-                                        child: Text(saving
-                                            ? 'در حال ثبت…'
-                                            : 'افزودن'))),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                    child: OutlinedButton(
-                                        onPressed: saving ? null : _discard,
-                                        child: const Text('انصراف')))
-                              ]),
-                            ])),
-                  if (state.snapshot.pending)
-                    const Text('تغییرات محلی در انتظار تأیید سرور است.'),
-                ]));
       });
 }
