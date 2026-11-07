@@ -131,3 +131,39 @@ Iranian companies: the UI is Persian, right-to-left, with Jalali dates.
 - Re-read your diff from top to bottom.
 - Open the screen at 320 and 390 px in RTL, with no server (offline preview) and signed in as a non-manager user.
 - Write down what you did **not** test. A report that says "all tests pass" without the command output will be rejected.
+
+## 13. Lessons from the November 2026 review (each item was found in merged code)
+
+### Destructive actions
+- A destructive entry point (server reset, wipe, delete-all) is never visible to every user. Put it behind a compile-time flag (`--dart-define=ASOUD_SETUP_RESET=true`) or `kDebugMode`, and remove it when the temporary need ends. The server check is a second line of defense, not the first.
+- Before a destructive server call, stop if the user has unsent offline work for the same owner, server and company, and tell them in Persian what to sync or discard. Never mark queued rows as `synced` just to make a reset pass.
+
+### Offline queue and local cache
+- Handle **every** `LocalSyncStatus` (`localOnly`, `pendingSync`, `syncFailed`, `synced`) on purpose. A rule that looks only at `pendingSync` leaves stale drafts that replay later. For each record kind decide: it blocks (unsent user work) or it is cleared (cache), and test the whole status x kind table.
+- Cache cleanup never touches credentials, other users, other servers or unrelated companies.
+
+### Legacy data and forms
+- Editing an old record must not force fields that belong to the new contract. Validate and send the new part only when creating, when the record already uses it, or when the user changed it in this session.
+- A multi-step server flow (create a stage, then create an End) must show partial success: say what was created and what failed, then reload the real state from the server.
+
+### Dart details
+- If you override `==` you must override `hashCode` consistently (deep equality needs a deep hash, not `Object.hash` of the map instance).
+- Do not add methods to a shared repository interface (it breaks every test fake). Add a new interface and implement it where needed.
+
+### Quality of your own report
+- Do not write "all tests pass" without the command and its output. Run `flutter analyze` and the touched test files and paste the tail.
+- A test must fail on the old code. Keep one change per commit and fold test-only follow-ups into the commit they fix.
+
+
+## Use the knowledge graph (graphify) first
+
+`graphify-out/` is committed (`graph.json`, `GRAPH_REPORT.md`, `graph.html`, `manifest.json`). Agents MUST use it before reading or grepping the code:
+
+1. Read `graphify-out/GRAPH_REPORT.md` for the god nodes, communities and surprising connections.
+2. Answer "where is X / what calls Y / how are A and B related" with `graphify query "<question>"`, `graphify path "<A>" "<B>"` and `graphify explain "<node>"` (see `.claude/skills/graphify/SKILL.md`) instead of opening files blindly.
+3. After a change that adds or moves code, refresh it with `graphify update .` and commit the updated `graph.json`, `GRAPH_REPORT.md` and `manifest.json` in the same PR. The `cache/` folder and dated snapshot folders stay untracked.
+4. Do not trust a graph answer alone for behaviour: open the files it points to before editing.
+
+## Project skills
+
+Shared agent skills live in `.claude/skills/` (`asoud-erp-expert`, `soroush-style`, `software-development`, `graphify`). Load `asoud-erp-expert` before changing code here: read its `references/engineering-principles.md` and `references/gotchas.md` first. The rules in this file win if a skill disagrees.

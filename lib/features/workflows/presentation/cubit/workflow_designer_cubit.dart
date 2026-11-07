@@ -58,8 +58,18 @@ class WorkflowDesignerCubit extends Cubit<WorkflowDesignerState> {
         // A new custom design starts with only Start. Supply a real End so the
         // user-task form has a valid completion destination from its first open.
         emit(state.copyWith(status: WorkflowDesignerStatus.saving, design: updated));
-        updated = await repository.addStage(definition: definition,
-            afterStage: created.id, type: WorkflowStageType.end);
+        try {
+          updated = await repository.addStage(definition: definition,
+              afterStage: created.id, type: WorkflowStageType.end);
+        } catch (endError) {
+          if (isClosed) return null;
+          final reloaded = await repository.getDesign(definition);
+          emit(state.copyWith(
+              status: WorkflowDesignerStatus.failure,
+              design: reloaded,
+              message: 'مرحله ایجاد شد اما گام پایان ثبت نشد. ${failureDetail(endError)}'));
+          return created;
+        }
       }
       if (isClosed) return null;
       emit(state.copyWith(
