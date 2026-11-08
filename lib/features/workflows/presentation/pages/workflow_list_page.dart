@@ -37,12 +37,13 @@ class WorkflowListPage extends StatelessWidget {
           repository: context.read<WorkflowRepository>(),
           company: company,
         )..load(),
-        child: _WorkflowCapabilityGate(onCreate: onCreate),
+        child: _WorkflowCapabilityGate(company: company, onCreate: onCreate),
       );
 }
 
 class _WorkflowCapabilityGate extends StatelessWidget {
-  const _WorkflowCapabilityGate({this.onCreate});
+  const _WorkflowCapabilityGate({this.company, this.onCreate});
+  final String? company;
   final VoidCallback? onCreate;
 
   @override
@@ -58,13 +59,19 @@ class _WorkflowCapabilityGate extends StatelessWidget {
           return const AccessDeniedScaffold();
         }
         return _WorkflowListView(
+            company: company,
             onCreate: onCreate,
             canManageWorkflows: capabilities.canManageWorkflows);
       });
 }
 
 class _WorkflowListView extends StatelessWidget {
-  const _WorkflowListView({this.onCreate, required this.canManageWorkflows});
+  const _WorkflowListView({
+    this.company,
+    this.onCreate,
+    required this.canManageWorkflows,
+  });
+  final String? company;
   final VoidCallback? onCreate;
   final bool canManageWorkflows;
 
@@ -145,7 +152,7 @@ class _WorkflowListView extends StatelessWidget {
                     onPressed: onCreate ?? () async {
                       final cubit = context.read<WorkflowListCubit>();
                       await Navigator.of(context).push(MaterialPageRoute<void>(
-                          builder: (_) => const WorkflowFormPage()));
+                          builder: (_) => WorkflowFormPage(company: company)));
                       if (!cubit.isClosed) await cubit.load();
                     },
                     icon: const Icon(Icons.add_rounded),
@@ -531,7 +538,11 @@ class _StatusBadge extends StatelessWidget {
   final WorkflowDefinition item;
   @override
   Widget build(BuildContext context) {
-    final (label, color, surface) = item.isLocked
+    final isDraft =
+        item.status == WorkflowDefinitionStatus.inactive && item.isLocked;
+    final (label, color, surface) = isDraft
+        ? ('پیش‌نویس', AsoudColors.warning, AsoudColors.warningSurface)
+        : item.isLocked
         ? ('نیازمند تکمیل', AsoudColors.warning, AsoudColors.warningSurface)
         : switch (item.status) {
             WorkflowDefinitionStatus.active =>

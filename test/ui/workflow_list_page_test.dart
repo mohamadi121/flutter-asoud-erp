@@ -1,6 +1,7 @@
 import 'package:asoud_erp/core/network/frappe_client.dart';
 import 'package:asoud_erp/features/workflows/domain/entities/workflow_definition.dart';
 import 'package:asoud_erp/features/workflows/domain/repositories/workflow_repository.dart';
+import 'package:asoud_erp/features/workflows/presentation/cubit/workflow_form_cubit.dart';
 import 'package:asoud_erp/features/workflows/presentation/pages/workflow_list_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -95,7 +96,7 @@ class _WorkflowRepository implements WorkflowRepository {
   @override
   Future<WorkflowFormOptions> getFormOptions() async =>
       const WorkflowFormOptions(
-        companies: ['شرکت نمونه'],
+        companies: ['شرکت نمونه', 'شرکت دوم'],
         modules: [
           WorkflowModuleOption(
             key: 'Purchase',
@@ -189,7 +190,7 @@ void main() {
 
     expect(find.text('گردش‌کارها'), findsOneWidget);
     expect(find.text('فرایند خرید کالا'), findsOneWidget);
-    expect(find.text('نیازمند تکمیل'), findsOneWidget);
+    expect(find.text('پیش‌نویس'), findsOneWidget);
     expect(find.text('ایجاد گردش‌کار جدید'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.tap(find.byTooltip('عملیات فرایند').first);
@@ -213,6 +214,27 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('اطلاعات پایه فرایند را وارد کنید'), findsOneWidget);
+  });
+
+  testWidgets('ایجاد از فهرست شرکت‌محور همان شرکت را به پیش‌نویس می‌دهد',
+      (tester) async {
+    await tester.pumpWidget(
+      RepositoryProvider<WorkflowRepository>.value(
+        value: _WorkflowRepository(),
+        child: const MaterialApp(
+          home: WorkflowListPage(company: 'شرکت دوم'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ایجاد گردش‌کار جدید'));
+    await tester.pumpAndSettle();
+
+    final title = find.byKey(const ValueKey('workflow-title'));
+    expect(
+      tester.element(title).read<WorkflowFormCubit>().state.company,
+      'شرکت دوم',
+    );
   });
 
   testWidgets('مدیر منابع انسانی کنترل‌های نوشتن گردش‌کار را نمی‌بیند',
