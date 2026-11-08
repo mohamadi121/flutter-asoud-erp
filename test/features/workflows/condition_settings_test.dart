@@ -1,7 +1,10 @@
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:asoud_erp/core/network/api_exception.dart';
 import 'package:asoud_erp/core/theme/asoud_theme.dart';
+import 'package:asoud_erp/features/workflows/data/repositories/preview_fallback_workflow_repository.dart';
+import 'package:asoud_erp/features/workflows/domain/entities/workflow_condition_test.dart';
 import 'package:asoud_erp/features/workflows/domain/entities/workflow_definition.dart';
 import 'package:asoud_erp/features/workflows/domain/repositories/workflow_repository.dart';
 import 'package:asoud_erp/features/workflows/presentation/cubit/workflow_designer_cubit.dart';
@@ -11,6 +14,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 const stage = WorkflowStage(id: 'CONDITION', key: 'CONDITION', type: WorkflowStageType.condition,
   title: 'شرط و مسیر', sequence: 3, configurationComplete: true,
@@ -46,6 +50,50 @@ class Repository extends Fake implements WorkflowRepository {
     return const WorkflowDesign(workflow: WorkflowDefinition(id: 'WF', code: 'WF',
       title: 'گردش', targetDoctype: 'ASOUD Workflow Request', status: WorkflowDefinitionStatus.inactive,
       isLocked: false, version: 1, stepsCount: 1, modified: null), stages: [], transitions: []);
+  }
+}
+
+/// A repository that also runs the server-side condition dry run, so the form
+/// can be exercised end to end (including through the preview wrapper).
+class DryRunRepository extends Fake
+    implements WorkflowRepository, WorkflowConditionTestRepository {
+  DryRunRepository({this.dryRun, this.dryRunError, this.employees = const []});
+  final WorkflowConditionTestResult? dryRun;
+  final Object? dryRunError;
+  final List<WorkflowTargetOption> employees;
+  Map<String, dynamic>? saved;
+
+  @override
+  Future<List<WorkflowFieldOption>> getConditionFields(String definition, {String? beforeStage}) async => const [
+    WorkflowFieldOption(name: 'amount', label: 'مبلغ درخواست', type: 'Number', source: 'Original', conditionVersion: 2),
+    WorkflowFieldOption(name: 'reason', label: 'شرح درخواست', type: 'Text', source: 'Original', conditionVersion: 2),
+    WorkflowFieldOption(name: 'assignee', label: 'مسئول', type: 'Text', source: 'Original', conditionVersion: 2, valueSource: 'employee'),
+    WorkflowFieldOption(name: 'total', label: 'مبلغ کل', type: 'Number', source: 'Original', conditionVersion: 2, currency: 'ریال'),
+  ];
+  @override
+  Future<WorkflowFormOptions> getFormOptions() async => WorkflowFormOptions(
+    companies: const [], modules: const [], roles: const [],
+    departments: const [WorkflowTargetOption(id: 'DEPT-1', label: 'واحد حسابداری')],
+    employees: employees);
+  @override
+  Future<WorkflowDesign> getDesign(String definition) async => const WorkflowDesign(
+    workflow: WorkflowDefinition(id: 'WF', code: 'WF', title: 'گردش',
+      targetDoctype: 'ASOUD Workflow Request', status: WorkflowDefinitionStatus.inactive,
+      isLocked: false, version: 1, stepsCount: 1, modified: null), stages: [], transitions: []);
+  @override
+  Future<WorkflowDesign> saveStageSettings({required String definition, required String stage,
+      required Map<String, dynamic> config}) async {
+    saved = config;
+    return const WorkflowDesign(workflow: WorkflowDefinition(id: 'WF', code: 'WF',
+      title: 'گردش', targetDoctype: 'ASOUD Workflow Request', status: WorkflowDefinitionStatus.inactive,
+      isLocked: false, version: 1, stepsCount: 1, modified: null), stages: [], transitions: []);
+  }
+  @override
+  Future<WorkflowConditionTestResult> testWorkflowCondition({required String definition,
+      required String stage, required Map<String, dynamic> config,
+      required Map<String, dynamic> samples}) async {
+    if (dryRunError != null) throw dryRunError!;
+    return dryRun ?? const WorkflowConditionTestResult(result: true, rows: []);
   }
 }
 
@@ -239,5 +287,238 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  Future<void> pumpCondition(WidgetTester tester, WorkflowRepository repository,
+      {WorkflowStage? stageOverride, double width = 390, bool load = false}) async {
+    tester.view.physicalSize = Size(width, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final cubit = WorkflowDesignerCubit(repository: repository, definition: 'WF');
+    addTearDown(cubit.close);
+    if (load) await cubit.load();
+    final target = stageOverride ?? stage;
+    await tester.pumpWidget(MaterialApp(theme: AsoudTheme.light,
+      builder: (_, child) => Directionality(textDirection: TextDirection.rtl, child: child!),
+      home: BlocProvider.value(value: cubit,
+        child: WorkflowStageSettingsPage(stage: target, roles: const []))));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('condition with one row numbers outputs and test as 2 and 3', (tester) async {
+    await pumpCondition(tester, DryRunRepository());
+    expect(find.text('۱. تعریف شروط'), findsOneWidget);
+    expect(find.text('۲. ترکیب شروط'), findsNothing);
+    expect(find.text('۲. خروجی‌های شرط'), findsOneWidget);
+    expect(find.text('۳. آزمایش شرط'), findsOneWidget);
+    expect(find.text('تأیید تنظیمات شرط و مسیر'), findsOneWidget);
+    expect(find.text('اتصال خروجی‌ها به مراحل بعدی فقط در Canvas انجام می‌شود.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('condition with two rows numbers combine, outputs and test as 2, 3, 4', (tester) async {
+    final two = stage.copyWith(config: {'condition_version': 2, 'combine': 'All', 'conditions': [
+      {'id': 'a', 'source_kind': 'Original', 'source_field': 'amount', 'field_type': 'Number', 'operator': 'Equals', 'value': '1'},
+      {'id': 'b', 'source_kind': 'Original', 'source_field': 'reason', 'field_type': 'Text', 'operator': 'Equals', 'value': 'x'},
+    ]});
+    await pumpCondition(tester, DryRunRepository(), stageOverride: two);
+    expect(find.text('۲. ترکیب شروط'), findsOneWidget);
+    expect(find.text('۳. خروجی‌های شرط'), findsOneWidget);
+    await tester.drag(find.byType(ListView).last, const Offset(0, -800));
+    await tester.pumpAndSettle();
+    expect(find.text('۴. آزمایش شرط'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('condition source and field change reset the dependent values', (tester) async {
+    final repository = DryRunRepository();
+    final configured = stage.copyWith(config: {'condition_version': 2, 'combine': 'All', 'conditions': [{
+      'id': 'r', 'source_kind': 'Original', 'source_field': 'amount', 'field_type': 'Number',
+      'operator': 'Between', 'value': '10', 'value_to': '20',
+    }]});
+    await pumpCondition(tester, repository, stageOverride: configured);
+    // Change the field: operator resets to Equals and the value clears.
+    await tap(tester, find.byKey(const ValueKey('condition-field-r')));
+    await tap(tester, find.byKey(const ValueKey('option-reason')));
+    expect(find.byKey(const ValueKey('condition-value-r')), findsOneWidget);
+    expect(find.byKey(const ValueKey('condition-end-r')), findsNothing);
+    // Change the source: the field and value clear.
+    await tap(tester, find.byKey(const ValueKey('condition-source-r')));
+    await tap(tester, find.byKey(const ValueKey('option-System')));
+    expect(find.byKey(const ValueKey('condition-value-r')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('condition empty operator hides the value input', (tester) async {
+    final repository = DryRunRepository();
+    final configured = stage.copyWith(config: {'condition_version': 2, 'combine': 'All', 'conditions': [{
+      'id': 'r', 'source_kind': 'Original', 'source_field': 'reason', 'field_type': 'Text',
+      'operator': 'Is Empty',
+    }]});
+    await pumpCondition(tester, repository, stageOverride: configured);
+    expect(find.byKey(const ValueKey('condition-value-r')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('condition between range rejects a reversed start', (tester) async {
+    final repository = DryRunRepository();
+    final configured = stage.copyWith(config: {'condition_version': 2, 'combine': 'All', 'conditions': [{
+      'id': 'r', 'source_kind': 'Original', 'source_field': 'amount', 'field_type': 'Number',
+      'operator': 'Between', 'value': '20', 'value_to': '10',
+    }]});
+    await pumpCondition(tester, repository, stageOverride: configured);
+    await tap(tester, find.text('تأیید تنظیمات شرط و مسیر'));
+    expect(repository.saved, isNull);
+    expect(find.textContaining('ابتدای بازه از انتهای آن بزرگ‌تر است.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('condition whitespace-only text value is rejected', (tester) async {
+    final repository = DryRunRepository();
+    final configured = stage.copyWith(config: {'condition_version': 2, 'combine': 'All', 'conditions': [{
+      'id': 'r', 'source_kind': 'Original', 'source_field': 'reason', 'field_type': 'Text',
+      'operator': 'Equals', 'value': '   ',
+    }]});
+    await pumpCondition(tester, repository, stageOverride: configured);
+    await tap(tester, find.text('تأیید تنظیمات شرط و مسیر'));
+    expect(repository.saved, isNull);
+    expect(find.textContaining('مقدار مقایسه وارد نشده است.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('condition employee value source stores the id and shows the name', (tester) async {
+    final repository = DryRunRepository(employees: const [
+      WorkflowTargetOption(id: 'EMP-1', label: 'احمد رضایی'),
+    ]);
+    final configured = stage.copyWith(config: {'condition_version': 2, 'combine': 'All', 'conditions': [{
+      'id': 'r', 'source_kind': 'Original', 'source_field': 'assignee', 'field_type': 'Text',
+      'operator': 'Equals',
+    }]});
+    await pumpCondition(tester, repository, stageOverride: configured, load: true);
+    await tap(tester, find.byKey(const ValueKey('condition-value-r')));
+    await tap(tester, find.byKey(const ValueKey('option-EMP-1')));
+    expect(find.text('احمد رضایی'), findsOneWidget);
+    await tap(tester, find.text('تأیید تنظیمات شرط و مسیر'));
+    final rule = (repository.saved!['conditions'] as List).single;
+    expect(rule['value'], 'EMP-1');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('condition currency label is shown next to the amount input', (tester) async {
+    final repository = DryRunRepository();
+    final configured = stage.copyWith(config: {'condition_version': 2, 'combine': 'All', 'conditions': [{
+      'id': 'r', 'source_kind': 'Original', 'source_field': 'total', 'field_type': 'Number',
+      'operator': 'Equals', 'value': '5',
+    }]});
+    await pumpCondition(tester, repository, stageOverride: configured);
+    expect(find.text('ریال'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('condition dry run shows the server result and row errors', (tester) async {
+    final repository = DryRunRepository(dryRun: const WorkflowConditionTestResult(result: true, rows: [
+      WorkflowConditionTestRow(id: 'r', result: true),
+      WorkflowConditionTestRow(id: 'bad', result: false, error: 'مقدار نمونه معتبر نیست.'),
+    ]));
+    final configured = stage.copyWith(config: {'condition_version': 2, 'combine': 'All', 'conditions': [
+      {'id': 'r', 'source_kind': 'Original', 'source_field': 'amount', 'field_type': 'Number', 'operator': 'Equals', 'value': '1'},
+      {'id': 'bad', 'source_kind': 'Original', 'source_field': 'reason', 'field_type': 'Text', 'operator': 'Equals', 'value': 'x'},
+    ]});
+    await pumpCondition(tester, repository, stageOverride: configured);
+    await tap(tester, find.text('اجرای آزمایشی'));
+    expect(find.text('شرط برقرار است.'), findsOneWidget);
+    expect(find.textContaining('مقدار نمونه معتبر نیست.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('condition dry run through the preview wrapper shows the result', (tester) async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    SharedPreferences.setMockInitialValues({});
+    final inner = DryRunRepository(dryRun: const WorkflowConditionTestResult(result: false, rows: []));
+    final repository = PreviewFallbackWorkflowRepository(inner);
+    final configured = stage.copyWith(config: {'condition_version': 2, 'combine': 'All', 'conditions': [{
+      'id': 'r', 'source_kind': 'Original', 'source_field': 'amount', 'field_type': 'Number', 'operator': 'Equals', 'value': '1',
+    }]});
+    await pumpCondition(tester, repository, stageOverride: configured);
+    await tap(tester, find.text('اجرای آزمایشی'));
+    expect(find.text('شرط برقرار نیست.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('condition dry run falls back on an unsupported server', (tester) async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    SharedPreferences.setMockInitialValues({});
+    // The wrapper delegates to the inner repository, so to exercise the
+    // unsupported path we wrap a repository that does not implement the
+    // interface.
+    final unsupported = PreviewFallbackWorkflowRepository(_PlainRepository());
+    final configured = stage.copyWith(config: {'condition_version': 2, 'combine': 'All', 'conditions': [{
+      'id': 'r', 'source_kind': 'Original', 'source_field': 'amount', 'field_type': 'Number', 'operator': 'Equals', 'value': '1',
+    }]});
+    await pumpCondition(tester, unsupported, stageOverride: configured);
+    await tap(tester, find.text('اجرای آزمایشی'));
+    expect(find.textContaining('سرور فعلی از آزمایش شرط پشتیبانی نمی‌کند'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('condition dry run shows a forbidden message', (tester) async {
+    final repository = DryRunRepository(
+        dryRunError: const ApiException(kind: ApiFailureKind.forbidden, message: 'no'));
+    final configured = stage.copyWith(config: {'condition_version': 2, 'combine': 'All', 'conditions': [{
+      'id': 'r', 'source_kind': 'Original', 'source_field': 'amount', 'field_type': 'Number', 'operator': 'Equals', 'value': '1',
+    }]});
+    await pumpCondition(tester, repository, stageOverride: configured);
+    await tap(tester, find.text('اجرای آزمایشی'));
+    expect(find.text('دسترسی لازم برای آزمایش شرط را ندارید.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('condition dry run shows a network error message', (tester) async {
+    final repository = DryRunRepository(
+        dryRunError: const ApiException(kind: ApiFailureKind.network, message: 'ارتباط با سرور برقرار نشد.'));
+    final configured = stage.copyWith(config: {'condition_version': 2, 'combine': 'All', 'conditions': [{
+      'id': 'r', 'source_kind': 'Original', 'source_field': 'amount', 'field_type': 'Number', 'operator': 'Equals', 'value': '1',
+    }]});
+    await pumpCondition(tester, repository, stageOverride: configured);
+    await tap(tester, find.text('اجرای آزمایشی'));
+    expect(find.text('ارتباط با سرور برقرار نشد.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final width in [320.0, 390.0]) {
+    testWidgets('condition form has no overflow at $width', (tester) async {
+      final repository = DryRunRepository();
+      final configured = stage.copyWith(config: {'condition_version': 2, 'combine': 'All', 'conditions': [
+        {'id': 'a', 'source_kind': 'Original', 'source_field': 'amount', 'field_type': 'Number', 'operator': 'Between', 'value': '1', 'value_to': '2'},
+        {'id': 'b', 'source_kind': 'Original', 'source_field': 'reason', 'field_type': 'Text', 'operator': 'Equals', 'value': 'x'},
+      ]});
+      await pumpCondition(tester, repository, stageOverride: configured, width: width);
+      expect(find.text('۲. ترکیب شروط'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      // Overflow would surface as a RenderFlex exception during build.
+      expect(tester.takeException(), isNull);
+    });
+  }
+}
+
+/// A repository without the dry-run interface, to exercise the unsupported path.
+class _PlainRepository extends Fake implements WorkflowRepository {
+  @override
+  Future<List<WorkflowFieldOption>> getConditionFields(String definition, {String? beforeStage}) async => const [
+    WorkflowFieldOption(name: 'amount', label: 'مبلغ درخواست', type: 'Number', source: 'Original', conditionVersion: 2),
+  ];
+  @override
+  Future<WorkflowFormOptions> getFormOptions() async =>
+      const WorkflowFormOptions(companies: [], modules: [], roles: []);
+  @override
+  Future<WorkflowDesign> getDesign(String definition) async => const WorkflowDesign(
+    workflow: WorkflowDefinition(id: 'WF', code: 'WF', title: 'گردش',
+      targetDoctype: 'ASOUD Workflow Request', status: WorkflowDefinitionStatus.inactive,
+      isLocked: false, version: 1, stepsCount: 1, modified: null), stages: [], transitions: []);
+  @override
+  Future<WorkflowDesign> saveStageSettings({required String definition, required String stage,
+      required Map<String, dynamic> config}) async => const WorkflowDesign(
+    workflow: WorkflowDefinition(id: 'WF', code: 'WF', title: 'گردش',
+      targetDoctype: 'ASOUD Workflow Request', status: WorkflowDefinitionStatus.inactive,
+      isLocked: false, version: 1, stepsCount: 1, modified: null), stages: [], transitions: []);
 }
 

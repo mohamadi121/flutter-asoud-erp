@@ -1,11 +1,16 @@
 import '../../../../core/network/frappe_client.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/utils/persian_server_values.dart';
+import '../../domain/entities/workflow_condition_test.dart';
 import '../../domain/entities/workflow_definition.dart';
 import '../../domain/entities/workflow_start_settings.dart';
 import '../../domain/repositories/workflow_repository.dart';
 
-class FrappeWorkflowRepository implements WorkflowRepository, WorkflowStartSettingsRepository {
+class FrappeWorkflowRepository
+    implements
+        WorkflowRepository,
+        WorkflowStartSettingsRepository,
+        WorkflowConditionTestRepository {
   const FrappeWorkflowRepository(this._client);
   final FrappeApiClient _client;
   @override
@@ -171,7 +176,10 @@ class FrappeWorkflowRepository implements WorkflowRepository, WorkflowStartSetti
         source: '${raw['source_kind']}', sourceStage: '${raw['source_stage'] ?? ''}',
         stageTitle: '${raw['stage_title'] ?? ''}', conditionVersion: 2,
         choices: List<String>.from(raw['options'] as List? ?? []),
-        choiceLabels: Map<String, String>.from(raw['option_labels'] as Map? ?? {}))).toList();
+        choiceLabels: Map<String, String>.from(raw['option_labels'] as Map? ?? {}),
+        valueSource: _optionalText(raw['value_source']),
+        linkDoctype: _optionalText(raw['link_doctype']),
+        currency: _optionalText(raw['currency']))).toList();
     }
     return (data['fields'] as List).whereType<Map>().map((raw) {
       final item = Map<String, dynamic>.from(raw);
@@ -182,6 +190,39 @@ class FrappeWorkflowRepository implements WorkflowRepository, WorkflowStartSetti
         source: item['source']?.toString() ?? 'Document',
       );
     }).toList(growable: false);
+  }
+
+  /// Server-side dry run of a condition stage against sample values. Absent on
+  /// an older server; the caller falls back to the local structural check.
+  @override
+  Future<WorkflowConditionTestResult> testWorkflowCondition({
+    required String definition,
+    required String stage,
+    required Map<String, dynamic> config,
+    required Map<String, dynamic> samples,
+  }) async {
+    final data = await _call(
+      'asoud_erp.api.v1.workflow.test_workflow_condition',
+      data: {
+        'definition': definition,
+        'stage': stage,
+        'config': config,
+        'samples': samples,
+      },
+    );
+    if (data is! Map) throw StateError('Invalid condition test response');
+    final rawRows = data['rows'];
+    final rows = rawRows is List
+        ? rawRows.whereType<Map>().map((raw) => WorkflowConditionTestRow(
+            id: '${raw['id']}',
+            result: raw['result'] is bool ? raw['result'] as bool : null,
+            error: _optionalText(raw['error']),
+          )).toList()
+        : const <WorkflowConditionTestRow>[];
+    return WorkflowConditionTestResult(
+      result: data['result'] is bool ? data['result'] as bool : null,
+      rows: rows,
+    );
   }
 
   @override
