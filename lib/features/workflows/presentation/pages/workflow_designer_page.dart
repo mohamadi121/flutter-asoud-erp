@@ -64,7 +64,9 @@ class _DesignerView extends StatelessWidget {
               if (state.offlinePreview) const AsoudOfflinePreviewBanner(),
               _DraftBanner(
                   workflow: design.workflow,
-                  saving: state.status == WorkflowDesignerStatus.saving),
+                  saving: state.status == WorkflowDesignerStatus.saving,
+                  failed: state.status == WorkflowDesignerStatus.failure,
+                  failureMessage: state.message),
               Expanded(
                 child: WorkflowGraphCanvas(
                   design: design,
@@ -273,35 +275,55 @@ class _ConnectSheetState extends State<_ConnectSheet> {
 }
 
 class _DraftBanner extends StatelessWidget {
-  const _DraftBanner({required this.workflow, required this.saving});
+  const _DraftBanner({
+    required this.workflow,
+    required this.saving,
+    required this.failed,
+    this.failureMessage,
+  });
   final WorkflowDefinition workflow;
   final bool saving;
+  final bool failed;
+  final String? failureMessage;
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) {
+    final color = failed ? AsoudColors.warning : AsoudColors.primary;
+    return Container(
         margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
         decoration: BoxDecoration(
-          color: AsoudColors.primary.withValues(alpha: .06),
-          border: Border.all(color: AsoudColors.primary.withValues(alpha: .2)),
+          color: color.withValues(alpha: .06),
+          border: Border.all(color: color.withValues(alpha: .2)),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(children: [
-          Icon(saving ? Icons.sync_rounded : Icons.cloud_done_outlined,
-              color: AsoudColors.primary, size: 19),
+          Icon(
+            saving
+                ? Icons.sync_rounded
+                : failed
+                    ? Icons.cloud_off_outlined
+                    : Icons.cloud_done_outlined,
+            color: color,
+            size: 19,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-                saving
-                    ? 'در حال ذخیره تغییرات...'
-                    : 'تغییرات این پیش‌نویس روی سرور ذخیره شده است.',
-                style:
-                    const TextStyle(fontSize: 9, color: AsoudColors.primary)),
+              saving
+                  ? 'در حال ذخیره تغییرات...'
+                  : failed
+                      ? failureMessage ??
+                          'ذخیره تغییرات ناموفق بود؛ تغییرات را دوباره ذخیره کنید.'
+                      : 'تغییرات این پیش‌نویس روی سرور ذخیره شده است.',
+              style: TextStyle(fontSize: 9, color: color),
+            ),
           ),
           Text(workflow.code,
               textDirection: TextDirection.ltr,
               style: const TextStyle(fontSize: 9, color: AsoudColors.muted)),
         ]),
       );
+  }
 }
 
 // Kept temporarily to preserve the locked linear preview implementation.
@@ -541,6 +563,7 @@ class _StartSettingsPageState extends State<StartSettingsPage> {
         body: ListView(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 110),
           children: [
+            const _StartSaveErrorBanner(),
             const _StartNotice(),
             const SizedBox(height: 14),
             const AsoudSectionTitle(title: 'روش آغاز فرایند'),
@@ -586,17 +609,48 @@ class _StartSettingsPageState extends State<StartSettingsPage> {
         bottomNavigationBar: AsoudBottomActions(
           primaryLabel: 'ذخیره تنظیمات شروع',
           onPrimary: () async {
-            await context.read<WorkflowDesignerCubit>().saveStart(
+            final saved = await context.read<WorkflowDesignerCubit>().saveStart(
                   triggerType: triggerType,
                   initiatorRoles: selectedRoles.toList(growable: false),
                   subjectSource: 'Referenced Document',
                   passMode: 'Direct',
                 );
-            if (context.mounted) Navigator.pop(context);
+            if (saved && context.mounted) Navigator.pop(context);
           },
           secondaryLabel: 'انصراف',
           onSecondary: () => Navigator.pop(context),
         ),
+      );
+}
+
+class _StartSaveErrorBanner extends StatelessWidget {
+  const _StartSaveErrorBanner();
+
+  @override
+  Widget build(BuildContext context) =>
+      BlocBuilder<WorkflowDesignerCubit, WorkflowDesignerState>(
+        builder: (context, state) {
+          final message = state.status == WorkflowDesignerStatus.failure
+              ? state.message
+              : null;
+          if (message == null) return const SizedBox.shrink();
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AsoudColors.warningSurface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AsoudColors.warning),
+              ),
+              child: Text(
+                message,
+                style: const TextStyle(
+                    fontSize: 11, color: AsoudColors.warning),
+              ),
+            ),
+          );
+        },
       );
 }
 

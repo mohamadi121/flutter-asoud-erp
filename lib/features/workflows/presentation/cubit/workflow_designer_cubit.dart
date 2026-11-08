@@ -169,14 +169,14 @@ class WorkflowDesignerCubit extends Cubit<WorkflowDesignerState> {
     }
   }
 
-  Future<void> saveStart({
+  Future<bool> saveStart({
     required String triggerType,
     required List<String> initiatorRoles,
     required String subjectSource,
     required String passMode,
   }) async {
     final design = state.design;
-    if (design == null) return;
+    if (design == null) return false;
     emit(state.copyWith(
         status: WorkflowDesignerStatus.saving, clearMessage: true));
     try {
@@ -199,10 +199,12 @@ class WorkflowDesignerCubit extends Cubit<WorkflowDesignerState> {
             transitions: design.transitions),
         message: 'تنظیمات شروع ذخیره شد.',
       ));
+      return true;
     } catch (_) {
       emit(state.copyWith(
           status: WorkflowDesignerStatus.failure,
           message: 'ذخیره تنظیمات شروع ممکن نشد.'));
+      return false;
     }
   }
 
