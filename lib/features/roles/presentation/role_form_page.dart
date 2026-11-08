@@ -111,40 +111,57 @@ class _RoleFormState extends State<_RoleForm> {
                         hint: 'مثال: حسابدار',
                         maxLength: 140,
                         enabled: !busy,
+                        readOnly: widget.role?.system == true,
                         validator: (value) =>
                             value == null || value.trim().isEmpty
                                 ? 'نام نقش الزامی است.'
                                 : null),
                     const SizedBox(height: 12),
-                    AppSelectField(
-                        key: ValueKey('category-$_category'),
-                        label: 'دسته نقش',
-                        required: true,
-                        value: _category,
-                        displayValue: state.catalog.categories
-                                .where((e) => e.code == _category)
-                                .map((e) => e.title)
-                                .firstOrNull,
-                        hint: 'انتخاب دسته',
-                        enabled: !busy,
-                        validator: (value) => value == null || value.isEmpty
-                            ? 'دسته را انتخاب کنید.'
-                            : null,
-                        onPick: busy
-                            ? null
-                            : () => showAppOptionSheet(context,
-                                title: 'دسته نقش',
-                                current: _category,
-                                options: [
-                                  for (final category
-                                      in state.catalog.categories)
-                                    AppOption(category.code, category.title,
-                                        icon: _roleStyle(category.style).$1,
-                                        iconColor:
-                                            _roleStyle(category.style).$2)
-                                ]),
-                        onChanged: (value) =>
-                            setState(() => _category = value)),
+                    Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Expanded(
+                              child: AppSelectField(
+                                  key: ValueKey('category-$_category'),
+                                  label: 'دسته نقش',
+                                  required: true,
+                                  value: _category,
+                                  displayValue: state.catalog.categories
+                                          .where((e) => e.code == _category)
+                                          .map((e) => e.title)
+                                          .firstOrNull,
+                                  hint: 'انتخاب دسته',
+                                  enabled: !busy,
+                                  validator: (value) =>
+                                      value == null || value.isEmpty
+                                          ? 'دسته را انتخاب کنید.'
+                                          : null,
+                                  onPick: busy
+                                      ? null
+                                      : () => showAppOptionSheet(context,
+                                          title: 'دسته نقش',
+                                          current: _category,
+                                          options: [
+                                            for (final category
+                                                in state.catalog.categories)
+                                              AppOption(category.code,
+                                                  category.title,
+                                                  icon: _roleStyle(category
+                                                          .style)
+                                                      .$1,
+                                                  iconColor: _roleStyle(
+                                                          category.style)
+                                                      .$2)
+                                          ]),
+                                  onChanged: (value) =>
+                                      setState(() => _category = value))),
+                          const SizedBox(width: 8),
+                          TextButton.icon(
+                              onPressed: busy ? null : _createCategory,
+                              icon: const Icon(Icons.add, size: 18),
+                              label: const Text('دسته جدید',
+                                  style: TextStyle(fontSize: 12))),
+                        ]),
                     const SizedBox(height: 16),
                     const Text('سطح دسترسی نقش',
                         style: TextStyle(fontWeight: FontWeight.w800)),
@@ -323,5 +340,25 @@ class _RoleFormState extends State<_RoleForm> {
           assignedUsers: _baseline?.assignedUsers ?? 0,
         ));
     if (saved && mounted) Navigator.pop(context, true);
+  }
+
+  /// Opens the shared category form; on success selects the newly created
+  /// category (the first one not present before the form opened).
+  Future<void> _createCategory() async {
+    final before = {
+      for (final c in context.read<RoleCubit>().state.catalog.categories)
+        c.code
+    };
+    final created = await _roleRoute<bool>(context, const _CategoryForm());
+    if (created != true || !mounted) return;
+    final latest = context.read<RoleCubit>().state;
+    if (!latest.loaded) return;
+    final createdCode = latest.catalog.categories
+        .where((c) => !before.contains(c.code))
+        .map((c) => c.code)
+        .firstOrNull;
+    if (createdCode != null) {
+      setState(() => _category = createdCode);
+    }
   }
 }

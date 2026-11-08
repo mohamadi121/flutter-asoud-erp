@@ -171,8 +171,16 @@ class RoleRepository {
                   'enabled': e.enabled,
                   'assigned_users': e.assignedUsers,
                   'system': e.system,
+                  if (e.completion != null) 'completion': e.completion,
                 })
             .toList(),
+        'summary': {
+          'roles': catalog.summary.roles,
+          'categories': catalog.summary.categories,
+          'uncategorized': catalog.summary.uncategorized,
+          if (catalog.summary.incomplete != null)
+            'incomplete': catalog.summary.incomplete,
+        },
         'system_roles': catalog.systemRoles
             .map((e) => {
                   'code': e.code,
