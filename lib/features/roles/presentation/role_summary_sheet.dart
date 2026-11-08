@@ -28,112 +28,136 @@ class _RoleSummarySheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final catalog = context.read<RoleCubit>().state.catalog;
-    final categoryTitle = catalog.categories
-            .where((c) => c.code == role.category)
-            .map((c) => c.title)
-            .firstOrNull ??
-        '';
-    final baseSummary = role.baseRoles.isEmpty
-        ? 'بدون مجوز'
-        : role.baseRoles.map((name) {
-            final match =
-                catalog.baseRoles.where((b) => b.name == name).firstOrNull;
-            return (match != null && match.title.isNotEmpty)
-                ? match.title
-                : persianRoleLabel(name);
-          }).join('، ');
-    final canEdit = canManage && !role.system;
-    return SafeArea(
-      top: false,
-      child: ConstrainedBox(
-        key: const Key('role_summary_sheet'),
-        constraints:
-            BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.8),
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    // The sheet re-reads the role from the cubit so a rename or a save in
+    // another screen is reflected without reopening it.
+    final code = role.code;
+    final fallback = role;
+    return BlocBuilder<RoleCubit, RoleState>(builder: (context, state) {
+        final role = state.catalog.roles
+                .where((r) => r.code == code)
+                .firstOrNull ??
+            fallback;
+        final catalog = state.catalog;
+        final categoryTitle = catalog.categories
+                .where((c) => c.code == role.category)
+                .map((c) => c.title)
+                .firstOrNull ??
+            '';
+        final baseSummary = role.baseRoles.isEmpty
+            ? switch (role.completion) {
+                'complete' => 'دسترسی‌های اختصاصی نقش',
+                'incomplete' => 'بدون مجوز',
+                _ => 'بدون نقش پایه',
+              }
+            : role.baseRoles.map((name) {
+                final match =
+                    catalog.baseRoles.where((b) => b.name == name).firstOrNull;
+                return (match != null && match.title.isNotEmpty)
+                    ? match.title
+                    : persianRoleLabel(name);
+              }).join('، ');
+        final canEdit = canManage && !role.system;
+        return SafeArea(
+          top: false,
+          child: ConstrainedBox(
+            key: const Key('role_summary_sheet'),
+            constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.8),
+            child: ListView(
+              // Sizing to the content keeps the sheet compact; it still
+              // scrolls when the content exceeds the 80% cap.
+              shrinkWrap: true,
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
               children: [
-                Expanded(
-                  child: Text(
-                    persianRoleLabel(
-                        role.title.isNotEmpty ? role.title : role.code),
-                    style: const TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.w800),
-                  ),
-                ),
-                if (role.system)
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AsoudColors.purple.withValues(alpha: .1),
-                      borderRadius: BorderRadius.circular(20),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        persianRoleLabel(
+                            role.title.isNotEmpty ? role.title : role.code),
+                        style: const TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.w800),
+                      ),
                     ),
-                    child: const Text('نقش سیستمی',
-                        style:
-                            TextStyle(fontSize: 11, color: AsoudColors.purple)),
+                    if (role.system)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AsoudColors.purple.withValues(alpha: .1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Text('نقش سیستمی',
+                            style: TextStyle(
+                                fontSize: 11, color: AsoudColors.purple)),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  role.description.isNotEmpty ? role.description : 'بدون توضیح',
+                  style: const TextStyle(
+                      fontSize: 13, color: AsoudColors.muted, height: 1.5),
+                ),
+                const SizedBox(height: 16),
+                _summaryRow(
+                    'دسته', categoryTitle.isEmpty ? 'بدون دسته' : categoryTitle),
+                _statusRow(role),
+                if (role.needsCompletion && canEdit) ...[
+                  const SizedBox(height: 4),
+                  const Text('این نقش هنوز مجوزی ندارد.',
+                      style: TextStyle(
+                          fontSize: 12, color: AsoudColors.warning)),
+                  const SizedBox(height: 8),
+                  _summaryAction(
+                    icon: Icons.key_outlined,
+                    label: 'تکمیل مجوزها',
+                    // The role-wide editor, not the per-user list. The editor
+                    // does not go through cubit.save, so reload it here.
+                    onTap: () async {
+                      await _roleRoute<void>(
+                          context,
+                          _AccessWizard(
+                              role: role,
+                              repository: UserAccessRepository(
+                                  context.read<RoleCubit>().repository.client),
+                              shared: true));
+                      if (context.mounted) context.read<RoleCubit>().load();
+                    },
+                  ),
+                ],
+                _summaryRow('کاربران', formatCount(role.assignedUsers, 'کاربر')),
+                _summaryRow('مجوزها', baseSummary),
+                const SizedBox(height: 20),
+                _summaryAction(
+                  icon: Icons.visibility_outlined,
+                  label: 'جزئیات و دسترسی‌ها',
+                  onTap: () => _roleRoute<void>(
+                      context,
+                      _RolePermissions(role: role, canManage: canManage)),
+                ),
+                _summaryAction(
+                  icon: Icons.people_outline,
+                  label: 'کاربران اختصاص‌یافته',
+                  onTap: () => _roleRoute<void>(
+                      context,
+                      UserAccessPage(
+                          role: role,
+                          repository: UserAccessRepository(
+                              context.read<RoleCubit>().repository.client))),
+                ),
+                if (canEdit)
+                  _summaryAction(
+                    icon: Icons.edit_outlined,
+                    label: 'ویرایش مشخصات',
+                    onTap: () => _roleRoute<bool>(context, _RoleForm(role: role)),
                   ),
               ],
             ),
-            const SizedBox(height: 12),
-            Text(
-              role.description.isNotEmpty ? role.description : 'بدون توضیح',
-              style: const TextStyle(
-                  fontSize: 13, color: AsoudColors.muted, height: 1.5),
-            ),
-            const SizedBox(height: 16),
-            _summaryRow(
-                'دسته', categoryTitle.isEmpty ? 'بدون دسته' : categoryTitle),
-            _statusRow(role),
-            if (role.needsCompletion && canEdit) ...[
-              const SizedBox(height: 4),
-              const Text('این نقش هنوز مجوزی ندارد.',
-                  style: TextStyle(
-                      fontSize: 12, color: AsoudColors.warning)),
-              const SizedBox(height: 8),
-              _summaryAction(
-                icon: Icons.key_outlined,
-                label: 'تکمیل مجوزها',
-                onTap: () => _roleRoute<void>(
-                    context,
-                    UserAccessPage(
-                        role: role,
-                        repository: UserAccessRepository(
-                            context.read<RoleCubit>().repository.client))),
-              ),
-            ],
-            _summaryRow('کاربران', formatCount(role.assignedUsers, 'کاربر')),
-            _summaryRow('مجوزها', baseSummary),
-            const SizedBox(height: 20),
-            _summaryAction(
-              icon: Icons.visibility_outlined,
-              label: 'جزئیات و دسترسی‌ها',
-              onTap: () =>
-                  _roleRoute<void>(context, _RolePermissions(role: role)),
-            ),
-            _summaryAction(
-              icon: Icons.people_outline,
-              label: 'کاربران اختصاص‌یافته',
-              onTap: () => _roleRoute<void>(
-                  context,
-                  UserAccessPage(
-                      role: role,
-                      repository: UserAccessRepository(
-                          context.read<RoleCubit>().repository.client))),
-            ),
-            if (canEdit)
-              _summaryAction(
-                icon: Icons.edit_outlined,
-                label: 'ویرایش مشخصات',
-                onTap: () => _roleRoute<bool>(context, _RoleForm(role: role)),
-              ),
-          ],
-        ),
-      ),
-    );
+          ),
+        );
+      });
   }
 
   Widget _summaryRow(String label, String value) => Padding(

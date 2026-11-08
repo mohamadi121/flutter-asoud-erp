@@ -554,7 +554,8 @@ class _RolesViewState extends State<_RolesView> {
                     ],
                 onSelected: (action) {
                   if (action == 'permissions') {
-                    _roleRoute<void>(context, _RolePermissions(role: role));
+                    _roleRoute<void>(context,
+                        _RolePermissions(role: role, canManage: widget.canManage));
                   } else if (action == 'child') {
                     _roleRoute<bool>(context,
                         _RoleForm(category: role.category, parent: role.code));

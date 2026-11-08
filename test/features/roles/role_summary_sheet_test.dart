@@ -3,6 +3,7 @@ import 'package:asoud_erp/core/theme/asoud_theme.dart';
 import 'package:asoud_erp/core/widgets/app_fields.dart';
 import 'package:asoud_erp/features/roles/data/role_repository.dart';
 import 'package:asoud_erp/features/roles/domain/role_catalog.dart';
+import 'package:asoud_erp/features/roles/presentation/role_cubit.dart';
 import 'package:asoud_erp/features/roles/presentation/roles_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -96,6 +97,20 @@ class _RoleClient extends Fake implements FrappeApiClient {
   }
 }
 
+/// Records every `callMethod` so a test can assert that the details page never
+/// asks the server for a `permission_preview` of an empty base-role list.
+class _RecordingRoleClient extends _RoleClient {
+  _RecordingRoleClient(super.catalog);
+  final calls = <String>[];
+
+  @override
+  Future<Map<String, dynamic>> callMethod(String method,
+      {Map<String, dynamic>? data}) async {
+    calls.add(method);
+    return super.callMethod(method, data: data);
+  }
+}
+
 /// Same catalog as [_RoleClient] but the signed-in user is an HR Manager, who
 /// can read the role catalog yet cannot manage roles (`canManageRoles` is
 /// false), so the summary sheet must hide the edit action.
@@ -108,6 +123,63 @@ class _HrClient extends _RoleClient {
         fullName: 'مدیر منابع انسانی',
         roles: const ['HR Manager'],
       );
+}
+
+/// Serves the catalog and the `user_access.editor` payload the role-wide
+/// access editor needs, so «تکمیل مجوزها» can be opened and asserted against
+/// its shared-mode title.
+class _EditorClient extends _RoleClient {
+  _EditorClient(super.catalog);
+
+  @override
+  Future<Map<String, dynamic>> callMethod(String method,
+      {Map<String, dynamic>? data}) async {
+    if (method == 'asoud_erp.api.v1.user_access.editor') {
+      return {
+        'message': {
+          'ok': true,
+          'meta': {'api_version': 'v1'},
+          'data': {
+            'catalog': <dynamic>[],
+            'grants': <String, dynamic>{},
+            'advanced_grants': <String, dynamic>{},
+            'inherited': <String, dynamic>{},
+            'inherited_advanced': <String, dynamic>{},
+            'levels': ['simple', 'medium', 'advanced'],
+            'token': 'token-1',
+            'base_roles': <String>[],
+          },
+        },
+      };
+    }
+    return super.callMethod(method, data: data);
+  }
+}
+
+/// Serves the catalog twice: first with the role's original title, then with
+/// the renamed title, so an open sheet can be proven to re-read the role from
+/// the cubit after a reload.
+class _RenamingClient extends _RoleClient {
+  _RenamingClient(super.catalog, this.renamed);
+  final RoleCatalog renamed;
+  int catalogCalls = 0;
+
+  @override
+  Future<Map<String, dynamic>> callMethod(String method,
+      {Map<String, dynamic>? data}) async {
+    if (method == 'asoud_erp.api.v1.role_management.catalog') {
+      catalogCalls++;
+      final catalog = catalogCalls >= 2 ? renamed : this.catalog;
+      return {
+        'message': {
+          'ok': true,
+          'meta': {'api_version': 'v1'},
+          'data': _encodeCatalog(catalog, catalog.categories),
+        },
+      };
+    }
+    return super.callMethod(method, data: data);
+  }
 }
 
 /// Serves the catalog and, once a category is created, prepends the new
@@ -398,7 +470,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(_sheetText('نقش سیستمی'), findsOneWidget);
-    expect(_sheetText('بدون مجوز'), findsOneWidget);
+    // No base roles and no completion data from the server.
+    expect(_sheetText('بدون نقش پایه'), findsOneWidget);
     expect(_sheetText('ویرایش مشخصات'), findsNothing);
     expect(tester.takeException(), isNull);
   });
@@ -500,8 +573,189 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(_sheetText(_longTitle), findsOneWidget);
-      expect(_sheetText('بدون مجوز'), findsOneWidget);
+      // No base roles and no completion data from the server.
+      expect(_sheetText('بدون نقش پایه'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets(
+      'details page of a role without base roles shows an info card and never previews',
+      (tester) async {
+    final catalog = RoleCatalog(
+      categories: [RoleCategory(code: 'FIN', title: 'مالی', style: 'finance')],
+      roles: [
+        ManagedRole(
+            code: 'NOBASE',
+            title: 'نقش بدون پایه',
+            category: 'FIN',
+            baseRoles: const [],
+            completion: 'complete'),
+      ],
+    );
+    final client = _RecordingRoleClient(catalog);
+    await _openList(tester, 390, client: client);
+    await _expandCategory(tester, 'مالی');
+    await tester.tap(find.text('نقش بدون پایه'));
+    await tester.pumpAndSettle();
+    await tester.tap(_sheetText('جزئیات و دسترسی‌ها'));
+    await tester.pumpAndSettle();
+
+    // The server rejects an empty base-role list, so the page must not ask
+    // for a preview and must explain the situation instead.
+    expect(find.text('این نقش نقش پایه ندارد.'), findsOneWidget);
+    expect(find.text('دسترسی‌های این نقش به‌صورت اختصاصی تنظیم شده است.'),
+        findsOneWidget);
+    expect(find.text('تلاش دوباره'), findsNothing);
+    expect(
+        client.calls.where((m) => m.contains('permission_preview')), isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'details page of a role without base roles and no completion shows the plain info card',
+      (tester) async {
+    final catalog = RoleCatalog(
+      categories: [RoleCategory(code: 'FIN', title: 'مالی', style: 'finance')],
+      roles: [
+        ManagedRole(
+            code: 'NOBASE',
+            title: 'نقش بدون پایه',
+            category: 'FIN',
+            baseRoles: const []),
+      ],
+    );
+    final client = _RecordingRoleClient(catalog);
+    await _openList(tester, 390, client: client);
+    await _expandCategory(tester, 'مالی');
+    await tester.tap(find.text('نقش بدون پایه'));
+    await tester.pumpAndSettle();
+    await tester.tap(_sheetText('جزئیات و دسترسی‌ها'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('این نقش نقش پایه ندارد.'), findsOneWidget);
+    expect(
+        find.text('دسترسی‌های این نقش به‌صورت اختصاصی تنظیم شده است.'),
+        findsNothing);
+    expect(find.text('تلاش دوباره'), findsNothing);
+    expect(
+        client.calls.where((m) => m.contains('permission_preview')), isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'sheet «مجوزها» row reflects completion for a role without base roles',
+      (tester) async {
+    final catalog = RoleCatalog(
+      categories: [RoleCategory(code: 'FIN', title: 'مالی', style: 'finance')],
+      roles: [
+        ManagedRole(
+            code: 'DONE',
+            title: 'نقش تکمیل‌شده',
+            category: 'FIN',
+            baseRoles: const [],
+            completion: 'complete'),
+        ManagedRole(
+            code: 'TODO',
+            title: 'نقش ناتمام',
+            category: 'FIN',
+            baseRoles: const [],
+            completion: 'incomplete'),
+        ManagedRole(
+            code: 'PLAIN',
+            title: 'نقش بدون وضعیت',
+            category: 'FIN',
+            baseRoles: const []),
+      ],
+    );
+    final client = _RoleClient(catalog);
+    await _openList(tester, 390, client: client);
+    await _expandCategory(tester, 'مالی');
+
+    await tester.tap(find.text('نقش تکمیل‌شده'));
+    await tester.pumpAndSettle();
+    expect(_sheetText('دسترسی‌های اختصاصی نقش'), findsOneWidget);
+    await tester.tapAt(const Offset(195, 10));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('نقش ناتمام'));
+    await tester.pumpAndSettle();
+    expect(_sheetText('بدون مجوز'), findsOneWidget);
+    await tester.tapAt(const Offset(195, 10));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('نقش بدون وضعیت'));
+    await tester.pumpAndSettle();
+    expect(_sheetText('بدون نقش پایه'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      '«تکمیل مجوزها» opens the role-wide editor, not the users list',
+      (tester) async {
+    final catalog = RoleCatalog(
+      categories: [RoleCategory(code: 'FIN', title: 'مالی', style: 'finance')],
+      roles: [
+        ManagedRole(
+            code: 'TODO',
+            title: 'نقش ناتمام',
+            category: 'FIN',
+            baseRoles: const [],
+            completion: 'incomplete'),
+      ],
+    );
+    final client = _EditorClient(catalog);
+    await _openList(tester, 390, client: client);
+    await _expandCategory(tester, 'مالی');
+    await tester.tap(find.text('نقش ناتمام'));
+    await tester.pumpAndSettle();
+    await tester.tap(_sheetText('تکمیل مجوزها'));
+    await tester.pumpAndSettle();
+
+    // The shared (role-wide) editor, not the per-user list.
+    expect(find.text('دسترسی مشترک نقش'), findsOneWidget);
+    expect(find.text('کاربران و دسترسی‌ها'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('an open sheet re-reads the role from the cubit after a reload',
+      (tester) async {
+    final original = RoleCatalog(
+      categories: [RoleCategory(code: 'FIN', title: 'مالی', style: 'finance')],
+      roles: [
+        ManagedRole(
+            code: 'RENAME',
+            title: 'نقش قدیمی',
+            category: 'FIN',
+            baseRoles: const []),
+      ],
+    );
+    final renamed = RoleCatalog(
+      categories: [RoleCategory(code: 'FIN', title: 'مالی', style: 'finance')],
+      roles: [
+        ManagedRole(
+            code: 'RENAME',
+            title: 'نقش تازه',
+            category: 'FIN',
+            baseRoles: const []),
+      ],
+    );
+    final client = _RenamingClient(original, renamed);
+    await _openList(tester, 390, client: client);
+    await _expandCategory(tester, 'مالی');
+    await tester.tap(find.text('نقش قدیمی'));
+    await tester.pumpAndSettle();
+    expect(_sheetText('نقش قدیمی'), findsOneWidget);
+
+    // The server renamed the role; the sheet must pick up the new title.
+    final cubit = tester
+        .element(find.byKey(const Key('role_summary_sheet')))
+        .read<RoleCubit>();
+    cubit.load();
+    await tester.pumpAndSettle();
+    expect(_sheetText('نقش تازه'), findsOneWidget);
+    expect(_sheetText('نقش قدیمی'), findsNothing);
+    expect(client.catalogCalls, greaterThanOrEqualTo(2));
+    expect(tester.takeException(), isNull);
+  });
 }
