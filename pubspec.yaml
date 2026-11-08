@@ -41,6 +41,13 @@ dev_dependencies:
   integration_test:
     sdk: flutter
 
+hooks:
+  user_defines:
+    sqlite3:
+      # Linux (CI test host) uses the system library; other platforms keep the verified download.
+      source:
+        linux: system
+
 flutter:
   uses-material-design: true
   fonts:

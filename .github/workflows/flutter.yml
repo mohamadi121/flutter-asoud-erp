@@ -15,6 +15,7 @@ jobs:
           cache: true
       - run: flutter pub get
       - run: flutter analyze
+      - run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev
       # Raster golden baselines are generated on Windows and differ slightly
       # under Linux font rendering. Functional/widget tests still run in CI.
       - run: flutter test --exclude-tags golden
@@ -60,6 +61,7 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
+      - run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev
       - run: flutter test test/form_builder_golden_test.dart test/form_builder_golden_s7_test.dart test/form_builder_golden_s10_test.dart
       - name: Upload golden diffs
         if: failure()
