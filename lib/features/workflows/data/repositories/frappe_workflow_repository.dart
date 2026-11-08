@@ -38,6 +38,31 @@ class FrappeWorkflowRepository
     return _client.callAsoudMethod(method, data: data);
   }
 
+  /// Wraps the condition-test call so that an older server (which returns a
+  /// 417 with the raw Frappe "Failed to get method" message) is recognised as
+  /// "unsupported" rather than shown as a raw English error.
+  Future<dynamic> _callConditionTest(
+      String definition, String stage, Map<String, dynamic> config,
+      Map<String, dynamic> samples) async {
+    try {
+      return await _call(
+        'asoud_erp.api.v1.workflow.test_workflow_condition',
+        data: {
+          'definition': definition,
+          'stage': stage,
+          'config': config,
+          'samples': samples,
+        },
+      );
+    } on ApiException catch (error) {
+      if (error.statusCode == 417 &&
+          error.message.contains('test_workflow_condition')) {
+        throw const ConditionTestUnsupportedException();
+      }
+      rethrow;
+    }
+  }
+
   @override
   Future<WorkflowDesign> getDesign(String definition) async {
     final data = await _call(
@@ -201,15 +226,7 @@ class FrappeWorkflowRepository
     required Map<String, dynamic> config,
     required Map<String, dynamic> samples,
   }) async {
-    final data = await _call(
-      'asoud_erp.api.v1.workflow.test_workflow_condition',
-      data: {
-        'definition': definition,
-        'stage': stage,
-        'config': config,
-        'samples': samples,
-      },
-    );
+    final data = await _callConditionTest(definition, stage, config, samples);
     if (data is! Map) throw StateError('Invalid condition test response');
     final rawRows = data['rows'];
     final rows = rawRows is List

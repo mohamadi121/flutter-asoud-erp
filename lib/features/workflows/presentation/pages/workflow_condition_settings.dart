@@ -71,7 +71,14 @@ class _ConditionSettingsState extends State<_ConditionSettings> {
   void dispose() { title.dispose(); for (final row in rows) { row.dispose(); } super.dispose(); }
   WorkflowFieldOption? selected(_ConditionDraft row) => widget.fields.where((field) =>
     field.source == row.source && field.sourceStage == row.previous && field.name == row.field).firstOrNull;
-  void update(VoidCallback action) => setState(() { action(); checked = false; error = null; });
+  void update(VoidCallback action) => setState(() { action(); checked = false; error = null; _clearRunResult(); });
+
+  /// A previous dry run is stale once the condition or a sample changes.
+  void _clearRunResult() {
+    runResult = null;
+    runRows.clear();
+    runError = null;
+  }
   String numeric(String value) => toLatinDigits(value).replaceAll('٫', '.').trim();
   DateTime? isoDate(String value) {
     if (!RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(value)) return null;
@@ -240,8 +247,8 @@ class _ConditionSettingsState extends State<_ConditionSettings> {
     final label = row.operator == 'Between' ? (end ? 'مقدار دوم' : 'مقدار اول') : 'مقدار مقایسه';
     // A value_source overrides the type-based control: the value is a reference.
     final source = field.valueSource;
-    if (source == 'employee' || source == 'department') {
-      return _referenceValue(row, field, source!, label, end: end);
+    if (source == 'employee' || source == 'department' || source == 'user') {
+      return _referenceValue(row, source!, label, end ? row.last : row.first);
     }
     if (field.type == 'Select') { return pick(label, controller.text,
       field.choices.map((value) => AppOption(value, field.choiceLabels[value] ?? value)).toList(),
@@ -263,20 +270,34 @@ class _ConditionSettingsState extends State<_ConditionSettings> {
       onChanged: (_) => update(() {})));
   }
 
-  /// A value_source reference: pick a person or unit, store the stable id,
-  /// show the name. The list comes from the designer's form options.
-  Widget _referenceValue(_ConditionDraft row, WorkflowFieldOption field, String source, String label, {required bool end}) {
-    final controller = end ? row.last : row.first;
+  /// A value_source reference: pick a person, unit or user, store the stable
+  /// id, show the name. The list comes from the designer's form options.
+  /// [controller] is the value or the sample of the row.
+  Widget _referenceValue(_ConditionDraft row, String source, String label, TextEditingController controller, {bool sample = false}) {
     final options = context.read<WorkflowDesignerCubit>().state.options;
-    final people = source == 'employee'
-        ? (options?.employees ?? const <WorkflowTargetOption>[])
-        : (options?.departments ?? const <WorkflowTargetOption>[]);
-    final title = source == 'employee' ? 'انتخاب پرسنل' : 'انتخاب واحد سازمانی';
-    return Padding(padding: const EdgeInsets.only(bottom: 14), child: AppSelectField(
-      key: ValueKey('condition-value-${row.id}'), label: label, value: controller.text, enabled: !saving,
-      displayValue: people.where((person) => person.id == controller.text).firstOrNull?.label ?? 'انتخاب کنید',
-      onPick: () => showAppOptionSheet(context, title: title,
-        options: people.map((person) => AppOption(person.id, person.label)).toList(), current: controller.text),
+    final people = source == 'department'
+        ? (options?.departments ?? const <WorkflowTargetOption>[])
+        : (options?.employees ?? const <WorkflowTargetOption>[]);
+    final title = switch (source) {
+      'employee' => 'انتخاب پرسنل',
+      'department' => 'انتخاب واحد سازمانی',
+      _ => 'انتخاب کاربر',
+    };
+    final display = switch (source) {
+      'user' => people.where((person) => person.userId == controller.text).firstOrNull?.label ?? (controller.text.isEmpty ? 'انتخاب کنید' : controller.text),
+      _ => people.where((person) => person.id == controller.text).firstOrNull?.label ?? 'انتخاب کنید',
+    };
+    return Padding(padding: EdgeInsets.only(bottom: sample ? 8 : 14), child: AppSelectField(
+      key: ValueKey('condition-${sample ? 'sample' : 'value'}-${row.id}'), label: label, value: controller.text, enabled: !saving,
+      displayValue: display,
+      onPick: () async {
+        if (source == 'user') {
+          final picked = await pickUser(context, employees: people, selectedUserId: controller.text);
+          return picked?.userId;
+        }
+        return await showAppOptionSheet(context, title: title,
+          options: people.map((person) => AppOption(person.id, person.label)).toList(), current: controller.text);
+      },
       onChanged: (value) => update(() => controller.text = value)));
   }
 
@@ -294,13 +315,18 @@ class _ConditionSettingsState extends State<_ConditionSettings> {
       return Padding(padding: const EdgeInsets.only(bottom: 8),
         child: Text('$label: فیلد انتخاب نشده است.', style: const TextStyle(fontSize: 11, color: AsoudColors.muted)));
     }
+    // The sample mirrors the value control, including reference pickers.
+    final source = field.valueSource;
+    if (source == 'employee' || source == 'department' || source == 'user') {
+      return _referenceValue(row, source!, label, row.sample, sample: true);
+    }
     if (field.type == 'Select') {
       return Padding(padding: const EdgeInsets.only(bottom: 8), child: AppSelectField(
         label: label, value: row.sample.text,
         displayValue: row.sample.text.isEmpty ? 'انتخاب کنید' : field.choiceLabels[row.sample.text] ?? row.sample.text,
         onPick: () => showAppOptionSheet(context, title: label,
           options: field.choices.map((value) => AppOption(value, field.choiceLabels[value] ?? value)).toList(), current: row.sample.text),
-        onChanged: (value) => row.sample.text = value));
+        onChanged: (value) => setState(() { row.sample.text = value; _clearRunResult(); })));
     }
     if (field.type == 'Date') {
       return Padding(padding: const EdgeInsets.only(bottom: 8), child: AppSelectField(
@@ -309,13 +335,13 @@ class _ConditionSettingsState extends State<_ConditionSettings> {
         onPick: () async {
           final date = await showAsoudJalaliPicker(context, initialDate: DateTime.tryParse(row.sample.text));
           return date?.toIso8601String().substring(0, 10);
-        }, onChanged: (value) => row.sample.text = value));
+        }, onChanged: (value) => setState(() { row.sample.text = value; _clearRunResult(); })));
     }
     return Padding(padding: const EdgeInsets.only(bottom: 8), child: AppTextField(
       label: label, controller: row.sample, rounded: true,
       keyboardType: field.type == 'Number' ? const TextInputType.numberWithOptions(decimal: true, signed: true) : TextInputType.text,
       hintLocales: field.type == 'Number' ? const [Locale('en')] : const [Locale('fa')],
-      onChanged: (_) {}));
+      onChanged: (_) => setState(_clearRunResult)));
   }
   Widget condition(_ConditionDraft row, int index) {
     final field = selected(row);
@@ -384,8 +410,8 @@ class _ConditionSettingsState extends State<_ConditionSettings> {
       ]),
       panel([_sectionHeader('${toPersianDigits(rows.length > 1 ? 3 : 2)}. خروجی‌های شرط', Icons.call_split_rounded, const Color(0xffBA8427)),
         const SizedBox(height: 10),
-        for (final item in [('شرط برقرار است', 'خروجی اول · True', AsoudColors.success, Icons.check_circle_outline),
-          ('شرط برقرار نیست', 'خروجی دوم · False', AsoudColors.danger, Icons.cancel_outlined)]) Container(
+        for (final item in [('شرط برقرار است', 'خروجی اول', AsoudColors.success, Icons.check_circle_outline),
+          ('شرط برقرار نیست', 'خروجی دوم', AsoudColors.danger, Icons.cancel_outlined)]) Container(
             margin: const EdgeInsets.only(top: 8), padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(color: item.$3.withValues(alpha: .08), borderRadius: BorderRadius.circular(10)),
             child: Row(children: [Icon(item.$4, color: item.$3, size: 18), const SizedBox(width: 8),
@@ -395,7 +421,7 @@ class _ConditionSettingsState extends State<_ConditionSettings> {
         const SizedBox(height: 10),
         Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: AsoudColors.primary.withValues(alpha: .06), borderRadius: BorderRadius.circular(10)),
           child: Row(children: [const Icon(Icons.info_outline_rounded, color: AsoudColors.primary, size: 18), const SizedBox(width: 8),
-            const Expanded(child: Text('اتصال خروجی‌ها به مراحل بعدی فقط در Canvas انجام می‌شود.', style: TextStyle(fontSize: 11, color: AsoudColors.primary)))]))]),
+            const Expanded(child: Text('اتصال خروجی‌ها به مراحل بعدی فقط در صفحه طراحی گردش کار انجام می‌شود.', style: TextStyle(fontSize: 11, color: AsoudColors.primary)))]))]),
       panel([_sectionHeader('${toPersianDigits(rows.length > 1 ? 4 : 3)}. آزمایش شرط', Icons.science_rounded, AsoudColors.primary),
         const SizedBox(height: 6),
         const Text('بررسی نتیجه با مقادیر نمونه', style: TextStyle(fontSize: 11, color: AsoudColors.muted)),
