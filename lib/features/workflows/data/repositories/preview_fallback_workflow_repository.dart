@@ -4,12 +4,17 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/network/api_exception.dart';
+import '../../domain/entities/workflow_condition_test.dart';
 import '../../domain/entities/workflow_definition.dart';
 import '../../domain/entities/workflow_start_settings.dart';
 import '../../domain/repositories/workflow_repository.dart';
 
 class PreviewFallbackWorkflowRepository
-    implements WorkflowRepository, OfflinePreviewAware, WorkflowStartSettingsRepository {
+    implements
+        WorkflowRepository,
+        OfflinePreviewAware,
+        WorkflowStartSettingsRepository,
+        WorkflowConditionTestRepository {
   PreviewFallbackWorkflowRepository(this._remote);
 
   final WorkflowRepository _remote;
@@ -27,6 +32,21 @@ class PreviewFallbackWorkflowRepository
     await _remember(definition, WorkflowDesign(workflow: design.workflow, stages: [
       for (final stage in design.stages) if (stage.id == old.id) updated else stage], transitions: design.transitions));
     return updated;
+  }
+  @override
+  Future<WorkflowConditionTestResult> testWorkflowCondition({
+    required String definition,
+    required String stage,
+    required Map<String, dynamic> config,
+    required Map<String, dynamic> samples,
+  }) async {
+    // Never fabricate a result offline; delegate to the signed-in backend or
+    // report the feature as unsupported.
+    if (_remote is WorkflowConditionTestRepository) {
+      return await (_remote as WorkflowConditionTestRepository).testWorkflowCondition(
+          definition: definition, stage: stage, config: config, samples: samples);
+    }
+    throw const ConditionTestUnsupportedException();
   }
   final Map<String, WorkflowDesign> _designs = {};
   bool _offline = false;

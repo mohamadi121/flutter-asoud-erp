@@ -137,6 +137,7 @@ class WorkflowTargetOption extends Equatable {
     this.parent,
     this.isGroup = false,
     this.designation,
+    this.userId,
   });
 
   final String id;
@@ -151,9 +152,12 @@ class WorkflowTargetOption extends Equatable {
   /// Employees: their designation, shown under the name.
   final String? designation;
 
+  /// Employees: the system user account, used by `user` condition values.
+  final String? userId;
+
   @override
   List<Object?> get props =>
-      [id, label, department, company, parent, isGroup, designation];
+      [id, label, department, company, parent, isGroup, designation, userId];
 }
 
 class WorkflowModuleOption extends Equatable {
@@ -288,16 +292,19 @@ class WorkflowFieldOption extends Equatable {
       required this.label,
       required this.type,
       this.source = 'Document', this.sourceStage = '', this.stageTitle = '',
-      this.choices = const [], this.choiceLabels = const {}, this.conditionVersion = 0});
+      this.choices = const [], this.choiceLabels = const {}, this.conditionVersion = 0,
+      this.valueSource, this.linkDoctype, this.currency});
   final String name, label, type;
   final String source;
   final String sourceStage, stageTitle;
   final List<String> choices;
   final Map<String, String> choiceLabels;
   final int conditionVersion;
+  // Optional condition-v2 value metadata; absent on an older server.
+  final String? valueSource, linkDoctype, currency;
   @override
-  List<Object> get props => [name, label, type, source, sourceStage, stageTitle,
-    choices, choiceLabels, conditionVersion];
+  List<Object?> get props => [name, label, type, source, sourceStage, stageTitle,
+    choices, choiceLabels, conditionVersion, valueSource, linkDoctype, currency];
 }
 
 /// `visible_when` of a form field: shown only while the controlling field's
