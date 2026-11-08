@@ -87,7 +87,24 @@ class _RoleSummarySheet extends StatelessWidget {
             const SizedBox(height: 16),
             _summaryRow(
                 'دسته', categoryTitle.isEmpty ? 'بدون دسته' : categoryTitle),
-            _summaryRow('وضعیت', role.enabled ? 'فعال' : 'غیرفعال'),
+            _statusRow(role),
+            if (role.needsCompletion && canEdit) ...[
+              const SizedBox(height: 4),
+              const Text('این نقش هنوز مجوزی ندارد.',
+                  style: TextStyle(
+                      fontSize: 12, color: AsoudColors.warning)),
+              const SizedBox(height: 8),
+              _summaryAction(
+                icon: Icons.key_outlined,
+                label: 'تکمیل مجوزها',
+                onTap: () => _roleRoute<void>(
+                    context,
+                    UserAccessPage(
+                        role: role,
+                        repository: UserAccessRepository(
+                            context.read<RoleCubit>().repository.client))),
+              ),
+            ],
             _summaryRow('کاربران', formatCount(role.assignedUsers, 'کاربر')),
             _summaryRow('مجوزها', baseSummary),
             const SizedBox(height: 20),
@@ -135,6 +152,28 @@ class _RoleSummarySheet extends StatelessWidget {
                   style: const TextStyle(
                       fontSize: 13, fontWeight: FontWeight.w600)),
             ),
+          ],
+        ),
+      );
+
+  /// «وضعیت» row: the enabled state plus the completion badge when present.
+  Widget _statusRow(ManagedRole role) => Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const SizedBox(
+              width: 72,
+              child: Text('وضعیت',
+                  style: TextStyle(fontSize: 13, color: AsoudColors.muted)),
+            ),
+            Text(role.enabled ? 'فعال' : 'غیرفعال',
+                style: const TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w600)),
+            if (role.completion != null) ...[
+              const SizedBox(width: 8),
+              _roleStatusLabel(role),
+            ],
           ],
         ),
       );

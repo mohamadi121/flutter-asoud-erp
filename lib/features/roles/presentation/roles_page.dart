@@ -95,6 +95,21 @@ class _RoleSessionGuard extends StatelessWidget {
       _ => (Icons.settings_rounded, const Color(0xFF039BE5)),
     };
 
+/// Shared completion badge for a role row and the role summary sheet.
+Widget _roleStatusLabel(ManagedRole role) {
+  final complete = role.completion == 'complete';
+  return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+          color: (complete ? AsoudColors.success : AsoudColors.warning)
+              .withValues(alpha: .12),
+          borderRadius: BorderRadius.circular(20)),
+      child: Text(complete ? 'تکمیل‌شده' : 'نیازمند تکمیل',
+          style: TextStyle(
+              fontSize: 10,
+              color: complete ? AsoudColors.success : AsoudColors.warning)));
+}
+
 class _RolesView extends StatefulWidget {
   const _RolesView({this.canManage = true});
   final bool canManage;
@@ -128,20 +143,6 @@ class _RolesViewState extends State<_RolesView> {
       return false;
     }
     return true;
-  }
-
-  Widget _statusLabel(ManagedRole role) {
-    final complete = role.completion == 'complete';
-    return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(
-            color: (complete ? AsoudColors.success : AsoudColors.warning)
-                .withValues(alpha: .12),
-            borderRadius: BorderRadius.circular(20)),
-        child: Text(complete ? 'تکمیل‌شده' : 'نیازمند تکمیل',
-            style: TextStyle(
-                fontSize: 10,
-                color: complete ? AsoudColors.success : AsoudColors.warning)));
   }
 
   Widget _statCards(RoleCatalog catalog) {
@@ -515,13 +516,21 @@ class _RolesViewState extends State<_RolesView> {
               style: const TextStyle(fontSize: 12)),
           trailing: Row(mainAxisSize: MainAxisSize.min, children: [
             if (role.completion != null) ...[
-              _statusLabel(role),
+              _roleStatusLabel(role),
               const SizedBox(width: 6),
             ],
             if (hasChildren)
-              Icon(_expanded.contains('role:${role.code}')
-                  ? Icons.expand_less
-                  : Icons.expand_more),
+              IconButton(
+                  key: Key('role_expand_${role.code}'),
+                  tooltip: 'نمایش زیرمجموعه‌ها',
+                  onPressed: () => setState(() {
+                        if (!_expanded.add('role:${role.code}')) {
+                          _expanded.remove('role:${role.code}');
+                        }
+                      }),
+                  icon: Icon(_expanded.contains('role:${role.code}')
+                      ? Icons.expand_less
+                      : Icons.expand_more)),
             if (widget.canManage || role.system)
               PopupMenuButton<String>(
                   enabled: enabled,
@@ -566,12 +575,9 @@ class _RolesViewState extends State<_RolesView> {
                 }),
           ]),
           onTap: () {
-            setState(() {
-              _selected = role.code;
-              if (!_expanded.add('role:${role.code}')) {
-                _expanded.remove('role:${role.code}');
-              }
-            });
+            // Opening the sheet no longer expands the role's children; the
+            // trailing expand button owns that.
+            setState(() => _selected = role.code);
             _showRoleSummary(context, role, canManage: widget.canManage);
           },
         ));

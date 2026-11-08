@@ -29,6 +29,7 @@ Map<String, dynamic> _encodeCatalog(
                 'enabled': e.enabled,
                 'assigned_users': e.assignedUsers,
                 'system': e.system,
+                if (e.completion != null) 'completion': e.completion,
               })
           .toList(),
       'base_roles': catalog.baseRoles
@@ -261,6 +262,112 @@ void main() {
     expect(_sheetText('جزئیات و دسترسی‌ها'), findsOneWidget);
     expect(_sheetText('کاربران اختصاص‌یافته'), findsOneWidget);
     expect(_sheetText('ویرایش مشخصات'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the sheet shows the completion badge only when the server sent it',
+      (tester) async {
+    final catalog = RoleCatalog(
+      categories: [RoleCategory(code: 'FIN', title: 'مالی', style: 'finance')],
+      roles: [
+        ManagedRole(
+            code: 'DONE',
+            title: 'نقش تکمیل‌شده',
+            category: 'FIN',
+            baseRoles: const ['Accounts User'],
+            completion: 'complete'),
+        ManagedRole(
+            code: 'TODO',
+            title: 'نقش ناتمام',
+            category: 'FIN',
+            baseRoles: const [],
+            completion: 'incomplete'),
+        ManagedRole(
+            code: 'PLAIN',
+            title: 'نقش بدون وضعیت',
+            category: 'FIN',
+            baseRoles: const ['Accounts User']),
+      ],
+    );
+    final client = _RoleClient(catalog);
+    await _openList(tester, 390, client: client);
+    await _expandCategory(tester, 'مالی');
+
+    await tester.tap(find.text('نقش ناتمام'));
+    await tester.pumpAndSettle();
+    expect(_sheetText('نیازمند تکمیل'), findsOneWidget);
+    expect(_sheetText('تکمیل‌شده'), findsNothing);
+    await tester.tapAt(const Offset(195, 10)); // above the sheet, on the barrier
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('نقش تکمیل‌شده'));
+    await tester.pumpAndSettle();
+    expect(_sheetText('تکمیل‌شده'), findsOneWidget);
+    expect(_sheetText('نیازمند تکمیل'), findsNothing);
+    await tester.tapAt(const Offset(195, 10)); // above the sheet, on the barrier
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('نقش بدون وضعیت'));
+    await tester.pumpAndSettle();
+    expect(_sheetText('تکمیل‌شده'), findsNothing);
+    expect(_sheetText('نیازمند تکمیل'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  RoleCatalog completionCatalog() => RoleCatalog(
+        categories: [
+          RoleCategory(code: 'FIN', title: 'مالی', style: 'finance')
+        ],
+        roles: [
+          ManagedRole(
+              code: 'TODO',
+              title: 'نقش ناتمام',
+              category: 'FIN',
+              baseRoles: const [],
+              completion: 'incomplete'),
+          ManagedRole(
+              code: 'DONE',
+              title: 'نقش تکمیل‌شده',
+              category: 'FIN',
+              baseRoles: const ['Accounts User'],
+              completion: 'complete'),
+        ],
+      );
+
+  testWidgets(
+      'a manager sees «تکمیل مجوزها» on an incomplete non-system role',
+      (tester) async {
+    final client = _RoleClient(completionCatalog());
+    await _openList(tester, 390, client: client);
+    await _expandCategory(tester, 'مالی');
+    await tester.tap(find.text('نقش ناتمام'));
+    await tester.pumpAndSettle();
+    expect(_sheetText('این نقش هنوز مجوزی ندارد.'), findsOneWidget);
+    expect(_sheetText('تکمیل مجوزها'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a complete role has no «تکمیل مجوزها» action', (tester) async {
+    final client = _RoleClient(completionCatalog());
+    await _openList(tester, 390, client: client);
+    await _expandCategory(tester, 'مالی');
+    await tester.tap(find.text('نقش تکمیل‌شده'));
+    await tester.pumpAndSettle();
+    expect(_sheetText('تکمیل مجوزها'), findsNothing);
+    expect(_sheetText('این نقش هنوز مجوزی ندارد.'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'a non-manager sees no «تکمیل مجوزها» on an incomplete role',
+      (tester) async {
+    final client = _HrClient(completionCatalog());
+    await _openList(tester, 390, client: client);
+    await _expandCategory(tester, 'مالی');
+    await tester.tap(find.text('نقش ناتمام'));
+    await tester.pumpAndSettle();
+    expect(_sheetText('تکمیل مجوزها'), findsNothing);
+    expect(_sheetText('این نقش هنوز مجوزی ندارد.'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 

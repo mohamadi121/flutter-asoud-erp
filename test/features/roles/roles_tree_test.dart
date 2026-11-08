@@ -271,6 +271,68 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  RoleCatalog parentChildCatalog() => RoleCatalog(
+        categories: [
+          RoleCategory(
+              code: 'FINANCE', title: 'حسابداری و مالی', style: 'finance')
+        ],
+        roles: [
+          ManagedRole(
+              code: 'P',
+              title: 'نقش والد',
+              category: 'FINANCE',
+              baseRoles: const ['System Manager'],
+              completion: 'complete'),
+          ManagedRole(
+              code: 'C',
+              title: 'نقش فرزند',
+              category: 'FINANCE',
+              parent: 'P',
+              baseRoles: const [],
+              completion: 'complete'),
+        ],
+        summary: const RoleCatalogSummary(
+            roles: 2, categories: 1, uncategorized: 0, incomplete: 0),
+      );
+
+  testWidgets('tapping a parent row opens the sheet without expanding it',
+      (tester) async {
+    final repository = _Repository();
+    when(() => repository.load())
+        .thenAnswer((_) async => parentChildCatalog());
+    await _pump(tester, repository);
+    await tester.tap(find.text('حسابداری و مالی'));
+    await tester.pumpAndSettle();
+    // The parent is visible; its child is hidden while the parent is collapsed.
+    expect(find.text('نقش والد'), findsOneWidget);
+    expect(find.text('نقش فرزند'), findsNothing);
+    await tester.tap(find.text('نقش والد'));
+    await tester.pumpAndSettle();
+    // The sheet opened, but the child is still not expanded.
+    expect(find.byKey(const Key('role_summary_sheet')), findsOneWidget);
+    expect(find.text('نقش فرزند'), findsNothing);
+    await tester.tapAt(const Offset(195, 10)); // above the sheet, on the barrier
+    await tester.pumpAndSettle();
+    expect(find.text('نقش فرزند'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the expand button expands the role without opening the sheet',
+      (tester) async {
+    final repository = _Repository();
+    when(() => repository.load())
+        .thenAnswer((_) async => parentChildCatalog());
+    await _pump(tester, repository);
+    await tester.tap(find.text('حسابداری و مالی'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('role_expand_P')));
+    await tester.pumpAndSettle();
+    // The child is now rendered, but the sheet did not open.
+    expect(find.text('نقش فرزند'), findsOneWidget);
+    expect(find.byKey(const Key('role_summary_sheet')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('an empty catalog offers the three start actions',
       (tester) async {
     final repository = _Repository();
