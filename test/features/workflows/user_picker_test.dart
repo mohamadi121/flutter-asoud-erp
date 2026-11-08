@@ -151,6 +151,19 @@ void main() {
           findsNothing);
     });
 
+    testWidgets('shows the designation, not the department id', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await _pick(tester, employees: [
+        _person('e1', 'علی رضایی',
+            userId: 'ali@example.com',
+            designation: 'کارشناس حسابداری',
+            department: 'Accounts - AC'),
+      ]);
+      expect(find.text('کارشناس حسابداری'), findsOneWidget);
+      expect(find.text('Accounts - AC'), findsNothing);
+    });
+
     testWidgets('shows the empty state when no one has an account',
         (tester) async {
       await tester.binding.setSurfaceSize(const Size(390, 844));

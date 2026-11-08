@@ -326,13 +326,6 @@ class _UserPickerPageState extends State<UserPickerPage> {
   bool _matches(WorkflowTargetOption person) =>
       query.isEmpty || _normalize(person.label).contains(_normalize(query));
 
-  String? _subtitle(WorkflowTargetOption person) {
-    final parts = [person.designation, person.department]
-        .where((part) => (part ?? '').isNotEmpty)
-        .toList();
-    return parts.isEmpty ? null : parts.join('، ');
-  }
-
   @override
   Widget build(BuildContext context) {
     final people = _people;
@@ -378,7 +371,6 @@ class _UserPickerPageState extends State<UserPickerPage> {
 
   Widget _row(WorkflowTargetOption person) {
     final active = selected == person;
-    final subtitle = _subtitle(person);
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       color: active ? AsoudColors.primary.withValues(alpha: .06) : null,
@@ -387,9 +379,9 @@ class _UserPickerPageState extends State<UserPickerPage> {
             icon: Icons.person_rounded, color: AsoudColors.muted),
         title: Text(person.label,
             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-        subtitle: subtitle == null
+        subtitle: person.designation == null
             ? null
-            : Text(subtitle, style: const TextStyle(fontSize: 11)),
+            : Text(person.designation!, style: const TextStyle(fontSize: 11)),
         trailing: Icon(
             active
                 ? Icons.radio_button_checked_rounded
