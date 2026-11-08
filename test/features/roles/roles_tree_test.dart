@@ -179,6 +179,80 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets(
+      'a status filter keeps a matching child visible when its parent is filtered out',
+      (tester) async {
+    // P is complete, C is incomplete and a child of P. The incomplete filter
+    // removes P, so C becomes a tree root and must still be shown.
+    final repository = _Repository();
+    when(() => repository.load()).thenAnswer((_) async => RoleCatalog(
+        categories: [
+          RoleCategory(
+              code: 'FINANCE', title: 'حسابداری و مالی', style: 'finance')
+        ],
+        roles: [
+          ManagedRole(
+              code: 'P',
+              title: 'نقش والد',
+              category: 'FINANCE',
+              baseRoles: const ['System Manager'],
+              completion: 'complete'),
+          ManagedRole(
+              code: 'C',
+              title: 'نقش فرزند',
+              category: 'FINANCE',
+              parent: 'P',
+              baseRoles: const [],
+              completion: 'incomplete'),
+        ],
+        summary: const RoleCatalogSummary(
+            roles: 2, categories: 1, uncategorized: 0, incomplete: 1)));
+    await _pump(tester, repository);
+    await tester.tap(find.descendant(
+        of: find.byType(ChoiceChip), matching: find.text('نیازمند تکمیل')));
+    await tester.pumpAndSettle();
+    expect(find.text('نقش فرزند'), findsOneWidget);
+    expect(find.text('نقش والد'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'a status filter keeps a matching child visible under a collapsed matching parent',
+      (tester) async {
+    // Both P and C are incomplete. P matches the filter but is collapsed, so
+    // C (a matching child) must still be rendered under it.
+    final repository = _Repository();
+    when(() => repository.load()).thenAnswer((_) async => RoleCatalog(
+        categories: [
+          RoleCategory(
+              code: 'FINANCE', title: 'حسابداری و مالی', style: 'finance')
+        ],
+        roles: [
+          ManagedRole(
+              code: 'P',
+              title: 'نقش والد',
+              category: 'FINANCE',
+              baseRoles: const [],
+              completion: 'incomplete'),
+          ManagedRole(
+              code: 'C',
+              title: 'نقش فرزند',
+              category: 'FINANCE',
+              parent: 'P',
+              baseRoles: const [],
+              completion: 'incomplete'),
+        ],
+        summary: const RoleCatalogSummary(
+            roles: 2, categories: 1, uncategorized: 0, incomplete: 2)));
+    await _pump(tester, repository);
+    await tester.tap(find.descendant(
+        of: find.byType(ChoiceChip), matching: find.text('نیازمند تکمیل')));
+    await tester.pumpAndSettle();
+    expect(find.text('نقش فرزند'), findsOneWidget);
+    expect(find.text('نقش والد'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('a collapsed category still yields its roles to a search',
       (tester) async {
     final repository = _Repository();

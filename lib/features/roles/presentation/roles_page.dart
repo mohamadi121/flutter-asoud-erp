@@ -460,7 +460,9 @@ class _RolesViewState extends State<_RolesView> {
       if (!visited.add(role.code)) return;
       result.add((role, depth));
       final children = sorted.where((item) => item.parent == role.code);
-      if (_expanded.contains('role:${role.code}') || _query.isNotEmpty) {
+      // A status filter (not just a search) must also reveal matching children
+      // under a collapsed matching parent.
+      if (_expanded.contains('role:${role.code}') || _hasActiveFilter) {
         for (final child in children) {
           visit(child, depth + 1);
         }

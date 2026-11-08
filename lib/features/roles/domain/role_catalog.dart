@@ -183,6 +183,7 @@ class RoleCatalog {
             .toList();
     final roles = parse('roles', ManagedRole.fromJson);
     final categories = parse('categories', RoleCategory.fromJson);
+    final categoryCodes = categories.map((c) => c.code).toSet();
     return RoleCatalog(
         categories: categories,
         roles: roles,
@@ -196,9 +197,11 @@ class RoleCatalog {
             : RoleCatalogSummary(
                 roles: roles.where((role) => !role.system).length,
                 categories: categories.length,
+                // Same rule as the «بدون دسته» group: empty or unknown code.
                 uncategorized: roles
-                    .where(
-                        (role) => !role.system && role.category.trim().isEmpty)
+                    .where((role) =>
+                        !role.system &&
+                        !categoryCodes.contains(role.category.trim()))
                     .length,
                 incomplete: null));
   }

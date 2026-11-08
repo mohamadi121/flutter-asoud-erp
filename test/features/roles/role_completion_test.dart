@@ -94,6 +94,30 @@ void main() {
       expect(catalog.summary.incomplete, isNull);
     });
 
+    test('a role with an unknown category code counts as uncategorized', () {
+      final catalog = RoleCatalog.fromJson({
+        'categories': [
+          {'code': 'FINANCE', 'title': 'مالی', 'style': 'finance'}
+        ],
+        'roles': [
+          {
+            'code': 'A',
+            'title': 'الف',
+            'category': 'FINANCE',
+            'base_roles': <dynamic>[]
+          },
+          {
+            'code': 'B',
+            'title': 'ب',
+            'category': 'UNKNOWN',
+            'base_roles': <dynamic>[]
+          },
+        ],
+      });
+      expect(catalog.summary.roles, 2);
+      expect(catalog.summary.uncategorized, 1);
+    });
+
     test('the server summary is used as-is', () {
       final catalog = RoleCatalog.fromJson({
         'roles': [
