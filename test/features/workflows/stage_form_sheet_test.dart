@@ -27,8 +27,10 @@ FormMap _schema(String title) => {
     };
 
 class _Forms extends FormRepository {
-  _Forms({this.failFirst = false, this.rows}) : super(_Client(), 'شرکت آزمون');
+  _Forms({this.failFirst = false, this.throwStateError = false, this.rows})
+      : super(_Client(), 'شرکت آزمون');
   final bool failFirst;
+  final bool throwStateError;
   final List<FormMap>? rows;
   final calls = <String>[];
   int attempts = 0;
@@ -36,7 +38,10 @@ class _Forms extends FormRepository {
   @override
   Future<dynamic> call(String method, [FormMap data = const {}]) async {
     calls.add(method);
-    if (failFirst && attempts++ == 0) {
+    if (attempts++ == 0 && (failFirst || throwStateError)) {
+      if (throwStateError) {
+        throw StateError('خطای داخلی آزمایشی');
+      }
       throw const ApiException(
           kind: ApiFailureKind.network, message: 'خطای آزمایشی شبکه');
     }
@@ -315,10 +320,27 @@ void main() {
     await tester.pumpWidget(_host(_Forms(failFirst: true)));
     await tester.tap(find.text('باز کردن'));
     await tester.pumpAndSettle();
-    expect(find.text('خطای آزمایشی شبکه'), findsOneWidget);
+    expect(
+        find.text('ارتباط با سرور برقرار نشد. اتصال اینترنت را بررسی کنید.'),
+        findsOneWidget);
     await tester.tap(find.text('تلاش دوباره'));
     await tester.pumpAndSettle();
     expect(find.text('چک‌لیست بررسی درخواست'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a non-ApiException failure shows the generic Persian message',
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 1500);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(_host(_Forms(throwStateError: true)));
+    await tester.tap(find.text('باز کردن'));
+    await tester.pumpAndSettle();
+    expect(find.text('دریافت اطلاعات ممکن نشد. دوباره تلاش کنید.'),
+        findsOneWidget);
+    expect(find.text('تلاش دوباره'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

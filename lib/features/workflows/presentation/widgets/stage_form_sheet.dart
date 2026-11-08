@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/failure_message.dart';
 import '../../../form_builder/form_repository.dart';
 import '../../../form_builder/form_runtime/form_preview_page.dart';
 
@@ -41,6 +41,7 @@ Future<StageFormChoice?> showStageFormSheet(
       isScrollControlled: true,
       useSafeArea: true,
       showDragHandle: true,
+      backgroundColor: const Color(0xFFF9FAFD),
       builder: (sheetContext) => Directionality(
         textDirection: TextDirection.rtl,
         child: SafeArea(
@@ -98,9 +99,7 @@ class _StageFormSheetState extends State<StageFormSheet> {
       if (mounted) setState(() => _rows = rows);
     } catch (failure) {
       if (mounted) {
-        setState(() => _error = failure is ApiException
-            ? failure.message
-            : 'دریافت فرم‌ها ممکن نشد.');
+        setState(() => _error = failureMessage(failure));
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -156,10 +155,8 @@ class _StageFormSheetState extends State<StageFormSheet> {
       }
     } catch (failure) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(failure is ApiException
-                ? failure.message
-                : 'پیش‌نمایش فرم ممکن نشد.')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(failureMessage(failure))));
       }
       return;
     }
