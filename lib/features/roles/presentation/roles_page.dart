@@ -29,6 +29,7 @@ part 'role_setup_page.dart';
 part 'role_excel_page.dart';
 part 'user_access_page.dart';
 part 'role_permissions_page.dart';
+part 'role_summary_sheet.dart';
 
 class RolesPage extends StatelessWidget {
   const RolesPage({this.repository, super.key});
@@ -393,9 +394,7 @@ class _RolesViewState extends State<_RolesView> {
                 _expanded.remove('role:${role.code}');
               }
             });
-            if (!hasChildren && enabled && widget.canManage && !role.system) {
-              _roleRoute<bool>(context, _RoleForm(role: role));
-            }
+            _showRoleSummary(context, role, canManage: widget.canManage);
           },
         ));
   }
