@@ -24,11 +24,13 @@ class ManagedRole {
       this.system = false,
       this.scopeTitle = '',
       this.nativeRole = '',
-      this.holders = const []});
+      this.holders = const [],
+      this.completion});
   factory ManagedRole.fromJson(Map<String, dynamic> json) => ManagedRole(
       code: json['code']?.toString() ?? '',
       title: json['title']?.toString() ?? '',
       category: json['category']?.toString() ?? '',
+      completion: _parseCompletion(json['completion']),
       baseRoles: (json['base_roles'] as List?)
               ?.map((e) => e.toString())
               .toList(growable: false) ??
@@ -77,6 +79,12 @@ class ManagedRole {
 
   /// Accounts currently holding a system role (`holders`).
   final List<String> holders;
+
+  /// `catalog.roles[].completion`: `complete` / `incomplete`, or null when the
+  /// server predates the key. Never computed client-side: the server rule also
+  /// weighs role-wide grants the app cannot see.
+  final String? completion;
+  bool get needsCompletion => completion == 'incomplete';
 
   /// «مدیر کل سیستم»: the protected, global, non-editable row of
   /// `catalog.system_roles`.
@@ -134,6 +142,29 @@ class AccessRoleTemplate {
   final bool available, exists;
 }
 
+String? _parseCompletion(Object? value) {
+  final text = value?.toString() ?? '';
+  return text == 'complete' || text == 'incomplete' ? text : null;
+}
+
+class RoleCatalogSummary {
+  const RoleCatalogSummary(
+      {required this.roles,
+      required this.categories,
+      required this.uncategorized,
+      this.incomplete});
+  factory RoleCatalogSummary.fromJson(Map<String, dynamic> json) =>
+      RoleCatalogSummary(
+          roles: (json['roles'] as num?)?.toInt() ?? 0,
+          categories: (json['categories'] as num?)?.toInt() ?? 0,
+          uncategorized: (json['uncategorized'] as num?)?.toInt() ?? 0,
+          incomplete: (json['incomplete'] as num?)?.toInt());
+  final int roles, categories, uncategorized;
+
+  /// Null when the server sent no completion data; never guessed client-side.
+  final int? incomplete;
+}
+
 class RoleCatalog {
   const RoleCatalog(
       {this.categories = const [],
@@ -141,21 +172,35 @@ class RoleCatalog {
       this.baseRoles = const [],
       this.templates = const [],
       this.templateCategories = const [],
-      this.systemRoles = const []});
+      this.systemRoles = const [],
+      this.summary =
+          const RoleCatalogSummary(roles: 0, categories: 0, uncategorized: 0)});
   factory RoleCatalog.fromJson(Map<String, dynamic> json) {
     List<T> parse<T>(String key, T Function(Map<String, dynamic>) decode) =>
         ((json[key] as List?) ?? const [])
             .whereType<Map>()
             .map((row) => decode(Map<String, dynamic>.from(row)))
             .toList();
+    final roles = parse('roles', ManagedRole.fromJson);
+    final categories = parse('categories', RoleCategory.fromJson);
     return RoleCatalog(
-        categories: parse('categories', RoleCategory.fromJson),
-        roles: parse('roles', ManagedRole.fromJson),
+        categories: categories,
+        roles: roles,
         baseRoles: parse('base_roles', BaseAccessRole.fromJson),
         templates: parse('templates', AccessRoleTemplate.fromJson),
-        templateCategories:
-            parse('template_categories', RoleCategory.fromJson),
-        systemRoles: parse('system_roles', ManagedRole.fromJson));
+        templateCategories: parse('template_categories', RoleCategory.fromJson),
+        systemRoles: parse('system_roles', ManagedRole.fromJson),
+        summary: (json['summary'] is Map)
+            ? RoleCatalogSummary.fromJson(
+                Map<String, dynamic>.from(json['summary'] as Map))
+            : RoleCatalogSummary(
+                roles: roles.where((role) => !role.system).length,
+                categories: categories.length,
+                uncategorized: roles
+                    .where(
+                        (role) => !role.system && role.category.trim().isEmpty)
+                    .length,
+                incomplete: null));
   }
   final List<RoleCategory> categories, templateCategories;
   final List<ManagedRole> roles;
@@ -164,6 +209,10 @@ class RoleCatalog {
 
   /// `catalog.system_roles`: protected rows such as «مدیر کل سیستم».
   final List<ManagedRole> systemRoles;
+
+  /// `catalog.summary`; computed from the parsed catalog when the key is
+  /// missing, except `incomplete` which stays null (server-only data).
+  final RoleCatalogSummary summary;
 }
 
 /// One ASOUD capability row of `role_management.system_admin_permissions`

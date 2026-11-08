@@ -103,8 +103,150 @@ class _RolesView extends StatefulWidget {
 
 class _RolesViewState extends State<_RolesView> {
   String _query = '';
+  String _statusFilter = 'all';
   String? _selected;
   final Set<String> _expanded = {};
+
+  bool get _hasActiveFilter => _query.isNotEmpty || _statusFilter != 'all';
+
+  /// A role matches the active search (title, description, or its category
+  /// title, case-insensitive for latin) and the status filter. The English
+  /// code is never a search field.
+  bool _roleMatches(ManagedRole role, RoleCategory? category) {
+    if (_query.isNotEmpty) {
+      final q = _query.toLowerCase();
+      final hit = role.title.toLowerCase().contains(q) ||
+          role.description.toLowerCase().contains(q) ||
+          (category != null && category.title.toLowerCase().contains(q));
+      if (!hit) return false;
+    }
+    if (_statusFilter == 'complete' && role.completion != 'complete') {
+      return false;
+    }
+    if (_statusFilter == 'incomplete' && role.completion != 'incomplete') {
+      return false;
+    }
+    return true;
+  }
+
+  Widget _statusLabel(ManagedRole role) {
+    final complete = role.completion == 'complete';
+    return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+            color: (complete ? AsoudColors.success : AsoudColors.warning)
+                .withValues(alpha: .12),
+            borderRadius: BorderRadius.circular(20)),
+        child: Text(complete ? 'تکمیل‌شده' : 'نیازمند تکمیل',
+            style: TextStyle(
+                fontSize: 10,
+                color: complete ? AsoudColors.success : AsoudColors.warning)));
+  }
+
+  Widget _statCards(RoleCatalog catalog) {
+    final summary = catalog.summary;
+    // The third card is shown only with real server data, never a guess.
+    final incomplete = summary.incomplete;
+    final cards = <(Key, String, String, Color)>[
+      (const Key('stat_card_roles'), toPersianDigits(summary.roles),
+          'کل نقش‌ها', AsoudColors.primary),
+      (const Key('stat_card_categories'), toPersianDigits(summary.categories),
+          'دسته‌بندی', AsoudColors.purple),
+      if (incomplete != null)
+        (const Key('stat_card_incomplete'), toPersianDigits(incomplete),
+            'نیازمند تکمیل', AsoudColors.warning),
+    ];
+    return Row(children: [
+      for (var i = 0; i < cards.length; i++) ...[
+        if (i > 0) const SizedBox(width: 8),
+        Expanded(
+            child: Container(
+                key: cards[i].$1,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                    color: cards[i].$4.withValues(alpha: .08),
+                    borderRadius: BorderRadius.circular(14)),
+                child: Column(children: [
+                  Text(cards[i].$2,
+                      style: const TextStyle(
+                          fontSize: 20, fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 4),
+                  Text(cards[i].$3,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                          fontSize: 11, color: AsoudColors.muted)),
+                ]))),
+      ],
+    ]);
+  }
+
+  Widget _startGuide() {
+    return Card(
+        child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(children: [
+                    AsoudIconBox(
+                        icon: Icons.badge_outlined,
+                        color: AsoudColors.primary,
+                        size: 44),
+                    SizedBox(width: 12),
+                    Expanded(
+                        child: Text('نقشی ثبت نشده است',
+                            style: TextStyle(
+                                fontSize: 15, fontWeight: FontWeight.w800))),
+                  ]),
+                  const SizedBox(height: 12),
+                  const Text(
+                      'برای شروع، یک نقش بسازید یا از قالب‌های آماده استفاده کنید.',
+                      style: TextStyle(fontSize: 12, color: AsoudColors.muted)),
+                  if (widget.canManage) ...[
+                    const SizedBox(height: 14),
+                    Wrap(spacing: 8, runSpacing: 8, children: [
+                      OutlinedButton.icon(
+                          onPressed: () => _roleRoute<bool>(
+                              context, const _RoleTemplates()),
+                          icon: const Icon(Icons.auto_awesome_outlined),
+                          label: const Text('استفاده از قالب آماده')),
+                      OutlinedButton.icon(
+                          onPressed: () => _roleRoute<bool>(
+                              context, const _RoleForm()),
+                          icon: const Icon(Icons.add),
+                          label: const Text('ایجاد نقش جدید')),
+                      OutlinedButton.icon(
+                          onPressed: () => _roleRoute<bool>(
+                              context, const _RoleExcelPage()),
+                          icon: const Icon(Icons.table_chart_outlined),
+                          label: const Text('ورود از اکسل')),
+                    ]),
+                  ],
+                ])));
+  }
+
+  Widget _uncategorized(
+      List<ManagedRole> roles, RoleState state, bool enabled) {
+    final visible = roles.where((role) => _roleMatches(role, null)).toList();
+    if (visible.isEmpty) return const SizedBox.shrink();
+    return Card(
+        clipBehavior: Clip.antiAlias,
+        child: Column(children: [
+          ListTile(
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            leading: const AsoudIconBox(
+                icon: Icons.category_outlined,
+                color: AsoudColors.muted,
+                size: 44),
+            title: const Text('بدون دسته',
+                style: TextStyle(fontWeight: FontWeight.w800)),
+            subtitle: Text(formatCount(visible.length, 'نقش')),
+          ),
+          for (final node in _tree(visible))
+            _roleRow(node.$1, node.$2, enabled, visible),
+        ]));
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -118,17 +260,34 @@ class _RolesViewState extends State<_RolesView> {
         body: SafeArea(
             child: BlocBuilder<RoleCubit, RoleState>(builder: (context, state) {
           final enabled = state.loaded && !state.loading && !state.saving;
-          bool matches(RoleCategory category) =>
-              _query.isEmpty ||
-              category.title.contains(_query) ||
-              state.catalog.roles.any((role) =>
+          final catalog = state.catalog;
+          final managed = catalog.roles.where((role) => !role.system).toList();
+          final hasCompletion =
+              managed.any((role) => role.completion != null);
+          final categoryByCode = {
+            for (final category in catalog.categories) category.code: category
+          };
+          final uncategorized = managed
+              .where((role) =>
+                  !categoryByCode.containsKey(role.category.trim()))
+              .toList();
+          bool categoryHasMatch(RoleCategory category) =>
+              !_hasActiveFilter ||
+              catalog.roles.any((role) =>
                   role.category == category.code &&
-                  (role.title.contains(_query) ||
-                      role.code.toLowerCase().contains(_query.toLowerCase())));
+                  _roleMatches(role, category));
+          final noMatch = state.loaded &&
+              _hasActiveFilter &&
+              !catalog.categories.any(categoryHasMatch) &&
+              !uncategorized.any((role) => _roleMatches(role, null));
           return ListView(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
               children: [
                 const _RoleStatus(),
+                if (state.loaded) ...[
+                  _statCards(catalog),
+                  const SizedBox(height: 12),
+                ],
                 if (widget.canManage)
                   FilledButton.icon(
                       onPressed: !enabled ? null : () => _openCreate(state),
@@ -161,33 +320,49 @@ class _RolesViewState extends State<_RolesView> {
                     decoration: const InputDecoration(
                         hintText: 'جست‌وجو در نقش‌ها…',
                         prefixIcon: Icon(Icons.search))),
+                if (state.loaded && hasCompletion) ...[
+                  const SizedBox(height: 10),
+                  Wrap(spacing: 8, runSpacing: 8, children: [
+                    for (final entry in const {
+                      'all': 'همه',
+                      'complete': 'تکمیل‌شده',
+                      'incomplete': 'نیازمند تکمیل'
+                    }.entries)
+                      ChoiceChip(
+                          label: Text(entry.value),
+                          selected: _statusFilter == entry.key,
+                          onSelected: (selected) {
+                            if (selected) {
+                              setState(() => _statusFilter = entry.key);
+                            }
+                          }),
+                  ]),
+                ],
                 const SizedBox(height: 14),
-                if (state.loaded &&
-                    state.catalog.categories.isEmpty &&
-                    state.catalog.roles.isEmpty)
-                  EmptyState(
-                    icon: Icons.badge_outlined,
-                    title: 'نقشی ثبت نشده است',
-                    description:
-                        'هنوز دسته یا نقشی ثبت نشده است؛ از الگوهای آماده استفاده کنید یا ابتدا یک دسته بسازید.',
-                  ),
-                if (state.loaded &&
-                    _query.isNotEmpty &&
-                    !state.catalog.categories.any(matches))
+                if (state.loaded && managed.isEmpty) _startGuide(),
+                if (noMatch)
                   EmptyState(
                     icon: Icons.search_off_rounded,
                     title: 'نتیجه‌ای پیدا نشد',
-                    description: 'برای «$_query» نقشی مطابقت نداشت.',
+                    description: 'با جست‌وجو یا فیلتر فعلی نقشی مطابقت نداشت.',
                     primaryActionLabel: 'پاک‌کردن جستجو',
-                    onPrimaryAction: () => setState(() => _query = ''),
+                    onPrimaryAction: () => setState(() {
+                      _query = '';
+                      _statusFilter = 'all';
+                    }),
                   ),
-                for (final role in state.catalog.systemRoles)
+                for (final role in catalog.systemRoles)
                   if (_query.isEmpty ||
                       role.title.contains(_query) ||
-                      role.code.toLowerCase().contains(_query.toLowerCase()))
+                      role.description.contains(_query))
                     _systemRoleCard(role),
-                for (final category in state.catalog.categories)
-                  if (matches(category)) _category(category, state, enabled),
+                if (state.loaded &&
+                    (catalog.systemRoles.isEmpty || _query.isNotEmpty))
+                  const SizedBox(height: 10),
+                for (final category in catalog.categories)
+                  _category(category, state, enabled),
+                if (uncategorized.isNotEmpty)
+                  _uncategorized(uncategorized, state, enabled),
                 const SizedBox(height: 14),
               ]);
         })),
@@ -239,14 +414,11 @@ class _RolesViewState extends State<_RolesView> {
     final all = state.catalog.roles
         .where((role) => role.category == category.code)
         .toList();
-    final visible = all
-        .where((role) =>
-            _query.isEmpty ||
-            category.title.contains(_query) ||
-            role.title.contains(_query) ||
-            role.code.toLowerCase().contains(_query.toLowerCase()))
-        .toList();
-    final open = _expanded.contains(category.code) || _query.isNotEmpty;
+    final visible =
+        all.where((role) => _roleMatches(role, category)).toList();
+    // A category with no roles is still shown when nothing is filtered.
+    if (_hasActiveFilter && visible.isEmpty) return const SizedBox.shrink();
+    final open = _expanded.contains(category.code) || _hasActiveFilter;
     return Card(
         clipBehavior: Clip.antiAlias,
         child: Column(children: [
@@ -339,6 +511,10 @@ class _RolesViewState extends State<_RolesView> {
               ].join(' · '),
               style: const TextStyle(fontSize: 12)),
           trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+            if (role.completion != null) ...[
+              _statusLabel(role),
+              const SizedBox(width: 6),
+            ],
             if (hasChildren)
               Icon(_expanded.contains('role:${role.code}')
                   ? Icons.expand_less
