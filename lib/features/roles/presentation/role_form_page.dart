@@ -342,13 +342,23 @@ class _RoleFormState extends State<_RoleForm> {
     if (saved && mounted) Navigator.pop(context, true);
   }
 
-  /// Opens the shared category form; on success selects the new category.
+  /// Opens the shared category form; on success selects the newly created
+  /// category (the first one not present before the form opened).
   Future<void> _createCategory() async {
+    final before = {
+      for (final c in context.read<RoleCubit>().state.catalog.categories)
+        c.code
+    };
     final created = await _roleRoute<bool>(context, const _CategoryForm());
     if (created != true || !mounted) return;
     final latest = context.read<RoleCubit>().state;
-    if (latest.loaded && latest.catalog.categories.isNotEmpty) {
-      setState(() => _category = latest.catalog.categories.last.code);
+    if (!latest.loaded) return;
+    final createdCode = latest.catalog.categories
+        .where((c) => !before.contains(c.code))
+        .map((c) => c.code)
+        .firstOrNull;
+    if (createdCode != null) {
+      setState(() => _category = createdCode);
     }
   }
 }

@@ -1,5 +1,6 @@
 import 'package:asoud_erp/core/network/frappe_client.dart';
 import 'package:asoud_erp/core/theme/asoud_theme.dart';
+import 'package:asoud_erp/core/widgets/app_fields.dart';
 import 'package:asoud_erp/features/roles/data/role_repository.dart';
 import 'package:asoud_erp/features/roles/domain/role_catalog.dart';
 import 'package:asoud_erp/features/roles/presentation/roles_page.dart';
@@ -13,6 +14,34 @@ import '../../helpers/fake_local_record_store.dart';
 /// 320 and 390 px.
 const _longTitle =
     'مدیر مالی و حسابداری و امور اداری و پشتیبانی فنی و پشتیبانیه';
+
+/// Encodes a catalog for the `role_management.catalog` response, letting the
+/// caller override the category list (used to place a new category first).
+Map<String, dynamic> _encodeCatalog(
+    RoleCatalog catalog, List<RoleCategory> categories) =>
+    {
+      'categories': categories
+          .map((e) => {'code': e.code, 'title': e.title, 'style': e.style})
+          .toList(),
+      'roles': catalog.roles
+          .map((e) => {
+                ...e.toJson(),
+                'enabled': e.enabled,
+                'assigned_users': e.assignedUsers,
+                'system': e.system,
+              })
+          .toList(),
+      'base_roles': catalog.baseRoles
+          .map((e) => {
+                'name': e.name,
+                'title': e.title,
+                'description': e.description,
+                'available': e.available
+              })
+          .toList(),
+      'templates': <dynamic>[],
+      'template_categories': <dynamic>[],
+    };
 
 /// An authenticated client that serves one role and records the exact
 /// `save_role` payload it receives, so a category-only edit can be asserted to
@@ -45,7 +74,7 @@ class _RoleClient extends Fake implements FrappeApiClient {
       'message': {
         'ok': true,
         'meta': {'api_version': 'v1'},
-        'data': _encode(catalog),
+        'data': _encodeCatalog(catalog, catalog.categories),
       },
     };
   }
@@ -64,30 +93,6 @@ class _RoleClient extends Fake implements FrappeApiClient {
       'assigned_users': payload['assigned_users'] ?? 0,
     };
   }
-
-  Map<String, dynamic> _encode(RoleCatalog catalog) => {
-        'categories': catalog.categories
-            .map((e) => {'code': e.code, 'title': e.title, 'style': e.style})
-            .toList(),
-        'roles': catalog.roles
-            .map((e) => {
-                  ...e.toJson(),
-                  'enabled': e.enabled,
-                  'assigned_users': e.assignedUsers,
-                  'system': e.system,
-                })
-            .toList(),
-        'base_roles': catalog.baseRoles
-            .map((e) => {
-                  'name': e.name,
-                  'title': e.title,
-                  'description': e.description,
-                  'available': e.available
-                })
-            .toList(),
-        'templates': <dynamic>[],
-        'template_categories': <dynamic>[],
-      };
 }
 
 /// Same catalog as [_RoleClient] but the signed-in user is an HR Manager, who
@@ -102,6 +107,68 @@ class _HrClient extends _RoleClient {
         fullName: 'مدیر منابع انسانی',
         roles: const ['HR Manager'],
       );
+}
+
+/// Serves the catalog and, once a category is created, prepends the new
+/// category to the list it serves (first, not last). This lets the role form's
+/// "select the newly created category" logic be exercised against a
+/// server-shaped response where the new category is not the last element.
+class _CategoryCreateClient extends Fake implements FrappeApiClient {
+  _CategoryCreateClient(this.catalog, this.categories);
+  final RoleCatalog catalog;
+  final List<RoleCategory> categories;
+  final createdCategories = <Map<String, dynamic>>[];
+
+  @override
+  bool get isAuthenticated => true;
+
+  @override
+  Stream<bool> get authenticationChanges => const Stream.empty();
+
+  @override
+  Future<FrappeUserContext> getCurrentUser() async => FrappeUserContext(
+        userId: 'Administrator',
+        fullName: 'Administrator',
+        roles: const ['Administrator'],
+      );
+
+  @override
+  Future<Map<String, dynamic>> callMethod(String method,
+      {Map<String, dynamic>? data}) async {
+    if (method != 'asoud_erp.api.v1.role_management.catalog') {
+      throw StateError('Unexpected role API method: $method');
+    }
+    return {
+      'message': {
+        'ok': true,
+        'meta': {'api_version': 'v1'},
+        'data': _encodeCatalog(catalog, categories),
+      },
+    };
+  }
+
+  @override
+  Future<dynamic> callAsoudMethod(String method,
+      {Map<String, dynamic>? data}) async {
+    if (method != 'asoud_erp.api.v1.role_management.create_category') {
+      throw StateError('Unexpected asoud method: $method');
+    }
+    final payload =
+        Map<String, dynamic>.from((data?['payload'] ?? {}) as Map);
+    createdCategories.add(payload);
+    // The server now knows the category; it appears first in the catalog.
+    categories.insert(
+        0,
+        RoleCategory(
+            code: '${payload['code']}',
+            title: '${payload['title']}',
+            style: '${payload['style']}'));
+    return {
+      'code': payload['code'],
+      'title': payload['title'],
+      'style': payload['style'],
+    };
+  }
 }
 
 const _catalog = RoleCatalog(
@@ -140,7 +207,7 @@ const _catalog = RoleCatalog(
 );
 
 Future<void> _openList(WidgetTester tester, double width,
-    {required _RoleClient client}) async {
+    {required FrappeApiClient client}) async {
   tester.view.physicalSize = Size(width, 844);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -253,6 +320,49 @@ void main() {
     final payload = client.savedPayloads.first;
     expect(payload['category'], 'HR');
     expect(payload['base_roles'], ['Accounts User']);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('creating a category from the form selects the new category',
+      (tester) async {
+    // The new category is placed FIRST in the post-create catalog response, so
+    // picking it cannot be done by taking the last element of the list.
+    final client = _CategoryCreateClient(
+      _catalog,
+      [
+        RoleCategory(code: 'FIN', title: 'مالی', style: 'finance'),
+        RoleCategory(code: 'HR', title: 'منابع انسانی', style: 'hr'),
+      ],
+    );
+    await _openList(tester, 390, client: client);
+
+    await _expandCategory(tester, 'مالی');
+    await tester.tap(find.text('حسابدار'));
+    await tester.pumpAndSettle();
+    await tester.tap(_sheetText('ویرایش مشخصات'));
+    await tester.pumpAndSettle();
+
+    // Open the category form from the role form.
+    await tester.tap(find.text('دسته جدید'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+        find.byWidgetPredicate(
+            (w) => w is AppTextField && w.label == 'نام دسته'),
+        'دسته تازه');
+    await tester.enterText(
+        find.byWidgetPredicate(
+            (w) => w is AppTextField && w.label == 'کد دسته'),
+        'OPS');
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('ایجاد دسته'));
+    await tester.pumpAndSettle();
+
+    // The form's category field now shows the newly created category title.
+    expect(find.text('دسته تازه'), findsOneWidget);
+    expect(client.createdCategories, hasLength(1));
+    expect(client.createdCategories.first['code'], 'OPS');
     expect(tester.takeException(), isNull);
   });
 
