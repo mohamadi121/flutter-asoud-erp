@@ -14,16 +14,67 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
+      - uses: actions/cache@v4
+        with:
+          path: .dart_tool/hooks_runner/shared/sqlite3
+          key: sqlite3-hooks-${{ runner.os }}-${{ hashFiles('pubspec.lock') }}
+          restore-keys: |
+            sqlite3-hooks-${{ runner.os }}-
       - run: flutter analyze
       # Raster golden baselines are generated on Windows and differ slightly
       # under Linux font rendering. Functional/widget tests still run in CI.
-      - run: flutter test --exclude-tags golden
+      - run: |
+          set -o pipefail
+          out=/tmp/flutter-test.log
+          for attempt in 1 2 3 4; do
+            if flutter test --exclude-tags golden 2>&1 | tee "$out"; then
+              exit 0
+            fi
+            # Retry only on GitHub release download outages, not on real test failures.
+            if ! grep -qE 'Hash of downloaded file|Building native assets failed' "$out"; then
+              exit 1
+            fi
+            if [ "$attempt" -lt 4 ]; then
+              sleep 90
+            fi
+          done
+          exit 1
       - name: Build debug APK
         if: github.event_name == 'push'
-        run: flutter build apk --debug
+        run: |
+          set -o pipefail
+          out=/tmp/flutter-build-debug.log
+          for attempt in 1 2 3 4; do
+            if flutter build apk --debug 2>&1 | tee "$out"; then
+              exit 0
+            fi
+            # Retry only on GitHub release download outages, not on real build failures.
+            if ! grep -qE 'Hash of downloaded file|Building native assets failed' "$out"; then
+              exit 1
+            fi
+            if [ "$attempt" -lt 4 ]; then
+              sleep 90
+            fi
+          done
+          exit 1
       - name: Build release APK
         if: github.event_name == 'push'
-        run: flutter build apk --release
+        run: |
+          set -o pipefail
+          out=/tmp/flutter-build-release.log
+          for attempt in 1 2 3 4; do
+            if flutter build apk --release 2>&1 | tee "$out"; then
+              exit 0
+            fi
+            # Retry only on GitHub release download outages, not on real build failures.
+            if ! grep -qE 'Hash of downloaded file|Building native assets failed' "$out"; then
+              exit 1
+            fi
+            if [ "$attempt" -lt 4 ]; then
+              sleep 90
+            fi
+          done
+          exit 1
       - name: Read application version
         if: github.event_name == 'push'
         id: version
@@ -60,7 +111,28 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
-      - run: flutter test test/form_builder_golden_test.dart test/form_builder_golden_s7_test.dart test/form_builder_golden_s10_test.dart
+      - uses: actions/cache@v4
+        with:
+          path: .dart_tool/hooks_runner/shared/sqlite3
+          key: sqlite3-hooks-${{ runner.os }}-${{ hashFiles('pubspec.lock') }}
+          restore-keys: |
+            sqlite3-hooks-${{ runner.os }}-
+      - run: |
+          set -o pipefail
+          out=/tmp/flutter-golden.log
+          for attempt in 1 2 3 4; do
+            if flutter test test/form_builder_golden_test.dart test/form_builder_golden_s7_test.dart test/form_builder_golden_s10_test.dart 2>&1 | tee "$out"; then
+              exit 0
+            fi
+            # Retry only on GitHub release download outages, not on real test failures.
+            if ! grep -qE 'Hash of downloaded file|Building native assets failed' "$out"; then
+              exit 1
+            fi
+            if [ "$attempt" -lt 4 ]; then
+              sleep 90
+            fi
+          done
+          exit 1
       - name: Upload golden diffs
         if: failure()
         uses: actions/upload-artifact@v4
