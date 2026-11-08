@@ -301,6 +301,7 @@ class FrappeWorkflowRepository
             parent: _optionalText(item['parent_department']),
             isGroup: item['is_group'] == 1 || item['is_group'] == true,
             designation: _optionalText(item['designation']),
+            userId: _optionalText(item['user_id']),
           );
         })
         .where((item) => item.id.isNotEmpty)

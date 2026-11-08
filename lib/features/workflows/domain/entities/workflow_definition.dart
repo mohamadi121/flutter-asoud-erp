@@ -137,6 +137,7 @@ class WorkflowTargetOption extends Equatable {
     this.parent,
     this.isGroup = false,
     this.designation,
+    this.userId,
   });
 
   final String id;
@@ -151,9 +152,12 @@ class WorkflowTargetOption extends Equatable {
   /// Employees: their designation, shown under the name.
   final String? designation;
 
+  /// Employees: the system user account, used by `user` condition values.
+  final String? userId;
+
   @override
   List<Object?> get props =>
-      [id, label, department, company, parent, isGroup, designation];
+      [id, label, department, company, parent, isGroup, designation, userId];
 }
 
 class WorkflowModuleOption extends Equatable {
