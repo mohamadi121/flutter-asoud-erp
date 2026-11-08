@@ -4,8 +4,9 @@ part of 'roles_page.dart';
 /// server (`permission_preview`). For «مدیر کل سیستم» this shows the complete
 /// organisation-wide list.
 class _RolePermissions extends StatefulWidget {
-  const _RolePermissions({required this.role});
+  const _RolePermissions({required this.role, this.canManage = false});
   final ManagedRole role;
+  final bool canManage;
   @override
   State<_RolePermissions> createState() => _RolePermissionsState();
 }
@@ -39,6 +40,9 @@ class _RolePermissionsState extends State<_RolePermissions> {
             capabilities = all.capabilities;
           });
         }
+      } else if (widget.role.baseRoles.isEmpty) {
+        // The server rejects an empty base-role list; the page shows an info
+        // card instead of a preview.
       } else {
         final result = await repository.preview(widget.role.baseRoles);
         if (mounted) setState(() => rows = result);
@@ -58,63 +62,107 @@ class _RolePermissionsState extends State<_RolePermissions> {
       grouped.putIfAbsent(row.doctype, () => {}).addAll(row.actions);
     }
     final names = grouped.keys.toList()..sort();
+    Widget body;
+    if (loading) {
+      body = const Center(child: CircularProgressIndicator());
+    } else if (error != null) {
+      body = Center(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Text(error!),
+        TextButton(onPressed: load, child: const Text('تلاش دوباره')),
+      ]));
+    } else if (role.baseRoles.isEmpty && !role.isSystemAdmin) {
+      body = _noBaseRolesBody(role);
+    } else {
+      body = ListView(padding: const EdgeInsets.all(16), children: [
+          if (role.isGlobal)
+            const _RoleHint(
+                'این نقش در کل این استقرار اعمال می‌شود و همه مجوزهای زیر را دارد.'),
+          if (capabilities.isNotEmpty) ...[
+            const Padding(
+                padding: EdgeInsets.only(top: 8, bottom: 4),
+                child: Text('قابلیت‌های آسود',
+                    style: TextStyle(fontWeight: FontWeight.w900))),
+            for (final cap in capabilities)
+              ListTile(
+                key: Key('capability_${cap.key}'),
+                dense: true,
+                leading: Icon(
+                    cap.granted
+                        ? Icons.check_circle_outline
+                        : Icons.remove_circle_outline,
+                    color: cap.granted
+                        ? AsoudColors.success
+                        : AsoudColors.muted),
+                title: Text(cap.title),
+                subtitle: Text(cap.module),
+              ),
+            const Padding(
+                padding: EdgeInsets.only(top: 12, bottom: 4),
+                child: Text('مجوزهای اسناد',
+                    style: TextStyle(fontWeight: FontWeight.w900))),
+          ],
+          if (names.isEmpty)
+            const Padding(
+                padding: EdgeInsets.all(24),
+                child: Text('مجوزی برای این نقش ثبت نشده است.',
+                    textAlign: TextAlign.center)),
+          for (final name in names)
+            ListTile(
+              dense: true,
+              title: Text(persianDoctypeLabel(name)),
+              subtitle: Text(grouped[name]!
+                  .map(_accessActionLabel)
+                  .join('، ')),
+            ),
+        ]);
+    }
     return Scaffold(
       appBar: AsoudHeader(
           title: persianRoleLabel(role.title.isEmpty ? role.code : role.title),
           subtitle: role.scope.isNotEmpty
               ? 'سطح دسترسی: ${role.scopeLabel}'
               : 'مجوزهای نقش'),
-      body: loading
-          ? const Center(child: CircularProgressIndicator())
-          : error != null
-              ? Center(
-                  child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  Text(error!),
-                  TextButton(onPressed: load, child: const Text('تلاش دوباره')),
-                ]))
-              : ListView(padding: const EdgeInsets.all(16), children: [
-                  if (role.isGlobal)
-                    const _RoleHint(
-                        'این نقش در کل این استقرار اعمال می‌شود و همه مجوزهای زیر را دارد.'),
-                  if (capabilities.isNotEmpty) ...[
-                    const Padding(
-                        padding: EdgeInsets.only(top: 8, bottom: 4),
-                        child: Text('قابلیت‌های آسود',
-                            style: TextStyle(fontWeight: FontWeight.w900))),
-                    for (final cap in capabilities)
-                      ListTile(
-                        key: Key('capability_${cap.key}'),
-                        dense: true,
-                        leading: Icon(
-                            cap.granted
-                                ? Icons.check_circle_outline
-                                : Icons.remove_circle_outline,
-                            color: cap.granted
-                                ? AsoudColors.success
-                                : AsoudColors.muted),
-                        title: Text(cap.title),
-                        subtitle: Text(cap.module),
-                      ),
-                    const Padding(
-                        padding: EdgeInsets.only(top: 12, bottom: 4),
-                        child: Text('مجوزهای اسناد',
-                            style: TextStyle(fontWeight: FontWeight.w900))),
-                  ],
-                  if (names.isEmpty)
-                    const Padding(
-                        padding: EdgeInsets.all(24),
-                        child: Text('مجوزی برای این نقش ثبت نشده است.',
-                            textAlign: TextAlign.center)),
-                  for (final name in names)
-                    ListTile(
-                      dense: true,
-                      title: Text(persianDoctypeLabel(name)),
-                      subtitle: Text(grouped[name]!
-                          .map(_accessActionLabel)
-                          .join('، ')),
-                    ),
-                ]),
+      body: body,
     );
+  }
+
+  /// A role without base roles has nothing to preview: the server would
+  /// reject the empty list. Role-wide grants are edited from the shared
+  /// editor, not shown here.
+  Widget _noBaseRolesBody(ManagedRole role) => ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          const _RoleHint('این نقش نقش پایه ندارد.'),
+          if (role.completion == 'complete') ...[
+            const SizedBox(height: 12),
+            const _RoleHint(
+                'دسترسی‌های این نقش به‌صورت اختصاصی تنظیم شده است.'),
+          ],
+          if (widget.canManage) ...[
+            const SizedBox(height: 16),
+            FilledButton.icon(
+                key: const Key('role_shared_access'),
+                onPressed: _openSharedEditor,
+                icon: const Icon(Icons.key_outlined),
+                label: const Text('دسترسی‌های این نقش')),
+          ],
+        ],
+      );
+
+  Future<void> _openSharedEditor() async {
+    await _userAccessRoute<void>(
+        context,
+        _AccessWizard(
+            role: widget.role,
+            repository: UserAccessRepository(
+                context.read<RoleCubit>().repository.client),
+            shared: true));
+    if (!mounted) return;
+    // The editor does not go through cubit.save, so refresh the catalog for
+    // the sheet and re-fetch this page's own rows.
+    context.read<RoleCubit>().load();
+    load();
   }
 }
 

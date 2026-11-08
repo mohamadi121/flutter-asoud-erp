@@ -68,6 +68,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('نتیجه‌ای پیدا نشد'), findsOneWidget);
     expect(find.text('پاک‌کردن جستجو'), findsOneWidget);
+    // The start guide (no managed role) pushes the clear button below the fold.
+    await tester.ensureVisible(find.text('پاک‌کردن جستجو'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('پاک‌کردن جستجو'));
     await tester.pumpAndSettle();
     expect(find.text('دسته اصلی'), findsOneWidget);
