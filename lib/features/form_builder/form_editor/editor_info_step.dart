@@ -22,25 +22,36 @@ class EditorInfoStep extends StatelessWidget {
   Widget build(BuildContext context) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          formSelect(
-            'نوع فرم',
-            '${schema['kind']}',
-            const {
-              'Request': 'درخواست',
-              'Document': 'سند',
-            },
-            (v) => change(() {
-              schema['kind'] = v;
-              if (v != 'Request') {
-                schema.remove('execution');
-                for (final section in (schema['sections'] as List? ?? [])) {
-                  for (final field in (section['fields'] as List? ?? [])) {
-                    (field as Map).remove('execution_key');
+          // A Stage form is fixed to its kind; it is never a request or a
+          // document, so the kind is shown read-only instead of a switcher.
+          if (schema['kind'] == 'Stage')
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: InputDecorator(
+                decoration: const InputDecoration(labelText: 'نوع فرم'),
+                child: const Text('فرم مرحله گردش کار'),
+              ),
+            )
+          else
+            formSelect(
+              'نوع فرم',
+              '${schema['kind']}',
+              const {
+                'Request': 'درخواست',
+                'Document': 'سند',
+              },
+              (v) => change(() {
+                schema['kind'] = v;
+                if (v != 'Request') {
+                  schema.remove('execution');
+                  for (final section in (schema['sections'] as List? ?? [])) {
+                    for (final field in (section['fields'] as List? ?? [])) {
+                      (field as Map).remove('execution_key');
+                    }
                   }
                 }
-              }
-            }),
-          ),
+              }),
+            ),
           TextFormField(
             initialValue: '${schema['title'] ?? ''}',
             decoration: const InputDecoration(labelText: 'عنوان فرم *'),

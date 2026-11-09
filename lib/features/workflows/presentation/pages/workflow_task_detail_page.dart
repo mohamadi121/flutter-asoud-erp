@@ -111,6 +111,10 @@ class _TaskDetailView extends StatelessWidget {
                               const SizedBox(height: 10),
                             ],
                           ],
+                          if (detail.supplementaryForm.isNotEmpty) ...[
+                            const SizedBox(height: 16),
+                            _SupplementaryFormCard(detail: detail),
+                          ],
                           if (detail.actionSchema.isNotEmpty) UserActionExecution(detail: detail),
                           if (detail.actionSchema.isEmpty && detail.fields.isNotEmpty) ...[
                             const SizedBox(height: 4),
@@ -449,6 +453,56 @@ class _TaskSummaryCard extends StatelessWidget {
             ),
           ]),
         ],
+      ]),
+    );
+  }
+}
+
+/// The approval stage's supplementary form (contract C6): a real ASOUD Form
+/// rendered with the shared runtime, kept apart from the approve/reject
+/// decision. Read-only once the task is finished.
+class _SupplementaryFormCard extends StatelessWidget {
+  const _SupplementaryFormCard({required this.detail});
+  final WorkflowTaskDetail detail;
+
+  @override
+  Widget build(BuildContext context) {
+    final supplementary = detail.supplementaryForm;
+    final title = '${supplementary['title'] ?? ''}'.trim();
+    final schema = formMap(supplementary['schema']);
+    final formName = supplementary['form']?.toString() ?? '';
+    final open = detail.task.status == 'Open';
+    final values = context.select(
+        (WorkflowTaskDetailCubit cubit) => cubit.state.supplementaryValues);
+    final repository =
+        FormRepository(context.read<FrappeApiClient>(), detail.requestCompany);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: AsoudColors.border),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(title.isEmpty ? 'فرم تکمیلی' : title,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 4),
+        const Text('اطلاعات تکمیلی؛ جدا از تصمیم تأیید یا رد ثبت می‌شود.',
+            style: TextStyle(fontSize: 11, color: AsoudColors.muted)),
+        const SizedBox(height: 12),
+        FormFieldsView(
+          schema: schema,
+          values: values,
+          enabled: open,
+          snapshot: !open,
+          onChanged: open
+              ? (next) => context
+                  .read<WorkflowTaskDetailCubit>()
+                  .setSupplementaryValues(next)
+              : (_) {},
+          repository: repository,
+          formName: formName,
+        ),
       ]),
     );
   }
