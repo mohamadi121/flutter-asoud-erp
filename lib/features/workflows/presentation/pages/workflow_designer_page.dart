@@ -66,7 +66,8 @@ class _DesignerView extends StatelessWidget {
                   workflow: design.workflow,
                   saving: state.status == WorkflowDesignerStatus.saving,
                   failed: state.status == WorkflowDesignerStatus.failure,
-                  failureMessage: state.message),
+                  failureMessage: state.message,
+                  offlinePreview: state.offlinePreview),
               Expanded(
                 child: WorkflowGraphCanvas(
                   design: design,
@@ -292,11 +293,13 @@ class _DraftBanner extends StatelessWidget {
     required this.saving,
     required this.failed,
     this.failureMessage,
+    this.offlinePreview = false,
   });
   final WorkflowDefinition workflow;
   final bool saving;
   final bool failed;
   final String? failureMessage;
+  final bool offlinePreview;
   @override
   Widget build(BuildContext context) {
     final color = failed ? AsoudColors.warning : AsoudColors.primary;
@@ -326,7 +329,9 @@ class _DraftBanner extends StatelessWidget {
                   : failed
                       ? failureMessage ??
                           'ذخیره تغییرات ناموفق بود؛ تغییرات را دوباره ذخیره کنید.'
-                      : 'تغییرات این پیش‌نویس روی سرور ذخیره شده است.',
+                      : offlinePreview
+                          ? 'تغییرات این پیش‌نویس روی دستگاه ذخیره شد؛ همگام‌سازی با سرور تأیید نشده است.'
+                          : 'تغییرات این پیش‌نویس روی سرور ذخیره شده است.',
               style: TextStyle(fontSize: 9, color: color),
             ),
           ),
