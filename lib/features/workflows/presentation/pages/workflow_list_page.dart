@@ -18,6 +18,7 @@ import '../../domain/repositories/workflow_repository.dart';
 import '../../domain/repositories/workflow_notification_repository.dart';
 import '../cubit/workflow_list_cubit.dart';
 import '../widgets/workflow_details_dialog.dart';
+import '../widgets/workflow_system_copy_dialog.dart';
 import '../../data/repositories/frappe_workflow_repository.dart';
 import 'workflow_form_page.dart';
 import 'workflow_notifications_page.dart';
@@ -472,6 +473,9 @@ class _WorkflowCardState extends State<_WorkflowCard> {
                   if (widget.canManageWorkflows) const PopupMenuItem(
                       value: 'design',
                       child: Text('طراحی مراحل و فرم درخواست')),
+                  if (widget.canManageWorkflows && item.isSystemTemplate)
+                    const PopupMenuItem(
+                        value: 'copy-system', child: Text('ایجاد کپی مستقل')),
                   if (widget.canManageWorkflows) PopupMenuItem(
                     value: 'activate',
                     child: Text(item.status == WorkflowDefinitionStatus.active
@@ -492,9 +496,9 @@ class _WorkflowCardState extends State<_WorkflowCard> {
                   } else if (value == 'details') {
                     _showDetails(context);
                   } else if (value == 'design') {
-                    Navigator.of(context).push(MaterialPageRoute<void>(
-                      builder: (_) => WorkflowDesignerPage(definition: item.id),
-                    ));
+                    _openDesigner(item.id).ignore();
+                  } else if (value == 'copy-system') {
+                    _copySystem(context).ignore();
                   } else if (value == 'activate' || value == 'delete') {
                     _operate(value).ignore();
                   }
@@ -516,6 +520,15 @@ class _WorkflowCardState extends State<_WorkflowCard> {
     return '${toPersianDigits(item.stepsCount)} مرحله • آخرین ویرایش: $date';
   }
 
+  Future<void> _openDesigner(String id) async {
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => WorkflowDesignerPage(definition: id),
+    ));
+    if (!mounted) return;
+    final cubit = context.read<WorkflowListCubit>();
+    if (!cubit.isClosed) await cubit.load();
+  }
+
   Future<void> _showDetails(BuildContext context) async {
     WorkflowRepository repository = context.read<WorkflowRepository>();
     try {
@@ -527,9 +540,21 @@ class _WorkflowCardState extends State<_WorkflowCard> {
     final openStages = await showDialog<bool>(context: context,
         builder: (_) => WorkflowDetailsDialog(load: () => repository.getDesign(item.id)));
     if (openStages == true && context.mounted) {
-      await Navigator.of(context).push(MaterialPageRoute<void>(
-          builder: (_) => WorkflowDesignerPage(definition: item.id)));
+      await _openDesigner(item.id);
     }
+  }
+
+  Future<void> _copySystem(BuildContext context) async {
+    final cubit = context.read<WorkflowListCubit>();
+    final created = await showDialog<WorkflowDefinition>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => WorkflowSystemCopyDialog(
+            source: item, client: context.read<FrappeApiClient>()));
+    if (created == null || !context.mounted) return;
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => WorkflowDesignerPage(definition: created.id)));
+    if (!cubit.isClosed) await cubit.load();
   }
 }
 

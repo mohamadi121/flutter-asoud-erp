@@ -310,6 +310,37 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('بازگشت از طراح (از منوی طراحی) فهرست را تازه می‌کند',
+      (tester) async {
+    final repository = _WorkflowRepository();
+    await tester.pumpWidget(
+      RepositoryProvider<WorkflowRepository>.value(
+        value: repository,
+        child: const MaterialApp(
+          home: Directionality(
+            textDirection: TextDirection.rtl,
+            child: WorkflowListPage(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final before = repository.listCalls;
+
+    await tester.tap(find.byTooltip('عملیات فرایند').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('طراحی مراحل و فرم درخواست'));
+    await tester.pumpAndSettle();
+    expect(find.text('طراحی فرایند'), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(repository.listCalls, greaterThan(before));
+    expect(find.text('فرایند خرید کالا'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('مدیر منابع انسانی کنترل‌های نوشتن گردش‌کار را نمی‌بیند',
       (tester) async {
     await tester.pumpWidget(

@@ -150,8 +150,11 @@ class WorkflowEdgeGeometry {
     // Keep the existing '+' at exactly its original coordinates, on the line.
     final before = middle - tangent, after = middle + tangent;
     final path = Path()..moveTo(start.dx, start.dy);
-    final toMiddle = middle - start;
-    final behind = toMiddle.dx * direction.dx + toMiddle.dy * direction.dy < 0;
+    // A route is a back edge only when its target sits behind the source in
+    // the exit direction. Measuring from the source center to the target keeps
+    // a forward edge that leaves a sideways port from being misread as a return.
+    final toTarget = end - sourceBounds.center;
+    final behind = toTarget.dx * direction.dx + toTarget.dy * direction.dy < 0;
     if (action != null && behind && !sourceBounds.contains(middle)) {
       // A return route may point to an earlier/sideways node. Escape around
       // the source instead of drawing backwards across its title and icon.
