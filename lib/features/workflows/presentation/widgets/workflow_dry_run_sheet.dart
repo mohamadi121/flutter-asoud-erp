@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../../core/network/frappe_client.dart';
@@ -50,7 +52,7 @@ class _WorkflowDryRunSheetState extends State<WorkflowDryRunSheet> {
   @override
   void initState() {
     super.initState();
-    _run();
+    unawaited(_run());
   }
 
   Future<void> _run() async {
@@ -134,7 +136,7 @@ class _WorkflowDryRunSheetState extends State<WorkflowDryRunSheet> {
           ),
           const Divider(height: 20),
           if (_failure != null)
-            _Failure(message: failureMessage(_failure), onRetry: _run)
+            _Failure(message: failureDetail(_failure), onRetry: _run)
           else if (result == null)
             const Padding(
                 padding: EdgeInsets.all(24),

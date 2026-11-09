@@ -13,10 +13,24 @@ class WorkflowCheckRepository {
   static const validateMethod = 'asoud_erp.api.v1.workflow.validate_workflow';
   static const simulateMethod = 'asoud_erp.api.v1.workflow.simulate_workflow';
 
+  Future<dynamic> _call(String method, Map<String, dynamic> data) async {
+    try {
+      return await client.callAsoudMethod(method, data: data);
+    } on ApiException catch (error) {
+      if (error.statusCode == 417 && error.message.contains(method)) {
+        throw const ApiException(
+          kind: ApiFailureKind.validation,
+          statusCode: 417,
+          message: 'نسخهٔ سرور از این قابلیت پشتیبانی نمی‌کند.',
+        );
+      }
+      rethrow;
+    }
+  }
+
   /// `{"ok": bool, "issues": [{code, severity, message, stage, route}]}`
   Future<Map<String, dynamic>> validate(String definition) async {
-    final data = await client.callAsoudMethod(validateMethod,
-        data: {'definition': definition});
+    final data = await _call(validateMethod, {'definition': definition});
     if (data is! Map || data['ok'] is! bool || data['issues'] is! List) {
       throw const ApiException.protocol();
     }
@@ -27,8 +41,8 @@ class WorkflowCheckRepository {
   /// "outcome", "errors"}`
   Future<Map<String, dynamic>> simulate(
       String definition, List<Map<String, String>> decisions) async {
-    final data = await client.callAsoudMethod(simulateMethod,
-        data: {'definition': definition, 'decisions': decisions});
+    final data = await _call(simulateMethod,
+        {'definition': definition, 'decisions': decisions});
     if (data is! Map ||
         data['steps'] is! List ||
         data['status'] is! String ||
