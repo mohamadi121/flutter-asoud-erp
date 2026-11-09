@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:asoud_erp/core/network/api_exception.dart';
 import 'package:asoud_erp/core/network/frappe_client.dart';
 import 'package:asoud_erp/core/theme/asoud_theme.dart';
 import 'package:asoud_erp/features/workflows/data/workflow_automation_repository.dart';
@@ -7,6 +8,7 @@ import 'package:asoud_erp/features/workflows/domain/entities/workflow_definition
 import 'package:asoud_erp/features/workflows/domain/repositories/workflow_repository.dart';
 import 'package:asoud_erp/features/workflows/presentation/cubit/workflow_designer_cubit.dart';
 import 'package:asoud_erp/features/workflows/presentation/pages/stage_settings_page.dart';
+import 'package:asoud_erp/features/workflows/presentation/widgets/stage_form_sheet.dart';
 import 'package:asoud_erp/features/form_builder/form_editor/editor_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -155,6 +157,8 @@ class _FormClient extends Fake implements FrappeApiClient {
   final saveFormNames = <String>[];
   // The last saved schema, echoed back by `transition` like the real backend.
   Map<String, dynamic>? lastSchema;
+  // When true, open_builtin fails so a test can check the error path.
+  bool failOpenBuiltin = false;
   @override
   bool get isAuthenticated => true;
   @override
@@ -164,6 +168,57 @@ class _FormClient extends Fake implements FrappeApiClient {
   Future<Map<String, dynamic>> callMethod(String method,
       {Map<String, dynamic>? data}) async {
     calls.add(method.split('.').last);
+    if (method.endsWith('list_forms')) {
+      // The stage form sheet lists the company's stage forms plus the defaults.
+      return {
+        'message': {
+          'ok': true,
+          'data': [
+            {
+              'name': 'stage-form-1',
+              'title': 'چک‌لیست بررسی درخواست',
+              'kind': 'Stage',
+              'builtin_key': 'stage_request_checklist',
+              'active_revision': 'rev-1',
+            },
+            {
+              'name': 'stage-form-2',
+              'title': 'فرم بررسی مالی',
+              'kind': 'Stage',
+              'active_revision': 'rev-2',
+            },
+          ]
+        }
+      };
+    }
+    if (method.endsWith('open_builtin')) {
+      if (failOpenBuiltin) {
+        throw const ApiException(
+            kind: ApiFailureKind.server,
+            message: 'ارتباط با سرور برقرار نشد.');
+      }
+      return {
+        'message': {
+          'ok': true,
+          'data': {
+            'name': 'stage-form-1',
+            'active_revision': 'rev-1',
+            'schema': {
+              'kind': 'Stage',
+              'title': 'چک‌لیست بررسی درخواست',
+              'sections': [
+                {
+                  'id': 'main',
+                  'fields': [
+                    {'key': 'note', 'label': 'یادداشت', 'type': 'Text'}
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      };
+    }
     if (method.endsWith('get_options')) {
       return {
         'message': {
@@ -185,7 +240,7 @@ class _FormClient extends Fake implements FrappeApiClient {
           'meta': {'api_version': 'v1'},
           'data': {
             'name': name,
-            'active_revision': 'rev-1',
+            'active_revision': name == 'stage-form-2' ? 'rev-2' : 'rev-1',
             // Only the default form is a builtin; a custom form is not.
             if (name == 'stage-form-1')
               'builtin_key': 'stage_request_checklist',
@@ -353,11 +408,12 @@ void main() {
     // The bound title is shown in the picker, not a legacy «N فیلد» label.
     expect(find.text('چک‌لیست بررسی درخواست'), findsOneWidget);
     expect(find.textContaining('فرم تکمیلی ·'), findsNothing);
-    // Bound form offers preview / change / remove, not the legacy edit row.
+    // Bound form offers preview / edit / change / remove, not the legacy row.
     expect(find.text('پیش‌نمایش'), findsOneWidget);
+    expect(find.text('ویرایش فرم'), findsOneWidget);
     expect(find.text('تغییر فرم'), findsOneWidget);
     expect(find.text('برداشتن فرم'), findsOneWidget);
-    expect(find.text('ویرایش فرم'), findsNothing);
+    expect(find.text('حذف فرم'), findsNothing);
     await _tap(tester, find.text('ذخیره'));
     final config = workflows.saved.single;
     expect(config['supplementary_form'], {
@@ -462,8 +518,8 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(390, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final (workflows, automation) = await _open(tester, _boundDesign());
-    await _tap(tester, find.text('تغییر فرم'));
-    await _tap(tester, find.text('ویرایش فرم فعلی'));
+    // The bound form's own edit button opens the editor (or a copy).
+    await _tap(tester, find.text('ویرایش فرم'));
     // The default form is copied first so the original is never changed.
     expect(automation.client.calls, contains('copy_form'));
     expect(find.byType(FormEditorPage), findsOneWidget);
@@ -475,6 +531,117 @@ void main() {
     expect(automation.client.saveFormNames, isEmpty);
     // The bound title is still shown.
     expect(find.text('چک‌لیست بررسی درخواست'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  // --- PART B: the stage form sheet -------------------------------------------------------
+
+  /// Taps a form card inside the open stage form sheet, by its title.
+  Future<void> tapCard(WidgetTester tester, String title) async {
+    await tester.tap(find.descendant(
+        of: find.byType(StageFormSheet), matching: find.text(title)));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('picking a default form calls open_builtin and binds it',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final (workflows, automation) = await _open(tester, _blankDesign());
+    await _tap(tester, find.text('انتخاب یا ویرایش فرم مرحله'));
+    // The sheet lists the defaults; pick the built-in checklist.
+    await tapCard(tester, 'چک‌لیست بررسی درخواست');
+    expect(automation.client.calls, contains('open_builtin'));
+    // The bound title is now shown in the picker.
+    expect(find.text('چک‌لیست بررسی درخواست'), findsOneWidget);
+    await _tap(tester, find.text('ذخیره'));
+    final config = workflows.saved.single;
+    final binding = config['supplementary_form'];
+    expect(binding, isA<Map>());
+    expect(binding['form'], 'stage-form-1');
+    expect(binding['revision'], 'rev-1');
+    expect(config['form_fields'], isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('picking an existing form calls get_form and binds its revision',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final (workflows, automation) = await _open(tester, _blankDesign());
+    await _tap(tester, find.text('انتخاب یا ویرایش فرم مرحله'));
+    // A non-builtin company form is resolved with get_form.
+    await tapCard(tester, 'فرم بررسی مالی');
+    expect(automation.client.calls, contains('get_form'));
+    expect(automation.client.calls, isNot(contains('open_builtin')));
+    await _tap(tester, find.text('ذخیره'));
+    final binding = workflows.saved.single['supplementary_form'];
+    expect(binding, isA<Map>());
+    expect(binding['form'], 'stage-form-2');
+    expect(binding['revision'], 'rev-2');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('reopening the picker keeps the saved binding', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final (workflows, _) = await _open(tester, _boundDesign());
+    // The saved binding is shown on load.
+    expect(find.text('چک‌لیست بررسی درخواست'), findsOneWidget);
+    // Open the picker and close it without choosing anything.
+    await _tap(tester, find.text('چک‌لیست بررسی درخواست'));
+    await tester.pumpAndSettle();
+    expect(find.byType(StageFormSheet), findsOneWidget);
+    await _tap(tester,
+        find.descendant(of: find.byType(StageFormSheet),
+            matching: find.byIcon(Icons.close_rounded)));
+    // The binding is unchanged after reopening.
+    expect(find.text('چک‌لیست بررسی درخواست'), findsOneWidget);
+    await _tap(tester, find.text('ذخیره'));
+    final binding = workflows.saved.single['supplementary_form'];
+    expect(binding, isA<Map>());
+    expect(binding['form'], 'stage-form-1');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('cancelling the editor leaves the previous binding unchanged',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final (workflows, _) = await _open(tester, _blankDesign());
+    await _tap(tester, find.text('انتخاب یا ویرایش فرم مرحله'));
+    await _tap(tester, find.text('ساخت فرم اختصاصی'));
+    expect(find.byType(FormEditorPage), findsOneWidget);
+    // Cancel without saving: the editor pops null.
+    await _tap(tester, find.byIcon(Icons.arrow_forward_rounded));
+    await tester.pumpAndSettle();
+    expect(find.byType(FormEditorPage), findsNothing);
+    // No form was bound; the picker is still empty.
+    expect(find.text('انتخاب یا ویرایش فرم مرحله'), findsOneWidget);
+    await _tap(tester, find.text('ذخیره'));
+    final config = workflows.saved.single;
+    expect(config['supplementary_form'], isNull);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a failed open_builtin shows a message and keeps the binding',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final (workflows, automation) = await _open(tester, _boundDesign());
+    automation.client.failOpenBuiltin = true;
+    // Open the picker and pick the built-in form; open_builtin will fail.
+    await _tap(tester, find.text('چک‌لیست بررسی درخواست'));
+    await tester.pumpAndSettle();
+    await tapCard(tester, 'چک‌لیست بررسی درخواست');
+    // A Persian failure message is shown (the server-error sentence).
+    expect(
+        find.textContaining('خطایی در سرور رخ داد'), findsOneWidget);
+    // The previous binding is unchanged.
+    await _tap(tester, find.text('ذخیره'));
+    final binding = workflows.saved.single['supplementary_form'];
+    expect(binding, isA<Map>());
+    expect(binding['form'], 'stage-form-1');
     expect(tester.takeException(), isNull);
   });
 }

@@ -138,6 +138,9 @@ extension _ApprovalSettings on _StageSettingsPageState {
             icon: const Icon(Icons.visibility_outlined, size: 16),
             label: const Text('پیش‌نمایش')),
         TextButton(
+            onPressed: saving ? null : _editBoundForm,
+            child: const Text('ویرایش فرم')),
+        TextButton(
             onPressed: saving ? null : _pickForm,
             child: const Text('تغییر فرم')),
         TextButton(

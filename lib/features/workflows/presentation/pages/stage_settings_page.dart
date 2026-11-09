@@ -27,6 +27,8 @@ import '../../../form_builder/form_runtime/form_fields_view.dart';
 import '../../../form_builder/form_editor/editor_page.dart';
 import '../../../form_builder/form_runtime/form_preview_page.dart';
 import '../../../../core/auth/capabilities.dart';
+import '../../../../core/utils/failure_message.dart';
+import '../widgets/stage_form_sheet.dart';
 
 part 'stage_user_action.dart';
 part 'stage_approval.dart';
@@ -1047,79 +1049,36 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
   }
 
   Future<void> _pickForm() async {
-    final available = widget.design.stages
-        .where((stage) =>
-            stage.id != widget.stage.id &&
-            (stage.type == WorkflowStageType.userTask ||
-                stage.type == WorkflowStageType.approval) &&
-            ((stage.config['form_fields'] as List?) ?? const []).isNotEmpty)
-        .toList();
-    final choice = await showModalBottomSheet<String>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      showDragHandle: true,
-      builder: (sheetContext) => Directionality(
-        textDirection: TextDirection.rtl,
-        child: SafeArea(
-            child: Padding(
-                padding: EdgeInsets.only(
-                    bottom: MediaQuery.viewInsetsOf(sheetContext).bottom),
-                child: SizedBox(
-                  height: MediaQuery.sizeOf(sheetContext).height * .6,
-                  child: _StageFormChoices(
-                    stages: available,
-                    hasForm: supplementaryForm != null || formFields.isNotEmpty,
-                  ),
-                ))),
-      ),
+    final repository = FormRepository(automation.client, company ?? '');
+    final choice = await showStageFormSheet(
+      context,
+      repository: repository,
+      company: company ?? '',
+      selectedName: supplementaryForm?['form']?.toString(),
     );
     if (choice == null || !mounted) return;
-    if (choice == '__edit__') {
-      // A bound real form is edited (or copied) in the form editor; a legacy
-      // inline form keeps its old field editor; otherwise a new form is made.
-      if (supplementaryForm != null) {
-        await _editBoundForm();
-      } else if (formFields.isNotEmpty) {
-        await _editForm();
-      } else {
-        await _createStageForm();
-      }
+    if (choice is StageFormCreate) {
+      await _createStageForm();
       return;
     }
-    final source = available.where((stage) => stage.id == choice).firstOrNull;
-    if (source == null) return;
-    // Picking a legacy inline form replaces whatever form the stage has now.
-    if (supplementaryForm != null || formFields.isNotEmpty) {
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('جایگزینی فرم مرحله'),
-          content: const Text(
-              'فیلدهای فعلی با یک نسخه از فرم انتخاب‌شده جایگزین شوند؟ فرم اصلی تغییر نمی‌کند.'),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('انصراف')),
-            FilledButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('جایگزینی')),
-          ],
-        ),
-      );
-      if (confirmed != true || !mounted) return;
+    if (choice is! StageFormPicked) return;
+    // Resolve the picked form to a pinned {form, revision, title} binding.
+    FormMap record;
+    try {
+      record = choice.builtinKey != null
+          ? formMap(await repository.call('open_builtin', {
+              'company': company ?? '',
+              'key': choice.builtinKey,
+            }))
+          : formMap(await repository.call('get_form', {
+              'name': choice.name,
+            }));
+    } catch (failure) {
+      if (mounted) _message(failureMessage(failure));
+      return;
     }
-    setState(() {
-      supplementaryForm = null;
-      formFields = (source.config['form_fields'] as List)
-          .whereType<Map>()
-          .map(WorkflowFormFieldDefinition.fromMap)
-          .toList();
-      formLayout = ((source.config['form_layout'] as List?) ?? const [])
-          .whereType<Map>()
-          .map(Map<String, dynamic>.from)
-          .toList();
-    });
+    if (!mounted) return;
+    await _bindForm(record);
   }
 
   /// Opens the existing form editor to create a new stage form (kind 'Stage').
@@ -1789,68 +1748,6 @@ class _StageRouteSheetState extends State<_StageRouteSheet> {
           ]),
         ),
       )),
-    );
-  }
-}
-
-/// Searches existing forms without changing the source stage.
-class _StageFormChoices extends StatefulWidget {
-  const _StageFormChoices({required this.stages, required this.hasForm});
-  final List<WorkflowStage> stages;
-  final bool hasForm;
-
-  @override
-  State<_StageFormChoices> createState() => _StageFormChoicesState();
-}
-
-class _StageFormChoicesState extends State<_StageFormChoices> {
-  String query = '';
-
-  @override
-  Widget build(BuildContext context) {
-    final stages = widget.stages.where((stage) => stage.title.contains(query));
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(children: [
-        Row(children: [
-          const Expanded(
-              child: Text('انتخاب فرم',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800))),
-          IconButton(
-              onPressed: () => Navigator.pop(context),
-              tooltip: 'بستن',
-              icon: const Icon(Icons.close_rounded)),
-        ]),
-        TextField(
-          decoration: const InputDecoration(
-              hintText: 'جستجو در فرم‌های این گردش کار...',
-              prefixIcon: Icon(Icons.search_rounded)),
-          onChanged: (value) => setState(() => query = value.trim()),
-        ),
-        const SizedBox(height: 8),
-        ListTile(
-          leading:
-              const Icon(Icons.edit_note_rounded, color: AsoudColors.primary),
-          title: Text(widget.hasForm ? 'ویرایش فرم فعلی' : 'ساخت فرم اختصاصی'),
-          onTap: () => Navigator.pop(context, '__edit__'),
-        ),
-        Expanded(
-            child: ListView(children: [
-          if (stages.isEmpty)
-            const Padding(
-                padding: EdgeInsets.all(16),
-                child: Text('فرم دیگری در این گردش کار یافت نشد.')),
-          for (final stage in stages)
-            ListTile(
-              leading: const Icon(Icons.description_outlined,
-                  color: AsoudColors.primary),
-              title: Text(stage.title),
-              subtitle: const Text('استفاده از یک نسخه مستقل از فیلدهای فرم'),
-              trailing: const Icon(Icons.chevron_left_rounded),
-              onTap: () => Navigator.pop(context, stage.id),
-            ),
-        ])),
-      ]),
     );
   }
 }
