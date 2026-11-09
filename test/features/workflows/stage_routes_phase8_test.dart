@@ -279,6 +279,54 @@ void main() {
     expect(problems, isEmpty);
   });
 
+  test('a saved loop being fixed in the form is not flagged', () {
+    // Saved: A(Approve)->B(Complete)->A (a loop). Editing A to point at End.
+    final loop = WorkflowDesign(
+      workflow: _design.workflow,
+      stages: [
+        _stage('A', WorkflowStageType.approval, 'تأیید', 1,
+            {'assignment_type': 'Direct Manager'}),
+        _stage('B', WorkflowStageType.userTask, 'ثبت سند', 2),
+        _stage('E', WorkflowStageType.end, 'پایان', 3),
+      ],
+      transitions: const [
+        WorkflowTransition(id: 'T1', fromStage: 'A', toStage: 'B',
+            label: 'تأیید', condition: {'action': 'Approve'}),
+        WorkflowTransition(id: 'T2', fromStage: 'B', toStage: 'A',
+            label: 'ادامه', condition: {'action': 'Complete'}),
+      ],
+    );
+    final problems = routeProblems(
+        design: loop,
+        stage: loop.stages.firstWhere((s) => s.id == 'A'),
+        routes: {'Approve': 'E'});
+    expect(problems, isEmpty);
+  });
+
+  test('a loop created in the form is flagged', () {
+    // Saved: A(Approve)->B(Complete)->End. Editing B to point back at A.
+    final design = WorkflowDesign(
+      workflow: _design.workflow,
+      stages: [
+        _stage('A', WorkflowStageType.approval, 'تأیید', 1,
+            {'assignment_type': 'Direct Manager'}),
+        _stage('B', WorkflowStageType.userTask, 'ثبت سند', 2),
+        _stage('E', WorkflowStageType.end, 'پایان', 3),
+      ],
+      transitions: const [
+        WorkflowTransition(id: 'T1', fromStage: 'A', toStage: 'B',
+            label: 'تأیید', condition: {'action': 'Approve'}),
+        WorkflowTransition(id: 'T2', fromStage: 'B', toStage: 'E',
+            label: 'ادامه', condition: {'action': 'Complete'}),
+      ],
+    );
+    final problems = routeProblems(
+        design: design,
+        stage: design.stages.firstWhere((s) => s.id == 'B'),
+        routes: {'Complete': 'A'});
+    expect(problems, contains('مسیرهای اصلی حلقه‌ای بدون خروج به پایان فرایند می‌سازند؛ یک مسیر باید به پایان برسد.'));
+  });
+
   test('routeProblems is empty for a valid design', () {
     final problems = routeProblems(
         design: _design,

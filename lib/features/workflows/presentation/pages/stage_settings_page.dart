@@ -102,7 +102,7 @@ List<String> routeProblems({
           'مقصد بازگشت برای اصلاح باید یک ایستگاه قابل‌اجرا باشد؛ مرحلهٔ انتظار قابل اجرا نیست.');
     }
   }
-  if (_mainRouteLoops(design, stage.id)) {
+  if (_mainRouteLoops(design, stage.id, override: routes)) {
     problems.add(
         'مسیرهای اصلی حلقه‌ای بدون خروج به پایان فرایند می‌سازند؛ یک مسیر باید به پایان برسد.');
   }
@@ -110,8 +110,11 @@ List<String> routeProblems({
 }
 
 /// Follows the main route (Approve/Complete/Success) from [startId]; a cycle
-/// that never reaches an End is an unintended endless loop.
-bool _mainRouteLoops(WorkflowDesign design, String startId) {
+/// that never reaches an End is an unintended endless loop. [override] holds
+/// the routes being edited for the start stage, so a loop the user is fixing
+/// is not flagged and one they create is.
+bool _mainRouteLoops(WorkflowDesign design, String startId,
+    {Map<String, String>? override}) {
   final byId = {for (final item in design.stages) item.id: item};
   final seen = <String>{};
   var current = startId;
@@ -121,7 +124,8 @@ bool _mainRouteLoops(WorkflowDesign design, String startId) {
     if (!seen.add(current)) return true;
     final actions = _routeActions[stage.type];
     if (actions == null) return false;
-    final target = stageRoutes(design, stage)[actions.first] ?? '';
+    final source = current == startId && override != null ? override : stageRoutes(design, stage);
+    final target = source[actions.first] ?? '';
     if (target.isEmpty) return false;
     current = target;
   }
