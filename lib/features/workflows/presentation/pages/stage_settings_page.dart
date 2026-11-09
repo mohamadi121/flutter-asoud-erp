@@ -24,6 +24,9 @@ import '../widgets/workflow_graph_canvas.dart';
 import 'workflow_end_settings_page.dart';
 import 'workflow_stage_settings_page.dart';
 import '../../../form_builder/form_runtime/form_fields_view.dart';
+import '../../../form_builder/form_editor/editor_page.dart';
+import '../../../form_builder/form_runtime/form_preview_page.dart';
+import '../../../../core/auth/capabilities.dart';
 
 part 'stage_user_action.dart';
 part 'stage_approval.dart';
@@ -155,6 +158,14 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
           .whereType<Map>()
           .map(Map<String, dynamic>.from)
           .toList();
+  // A real ASOUD Form (kind 'Stage') bound to this approval stage.
+  late Map<String, dynamic>? supplementaryForm =
+      config['supplementary_form'] is Map
+          ? formMap(config['supplementary_form'])
+          : null;
+  // The bound form's title, filled by the server from the pinned revision.
+  String get _boundFormTitle =>
+      '${supplementaryForm?['title'] ?? ''}'.trim();
 
   // Automatic action.
   late String action = switch (config['action_type']?.toString()) {
@@ -172,6 +183,8 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
   bool previewingApprovalSource = false;
   bool changingApprovalDecision = false;
   final confirmedDisabledApprovalRoutes = <String>{};
+  // Whether the signed-in user may edit or copy stage forms (designer roles).
+  bool canEditForms = false;
   void _updateAction(VoidCallback update) => setState(update);
 
   @override
@@ -180,6 +193,7 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
     _initOwner();
     initialApprovalOwner = approvalOwnerFingerprint;
     if (type == WorkflowStageType.userTask) _initAction();
+    _loadFormCapabilities();
     document = CreateDocumentConfig(
         transferValues: config['transfer_values'] != false,
         remark: (config['document_remark'] ?? '').toString());
@@ -187,6 +201,12 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
     if (template.isNotEmpty) {
       _loadTemplate(template);
     }
+  }
+
+  // Designer roles may create or copy stage forms; others only bind existing.
+  Future<void> _loadFormCapabilities() async {
+    final capabilities = await capabilitiesOf(context);
+    if (mounted) setState(() => canEditForms = capabilities.canManageForms);
   }
 
   void _initOwner() {
@@ -404,7 +424,14 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
           'description': text,
           ..._assignment(),
           'approval_mode': approvalMode,
-          'form_fields': formFields.map((field) => field.toMap()).toList(),
+          // A bound stage form and the legacy inline fields are mutually
+          // exclusive; the server rejects a config that carries both.
+          'supplementary_form': supplementaryForm,
+          'form_fields': supplementaryForm == null
+              ? formFields.map((field) => field.toMap()).toList()
+              : <Map<String, dynamic>>[],
+          if (supplementaryForm == null && formLayout.isNotEmpty)
+            'form_layout': formLayout,
           'document_access': access,
           'allow_reject': allowReject,
           'allow_return': allowReturn,
@@ -1042,19 +1069,26 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
                   height: MediaQuery.sizeOf(sheetContext).height * .6,
                   child: _StageFormChoices(
                     stages: available,
-                    hasForm: formFields.isNotEmpty,
+                    hasForm: supplementaryForm != null || formFields.isNotEmpty,
                   ),
                 ))),
       ),
     );
     if (choice == null || !mounted) return;
     if (choice == '__edit__') {
-      await _editForm();
+      // A bound real form is edited (or copied) in the form editor; otherwise
+      // a new stage form is created from scratch.
+      if (supplementaryForm != null) {
+        await _editBoundForm();
+      } else {
+        await _createStageForm();
+      }
       return;
     }
     final source = available.where((stage) => stage.id == choice).firstOrNull;
     if (source == null) return;
-    if (formFields.isNotEmpty) {
+    // Picking a legacy inline form replaces whatever form the stage has now.
+    if (supplementaryForm != null || formFields.isNotEmpty) {
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
@@ -1074,6 +1108,7 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
       if (confirmed != true || !mounted) return;
     }
     setState(() {
+      supplementaryForm = null;
       formFields = (source.config['form_fields'] as List)
           .whereType<Map>()
           .map(WorkflowFormFieldDefinition.fromMap)
@@ -1082,6 +1117,112 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
           .whereType<Map>()
           .map(Map<String, dynamic>.from)
           .toList();
+    });
+  }
+
+  /// Opens the existing form editor to create a new stage form (kind 'Stage').
+  /// On a successful save+publish the new form is bound automatically.
+  Future<void> _createStageForm() async {
+    if (!canEditForms) {
+      _message('ساخت فرم به مجوز طراح نیاز دارد.');
+      return;
+    }
+    final repository = FormRepository(automation.client, company ?? '');
+    final schema = {...blankSchema('Stage'), 'title': '', 'usage': 'approval'};
+    final record = await Navigator.push<FormMap>(
+      context,
+      MaterialPageRoute(builder: (_) => FormEditorPage(
+          repository: repository,
+          initial: {'schema': schema, 'client_id': newFormId()})),
+    );
+    if (record != null && mounted) {
+      await _bindForm(record);
+    }
+  }
+
+  /// Edits a bound stage form. A default or shared form is copied first so the
+  /// original is never changed; the copy's new revision is then bound.
+  Future<void> _editBoundForm() async {
+    final binding = supplementaryForm;
+    if (binding == null || saving) return;
+    if (!canEditForms) {
+      _message('ویرایش فرم به مجوز طراح نیاز دارد.');
+      return;
+    }
+    final repository = FormRepository(automation.client, company ?? '');
+    final name = binding['form']?.toString() ?? '';
+    final usedElsewhere = widget.design.stages.any((stage) =>
+        stage.id != widget.stage.id &&
+        formMap(stage.config['supplementary_form'])['form'] == name);
+    FormMap record;
+    try {
+      record = formMap(
+          await repository.call('get_form', {'name': name, 'manage': 1}));
+    } catch (failure) {
+      if (mounted) {
+        _message(failure is ApiException
+            ? failure.message
+            : 'دریافت فرم در دسترس نیست؛ اتصال و مجوز را بررسی کنید.');
+      }
+      return;
+    }
+    if (!mounted) return;
+    if (record['builtin_key'] != null || usedElsewhere) {
+      try {
+        record = formMap(await repository.call('copy_form', {
+          'company': company ?? '',
+          'name': name,
+        }));
+      } catch (failure) {
+        if (mounted) {
+          _message(failure is ApiException
+              ? failure.message
+              : 'کپی فرم در دسترس نیست؛ اتصال و مجوز را بررسی کنید.');
+        }
+        return;
+      }
+      if (!mounted) return;
+    }
+    final edited = await Navigator.push<FormMap>(
+      context,
+      MaterialPageRoute(builder: (_) => FormEditorPage(
+          repository: repository, initial: record)),
+    );
+    if (edited != null && mounted) {
+      await _bindForm(edited);
+    }
+  }
+
+  /// Binds [record] (a saved+published form) to this stage, clearing any legacy
+  /// inline fields. Asks first when a legacy inline form exists.
+  Future<void> _bindForm(FormMap record) async {
+    if (formFields.isNotEmpty) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('جایگزینی فرم مرحله'),
+          content: const Text(
+              'فرم فعلی این مرحله با فرم انتخاب‌شده جایگزین شود؟ فیلدهای قبلی در سوابق اجراهای گذشته حفظ می‌شوند.'),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('انصراف')),
+            FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('جایگزینی')),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+    }
+    setState(() {
+      formFields = [];
+      formLayout = [];
+      supplementaryForm = {
+        'form': record['name'],
+        'revision': record['active_revision'],
+        'title': formMap(record['schema'])['title'] ?? '',
+      };
     });
   }
 

@@ -121,16 +121,30 @@ extension _ApprovalSettings on _StageSettingsPageState {
                 : 'پیش‌نمایش فرم درخواست')),
       const Divider(height: 24),
       _label('فرم تکمیلی تأیید (اختیاری)'),
-      // Existing workflow-field forms stay intact. A published Form Revision
-      // needs a backend binding; do not flatten away formulas or table schemas.
+      // A bound stage form shows its title; a legacy inline form keeps its
+      // old «N فیلد» label so old stages render unchanged.
       PickerField(
-          value: formFields.isEmpty
-              ? ''
-              : 'فرم تکمیلی · ${formatCount(formFields.length, 'فیلد')}',
+          value: supplementaryForm != null
+              ? _boundFormTitle
+              : (formFields.isEmpty
+                  ? ''
+                  : 'فرم تکمیلی · ${formatCount(formFields.length, 'فیلد')}'),
           placeholder: 'انتخاب یا ویرایش فرم مرحله',
           icon: Icons.description_outlined,
           onTap: saving ? null : _pickForm),
-      if (formFields.isNotEmpty)
+      if (supplementaryForm != null) ...[
+        TextButton.icon(
+            onPressed: saving ? null : _previewBoundForm,
+            icon: const Icon(Icons.visibility_outlined, size: 16),
+            label: const Text('پیش‌نمایش')),
+        TextButton(
+            onPressed: saving ? null : _pickForm,
+            child: const Text('تغییر فرم')),
+        TextButton(
+            onPressed: saving ? null : _removeBoundForm,
+            child: const Text('برداشتن فرم')),
+      ],
+      if (supplementaryForm == null && formFields.isNotEmpty)
         Row(children: [
           Expanded(
               child: TextButton.icon(
@@ -198,6 +212,62 @@ extension _ApprovalSettings on _StageSettingsPageState {
       }
     } finally {
       if (mounted) _updateAction(() => previewingApprovalSource = false);
+    }
+  }
+
+  // --- bound stage form (kind 'Stage') -----------------------------------------------------
+
+  /// Opens the pinned revision of the bound form in the shared preview page.
+  Future<void> _previewBoundForm() async {
+    final binding = supplementaryForm;
+    if (binding == null || saving) return;
+    final repository = FormRepository(automation.client, company ?? '');
+    try {
+      final record = formMap(await repository.call('get_form', {
+        'name': binding['form'],
+        'revision_name': binding['revision'],
+        'manage': 1,
+      }));
+      final schema = formMap(record['schema']);
+      if (schema.isEmpty) throw StateError('فرم قابل پیش‌نمایش دریافت نشد.');
+      if (!mounted) return;
+      await Navigator.push<void>(
+          context,
+          MaterialPageRoute<void>(
+              builder: (_) => FormPreviewPage(
+                  schema: schema,
+                  repository: repository,
+                  record: record,
+                  initialValues: const {})));
+    } catch (failure) {
+      if (mounted) {
+        _message(failure is ApiException
+            ? failure.message
+            : 'پیش‌نمایش فرم تکمیلی در دسترس نیست؛ اتصال و مجوز را بررسی کنید.');
+      }
+    }
+  }
+
+  /// Removes the binding only; the form and its revisions are never deleted.
+  Future<void> _removeBoundForm() async {
+    final remove = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('برداشتن فرم تکمیلی'),
+        content: const Text(
+            'فرم تکمیلی از این مرحله برداشته شود؟ خود فرم و سوابق آن حذف نمی‌شود.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('انصراف')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('برداشتن فرم')),
+        ],
+      ),
+    );
+    if (remove == true && mounted) {
+      _updateAction(() => supplementaryForm = null);
     }
   }
 
