@@ -68,12 +68,25 @@ const _options = WorkflowFormOptions(
   ],
 );
 
+/// A mutable design the route fake can rewrite, so the form -> save ->
+/// diagram round trip is exercised against the same transitions the canvas
+/// reads.
+class _Store {
+  _Store(this.design);
+  late WorkflowDesign design;
+  int loads = 0;
+}
+
 class _Workflows extends Fake implements WorkflowRepository {
-  _Workflows([this.design]);
-  final WorkflowDesign? design;
+  _Workflows(this.store);
+  final _Store store;
   final saved = <Map<String, dynamic>>[];
   @override
-  Future<WorkflowDesign> getDesign(String definition) async => design ?? _design;
+  Future<WorkflowDesign> getDesign(String definition) async {
+    store.loads++;
+    return store.design;
+  }
+
   @override
   Future<WorkflowFormOptions> getFormOptions() async => _options;
   @override
@@ -82,31 +95,57 @@ class _Workflows extends Fake implements WorkflowRepository {
       required String stage,
       required Map<String, dynamic> config}) async {
     saved.add(config);
-    return design ?? _design;
+    return store.design;
   }
 }
 
 class _Automation extends Fake implements WorkflowAutomationRepository {
+  _Automation(this.store);
+  final _Store store;
+  final routes = <Map<String, String>>[];
   @override
   bool get isLocal => false;
-  final routes = <Map<String, String>>[];
   @override
   Future<void> saveStageRoutes(
       {required String definition,
       required String stage,
       required Map<String, String> routes}) async {
     this.routes.add(routes);
+    // Apply the change the way the server does: drop the old edge for each
+    // action and add the new one.
+    final actions = {'Approve': 'تأیید', 'Reject': 'رد', 'Return': 'بازگشت برای اصلاح'};
+    final kept = store.design.transitions
+        .where((e) => e.fromStage != stage)
+        .toList(growable: true);
+    for (final entry in routes.entries) {
+      kept.removeWhere((e) =>
+          e.fromStage == stage &&
+          (e.condition['action']?.toString() ?? e.label) == entry.key);
+      if (entry.value.isNotEmpty) {
+        kept.add(WorkflowTransition(
+            id: 'RT-${entry.key}',
+            fromStage: stage,
+            toStage: entry.value,
+            label: actions[entry.key],
+            condition: {'action': entry.key}));
+      }
+    }
+    store.design = WorkflowDesign(
+        workflow: store.design.workflow,
+        stages: store.design.stages,
+        transitions: kept);
   }
 }
 
-Future<(_Workflows, _Automation)> _open(
+Future<(_Workflows, _Automation, WorkflowDesignerCubit)> _open(
     WidgetTester tester, String stageId, {WorkflowDesign? designOverride}) async {
-  final design = designOverride ?? _design;
-  final workflows = _Workflows(design);
-  final automation = _Automation();
+  final store = _Store(designOverride ?? _design);
+  final workflows = _Workflows(store);
+  final automation = _Automation(store);
   final cubit =
       WorkflowDesignerCubit(repository: workflows, definition: 'WF-1');
   await cubit.load();
+  final design = store.design;
   await tester.pumpWidget(MaterialApp(
     theme: AsoudTheme.light,
     builder: (context, child) =>
@@ -117,17 +156,20 @@ Future<(_Workflows, _Automation)> _open(
         builder: (context) => Scaffold(
           body: Center(
             child: FilledButton(
-              onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute<void>(
-                      builder: (_) => BlocProvider.value(
-                          value: cubit,
-                          child: StageSettingsPage(
-                              stage: design.stages
-                                  .firstWhere((stage) => stage.id == stageId),
-                              design: design,
-                              options: _options,
-                              automation: automation)))),
+              onPressed: () {
+                final current = cubit.state.design ?? design;
+                Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                        builder: (_) => BlocProvider.value(
+                            value: cubit,
+                            child: StageSettingsPage(
+                                stage: current.stages
+                                    .firstWhere((stage) => stage.id == stageId),
+                                design: current,
+                                options: _options,
+                                automation: automation))));
+              },
               child: const Text('باز کردن'),
             ),
           ),
@@ -137,7 +179,7 @@ Future<(_Workflows, _Automation)> _open(
   ));
   await tester.tap(find.text('باز کردن'));
   await tester.pumpAndSettle();
-  return (workflows, automation);
+  return (workflows, automation, cubit);
 }
 
 Future<void> _tap(WidgetTester tester, Finder finder) async {
@@ -250,18 +292,34 @@ void main() {
       (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    final (workflows, automation) = await _open(tester, 'S2');
+    final (workflows, automation, cubit) = await _open(tester, 'S2');
     // The Approve route already points at the user task S3 (ثبت سند).
     await _tap(tester, find.byKey(const ValueKey('approval-diagram-expand')));
     final preview = find.byKey(const ValueKey('approval-diagram-preview'));
     await _scrollToFinder(tester, preview);
     expect(find.byKey(const ValueKey('approval-preview-target-Approve-S3')),
         findsOneWidget);
-    // Reopen the form: the saved transition is the single source, so the form
-    // shows the same target.
-    expect(find.text('ثبت سند'), findsWidgets);
-    expect(workflows.saved, isEmpty);
-    expect(automation.routes, isEmpty);
+    // Change the Approve target in the form to the end stage and save.
+    await _tap(tester, find.byKey(const ValueKey('approval-route-Approve')));
+    await tester.enterText(
+        find.widgetWithText(TextField, 'جستجو در مراحل گردش کار...'),
+        'پایان فرایند');
+    await tester.pumpAndSettle();
+    await _tap(tester, find.text('پایان فرایند').last);
+    await _tap(tester, find.text('ذخیره'));
+    await tester.pumpAndSettle();
+    // The form saved only the changed route.
+    expect(automation.routes.single, {'Approve': 'S4'});
+    // The page popped; reopen the same stage. The saved transition is the
+    // single source, so the diagram now shows the new target.
+    await tester.tap(find.text('باز کردن'));
+    await tester.pumpAndSettle();
+    await _tap(tester, find.byKey(const ValueKey('approval-diagram-expand')));
+    await _scrollToFinder(tester, preview);
+    expect(find.byKey(const ValueKey('approval-preview-target-Approve-S4')),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('approval-preview-target-Approve-S3')),
+        findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -270,7 +328,7 @@ void main() {
         (tester) async {
       await tester.binding.setSurfaceSize(Size(width, 900));
       addTearDown(() => tester.binding.setSurfaceSize(null));
-      final (workflows, automation) = await _open(tester, 'S2');
+      final (workflows, automation, _) = await _open(tester, 'S2');
       // Return is allowed by default for an approval; point it at the end stage.
       await _tap(tester, find.byKey(const ValueKey('approval-route-Return')));
       await tester.enterText(
