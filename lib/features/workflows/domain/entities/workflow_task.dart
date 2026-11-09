@@ -130,6 +130,7 @@ class WorkflowTaskDetail extends Equatable {
     this.requiresClaim = false, this.allowDraft = true, this.allowAddAttachments = false,
     this.documentAccess = 'Read Only',
     this.allowReassign = false, this.allowOriginalAccess = true,
+    this.supplementaryForm = const {},
   });
   final String requestName, requestCompany;
   final WorkflowTask task;
@@ -150,6 +151,10 @@ class WorkflowTaskDetail extends Equatable {
   final bool requiresClaim, allowDraft, allowAddAttachments;
   final String documentAccess;
   final bool allowReassign, allowOriginalAccess;
+
+  /// The approval stage's supplementary form (contract C6): `{form, revision,
+  /// title, schema, values}`. Empty when the stage has no binding.
+  final Map<String, dynamic> supplementaryForm;
   @override
   List<Object> get props => [
         task,
@@ -170,7 +175,7 @@ class WorkflowTaskDetail extends Equatable {
         requestValues,
         submittedForm,
         actionSchema, actionForm, actionCompany, actionMode, requiresClaim, allowDraft, allowAddAttachments, documentAccess,
-        allowReassign, allowOriginalAccess,
+        allowReassign, allowOriginalAccess, supplementaryForm,
       ];
 }
 
