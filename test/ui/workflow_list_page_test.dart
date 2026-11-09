@@ -1,13 +1,45 @@
 import 'package:asoud_erp/core/network/frappe_client.dart';
 import 'package:asoud_erp/features/workflows/domain/entities/workflow_definition.dart';
 import 'package:asoud_erp/features/workflows/domain/repositories/workflow_repository.dart';
+import 'package:asoud_erp/features/workflows/presentation/cubit/workflow_form_cubit.dart';
 import 'package:asoud_erp/features/workflows/presentation/pages/workflow_list_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class _WorkflowRepository implements WorkflowRepository {
+  final workflows = <WorkflowDefinition>[
+    const WorkflowDefinition(
+      id: 'WF-1404-001',
+      code: 'WF-1404-001',
+      title: 'فرایند خرید کالا',
+      targetDoctype: 'Material Request',
+      status: WorkflowDefinitionStatus.active,
+      isLocked: false,
+      version: 1,
+      stepsCount: 4,
+      modified: null,
+      company: 'شرکت دوم',
+      iconKey: 'purchase',
+    ),
+    const WorkflowDefinition(
+      id: 'WF-1404-002',
+      code: 'WF-1404-002',
+      title: 'درخواست مرخصی',
+      targetDoctype: 'Leave Application',
+      status: WorkflowDefinitionStatus.inactive,
+      isLocked: true,
+      version: 1,
+      stepsCount: 0,
+      modified: null,
+      company: 'شرکت دوم',
+      pendingReason: 'برای اجرا به HRMS نیاز دارد',
+      missingRequirements: ['HRMS'],
+      iconKey: 'leave',
+    ),
+  ];
   final openedDefinitions = <String>[];
+  int listCalls = 0;
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
   @override
@@ -45,7 +77,7 @@ class _WorkflowRepository implements WorkflowRepository {
   @override
   Future<WorkflowDesign> getDesign(String definition) async {
     openedDefinitions.add(definition);
-    final workflow = (await getWorkflows()).singleWhere((item) => item.id == definition);
+    final workflow = workflows.singleWhere((item) => item.id == definition);
     return WorkflowDesign(workflow: workflow, stages: [
       WorkflowStage(id: 'start', key: 'start', type: WorkflowStageType.start, title: 'شروع',
           sequence: 0, configurationComplete: !workflow.isLocked,
@@ -79,23 +111,27 @@ class _WorkflowRepository implements WorkflowRepository {
     String? company,
     String? iconKey,
     String? colorHex,
-  }) async =>
-      const WorkflowDefinition(
-        id: 'WF-1405-001',
-        code: 'WF-1405-001',
-        title: 'فرایند آزمایشی',
-        targetDoctype: 'Material Request',
-        status: WorkflowDefinitionStatus.inactive,
-        isLocked: true,
-        version: 1,
-        stepsCount: 0,
-        modified: null,
-      );
+  }) async {
+    final draft = WorkflowDefinition(
+      id: 'WF-1405-039',
+      code: 'WF-1405-039',
+      title: title,
+      targetDoctype: targetDoctype,
+      status: WorkflowDefinitionStatus.inactive,
+      isLocked: true,
+      version: 1,
+      stepsCount: 0,
+      modified: null,
+      company: company,
+    );
+    workflows.add(draft);
+    return draft;
+  }
 
   @override
   Future<WorkflowFormOptions> getFormOptions() async =>
       const WorkflowFormOptions(
-        companies: ['شرکت نمونه'],
+        companies: ['شرکت نمونه', 'شرکت دوم'],
         modules: [
           WorkflowModuleOption(
             key: 'Purchase',
@@ -111,35 +147,17 @@ class _WorkflowRepository implements WorkflowRepository {
     WorkflowDefinitionStatus? status,
     String? company,
     String orderBy = 'modified desc',
-  }) async =>
-      const [
-        WorkflowDefinition(
-          id: 'WF-1404-001',
-          code: 'WF-1404-001',
-          title: 'فرایند خرید کالا',
-          targetDoctype: 'Material Request',
-          status: WorkflowDefinitionStatus.active,
-          isLocked: false,
-          version: 1,
-          stepsCount: 4,
-          modified: null,
-          iconKey: 'purchase',
-        ),
-        WorkflowDefinition(
-          id: 'WF-1404-002',
-          code: 'WF-1404-002',
-          title: 'درخواست مرخصی',
-          targetDoctype: 'Leave Application',
-          status: WorkflowDefinitionStatus.inactive,
-          isLocked: true,
-          version: 1,
-          stepsCount: 0,
-          modified: null,
-          pendingReason: 'برای اجرا به HRMS نیاز دارد',
-          missingRequirements: ['HRMS'],
-          iconKey: 'leave',
-        ),
-      ];
+  }) async {
+    listCalls++;
+    return workflows
+        .where((item) => company == null || item.company == company)
+        .where((item) => status == null || item.status == status)
+        .where((item) =>
+            search == null ||
+            item.title.toLowerCase().contains(search.toLowerCase()) ||
+            item.code.toLowerCase().contains(search.toLowerCase()))
+        .toList(growable: false);
+  }
 }
 
 class _HrClient extends Fake implements FrappeApiClient {
@@ -189,7 +207,7 @@ void main() {
 
     expect(find.text('گردش‌کارها'), findsOneWidget);
     expect(find.text('فرایند خرید کالا'), findsOneWidget);
-    expect(find.text('نیازمند تکمیل'), findsOneWidget);
+    expect(find.text('پیش‌نویس'), findsOneWidget);
     expect(find.text('ایجاد گردش‌کار جدید'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.tap(find.byTooltip('عملیات فرایند').first);
@@ -213,6 +231,83 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('اطلاعات پایه فرایند را وارد کنید'), findsOneWidget);
+  });
+
+  testWidgets('ایجاد از فهرست شرکت‌محور همان شرکت را به پیش‌نویس می‌دهد',
+      (tester) async {
+    await tester.pumpWidget(
+      RepositoryProvider<WorkflowRepository>.value(
+        value: _WorkflowRepository(),
+        child: const MaterialApp(
+          home: WorkflowListPage(company: 'شرکت دوم'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ایجاد گردش‌کار جدید'));
+    await tester.pumpAndSettle();
+
+    final title = find.byKey(const ValueKey('workflow-title'));
+    expect(
+      tester.element(title).read<WorkflowFormCubit>().state.company,
+      'شرکت دوم',
+    );
+  });
+
+  testWidgets('پیش‌نویس پس از طراحی تازه‌سازی، جست‌وجو و دوباره باز می‌شود',
+      (tester) async {
+    final repository = _WorkflowRepository();
+    await tester.pumpWidget(
+      RepositoryProvider<WorkflowRepository>.value(
+        value: repository,
+        child: const MaterialApp(
+          home: WorkflowListPage(company: 'شرکت دوم'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final initialListCalls = repository.listCalls;
+
+    await tester.tap(find.text('ایجاد گردش‌کار جدید'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+        find.byKey(const ValueKey('workflow-title')), 'مرخصی تست');
+    await tester.tap(find.text('ذخیره و طراحی مراحل'));
+    await tester.pumpAndSettle();
+    expect(find.text('طراحی فرایند'), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(repository.listCalls, greaterThan(initialListCalls));
+    expect(repository.workflows.last.company, 'شرکت دوم');
+    expect(find.text('مرخصی تست'), findsOneWidget);
+    expect(find.text('WF-1405-039'), findsOneWidget);
+    expect(find.text('پیش‌نویس'), findsWidgets);
+
+    final search = find.byType(TextField).first;
+    await tester.enterText(search, 'مرخصی تست');
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pumpAndSettle();
+    expect(find.text('مرخصی تست'), findsWidgets);
+    expect(find.text('فرایند خرید کالا'), findsNothing);
+
+    await tester.enterText(search, 'WF-1405-039');
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pumpAndSettle();
+    expect(find.text('مرخصی تست'), findsOneWidget);
+    expect(find.text('WF-1405-039'), findsWidgets);
+
+    await tester.tap(find.byTooltip('عملیات فرایند'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('طراحی مراحل و فرم درخواست'));
+    await tester.pumpAndSettle();
+    expect(find.text('طراحی فرایند'), findsOneWidget);
+    expect(find.text('مرخصی تست'), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('مرخصی تست'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('مدیر منابع انسانی کنترل‌های نوشتن گردش‌کار را نمی‌بیند',

@@ -11,10 +11,16 @@ import '../../domain/repositories/workflow_repository.dart';
 part 'workflow_form_state.dart';
 
 class WorkflowFormCubit extends Cubit<WorkflowFormState> {
-  WorkflowFormCubit({required this.repository, this.existing, this.templates})
+  WorkflowFormCubit({
+    required this.repository,
+    this.existing,
+    this.initialCompany,
+    this.templates,
+  })
       : super(const WorkflowFormState());
   final WorkflowRepository repository;
   final WorkflowDefinition? existing;
+  final String? initialCompany;
   final WorkflowTemplateRepository? templates;
   WorkflowDefinition? _workingDraft;
   WorkflowStartSettings _initialStartSettings = const WorkflowStartSettings();
@@ -35,7 +41,10 @@ class WorkflowFormCubit extends Cubit<WorkflowFormState> {
         status: WorkflowFormStatus.ready,
         startSettings: start,
         options: options,
-        company: existing?.company ?? options.companies.firstOrNull ?? '',
+        company: existing?.company ??
+            initialCompany ??
+            options.companies.firstOrNull ??
+            '',
         moduleKey: existing?.moduleKey ?? firstModule?.key ?? '',
         targetDoctype: existing?.targetDoctype ?? 'ASOUD Workflow Request',
         title: existing?.title ?? '',

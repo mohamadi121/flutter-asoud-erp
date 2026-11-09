@@ -13,8 +13,9 @@ import '../widgets/workflow_start_section.dart';
 import 'workflow_designer_page.dart';
 
 class WorkflowFormPage extends StatelessWidget {
-  const WorkflowFormPage({this.existing, super.key});
+  const WorkflowFormPage({this.existing, this.company, super.key});
   final WorkflowDefinition? existing;
+  final String? company;
 
   @override
   Widget build(BuildContext context) => BlocProvider(
@@ -24,6 +25,7 @@ class WorkflowFormPage extends StatelessWidget {
           return WorkflowFormCubit(
           repository: context.read<WorkflowRepository>(),
           existing: existing,
+          initialCompany: company,
           templates: client == null ? null : WorkflowTemplateRepository(client, includeUser: true),
         )..load(); },
         child: const _WorkflowFormView(),
