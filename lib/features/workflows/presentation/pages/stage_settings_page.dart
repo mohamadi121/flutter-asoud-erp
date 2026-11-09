@@ -61,6 +61,72 @@ Map<String, String> stageRoutes(WorkflowDesign design, WorkflowStage stage) {
   return routes;
 }
 
+String _routeActionLabel(String action) => switch (action) {
+      'Approve' => 'تأیید',
+      'Reject' => 'رد',
+      'Return' => 'بازگشت برای اصلاح',
+      'Complete' => 'ادامه',
+      'Success' => 'موفقیت',
+      'Error' => 'خطا',
+      _ => action,
+    };
+
+/// Persian warnings for a stage's exit routes, checked before saving.
+/// An empty target is the engine default (end / latest editable task) and is
+/// not a problem. A correction loop (Return to an earlier task) is allowed;
+/// only a main route that cycles without reaching an End is flagged.
+List<String> routeProblems({
+  required WorkflowDesign design,
+  required WorkflowStage stage,
+  required Map<String, String> routes,
+}) {
+  final actions = _routeActions[stage.type] ?? const <String>[];
+  final problems = <String>[];
+  final byId = {for (final item in design.stages) item.id: item};
+  for (final action in actions) {
+    final target = routes[action] ?? '';
+    if (target.isEmpty) continue;
+    final destination = byId[target];
+    if (destination == null) {
+      problems.add(
+          'مقصد «${_routeActionLabel(action)}» به مرحله‌ای خارج از این گردش‌کار اشاره می‌کند؛ دوباره انتخاب کنید.');
+    } else if (destination.id == stage.id) {
+      problems.add('مقصد «${_routeActionLabel(action)}» نمی‌تواند خودِ این مرحله باشد.');
+    } else if (destination.type == WorkflowStageType.start) {
+      problems.add('مقصد «${_routeActionLabel(action)}» نمی‌تواند مرحلهٔ شروع باشد.');
+    } else if (action == 'Return' && destination.type == WorkflowStageType.end) {
+      problems.add(
+          'مقصد بازگشت برای اصلاح نباید پایان فرایند باشد؛ یک ایستگاه قابل‌اجرای قبلی را انتخاب کنید.');
+    } else if (action == 'Return' && destination.type == WorkflowStageType.wait) {
+      problems.add(
+          'مقصد بازگشت برای اصلاح باید یک ایستگاه قابل‌اجرا باشد؛ مرحلهٔ انتظار قابل اجرا نیست.');
+    }
+  }
+  if (_mainRouteLoops(design, stage.id)) {
+    problems.add(
+        'مسیرهای اصلی حلقه‌ای بدون خروج به پایان فرایند می‌سازند؛ یک مسیر باید به پایان برسد.');
+  }
+  return problems;
+}
+
+/// Follows the main route (Approve/Complete/Success) from [startId]; a cycle
+/// that never reaches an End is an unintended endless loop.
+bool _mainRouteLoops(WorkflowDesign design, String startId) {
+  final byId = {for (final item in design.stages) item.id: item};
+  final seen = <String>{};
+  var current = startId;
+  while (true) {
+    final stage = byId[current];
+    if (stage == null || stage.type == WorkflowStageType.end) return false;
+    if (!seen.add(current)) return true;
+    final actions = _routeActions[stage.type];
+    if (actions == null) return false;
+    final target = stageRoutes(design, stage)[actions.first] ?? '';
+    if (target.isEmpty) return false;
+    current = target;
+  }
+}
+
 /// Settings of a user task, approval or automatic stage, laid out per type.
 class StageSettingsPage extends StatefulWidget {
   const StageSettingsPage({
@@ -373,6 +439,8 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
     }
     final main = _routeActions[type]!.first;
     if (type != WorkflowStageType.userTask && (routes[main] ?? '').isEmpty) return 'مسیر خروجی اصلی را انتخاب کنید.';
+    final routeProblem = routeProblems(design: widget.design, stage: widget.stage, routes: routes).firstOrNull;
+    if (routeProblem != null) return routeProblem;
     return null;
   }
 
