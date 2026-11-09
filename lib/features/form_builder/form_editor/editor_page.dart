@@ -47,6 +47,8 @@ class _FormEditorPageState extends State<FormEditorPage> {
   FormMap preview = {}, options = {};
   String? error, notice;
   bool busy = false, dirty = false, previewMode = false;
+  // Set after a successful publish so the caller can bind the new revision.
+  FormMap? result;
   Timer? autosave;
   final previewKey = GlobalKey<FormState>();
 
@@ -119,11 +121,11 @@ class _FormEditorPageState extends State<FormEditorPage> {
       error = null;
     });
     try {
-      final result =
+      final saved =
           await widget.repository.save({...record, 'schema': schema});
       if (!mounted) return false;
-      record = result;
-      if (action != null && result['local'] == true) {
+      record = saved;
+      if (action != null && saved['local'] == true) {
         throw StateError(
           'پیش‌نویس روی دستگاه ذخیره شد؛ انتشار یا ارسال به سرور نیاز دارد.',
         );
@@ -138,6 +140,7 @@ class _FormEditorPageState extends State<FormEditorPage> {
           })),
           'client_id': record['client_id'],
         };
+        if (action == 'publish') result = record;
       }
       if (mounted) {
         setState(() {
@@ -178,16 +181,16 @@ class _FormEditorPageState extends State<FormEditorPage> {
       return;
     }
     if (!dirty) {
-      Navigator.pop(context);
+      Navigator.pop(context, result);
       return;
     }
     final action = await showUnsavedChangesDialog(context);
     if (!mounted) return;
     if (action == UnsavedChangesAction.discardAndExit) {
-      Navigator.pop(context);
+      Navigator.pop(context, result);
     } else if (action == UnsavedChangesAction.saveAndExit) {
       final success = await save();
-      if (success && mounted) Navigator.pop(context);
+      if (success && mounted) Navigator.pop(context, result);
     }
   }
 
@@ -226,7 +229,9 @@ class _FormEditorPageState extends State<FormEditorPage> {
         : 'شرکت نمونه آسود';
 
     return PopScope(
-      canPop: !dirty && !previewMode,
+      // After a publish the route must return the record, so the system back
+      // gesture is routed through handleBack instead of popping with null.
+      canPop: !dirty && !previewMode && result == null,
       onPopInvokedWithResult: (popped, _) async {
         if (!popped) await handleBack();
       },
