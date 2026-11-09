@@ -225,6 +225,7 @@ const workflowStatusLabels = <String, String>{
   'Rejected': 'ردشده',
   'Returned': 'بازگردانده‌شده',
   'Cancelled': 'لغوشده',
+  'Stopped': 'متوقف‌شده',
   'Closed': 'بسته‌شده',
   'Active': 'فعال',
   'Inactive': 'غیرفعال',
