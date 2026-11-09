@@ -7,6 +7,8 @@ import '../../../../core/widgets/asoud_ui.dart';
 import '../../domain/entities/workflow_definition.dart';
 import '../../domain/repositories/workflow_repository.dart';
 import '../cubit/workflow_designer_cubit.dart';
+import '../widgets/workflow_check_sheet.dart';
+import '../widgets/workflow_dry_run_sheet.dart';
 import '../widgets/workflow_graph_canvas.dart';
 import '../widgets/workflow_system_copy_dialog.dart';
 import 'stage_settings_page.dart';
@@ -57,7 +59,8 @@ class _DesignerView extends StatelessWidget {
               subtitle: design.workflow.title,
               action: IconButton(
                 tooltip: 'تنظیمات فرایند',
-                onPressed: () => _editWorkflow(context),
+                onPressed: () => _showWorkflowMenu(context, design,
+                    state.offlinePreview),
                 icon: const Icon(Icons.settings_outlined),
               ),
             ),
@@ -202,6 +205,78 @@ class _DesignerView extends StatelessWidget {
     if (!cubit.isClosed) {
       await cubit.load();
     }
+  }
+
+  Future<void> _showWorkflowMenu(
+      BuildContext context, WorkflowDesign design, bool offlinePreview) async {
+    final client = context.read<FrappeApiClient>();
+    final choice = await showModalBottomSheet<_WorkflowMenuChoice>(
+      context: context,
+      showDragHandle: true,
+      builder: (_) => const _WorkflowMenuSheet(),
+    );
+    if (choice == null || !context.mounted) return;
+    switch (choice) {
+      case _WorkflowMenuChoice.edit:
+        await _editWorkflow(context);
+      case _WorkflowMenuChoice.validate:
+        await _openCheckSheet(context, design, offlinePreview, client);
+      case _WorkflowMenuChoice.dryRun:
+        await _openDryRunSheet(context, design, offlinePreview, client);
+    }
+  }
+
+  Future<void> _openCheckSheet(BuildContext context, WorkflowDesign design,
+      bool offlinePreview, FrappeApiClient client) async {
+    if (offlinePreview) {
+      await _showServerOnlySheet(context, 'بررسی اعتبار گردش کار');
+      return;
+    }
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => WorkflowCheckSheet(
+          definition: design.workflow.id, design: design, client: client),
+    );
+  }
+
+  Future<void> _openDryRunSheet(BuildContext context, WorkflowDesign design,
+      bool offlinePreview, FrappeApiClient client) async {
+    if (offlinePreview) {
+      await _showServerOnlySheet(context, 'اجرای آزمایشی فرایند');
+      return;
+    }
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => WorkflowDryRunSheet(
+          definition: design.workflow.id, design: design, client: client),
+    );
+  }
+
+  Future<void> _showServerOnlySheet(
+      BuildContext context, String title) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text(title,
+                style:
+                    const TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 10),
+            const Text(
+              'این قابلیت برای بررسی نسخهٔ ذخیره‌شده به سرور نیاز دارد و در پیش‌نمایش آفلاین در دسترس نیست.',
+              style: TextStyle(fontSize: 11, height: 1.6),
+            ),
+          ]),
+        ),
+      ),
+    );
   }
 
   Future<void> _insertStage(
@@ -619,6 +694,62 @@ class _StagePickerSheet extends StatelessWidget {
               );
             },
           ),
+        ]),
+      ),
+    );
+  }
+}
+
+enum _WorkflowMenuChoice { edit, validate, dryRun }
+
+class _WorkflowMenuSheet extends StatelessWidget {
+  const _WorkflowMenuSheet();
+  @override
+  Widget build(BuildContext context) {
+    const items = [
+      (_WorkflowMenuChoice.edit, Icons.edit_outlined,
+          'ویرایش تنظیمات گردش کار', 'محرک شروع، نقش‌ها و مشخصات فرایند'),
+      (_WorkflowMenuChoice.validate, Icons.verified_user_outlined,
+          'بررسی اعتبار گردش کار', 'یافتن خطاها و هشدارها قبل از فعال‌سازی'),
+      (_WorkflowMenuChoice.dryRun, Icons.play_circle_outline_rounded,
+          'اجرای آزمایشی فرایند', 'پیمایش مرحله‌به‌مرحله بدون اثر واقعی'),
+    ];
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 18),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Text('تنظیمات فرایند',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+          const SizedBox(height: 12),
+          for (final item in items)
+            InkWell(
+              onTap: () => Navigator.pop(context, item.$1),
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  border: Border.all(color: AsoudColors.border),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Row(children: [
+                  AsoudIconBox(icon: item.$2, color: AsoudColors.primary),
+                  const SizedBox(width: 10),
+                  Expanded(child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(item.$3,
+                            style: const TextStyle(
+                                fontSize: 12, fontWeight: FontWeight.w900)),
+                        const SizedBox(height: 2),
+                        Text(item.$4,
+                            style: const TextStyle(
+                                fontSize: 9, color: AsoudColors.muted)),
+                      ])),
+                ]),
+              ),
+            ),
         ]),
       ),
     );
