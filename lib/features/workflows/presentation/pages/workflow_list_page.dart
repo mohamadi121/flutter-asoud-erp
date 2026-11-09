@@ -18,6 +18,7 @@ import '../../domain/repositories/workflow_repository.dart';
 import '../../domain/repositories/workflow_notification_repository.dart';
 import '../cubit/workflow_list_cubit.dart';
 import '../widgets/workflow_details_dialog.dart';
+import '../widgets/workflow_system_copy_dialog.dart';
 import '../../data/repositories/frappe_workflow_repository.dart';
 import 'workflow_form_page.dart';
 import 'workflow_notifications_page.dart';
@@ -472,6 +473,9 @@ class _WorkflowCardState extends State<_WorkflowCard> {
                   if (widget.canManageWorkflows) const PopupMenuItem(
                       value: 'design',
                       child: Text('طراحی مراحل و فرم درخواست')),
+                  if (widget.canManageWorkflows && item.isSystemTemplate)
+                    const PopupMenuItem(
+                        value: 'copy-system', child: Text('ایجاد کپی مستقل')),
                   if (widget.canManageWorkflows) PopupMenuItem(
                     value: 'activate',
                     child: Text(item.status == WorkflowDefinitionStatus.active
@@ -495,6 +499,8 @@ class _WorkflowCardState extends State<_WorkflowCard> {
                     Navigator.of(context).push(MaterialPageRoute<void>(
                       builder: (_) => WorkflowDesignerPage(definition: item.id),
                     ));
+                  } else if (value == 'copy-system') {
+                    _copySystem(context).ignore();
                   } else if (value == 'activate' || value == 'delete') {
                     _operate(value).ignore();
                   }
@@ -530,6 +536,19 @@ class _WorkflowCardState extends State<_WorkflowCard> {
       await Navigator.of(context).push(MaterialPageRoute<void>(
           builder: (_) => WorkflowDesignerPage(definition: item.id)));
     }
+  }
+
+  Future<void> _copySystem(BuildContext context) async {
+    final cubit = context.read<WorkflowListCubit>();
+    final created = await showDialog<WorkflowDefinition>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => WorkflowSystemCopyDialog(
+            source: item, client: context.read<FrappeApiClient>()));
+    if (created == null || !context.mounted) return;
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => WorkflowDesignerPage(definition: created.id)));
+    if (!cubit.isClosed) await cubit.load();
   }
 }
 

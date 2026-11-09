@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/network/frappe_client.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../domain/entities/workflow_definition.dart';
 import '../../domain/repositories/workflow_repository.dart';
 import '../cubit/workflow_designer_cubit.dart';
 import '../widgets/workflow_graph_canvas.dart';
+import '../widgets/workflow_system_copy_dialog.dart';
 import 'stage_settings_page.dart';
 import 'workflow_stage_settings_page.dart';
 import 'workflow_form_page.dart';
@@ -34,8 +36,7 @@ class _DesignerView extends StatelessWidget {
       BlocConsumer<WorkflowDesignerCubit, WorkflowDesignerState>(
         listenWhen: (previous, current) =>
             previous.message != current.message && current.message != null,
-        listener: (context, state) => ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(state.message!))),
+        listener: (context, state) => _onMessage(context, state),
         builder: (context, state) {
           final design = state.design;
           if (design == null) {
@@ -62,6 +63,8 @@ class _DesignerView extends StatelessWidget {
             ),
             body: Column(children: [
               if (state.offlinePreview) const AsoudOfflinePreviewBanner(),
+              if (design.workflow.isSystemTemplate)
+                _SystemWorkflowBanner(workflow: design.workflow),
               _DraftBanner(
                   workflow: design.workflow,
                   saving: state.status == WorkflowDesignerStatus.saving,
@@ -97,6 +100,34 @@ class _DesignerView extends StatelessWidget {
           );
         },
       );
+
+  void _onMessage(BuildContext context, WorkflowDesignerState state) {
+    final message = state.message!;
+    final workflow = state.design?.workflow;
+    final messenger = ScaffoldMessenger.of(context);
+    if (message.contains('ابتدا یک کپی مستقل') &&
+        workflow != null &&
+        workflow.isSystemTemplate) {
+      messenger.showSnackBar(SnackBar(
+          content: Text(message),
+          action: SnackBarAction(
+              label: 'ایجاد کپی مستقل',
+              onPressed: () => _copySystem(context, workflow).ignore())));
+      return;
+    }
+    messenger.showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _copySystem(BuildContext context, WorkflowDefinition workflow) async {
+    final created = await showDialog<WorkflowDefinition>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => WorkflowSystemCopyDialog(
+            source: workflow, client: context.read<FrappeApiClient>()));
+    if (created == null || !context.mounted) return;
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => WorkflowDesignerPage(definition: created.id)));
+  }
 
   Future<void> _openStage(BuildContext context, WorkflowStage stage,
       WorkflowFormOptions? options) async {
@@ -336,6 +367,52 @@ class _DraftBanner extends StatelessWidget {
         ]),
       );
   }
+}
+
+/// A system workflow cannot be edited in place; the only path is an
+/// independent copy, so the designer offers it directly.
+class _SystemWorkflowBanner extends StatelessWidget {
+  const _SystemWorkflowBanner({required this.workflow});
+  final WorkflowDefinition workflow;
+
+  Future<void> _copy(BuildContext context) async {
+    final created = await showDialog<WorkflowDefinition>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => WorkflowSystemCopyDialog(
+            source: workflow, client: context.read<FrappeApiClient>()));
+    if (created == null || !context.mounted) return;
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => WorkflowDesignerPage(definition: created.id)));
+  }
+
+  @override
+  Widget build(BuildContext context) => Container(
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        decoration: BoxDecoration(
+          color: AsoudColors.warning.withValues(alpha: .06),
+          border: Border.all(color: AsoudColors.warning.withValues(alpha: .2)),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(children: [
+          const Icon(Icons.lock_outline_rounded,
+              color: AsoudColors.warning, size: 19),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'این الگوی سیستمی است و ویرایش مستقیم ندارد؛ برای تغییر، کپی مستقل بسازید.',
+              style: TextStyle(fontSize: 9, color: AsoudColors.warning),
+            ),
+          ),
+          TextButton(
+              onPressed: () => _copy(context).ignore(),
+              style: TextButton.styleFrom(
+                  foregroundColor: AsoudColors.warning,
+                  padding: const EdgeInsets.symmetric(horizontal: 8)),
+              child: const Text('ایجاد کپی مستقل')),
+        ]),
+      );
 }
 
 // Kept temporarily to preserve the locked linear preview implementation.

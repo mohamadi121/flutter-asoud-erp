@@ -428,6 +428,7 @@ class FrappeWorkflowRepository
       version: int.tryParse(item['version_no']?.toString() ?? '') ?? 1,
       stepsCount: int.tryParse(item['steps_count']?.toString() ?? '') ?? 0,
       modified: DateTime.tryParse(item['modified']?.toString() ?? ''),
+      modifiedRaw: item['modified']?.toString(),
       company: item['company']?.toString(),
       description: item['process_description']?.toString(),
       moduleKey: item['module_key']?.toString(),

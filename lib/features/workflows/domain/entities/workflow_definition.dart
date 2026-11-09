@@ -13,6 +13,7 @@ class WorkflowDefinition extends Equatable {
     required this.version,
     required this.stepsCount,
     required this.modified,
+    this.modifiedRaw,
     this.company,
     this.description,
     this.moduleKey,
@@ -37,6 +38,8 @@ class WorkflowDefinition extends Equatable {
   final bool isLocked;
   final int version, stepsCount;
   final DateTime? modified;
+  /// Raw `modified` string from the server, needed verbatim by `create_from_template`.
+  final String? modifiedRaw;
   final String? company, description, moduleKey, creationMode;
   final String? frappeWorkflow, pendingReason, iconKey, colorHex;
   final String? shortTitle, category;
