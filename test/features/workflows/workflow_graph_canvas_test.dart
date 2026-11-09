@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:asoud_erp/core/theme/asoud_theme.dart';
 import 'package:asoud_erp/features/workflows/domain/entities/workflow_definition.dart';
 import 'package:asoud_erp/features/workflows/presentation/widgets/workflow_graph_canvas.dart';
+import 'package:asoud_erp/features/workflows/presentation/widgets/workflow_graph_geometry.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -236,5 +237,76 @@ void main() {
         picture.dispose();
       });
     }
+  });
+
+  testWidgets(
+      'an approval with three saved routes draws three labelled edges, none ending on the plus',
+      (tester) async {
+    final approval =
+        node(WorkflowStageType.approval, title: 'تأیید درخواست', x: 155, y: 215);
+    final start = node(WorkflowStageType.start, title: 'شروع', x: 155, y: 40);
+    final task =
+        node(WorkflowStageType.userTask, title: 'ادامه فرایند', x: 155, y: 390);
+    final end = node(WorkflowStageType.end, title: 'پایان', x: 155, y: 565);
+    final edges = [
+      WorkflowTransition(id: 'e-approve', fromStage: approval.id, toStage: task.id,
+          condition: {'action': 'Approve'}),
+      WorkflowTransition(id: 'e-reject', fromStage: approval.id, toStage: end.id,
+          condition: {'action': 'Reject'}),
+      WorkflowTransition(id: 'e-return', fromStage: approval.id, toStage: start.id,
+          condition: {'action': 'Return'}),
+    ];
+    final design = WorkflowDesign(
+        workflow: _workflow,
+        stages: [start, approval, task, end],
+        transitions: edges);
+    tester.view.physicalSize = const Size(390, 740);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(app(design));
+    await tester.pumpAndSettle();
+    expect(find.byIcon(Icons.add_rounded), findsNWidgets(3));
+    expect(tester.takeException(), isNull);
+
+    final positions = {
+      for (final stage in design.stages)
+        stage.id: Offset(stage.positionX, stage.positionY)
+    };
+    final stages = {for (final stage in design.stages) stage.id: stage};
+    final outgoing = <String, List<WorkflowTransition>>{};
+    for (final edge in edges) {
+      outgoing.putIfAbsent(edge.fromStage, () => []).add(edge);
+    }
+    final actions = <String>{};
+    for (final edge in edges) {
+      final geometry = WorkflowGraphGeometry.edge(
+          from: stages[edge.fromStage]!,
+          to: stages[edge.toStage]!,
+          fromPosition: positions[edge.fromStage]!,
+          toPosition: positions[edge.toStage]!,
+          transition: edge,
+          outgoing: outgoing[edge.fromStage]!,
+          nodeSize: WorkflowGraphCanvas.nodeSize);
+      // Each saved route is its own labelled edge.
+      expect(geometry.action, isNotNull);
+      actions.add(geometry.action!);
+      // The edge ends on the target shape border, not inside it.
+      final target = stages[edge.toStage]!;
+      final local = geometry.end - positions[edge.toStage]!;
+      final toCenter = (Offset.zero & WorkflowGraphCanvas.nodeSize).center - local;
+      final dir = toCenter / toCenter.distance;
+      final shape = WorkflowGraphGeometry.shape(target.type, WorkflowGraphCanvas.nodeSize);
+      expect(shape.contains(local + dir * 1), isTrue,
+          reason: '${edge.id} must end on the ${target.type} border');
+      expect(shape.contains(local - dir * 1), isFalse,
+          reason: '${edge.id} must not end inside the ${target.type}');
+      // The "+" insert button sits at the edge midpoint, never at an endpoint.
+      expect((geometry.middle - geometry.start).distance, greaterThan(20),
+          reason: '${edge.id} start must not be the plus button');
+      expect((geometry.middle - geometry.end).distance, greaterThan(20),
+          reason: '${edge.id} end must not be the plus button');
+    }
+    expect(actions, {'Approve', 'Reject', 'Return'});
   });
 }

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:asoud_erp/features/workflows/domain/entities/workflow_definition.dart';
 import 'package:asoud_erp/features/workflows/presentation/widgets/workflow_graph_geometry.dart';
 import 'package:flutter/material.dart';
@@ -9,6 +11,50 @@ WorkflowTransition route(String action) => WorkflowTransition(
     fromStage: 'approval',
     toStage: 'destination-$action',
     condition: {'action': action});
+
+/// True when [local] sits on the shape border: 1px toward the center is
+/// inside and 1px away is outside.
+bool onShapeBorder(WorkflowStageType type, Offset local) {
+  final path = WorkflowGraphGeometry.shape(type, size);
+  final toCenter = (Offset.zero & size).center - local;
+  if (toCenter.distance == 0) return false;
+  final dir = toCenter / toCenter.distance;
+  return path.contains(local + dir * 1) && !path.contains(local - dir * 1);
+}
+
+/// Longest run of collinear samples along the path. A smooth cubic stays
+/// short; the return-route escape detour is a polyline with a long straight
+/// run, so this separates the two.
+double longestStraightRun(Path path) {
+  final metric = path.computeMetrics().single;
+  final points = <Offset>[
+    for (double d = 0; d < metric.length; d += 1)
+      metric.getTangentForOffset(d)!.position,
+  ];
+  double best = 0;
+  for (var i = 0; i + 2 < points.length; i++) {
+    final a = points[i], b = points[i + 1];
+    double cross(Offset p) =>
+        (b.dx - a.dx) * (p.dy - a.dy) - (b.dy - a.dy) * (p.dx - a.dx);
+    if (cross(points[i + 2]).abs() > .5) continue;
+    var j = i + 2;
+    while (j + 1 < points.length && cross(points[j + 1]).abs() <= .5) {
+      j++;
+    }
+    best = math.max(best, (points[j] - a).distance);
+    i = j;
+  }
+  return best;
+}
+
+WorkflowStage stageAt(WorkflowStageType type, int sequence, String id) =>
+    WorkflowStage(
+        id: id,
+        key: id,
+        type: type,
+        title: id,
+        sequence: sequence,
+        configurationComplete: true);
 
 void main() {
   test('condition boolean exits are independent and retain saved identities', () {
@@ -202,4 +248,62 @@ void main() {
       });
     }
   }
+
+  // A vertical stack, as the designer lays out a saved approval: the three
+  // saved routes leave the hexagon and must each land on the target border.
+  final approval = stageAt(WorkflowStageType.approval, 1, 'appr');
+  final start = stageAt(WorkflowStageType.start, 0, 'start');
+  final task = stageAt(WorkflowStageType.userTask, 2, 'task');
+  final end = stageAt(WorkflowStageType.end, 3, 'end');
+  final approvalEdges = [
+    WorkflowTransition(id: 'e-approve', fromStage: 'appr', toStage: 'task',
+        condition: {'action': 'Approve'}),
+    WorkflowTransition(id: 'e-reject', fromStage: 'appr', toStage: 'end',
+        condition: {'action': 'Reject'}),
+    WorkflowTransition(id: 'e-return', fromStage: 'appr', toStage: 'start',
+        condition: {'action': 'Return'}),
+  ];
+  final approvalStages = {
+    'appr': approval, 'start': start, 'task': task, 'end': end
+  };
+  Offset approvalPos(WorkflowStage s) => Offset(155, 40 + s.sequence * 175);
+  WorkflowEdgeGeometry approvalGeometry(WorkflowTransition edge) =>
+      WorkflowGraphGeometry.edge(
+          from: approval,
+          to: approvalStages[edge.toStage]!,
+          fromPosition: approvalPos(approval),
+          toPosition: approvalPos(approvalStages[edge.toStage]!),
+          transition: edge,
+          outgoing: approvalEdges,
+          nodeSize: size);
+
+  test('every saved approval route ends on the target shape border', () {
+    for (final edge in approvalEdges) {
+      final geometry = approvalGeometry(edge);
+      final target = approvalStages[edge.toStage]!;
+      expect(onShapeBorder(target.type, geometry.end - approvalPos(target)),
+          isTrue,
+          reason: '${edge.condition['action']} must end on the ${target.type} border');
+    }
+  });
+
+  test('forward approval routes are smooth, not the return escape detour', () {
+    // Approve and Reject point forward (down the stack) even though they leave
+    // a sideways port; only Return points back to an earlier stage.
+    expect(longestStraightRun(approvalGeometry(approvalEdges[0]).path),
+        lessThan(100),
+        reason: 'Approve must be a smooth cubic, not an escape polyline');
+    expect(longestStraightRun(approvalGeometry(approvalEdges[1]).path),
+        lessThan(100),
+        reason: 'Reject must be a smooth cubic, not an escape polyline');
+    expect(longestStraightRun(approvalGeometry(approvalEdges[2]).path),
+        greaterThan(100),
+        reason: 'Return must keep its escape detour around the source');
+  });
+
+  test('the return route reaches the earlier stage border', () {
+    final geometry = approvalGeometry(approvalEdges[2]);
+    expect(onShapeBorder(start.type, geometry.end - approvalPos(start)), isTrue,
+        reason: 'Return must end on the earlier start stage border');
+  });
 }
