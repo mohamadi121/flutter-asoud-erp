@@ -496,9 +496,7 @@ class _WorkflowCardState extends State<_WorkflowCard> {
                   } else if (value == 'details') {
                     _showDetails(context);
                   } else if (value == 'design') {
-                    Navigator.of(context).push(MaterialPageRoute<void>(
-                      builder: (_) => WorkflowDesignerPage(definition: item.id),
-                    ));
+                    _openDesigner(item.id).ignore();
                   } else if (value == 'copy-system') {
                     _copySystem(context).ignore();
                   } else if (value == 'activate' || value == 'delete') {
@@ -522,6 +520,15 @@ class _WorkflowCardState extends State<_WorkflowCard> {
     return '${toPersianDigits(item.stepsCount)} مرحله • آخرین ویرایش: $date';
   }
 
+  Future<void> _openDesigner(String id) async {
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => WorkflowDesignerPage(definition: id),
+    ));
+    if (!mounted) return;
+    final cubit = context.read<WorkflowListCubit>();
+    if (!cubit.isClosed) await cubit.load();
+  }
+
   Future<void> _showDetails(BuildContext context) async {
     WorkflowRepository repository = context.read<WorkflowRepository>();
     try {
@@ -533,8 +540,7 @@ class _WorkflowCardState extends State<_WorkflowCard> {
     final openStages = await showDialog<bool>(context: context,
         builder: (_) => WorkflowDetailsDialog(load: () => repository.getDesign(item.id)));
     if (openStages == true && context.mounted) {
-      await Navigator.of(context).push(MaterialPageRoute<void>(
-          builder: (_) => WorkflowDesignerPage(definition: item.id)));
+      await _openDesigner(item.id);
     }
   }
 
