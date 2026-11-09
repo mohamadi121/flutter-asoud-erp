@@ -56,9 +56,11 @@ class WorkflowTaskDetailCubit extends Cubit<WorkflowTaskDetailState> {
   bool get _hasSupplementaryForm =>
       state.detail?.supplementaryForm.isNotEmpty == true;
 
-  /// The repository that can send the supplementary values, if any.
+  /// The repository that can send the supplementary values, if any. Only used
+  /// when the user actually typed something; an empty form keeps the plain
+  /// decision path so offline preview and legacy flows are unaffected.
   WorkflowTaskSupplementaryRepository? get _supplementaryRepository =>
-      _hasSupplementaryForm
+      _hasSupplementaryForm && state.supplementaryValues.isNotEmpty
           ? _repository is WorkflowTaskSupplementaryRepository
               ? _repository as WorkflowTaskSupplementaryRepository
               : null

@@ -355,7 +355,7 @@ class PreviewWorkflowTaskRepository
               supplementaryValues: supplementaryValues);
       return;
     }
-    throw StateError('ثبت فرم تکمیلی نیازمند ارتباط واقعی با سرور است.');
+    throw _supplementaryOffline();
   }
 
   @override
@@ -378,8 +378,16 @@ class PreviewWorkflowTaskRepository
       );
       return;
     }
-    throw StateError('ثبت فرم تکمیلی نیازمند ارتباط واقعی با سرور است.');
+    throw _supplementaryOffline();
   }
+
+  /// The supplementary form is validated on the server, so an offline preview
+  /// cannot record it; the reason is an [ApiException] so the Persian text
+  /// survives `failureDetail` (a plain `StateError` would be genericised).
+  ApiException _supplementaryOffline() => const ApiException(
+        kind: ApiFailureKind.validation,
+        message: 'ثبت فرم تکمیلی نیازمند ارتباط واقعی با سرور است.',
+      );
 
   @override
   Future<String> uploadAttachment({

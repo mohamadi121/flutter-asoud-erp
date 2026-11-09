@@ -29,8 +29,12 @@ class _SupplementaryCall {
 /// travelled as `supplementary_values` and not inside the decision response.
 class _FakeTaskRepository
     implements WorkflowTaskRepository, WorkflowTaskSupplementaryRepository {
-  _FakeTaskRepository(this.detail);
+  _FakeTaskRepository(this.detail, {this.offline = false});
   final WorkflowTaskDetail detail;
+
+  /// When true, models the offline preview: the supplementary path cannot be
+  /// recorded locally and throws, exactly like `PreviewWorkflowTaskRepository`.
+  final bool offline;
   final List<_SupplementaryCall> completeCalls = [];
   final List<String> plainCompleteActions = [];
   final List<Map<String, dynamic>> draftCalls = [];
@@ -38,7 +42,7 @@ class _FakeTaskRepository
   Object? completeError;
 
   @override
-  bool get isOfflinePreview => false;
+  bool get isOfflinePreview => offline;
 
   @override
   Future<WorkflowTaskDetail> getTask(String task) async => detail;
@@ -82,6 +86,7 @@ class _FakeTaskRepository
       String? comment,
       Map<String, dynamic> response = const {},
       required Map<String, dynamic> supplementaryValues}) async {
+    if (offline) throw _offlineSupplementary();
     if (completeError != null) throw completeError!;
     completeCalls.add(
         _SupplementaryCall(action, comment, response, supplementaryValues));
@@ -89,9 +94,18 @@ class _FakeTaskRepository
 
   @override
   Future<void> saveDraftWithSupplementary(
-          String task, Map<String, dynamic> values,
-          {required Map<String, dynamic> supplementaryValues}) async =>
-      draftCalls.add(supplementaryValues);
+      String task, Map<String, dynamic> values,
+      {required Map<String, dynamic> supplementaryValues}) async {
+    if (offline) throw _offlineSupplementary();
+    draftCalls.add(supplementaryValues);
+  }
+
+  /// The same reason the offline preview throws, so the test proves the
+  /// Persian text survives `failureDetail`.
+  ApiException _offlineSupplementary() => const ApiException(
+        kind: ApiFailureKind.validation,
+        message: 'ثبت فرم تکمیلی نیازمند ارتباط واقعی با سرور است.',
+      );
 }
 
 /// An approval task whose stage is bound to a real ASOUD Form (contract C6).
@@ -167,10 +181,11 @@ Widget _app(WorkflowTaskRepository repository) => MultiRepositoryProvider(
         ));
 
 Future<_FakeTaskRepository> _pump(
-    WidgetTester tester, double width, WorkflowTaskDetail detail) async {
+    WidgetTester tester, double width, WorkflowTaskDetail detail,
+    {bool offline = false}) async {
   await tester.binding.setSurfaceSize(Size(width, 900));
   addTearDown(() => tester.binding.setSurfaceSize(null));
-  final repository = _FakeTaskRepository(detail);
+  final repository = _FakeTaskRepository(detail, offline: offline);
   await tester.pumpWidget(_app(repository));
   await tester.tap(find.text('open'));
   await tester.pumpAndSettle();
@@ -215,15 +230,15 @@ void main() {
     expect(repository.plainCompleteActions, isEmpty);
   });
 
-  testWidgets('رد بدون ورودی فرم تکمیلی، مقادیر خالی می‌فرستد', (tester) async {
+  testWidgets('رد بدون ورودی فرم تکمیلی از مسیر عادی تصمیم می‌رود',
+      (tester) async {
     final repository = await _pump(tester, 390, _detail());
     await tester.enterText(_reasonField(), 'دلیل رد');
     await tester.pump();
     await tester.tap(_button('رد'));
     await tester.pumpAndSettle();
-    expect(repository.completeCalls, hasLength(1));
-    expect(repository.completeCalls.single.action, 'Reject');
-    expect(repository.completeCalls.single.supplementaryValues, isEmpty);
+    expect(repository.plainCompleteActions, ['Reject']);
+    expect(repository.completeCalls, isEmpty);
   });
 
   testWidgets('خطای اعتبارسنجی سرور نمایش داده می‌شود و صفحه می‌ماند',
@@ -269,6 +284,36 @@ void main() {
     await tester.pumpAndSettle();
     expect(repository.draftCalls, hasLength(1));
     expect(repository.draftCalls.single, {'note': 'در حال بررسی'});
+  });
+
+  testWidgets('پیش‌نمایش آفلاین: رد بدون ورودی فرم تکمیلی از مسیر عادی می‌رود',
+      (tester) async {
+    final repository = await _pump(tester, 390, _detail(), offline: true);
+    await tester.enterText(_reasonField(), 'دلیل رد');
+    await tester.pump();
+    await tester.tap(_button('رد'));
+    await tester.pumpAndSettle();
+    // Nothing typed in the supplementary form, so the plain decision path is
+    // used and succeeds even offline; the supplementary path is never called.
+    expect(repository.plainCompleteActions, ['Reject']);
+    expect(repository.completeCalls, isEmpty);
+    expect(_button('تأیید'), findsNothing);
+  });
+
+  testWidgets(
+      'پیش‌نمایش آفلاین: با ورودی فرم تکمیلی دلیل فارسی نمایش داده می‌شود',
+      (tester) async {
+    final repository = await _pump(tester, 390, _detail(), offline: true);
+    await tester.enterText(find.byType(TextFormField), 'بررسی شد');
+    await tester.pump();
+    await tester.tap(_button('تأیید'));
+    await tester.pumpAndSettle();
+    // The offline preview cannot record the supplementary form; the exact
+    // Persian reason (an ApiException) survives failureDetail and is shown.
+    expect(find.text('ثبت فرم تکمیلی نیازمند ارتباط واقعی با سرور است.'),
+        findsOneWidget);
+    expect(_button('تأیید'), findsOneWidget);
+    expect(repository.completeCalls, isEmpty);
   });
 
   testWidgets('روی عرض ۳۲۰ کارت فرم تکمیلی بدون سرریز نمایش می‌شود',
