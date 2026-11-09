@@ -621,6 +621,8 @@ class FrappeClient implements FrappeApiClient {
   static bool isReadOnlyMethod(String method) {
     if (method == 'asoud_erp.api.v1.first_office_setup.status') return true;
     if (method == 'asoud_erp.api.v1.employment_contracts.prepare_contract') return true;
+    // Read-only graph check; must never be queued as an offline write.
+    if (method == 'asoud_erp.api.v1.workflow.validate_workflow') return true;
     final action = method.split('.').last;
     if (action == 'execution_kinds' ||
         action == 'options' ||
