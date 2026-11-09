@@ -6,6 +6,7 @@ import '../../data/workflow_action_repository.dart';
 
 import '../../domain/entities/workflow_task.dart';
 import '../../domain/repositories/workflow_task_repository.dart';
+import '../../domain/repositories/workflow_task_supplementary_repository.dart';
 
 enum WorkflowTaskDetailStatus { loading, ready, saving, success, failure }
 
@@ -14,6 +15,7 @@ class WorkflowTaskDetailState extends Equatable {
     this.status = WorkflowTaskDetailStatus.loading,
     this.detail,
     this.values = const {},
+    this.supplementaryValues = const {},
     this.message,
     this.offline = false,
     this.failure,
@@ -21,11 +23,16 @@ class WorkflowTaskDetailState extends Equatable {
   final WorkflowTaskDetailStatus status;
   final WorkflowTaskDetail? detail;
   final Map<String, dynamic> values;
+
+  /// The approval stage's supplementary form values, kept apart from the
+  /// decision `values` (contract C6).
+  final Map<String, dynamic> supplementaryValues;
   final String? message;
   final bool offline;
   final Object? failure;
   @override
-  List<Object?> get props => [status, detail, values, message, offline, failure];
+  List<Object?> get props =>
+      [status, detail, values, supplementaryValues, message, offline, failure];
 }
 
 class WorkflowTaskDetailCubit extends Cubit<WorkflowTaskDetailState> {
@@ -38,7 +45,24 @@ class WorkflowTaskDetailCubit extends Cubit<WorkflowTaskDetailState> {
     uploads: state.detail!.allowAddAttachments);
 
   void setValues(Map<String, dynamic> values) => emit(WorkflowTaskDetailState(
-    status: WorkflowTaskDetailStatus.ready, detail: state.detail, values: values, offline: state.offline));
+    status: WorkflowTaskDetailStatus.ready, detail: state.detail, values: values,
+    supplementaryValues: state.supplementaryValues, offline: state.offline));
+
+  void setSupplementaryValues(Map<String, dynamic> values) => emit(WorkflowTaskDetailState(
+    status: WorkflowTaskDetailStatus.ready, detail: state.detail, values: state.values,
+    supplementaryValues: values, offline: state.offline));
+
+  /// True when the task's stage has a supplementary form binding.
+  bool get _hasSupplementaryForm =>
+      state.detail?.supplementaryForm.isNotEmpty == true;
+
+  /// The repository that can send the supplementary values, if any.
+  WorkflowTaskSupplementaryRepository? get _supplementaryRepository =>
+      _hasSupplementaryForm
+          ? _repository is WorkflowTaskSupplementaryRepository
+              ? _repository as WorkflowTaskSupplementaryRepository
+              : null
+          : null;
 
   Future<bool> performAction(String action) async {
     if (state.status == WorkflowTaskDetailStatus.saving) return false;
@@ -67,10 +91,14 @@ class WorkflowTaskDetailCubit extends Cubit<WorkflowTaskDetailState> {
     try {
       final detail = await _repository.getTask(task);
       if (isClosed) return;
+      final rawSupplementary = detail.supplementaryForm['values'];
       emit(WorkflowTaskDetailState(
         status: WorkflowTaskDetailStatus.ready,
         detail: detail,
         values: detail.values,
+        supplementaryValues: rawSupplementary is Map
+            ? Map<String, dynamic>.from(rawSupplementary)
+            : const {},
         offline: _repository.isOfflinePreview,
       ));
     } catch (error) {
@@ -104,6 +132,7 @@ class WorkflowTaskDetailCubit extends Cubit<WorkflowTaskDetailState> {
         status: WorkflowTaskDetailStatus.ready,
         detail: state.detail,
         values: {...state.values, key: value},
+        supplementaryValues: state.supplementaryValues,
         offline: state.offline,
       ));
 
@@ -155,23 +184,52 @@ class WorkflowTaskDetailCubit extends Cubit<WorkflowTaskDetailState> {
     return null;
   }
 
+  /// A supplementary form the repository cannot send must not be dropped
+  /// silently; the decision or draft is blocked until it can be sent.
+  bool get _supplementaryBlocked =>
+      _hasSupplementaryForm &&
+      _supplementaryRepository == null &&
+      state.supplementaryValues.isNotEmpty;
+
+  void _supplementaryUnsupported() {
+    emit(WorkflowTaskDetailState(
+        status: WorkflowTaskDetailStatus.failure,
+        detail: state.detail,
+        values: state.values,
+        supplementaryValues: state.supplementaryValues,
+        offline: state.offline,
+        message: 'این نسخه از برنامه امکان ثبت فرم تکمیلی را ندارد.'));
+  }
+
   Future<bool> saveDraft() async {
     if (state.status == WorkflowTaskDetailStatus.saving) return false;
+    if (_supplementaryBlocked) {
+      _supplementaryUnsupported();
+      return false;
+    }
     emit(WorkflowTaskDetailState(
         status: WorkflowTaskDetailStatus.saving,
         detail: state.detail,
         values: state.values,
+        supplementaryValues: state.supplementaryValues,
         offline: state.offline));
     try {
       if (state.detail?.actionSchema.isNotEmpty == true) {
         if (actionClient == null || !actionClient!.isAuthenticated || state.offline) throw StateError('ذخیرهٔ پیش‌نویس اقدام به ارتباط با سرور نیاز دارد.');
         await _action.draft(state.values);
-      } else { await _repository.saveDraft(task, state.values); }
+      } else {
+        final supplementary = _supplementaryRepository;
+        if (supplementary != null) {
+          await supplementary.saveDraftWithSupplementary(task, state.values,
+              supplementaryValues: state.supplementaryValues);
+        } else { await _repository.saveDraft(task, state.values); }
+      }
       if (isClosed) return false;
       emit(WorkflowTaskDetailState(
           status: WorkflowTaskDetailStatus.ready,
           detail: state.detail,
           values: state.values,
+          supplementaryValues: state.supplementaryValues,
           offline: _repository.isOfflinePreview,
           message: _repository.isOfflinePreview
               ? 'پیش‌نویس داخل گوشی ذخیره شد.'
@@ -232,18 +290,34 @@ class WorkflowTaskDetailCubit extends Cubit<WorkflowTaskDetailState> {
           message: error));
       return false;
     }
+    if (_supplementaryBlocked) {
+      _supplementaryUnsupported();
+      return false;
+    }
     emit(WorkflowTaskDetailState(
         status: WorkflowTaskDetailStatus.saving,
         detail: state.detail,
         values: state.values,
+        supplementaryValues: state.supplementaryValues,
         offline: state.offline));
     try {
-      await _repository.completeTask(
-          task: task, action: action, comment: comment, response: state.values);
+      final supplementary = _supplementaryRepository;
+      if (supplementary != null) {
+        await supplementary.completeTaskWithSupplementary(
+            task: task,
+            action: action,
+            comment: comment,
+            response: state.values,
+            supplementaryValues: state.supplementaryValues);
+      } else {
+        await _repository.completeTask(
+            task: task, action: action, comment: comment, response: state.values);
+      }
       emit(WorkflowTaskDetailState(
           status: WorkflowTaskDetailStatus.success,
           detail: state.detail,
           values: state.values,
+          supplementaryValues: state.supplementaryValues,
           offline: _repository.isOfflinePreview,
           message: _repository.isOfflinePreview
               ? 'اقدام محلی ثبت شد و هنوز به سرور ارسال نشده است.'
@@ -261,6 +335,7 @@ class WorkflowTaskDetailCubit extends Cubit<WorkflowTaskDetailState> {
       status: WorkflowTaskDetailStatus.failure,
       detail: state.detail,
       values: state.values,
+      supplementaryValues: state.supplementaryValues,
       offline: state.offline,
       message: failureDetail(error), failure: error));
   }

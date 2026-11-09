@@ -8,11 +8,15 @@ import '../../../../core/network/api_exception.dart';
 import '../../domain/entities/workflow_definition.dart';
 import '../../domain/entities/workflow_task.dart';
 import '../../domain/repositories/workflow_task_repository.dart';
+import '../../domain/repositories/workflow_task_supplementary_repository.dart';
 import '../demo/request_demo_data.dart';
 import '../demo/task_notification_demo_data.dart';
 
 class PreviewWorkflowTaskRepository
-    implements WorkflowTaskRepository, CompleteWorkflowLists {
+    implements
+        WorkflowTaskRepository,
+        CompleteWorkflowLists,
+        WorkflowTaskSupplementaryRepository {
   PreviewWorkflowTaskRepository(this._remote);
   static const _storageKey = 'asoud_workflow_offline_tasks_v1';
   static const _demoDoneKey = 'asoud_workflow_demo_done_v1';
@@ -334,6 +338,47 @@ class PreviewWorkflowTaskRepository
     final saved = await _read();
     saved['draft'] = values;
     await _write(saved);
+  }
+
+  @override
+  Future<void> saveDraftWithSupplementary(
+    String task,
+    Map<String, dynamic> values, {
+    required Map<String, dynamic> supplementaryValues,
+  }) async {
+    // The supplementary form is a server-side validation; it is never faked
+    // locally, so an offline preview must not pretend it was saved.
+    final remote = _remote;
+    if (!_offline && remote is WorkflowTaskSupplementaryRepository) {
+      await (remote as WorkflowTaskSupplementaryRepository)
+          .saveDraftWithSupplementary(task, values,
+              supplementaryValues: supplementaryValues);
+      return;
+    }
+    throw StateError('ثبت فرم تکمیلی نیازمند ارتباط واقعی با سرور است.');
+  }
+
+  @override
+  Future<void> completeTaskWithSupplementary({
+    required String task,
+    required String action,
+    String? comment,
+    Map<String, dynamic> response = const {},
+    required Map<String, dynamic> supplementaryValues,
+  }) async {
+    final remote = _remote;
+    if (!_offline && remote is WorkflowTaskSupplementaryRepository) {
+      await (remote as WorkflowTaskSupplementaryRepository)
+          .completeTaskWithSupplementary(
+        task: task,
+        action: action,
+        comment: comment,
+        response: response,
+        supplementaryValues: supplementaryValues,
+      );
+      return;
+    }
+    throw StateError('ثبت فرم تکمیلی نیازمند ارتباط واقعی با سرور است.');
   }
 
   @override
