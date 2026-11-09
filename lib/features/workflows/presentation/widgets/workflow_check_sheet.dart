@@ -65,50 +65,47 @@ class _WorkflowCheckSheetState extends State<WorkflowCheckSheet> {
     final warnings =
         issues.where((issue) => issue['severity'] != 'error').toList();
     return SafeArea(
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(20, 8, 20, 4),
-          child: Text('بررسی اعتبار گردش کار',
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+        children: [
+          const Text('بررسی اعتبار گردش کار',
               style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
-        ),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 20),
-          child: Text(
+          const SizedBox(height: 4),
+          const Text(
               'بررسی روی نسخهٔ ذخیره‌شدهٔ گردش‌کار انجام می‌شود و چیزی را تغییر نمی‌دهد.',
               style: TextStyle(fontSize: 10, color: AsoudColors.muted)),
-        ),
-        const SizedBox(height: 10),
-        SizedBox(
-          height: 240,
-          child: WorkflowGraphCanvas(
-            design: widget.design,
-            highlightStage: _highlight,
-            onOpenStage: (_) {},
-            onMoveStage: (_, __, ___) {},
-            onMoveEnd: () {},
-            onInsertOnTransition: (_) {},
-            onCreateTransition: (_) {},
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 240,
+            child: WorkflowGraphCanvas(
+              design: widget.design,
+              highlightStage: _highlight,
+              onOpenStage: (_) {},
+              onMoveStage: (_, __, ___) {},
+              onMoveEnd: () {},
+              onInsertOnTransition: (_) {},
+              onCreateTransition: (_) {},
+            ),
           ),
-        ),
-        const Divider(height: 1),
-        SizedBox(
-          height: 230,
-          child: _failure != null
-              ? _Failure(message: failureMessage(_failure), onRetry: _run)
-              : _result == null
-                  ? const Center(child: CircularProgressIndicator())
-                  : _ResultList(
-                      ok: _result!['ok'] as bool,
-                      errors: errors,
-                      warnings: warnings,
-                      onIssue: (issue) {
-                        final stage = issue['stage'];
-                        setState(() =>
-                            _highlight = stage is String ? stage : null);
-                      },
-                    ),
-        ),
-      ]),
+          const Divider(height: 20),
+          if (_failure != null)
+            _Failure(message: failureMessage(_failure), onRetry: _run)
+          else if (_result == null)
+            const Padding(
+                padding: EdgeInsets.all(24),
+                child: Center(child: CircularProgressIndicator()))
+          else
+            _ResultList(
+              ok: _result!['ok'] as bool,
+              errors: errors,
+              warnings: warnings,
+              onIssue: (issue) {
+                final stage = issue['stage'];
+                setState(() => _highlight = stage is String ? stage : null);
+              },
+            ),
+        ],
+      ),
     );
   }
 }
@@ -126,8 +123,8 @@ class _ResultList extends StatelessWidget {
   final void Function(Map<String, dynamic>) onIssue;
 
   @override
-  Widget build(BuildContext context) => ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+  Widget build(BuildContext context) => Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           if (ok)
             const _Banner(

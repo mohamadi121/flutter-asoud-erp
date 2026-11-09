@@ -148,9 +148,11 @@ Future<void> _openMenu(WidgetTester tester, String item) async {
 }
 
 void main() {
-  test('validate_workflow is treated as a read-only method', () {
+  test('validate_workflow and simulate_workflow are read-only methods', () {
     expect(FrappeClient.isReadOnlyMethod(
         'asoud_erp.api.v1.workflow.validate_workflow'), isTrue);
+    expect(FrappeClient.isReadOnlyMethod(
+        'asoud_erp.api.v1.workflow.simulate_workflow'), isTrue);
   });
 
   testWidgets('gear opens the three-item menu at 320 px', (tester) async {
@@ -335,4 +337,75 @@ void main() {
         findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  for (final width in [320.0, 430.0]) {
+    testWidgets('check sheet with 2 errors and 1 warning does not overflow at $width',
+        (tester) async {
+      addTearDown(tester.view.resetPhysicalSize);
+      tester.view.physicalSize = Size(width, 800);
+      tester.view.devicePixelRatio = 1;
+      final server = _Server(
+        validateResult: _issuesResult(
+          ok: false,
+          issues: [
+            {
+              'code': 'stage_invalid',
+              'severity': 'error',
+              'message': 'تنظیمات یا مسیر خروج یکی از مراحل کامل و معتبر نیست.',
+              'stage': 'approve',
+              'route': null,
+            },
+            {
+              'code': 'route_external',
+              'severity': 'error',
+              'message': 'یکی از مسیرها به مرحله‌ای خارج از این گردش‌کار متصل است.',
+              'stage': 'start',
+              'route': null,
+            },
+            {
+              'code': 'self_loop',
+              'severity': 'warning',
+              'message': 'یک مرحله به خودش برمی‌گردد.',
+              'stage': null,
+              'route': null,
+            },
+          ],
+        ),
+        simulate: (d) => _simulate(steps: [], status: 'needs_decision'),
+      );
+      await _openDesigner(tester, _DesignRepository(), server);
+      await _openMenu(tester, 'بررسی اعتبار گردش کار');
+      await tester.pumpAndSettle();
+      expect(find.text('خطاها'), findsOneWidget);
+      expect(find.text('هشدارها'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('dry run in a finished state does not overflow at $width',
+        (tester) async {
+      addTearDown(tester.view.resetPhysicalSize);
+      tester.view.physicalSize = Size(width, 800);
+      tester.view.devicePixelRatio = 1;
+      final server = _Server(
+        validateResult: _issuesResult(ok: true),
+        simulate: (d) => _simulate(
+          steps: [
+            {'stage': 'start', 'title': 'شروع', 'stage_type': 'Start',
+                'action': null, 'next': 'approve'},
+            {'stage': 'approve', 'title': 'تأیید مدیر',
+                'stage_type': 'Approval', 'action': 'Approve', 'next': 'end'},
+            {'stage': 'end', 'title': 'پایان', 'stage_type': 'End',
+                'action': null, 'next': null},
+          ],
+          status: 'finished',
+          outcome: 'Completed',
+        ),
+      );
+      await _openDesigner(tester, _DesignRepository(), server);
+      await _openMenu(tester, 'اجرای آزمایشی فرایند');
+      await tester.pumpAndSettle();
+      expect(find.text('نتیجهٔ فرایند: تکمیل‌شده'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
 }

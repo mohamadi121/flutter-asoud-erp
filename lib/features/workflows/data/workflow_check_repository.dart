@@ -1,10 +1,10 @@
+import '../../../core/network/api_exception.dart';
 import '../../../core/network/frappe_client.dart';
 
 /// Read-only server calls for the workflow validity check and the
 /// side-effect-free simulation (`asoud_erp.api.v1.workflow.validate_workflow`
-/// and `simulate_workflow`). Both are read-only on the server; the validate
-/// call is registered in `FrappeApiClient.isReadOnlyMethod` so it is never
-/// queued for offline replay.
+/// and `simulate_workflow`). Both are read-only on the server and registered
+/// in `FrappeClient.isReadOnlyMethod` so neither is queued for offline replay.
 class WorkflowCheckRepository {
   const WorkflowCheckRepository(this.client);
 
@@ -18,7 +18,7 @@ class WorkflowCheckRepository {
     final data = await client.callAsoudMethod(validateMethod,
         data: {'definition': definition});
     if (data is! Map || data['ok'] is! bool || data['issues'] is! List) {
-      throw StateError('پاسخ سرور معتبر نیست.');
+      throw const ApiException.protocol();
     }
     return Map<String, dynamic>.from(data);
   }
@@ -34,7 +34,7 @@ class WorkflowCheckRepository {
         data['status'] is! String ||
         data['allowed_actions'] is! List ||
         data['errors'] is! List) {
-      throw StateError('پاسخ سرور معتبر نیست.');
+      throw const ApiException.protocol();
     }
     return Map<String, dynamic>.from(data);
   }
