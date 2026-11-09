@@ -1076,10 +1076,12 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
     );
     if (choice == null || !mounted) return;
     if (choice == '__edit__') {
-      // A bound real form is edited (or copied) in the form editor; otherwise
-      // a new stage form is created from scratch.
+      // A bound real form is edited (or copied) in the form editor; a legacy
+      // inline form keeps its old field editor; otherwise a new form is made.
       if (supplementaryForm != null) {
         await _editBoundForm();
+      } else if (formFields.isNotEmpty) {
+        await _editForm();
       } else {
         await _createStageForm();
       }
