@@ -1,4 +1,5 @@
 import 'package:asoud_erp/core/network/frappe_client.dart';
+import 'package:asoud_erp/core/network/api_exception.dart';
 import 'package:asoud_erp/core/theme/asoud_colors.dart';
 import 'package:asoud_erp/features/workflows/domain/entities/workflow_definition.dart';
 import 'package:asoud_erp/features/workflows/data/workflow_check_repository.dart';
@@ -71,10 +72,13 @@ class _OfflineRepository extends _DesignRepository implements OfflinePreviewAwar
 /// Fake server whose responses are copied from the backend contract
 /// (validate_workflow / simulate_workflow, PR #57).
 class _Server extends Fake implements FrappeApiClient {
-  _Server({required this.validateResult, required this.simulate});
+  _Server({required this.validateResult, required this.simulate,
+      this.validateFailure, this.simulateFailure});
 
   final Map<String, dynamic> validateResult;
   final Map<String, dynamic> Function(List<Map<String, String>>) simulate;
+  final Object? validateFailure;
+  final Object? simulateFailure;
   final decisionsSent = <List<Map<String, String>>>[];
   int validates = 0;
 
@@ -90,9 +94,11 @@ class _Server extends Fake implements FrappeApiClient {
       {Map<String, dynamic>? data}) async {
     if (method == WorkflowCheckRepository.validateMethod) {
       validates++;
+      if (validateFailure != null) throw validateFailure!;
       return validateResult;
     }
     if (method == WorkflowCheckRepository.simulateMethod) {
+      if (simulateFailure != null) throw simulateFailure!;
       final decisions = (data!['decisions'] as List)
           .map((value) => Map<String, String>.from(value as Map))
           .toList();
@@ -252,6 +258,72 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('check sheet shows the server validation reason', (tester) async {
+    addTearDown(tester.view.resetPhysicalSize);
+    final server = _Server(
+      validateResult: _issuesResult(),
+      simulate: (d) => _simulate(steps: [], status: 'needs_decision'),
+      validateFailure: const ApiException(
+          kind: ApiFailureKind.validation,
+          message: 'فرم آغازکننده معتبر نیست.'),
+    );
+    await _openDesigner(tester, _DesignRepository(), server);
+    await _openMenu(tester, 'بررسی اعتبار گردش کار');
+    expect(find.text('فرم آغازکننده معتبر نیست.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('dry run shows the server validation reason', (tester) async {
+    addTearDown(tester.view.resetPhysicalSize);
+    final server = _Server(
+      validateResult: _issuesResult(ok: true),
+      simulate: (d) => _simulate(steps: [], status: 'needs_decision'),
+      simulateFailure: const ApiException(
+          kind: ApiFailureKind.validation,
+          message: 'فهرست تصمیم‌ها باید یک آرایه باشد.'),
+    );
+    await _openDesigner(tester, _DesignRepository(), server);
+    await _openMenu(tester, 'اجرای آزمایشی فرایند');
+    expect(find.text('فهرست تصمیم‌ها باید یک آرایه باشد.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('check sheet explains an older server in Persian', (tester) async {
+    addTearDown(tester.view.resetPhysicalSize);
+    final server = _Server(
+      validateResult: _issuesResult(),
+      simulate: (d) => _simulate(steps: [], status: 'needs_decision'),
+      validateFailure: const ApiException(
+          kind: ApiFailureKind.validation,
+          statusCode: 417,
+          message: 'Failed to get method for command '
+              'asoud_erp.api.v1.workflow.validate_workflow with module has no attribute'),
+    );
+    await _openDesigner(tester, _DesignRepository(), server);
+    await _openMenu(tester, 'بررسی اعتبار گردش کار');
+    expect(find.text('نسخهٔ سرور از این قابلیت پشتیبانی نمی‌کند.'),
+        findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('dry run explains an older server in Persian', (tester) async {
+    addTearDown(tester.view.resetPhysicalSize);
+    final server = _Server(
+      validateResult: _issuesResult(ok: true),
+      simulate: (d) => _simulate(steps: [], status: 'needs_decision'),
+      simulateFailure: const ApiException(
+          kind: ApiFailureKind.validation,
+          statusCode: 417,
+          message: 'Failed to get method for command '
+              'asoud_erp.api.v1.workflow.simulate_workflow with module has no attribute'),
+    );
+    await _openDesigner(tester, _DesignRepository(), server);
+    await _openMenu(tester, 'اجرای آزمایشی فرایند');
+    expect(find.text('نسخهٔ سرور از این قابلیت پشتیبانی نمی‌کند.'),
+        findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('dry run walks the decisions and shows the outcome',
       (tester) async {
     addTearDown(tester.view.resetPhysicalSize);
@@ -338,7 +410,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  for (final width in [320.0, 430.0]) {
+  for (final width in [320.0, 390.0, 430.0]) {
     testWidgets('check sheet with 2 errors and 1 warning does not overflow at $width',
         (tester) async {
       addTearDown(tester.view.resetPhysicalSize);

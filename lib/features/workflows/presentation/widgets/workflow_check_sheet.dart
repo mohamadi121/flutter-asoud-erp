@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../../core/network/frappe_client.dart';
@@ -35,7 +37,7 @@ class _WorkflowCheckSheetState extends State<WorkflowCheckSheet> {
   @override
   void initState() {
     super.initState();
-    _run();
+    unawaited(_run());
   }
 
   Future<void> _run() async {
@@ -89,7 +91,7 @@ class _WorkflowCheckSheetState extends State<WorkflowCheckSheet> {
           ),
           const Divider(height: 20),
           if (_failure != null)
-            _Failure(message: failureMessage(_failure), onRetry: _run)
+            _Failure(message: failureDetail(_failure), onRetry: _run)
           else if (_result == null)
             const Padding(
                 padding: EdgeInsets.all(24),
