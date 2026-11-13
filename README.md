@@ -22,6 +22,12 @@
 
 ## اجرا
 
+نسخهٔ آزموده‌شدهٔ پروژه Flutter **3.47.1** با Dart **3.13.1** است.
+هر دو بخش CI همین نسخه را از `FLUTTER_VERSION` در
+`.github/workflows/flutter.yml` دریافت می‌کنند. پیش از اجرا، خروجی
+`flutter --version` را بررسی کنید. ارتقای SDK، به‌خصوص مهاجرت به بسته‌های
+مستقل Material و Cupertino، باید جداگانه با بررسی وابستگی‌ها و آزمون‌ها انجام شود.
+
 ```bash
 flutter pub get
 flutter run

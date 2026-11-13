@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- CI: نسخهٔ Flutter برای آزمون‌ها و آزمون‌های تصویری روی نسخهٔ آزموده‌شدهٔ 3.47.1 ثابت شد تا ارتقای خودکار SDK باعث شکست تحلیل کد نشود. قواعد تحلیل و کنترل هشدارها بدون تغییر باقی ماندند.
+
 - سازمان: شناسهٔ خالی واحد برای جایگاه ریشه هنگام ذخیره صریحاً حفظ می‌شود. فرم‌های درون‌صفحهٔ مدیرعامل و مسیر ورود به مدیریت واحد با آزمون‌های ظرفیت و سوابق بررسی شدند. اعتبارسنجی مقصدهای تأیید اکنون از آخرین نمودار دریافت‌شده استفاده می‌کند؛ قابلیت‌های جدید مین و تنظیمات قبلی شرط هم‌زمان حفظ شدند.
 
 - Preserve the approved End-stage layout and four outcomes; block invalid stored results instead of silently selecting success, align title validation with the server, and retain the server's save error. Paired backend End audit records outcome/message and keeps stopped executions distinct from cancellations. No form-builder or canvas redesign.
