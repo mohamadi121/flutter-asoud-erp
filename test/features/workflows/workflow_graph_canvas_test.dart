@@ -35,6 +35,7 @@ WorkflowStage node(WorkflowStageType type,
 Widget app(WorkflowDesign design,
         {ValueChanged<WorkflowStage>? open,
         ValueChanged<WorkflowTransition>? insert,
+        ValueChanged<WorkflowTransition>? remove,
         ValueChanged<WorkflowStage>? connect,
         void Function(String, double, double)? move,
         VoidCallback? moved}) =>
@@ -50,6 +51,7 @@ Widget app(WorkflowDesign design,
                 onMoveStage: move ?? (_, x, y) {},
                 onMoveEnd: moved ?? () {},
                 onInsertOnTransition: insert ?? (_) {},
+                onRemoveTransition: remove,
                 onCreateTransition: connect ?? (_) {})));
 
 void main() {
@@ -93,10 +95,8 @@ void main() {
         await tester.tap(find.text(saved.title));
         await tester.pumpAndSettle();
         expect(opened, same(saved));
-        if (type != WorkflowStageType.end) {
-          await tester.tap(find.byIcon(Icons.add_link_rounded));
-          expect(connected, same(saved));
-        }
+        expect(find.byIcon(Icons.add_link_rounded), findsNothing);
+        expect(connected, isNull);
         expect(design.stages.single, same(saved));
         expect(design.transitions, isEmpty);
         expect(tester.takeException(), isNull);
@@ -105,7 +105,7 @@ void main() {
   }
 
   testWidgets(
-      'transition plus retains its edge, location and insertion callback',
+      'transition chain retains its edge and offers the existing insertion callback',
       (tester) async {
     final start = node(WorkflowStageType.start, x: 30, y: 30);
     final end = node(WorkflowStageType.end, x: 30, y: 260);
@@ -116,11 +116,34 @@ void main() {
     WorkflowTransition? inserted;
     await tester.pumpWidget(app(design, insert: (route) => inserted = route));
     await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.add_rounded));
+    await tester.tap(find.byIcon(Icons.link_rounded));
+    await tester.pumpAndSettle();
+    expect(find.text('− حذف مسیر'), findsOneWidget);
+    expect(find.text('اتصال به مرحله موجود'), findsNothing);
+    await tester.tap(find.text('+ افزودن مرحله'));
+    await tester.pumpAndSettle();
     expect(inserted, same(edge));
     expect(design.transitions.single, same(edge));
     expect(start.positionY, 30);
     expect(end.positionY, 260);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('path chain has only add and delete and delete keeps native edge identity', (tester) async {
+    final start = node(WorkflowStageType.start, x: 30, y: 30);
+    final end = node(WorkflowStageType.end, x: 30, y: 260);
+    final edge = WorkflowTransition(id: 'native-edge', fromStage: start.id, toStage: end.id, label: 'ادامه');
+    WorkflowTransition? removed;
+    await tester.pumpWidget(app(WorkflowDesign(workflow: _workflow, stages: [start, end], transitions: [edge]),
+        remove: (value) => removed = value));
+    await tester.pumpAndSettle();
+    expect(find.byIcon(Icons.add_link_rounded), findsNothing);
+    await tester.tap(find.byIcon(Icons.link_rounded));
+    await tester.pumpAndSettle();
+    expect(find.byType(PopupMenuItem<String>), findsNWidgets(2));
+    await tester.tap(find.text('− حذف مسیر'));
+    await tester.pumpAndSettle();
+    expect(removed, same(edge));
     expect(tester.takeException(), isNull);
   });
 
@@ -222,7 +245,7 @@ void main() {
     await tester.pumpWidget(RepaintBoundary(
         key: const ValueKey('capture-routes'), child: app(design)));
     await tester.pumpAndSettle();
-    expect(find.byIcon(Icons.add_rounded), findsNWidgets(3));
+    expect(find.byIcon(Icons.link_rounded), findsNWidgets(3));
     expect(design.transitions, edges);
     expect(tester.takeException(), isNull);
     if (const bool.fromEnvironment('CAPTURE_WORKFLOW_NODES')) {

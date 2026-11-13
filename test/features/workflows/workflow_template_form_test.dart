@@ -26,7 +26,8 @@ class _Templates extends Fake implements WorkflowTemplateRepository {
   Map<String, Object>? copied;
   @override
   Future<WorkflowDefinition> copy({required String company, required WorkflowTemplate source,
-      required String title, required String description, required String icon, required String color}) async {
+      required String title, required String description, required String icon, required String color,
+      Map<String, dynamic>? startSettings}) async {
     copied = {'company': company, 'source': source.id, 'modified': source.modified, 'title': title,
       'description': description, 'icon': icon, 'color': color};
     return WorkflowDefinition(id: 'independent-copy', code: 'WF-test', title: title,

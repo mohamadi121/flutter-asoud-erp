@@ -2,6 +2,36 @@ part of 'stage_settings_page.dart';
 
 /// Reference styling over existing approval settings, without a second engine.
 extension _ApprovalSettings on _StageSettingsPageState {
+  Set<String> get _approvalPredecessors {
+    final design = context.read<WorkflowDesignerCubit>().state.design ?? widget.design;
+    final result = <String>{};
+    final pending = [widget.stage.id];
+    while (pending.isNotEmpty) {
+      final current = pending.removeLast();
+      for (final edge in design.transitions) {
+        final action = (edge.condition['action']?.toString() ?? edge.label ?? '').trim().toLowerCase();
+        if (edge.toStage == current &&
+            !const ['return', 'reject', 'بازگشت برای اصلاح', 'رد'].contains(action) &&
+            result.add(edge.fromStage)) {
+          pending.add(edge.fromStage);
+        }
+      }
+    }
+    result.remove(widget.stage.id);
+    return result;
+  }
+
+  List<WorkflowStage> _approvalDestinations(String action) {
+    final previous = _approvalPredecessors;
+    return _destinations.where((stage) => switch (action) {
+      'Return' => previous.contains(stage.id) &&
+          [WorkflowStageType.userTask, WorkflowStageType.approval].contains(stage.type),
+      'Approve' => !previous.contains(stage.id) && (stage.type != WorkflowStageType.end ||
+          (stage.config['outcome'] ?? 'Completed') == 'Completed'),
+      _ => true,
+    }).toList();
+  }
+
   Widget _existingApprovalOwners() {
     if (approvalOwnerFingerprint != initialApprovalOwner) return const SizedBox.shrink();
     final byRole = config['assignment_type'] == 'Role';
@@ -16,11 +46,22 @@ extension _ApprovalSettings on _StageSettingsPageState {
 
   Future<void> _pickApprovalRoute(String action, {String? emptyLabel}) async {
     if (saving) return;
+    final cubit = context.read<WorkflowDesignerCubit>();
+    if (cubit.state.status == WorkflowDesignerStatus.loading) return;
+    await cubit.load();
+    if (!mounted) return;
+    if (cubit.state.status == WorkflowDesignerStatus.failure) {
+      _message('دریافت مقصدهای فعلی ممکن نشد؛ دوباره تلاش کنید.');
+      return;
+    }
+    _updateAction(() {});
     final result = await showModalBottomSheet<String>(
       context: context, isScrollControlled: true, useSafeArea: true,
       showDragHandle: true,
-      builder: (_) => _StageRouteSheet(stages: _destinations,
+      builder: (_) => _StageRouteSheet(stages: _approvalDestinations(action),
           selected: routes[action] ?? '', emptyLabel: emptyLabel,
+          color: action == 'Approve' ? AsoudColors.success :
+              action == 'Reject' ? AsoudColors.danger : AsoudColors.warning,
           returning: action == 'Return'));
     if (result != null && mounted) _updateAction(() => routes[action] = result);
   }

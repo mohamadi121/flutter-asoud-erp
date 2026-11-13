@@ -6,6 +6,13 @@ import '../../../../core/widgets/asoud_ui.dart';
 import '../../../../core/widgets/app_fields.dart';
 import '../../../../core/widgets/asoud_jalali_picker.dart';
 import '../../../../core/utils/persian_format.dart';
+import '../../../../core/network/frappe_client.dart';
+import '../../../../core/utils/failure_message.dart';
+import '../../../form_builder/form_runtime/field_inputs/date_time_inputs.dart';
+import '../../../form_builder/form_runtime/field_inputs/choice_inputs.dart';
+import '../../data/workflow_condition_repository.dart';
+import '../../data/workflow_wait_repository.dart';
+import 'workflow_wait_settings_page.dart';
 import '../../domain/entities/workflow_definition.dart';
 import '../cubit/workflow_designer_cubit.dart';
 import '../widgets/workflow_form_builder.dart';
@@ -18,12 +25,18 @@ class WorkflowStageSettingsPage extends StatefulWidget {
     required this.roles,
     this.departments = const [],
     this.employees = const [],
+    this.conditionRepository,
+    this.waitRepository,
+    this.onCommitted,
     super.key,
   });
 
   final WorkflowStage stage;
   final List<String> roles;
   final List<WorkflowTargetOption> departments, employees;
+  final WorkflowConditionRepository? conditionRepository;
+  final WorkflowWaitRepository? waitRepository;
+  final VoidCallback? onCommitted;
 
   @override
   State<WorkflowStageSettingsPage> createState() =>
@@ -161,9 +174,15 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
   }
 
   @override
-  Widget build(BuildContext context) => widget.stage.type == WorkflowStageType.condition &&
+  Widget build(BuildContext context) => widget.stage.type == WorkflowStageType.wait
+      ? WorkflowWaitSettingsPage(definition: context.read<WorkflowDesignerCubit>().definition,
+          stage: widget.stage, repository: widget.waitRepository, onSaved: () async {
+            await context.read<WorkflowDesignerCubit>().load();
+            widget.onCommitted?.call();
+          })
+      : widget.stage.type == WorkflowStageType.condition &&
       fields.any((field) => field.conditionVersion == 2)
-      ? _ConditionSettings(stage: widget.stage, fields: fields)
+      ? _ConditionSettings(stage: widget.stage, fields: fields, repository: widget.conditionRepository, onCommitted: widget.onCommitted)
       : Scaffold(
         appBar: AsoudHeader(
           title: 'تنظیمات مرحله',
@@ -290,41 +309,8 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
             const SizedBox(height: 14),
             _detailsField('متن اعلان یا توضیح کوتاه'),
           ],
-        WorkflowStageType.wait => [
-            _dropdown(
-                'نوع انتظار',
-                function,
-                const {
-                  'Duration': 'مدت مشخص',
-                  'Date': 'تا تاریخ مشخص',
-                  'Event': 'تا وقوع رویداد',
-                },
-                (next) => function = next),
-            const SizedBox(height: 10),
-            TextField(
-              controller: value,
-              keyboardType: function == 'Duration'
-                  ? TextInputType.number
-                  : TextInputType.text,
-              decoration: InputDecoration(
-                labelText: function == 'Duration'
-                    ? 'مدت انتظار *'
-                    : 'تاریخ یا نام رویداد *',
-              ),
-            ),
-            if (function == 'Duration') ...[
-              const SizedBox(height: 10),
-              _dropdown(
-                  'واحد زمان',
-                  secondary,
-                  const {
-                    'Minute': 'دقیقه',
-                    'Hour': 'ساعت',
-                    'Day': 'روز',
-                  },
-                  (next) => secondary = next),
-            ],
-          ],
+        // Wait is rendered by its dedicated editor above, not a second form.
+        WorkflowStageType.wait => const [],
         WorkflowStageType.end => [
             _dropdown(
                 'نتیجه نهایی',
@@ -638,11 +624,7 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
           'message': details.text.trim(),
         });
       case WorkflowStageType.wait:
-        output.addAll({
-          'wait_type': function,
-          'wait_value': value.text.trim(),
-          'wait_unit': secondary,
-        });
+        return; // The validated Wait API owns this save.
       case WorkflowStageType.end:
         output.addAll({
           'outcome': function,
@@ -654,7 +636,7 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
     final saved = await context
         .read<WorkflowDesignerCubit>()
         .saveStage(widget.stage, output);
-    if (saved && mounted) Navigator.pop(context);
+    if (saved && mounted) { widget.onCommitted?.call(); Navigator.pop(context); }
   }
 
   Map<String, dynamic> _deadlineOutput() => {

@@ -1,4 +1,5 @@
 import 'package:asoud_erp/core/theme/asoud_theme.dart';
+import 'package:asoud_erp/features/workflows/data/workflow_wait_repository.dart';
 import 'package:asoud_erp/features/workflows/domain/entities/workflow_definition.dart';
 import 'package:asoud_erp/features/workflows/domain/repositories/workflow_repository.dart';
 import 'package:asoud_erp/features/workflows/presentation/cubit/workflow_designer_cubit.dart';
@@ -10,6 +11,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
+
+class _WaitRepository extends Mock implements WorkflowWaitRepository {}
 
 class _PreviewRepository implements WorkflowRepository {
   @override
@@ -292,6 +296,19 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
       final repository = _PreviewRepository();
+      final waitRepository = _WaitRepository();
+      when(() => waitRepository.draft('WF-1405-001', 'STAGE-1'))
+          .thenAnswer((_) async => null);
+      when(() => waitRepository.options('WF-1405-001', 'STAGE-1'))
+          .thenAnswer((_) async => {
+                'wait_version': 1,
+                'execution_ready': true,
+                'time_zone': 'Asia/Tehran',
+                'zone_source': 'System',
+                'output_valid': true,
+                'output_label': 'ادامه فرایند',
+                'fields': <Map<String, dynamic>>[],
+              });
       await tester.pumpWidget(
         RepositoryProvider<WorkflowRepository>.value(
           value: repository,
@@ -305,6 +322,7 @@ void main() {
               home: Directionality(
                 textDirection: TextDirection.rtl,
                 child: WorkflowStageSettingsPage(
+                  waitRepository: waitRepository,
                   stage: WorkflowStage(
                     id: 'STAGE-1',
                     key: 'stage-1',
@@ -322,7 +340,8 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
-      expect(find.text('ذخیره مرحله'), findsOneWidget);
+      expect(find.text(type == WorkflowStageType.wait
+          ? 'اعتبارسنجی و ذخیره' : 'ذخیره مرحله'), findsOneWidget);
     });
   }
 }

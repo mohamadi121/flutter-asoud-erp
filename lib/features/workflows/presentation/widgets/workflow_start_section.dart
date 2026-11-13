@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/network/frappe_client.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/widgets/asoud_ui.dart';
+import '../../../../core/widgets/app_fields.dart';
 import '../../../../core/utils/persian_server_values.dart';
 import '../../../form_builder/form_repository.dart';
 import '../../domain/entities/workflow_start_settings.dart';
@@ -204,6 +205,21 @@ class _WorkflowStartSectionState extends State<WorkflowStartSection> {
                   trailing: const Icon(Icons.expand_more),
                   onTap: widget.enabled ? roles : null)),
         const SizedBox(height: 14),
+        if (!widget.value.manual && widget.value.source != null) ...[
+          AppSelectField(key: const ValueKey('workflow-source-route'),
+            label: 'انتخاب گردش‌کار پس از ارسال فرم', value: widget.value.sourceRoute, enabled: widget.enabled,
+            displayValue: const {'Available': 'فقط اتصال فرم', 'Default': 'گردش‌کار پیش‌فرض فرم',
+              'Conditional': 'انتخاب بر اساس شرط شروع'}[widget.value.sourceRoute],
+            onPick: () => showAppOptionSheet(context, title: 'انتخاب مسیر ارسال', current: widget.value.sourceRoute,
+              options: const [AppOption('Available', 'فقط اتصال فرم'), AppOption('Default', 'گردش‌کار پیش‌فرض فرم'),
+                AppOption('Conditional', 'انتخاب بر اساس شرط شروع')]),
+            onChanged: (mode) => widget.onChanged(widget.value.withSourceRoute(mode))),
+          Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Text(
+            widget.value.sourceRoute == 'Conditional'
+              ? 'یک ایستگاه «شرط و مسیر» بلافاصله بعد از شروع قرار دهید. شرط آن فقط از اطلاعات فرم اصلی خوانده می‌شود؛ چند تطابق هم‌زمان خطای تعارض دارند.'
+              : 'یک فرم می‌تواند در چند گردش‌کار استفاده شود. اولین اتصال، در نبود مسیر قبلی، پیش‌فرض می‌شود؛ اتصال‌های بعدی تا تعیین پیش‌فرض یا شرط، خودکار اجرا نمی‌شوند.',
+            style: const TextStyle(fontSize: 11, color: AsoudColors.muted))),
+        ],
         Card(
             margin: EdgeInsets.zero,
             key: const ValueKey('workflow-start-additional'),

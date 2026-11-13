@@ -6,6 +6,7 @@ class WorkflowStartSettings {
       this.source,
       this.roles = const ['System Manager'],
       this.allowManagerRestart = false,
+      this.sourceRoute = 'Available',
       this.hasVersion1 = false});
   factory WorkflowStartSettings.fromDesign(WorkflowDesign design) {
     final start = design.stages
@@ -20,16 +21,17 @@ class WorkflowStartSettings {
         ? config['submission_source'] as Map
         : sources.firstOrNull;
     return WorkflowStartSettings(
-        manual: source == null && config['trigger_type'] == 'Manual',
+        manual: source == null && config['trigger_type'] == 'Manual' && (hasVersion1 || start?.configurationComplete == true),
+        sourceRoute: config['source_route'] as String? ?? (source == null ? 'Available' : 'Default'),
         source: source == null ? null : Map<String, dynamic>.from(source),
-        roles: config['initiator_roles'] is List &&
-                (config['initiator_roles'] as List).isNotEmpty
+        roles: config['initiator_roles'] is List
             ? (config['initiator_roles'] as List).whereType<String>().toList()
             : const ['System Manager'],
         allowManagerRestart: config['allow_manager_restart'] == true,
         hasVersion1: hasVersion1);
   }
   final bool manual, allowManagerRestart, hasVersion1;
+  final String sourceRoute;
   final Map<String, dynamic>? source;
   final List<String> roles;
   WorkflowStartSettings copyWith(
@@ -44,9 +46,14 @@ class WorkflowStartSettings {
           source: clearSource ? null : source ?? this.source,
           roles: roles ?? this.roles,
           allowManagerRestart: allowManagerRestart ?? this.allowManagerRestart,
+          sourceRoute: sourceRoute,
           hasVersion1: hasVersion1 ?? this.hasVersion1);
+  WorkflowStartSettings withSourceRoute(String mode) => WorkflowStartSettings(
+    manual: manual, source: source, roles: roles, allowManagerRestart: allowManagerRestart,
+    hasVersion1: hasVersion1, sourceRoute: mode);
   Map<String, dynamic> toMap() => {
         'trigger_type': manual ? 'Manual' : 'Document Event',
+        'source_route': manual ? 'Available' : sourceRoute,
         'initiator_roles': roles,
         'submission_source': manual || source == null
             ? null
@@ -73,12 +80,14 @@ class WorkflowStartSettings {
           manual == other.manual &&
           allowManagerRestart == other.allowManagerRestart &&
           hasVersion1 == other.hasVersion1 &&
+          sourceRoute == other.sourceRoute &&
           _mapEquals(source, other.source) &&
           _listEquals(roles, other.roles);
 
   @override
   int get hashCode =>
-      Object.hash(manual, allowManagerRestart, hasVersion1, source, Object.hashAll(roles));
+      Object.hash(manual, allowManagerRestart, hasVersion1, sourceRoute,
+          source == null ? null : Object.hashAll((source!.keys.toList()..sort()).map((key) => Object.hash(key, source![key]))), Object.hashAll(roles));
 
   bool _mapEquals(Map? a, Map? b) {
     if (a == b) return true;
@@ -104,4 +113,9 @@ abstract interface class WorkflowStartSettingsRepository {
   bool get localStartSettings;
   Future<WorkflowStage> configureStart(
       String definition, WorkflowStartSettings settings);
+}
+
+abstract interface class WorkflowDraftStartRepository {
+  Future<void> validateStartSelection(String company, WorkflowStartSettings settings, {String? definition});
+  Future<WorkflowDefinition> createInitializedDraft(Map<String, dynamic> info, WorkflowStartSettings settings);
 }

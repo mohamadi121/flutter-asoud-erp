@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/network/frappe_client.dart';
+import '../../../../core/utils/failure_message.dart';
+import '../../data/workflow_path_repository.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../domain/entities/workflow_definition.dart';
 import '../../domain/repositories/workflow_repository.dart';
@@ -26,8 +29,16 @@ class WorkflowDesignerPage extends StatelessWidget {
       );
 }
 
-class _DesignerView extends StatelessWidget {
+class _DesignerView extends StatefulWidget {
   const _DesignerView();
+
+  @override
+  State<_DesignerView> createState() => _DesignerViewState();
+}
+
+class _DesignerViewState extends State<_DesignerView> {
+  bool editingPath = false;
+  WorkflowPathRepository paths(BuildContext context) => WorkflowPathRepository(context.read<FrappeApiClient>());
 
   @override
   Widget build(BuildContext context) =>
@@ -74,8 +85,7 @@ class _DesignerView extends StatelessWidget {
                   onMoveEnd:
                       context.read<WorkflowDesignerCubit>().savePositions,
                   onInsertOnTransition: (edge) => _insertStage(context, edge),
-                  onCreateTransition: (stage) =>
-                      _connectStage(context, stage, design),
+                  onRemoveTransition: (edge) => _removePath(context, edge),
                 ),
               ),
             ]),
@@ -97,22 +107,23 @@ class _DesignerView extends StatelessWidget {
       );
 
   Future<void> _openStage(BuildContext context, WorkflowStage stage,
-      WorkflowFormOptions? options) async {
+      WorkflowFormOptions? options, {WorkflowDesignerCubit? editor, VoidCallback? onCommitted}) async {
+    final current = editor ?? context.read<WorkflowDesignerCubit>();
     if (stage.type == WorkflowStageType.start) {
       await _editWorkflow(context);
       return;
     }
     if (stage.type == WorkflowStageType.end) {
-      final cubit = context.read<WorkflowDesignerCubit>();
+      final cubit = current;
       await Navigator.of(context).push(MaterialPageRoute<void>(
         builder: (_) => BlocProvider.value(
           value: cubit,
-          child: WorkflowEndSettingsPage(stage: stage),
+          child: WorkflowEndSettingsPage(stage: stage, onCommitted: onCommitted),
         ),
       ));
       return;
     }
-    final design = context.read<WorkflowDesignerCubit>().state.design;
+    final design = current.state.design;
     if (design != null &&
         const {
           WorkflowStageType.userTask,
@@ -121,21 +132,22 @@ class _DesignerView extends StatelessWidget {
         }.contains(stage.type)) {
       await Navigator.of(context).push(MaterialPageRoute<void>(
         builder: (_) => BlocProvider.value(
-          value: context.read<WorkflowDesignerCubit>(),
+          value: current,
           child:
-              StageSettingsPage(stage: stage, design: design, options: options),
+              StageSettingsPage(stage: stage, design: design, options: options, onCommitted: onCommitted),
         ),
       ));
       return;
     }
     await Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) => BlocProvider.value(
-        value: context.read<WorkflowDesignerCubit>(),
+        value: current,
         child: WorkflowStageSettingsPage(
           stage: stage,
           roles: options?.roles ?? const [],
           departments: options?.departments ?? const [],
           employees: options?.employees ?? const [],
+          onCommitted: onCommitted,
         ),
       ),
     ));
@@ -172,6 +184,13 @@ class _DesignerView extends StatelessWidget {
 
   Future<void> _insertStage(
       BuildContext context, WorkflowTransition transition) async {
+    if (editingPath) return;
+    editingPath = true;
+    final parent = context.read<WorkflowDesignerCubit>();
+    WorkflowDesignerCubit? editor;
+    String? created, ticket;
+    bool committed = false;
+    try {
     final type = await showModalBottomSheet<WorkflowStageType>(
       context: context,
       isScrollControlled: true,
@@ -179,97 +198,60 @@ class _DesignerView extends StatelessWidget {
       builder: (_) => const _StagePickerSheet(),
     );
     if (type != null && context.mounted) {
-      await context
-          .read<WorkflowDesignerCubit>()
-          .insertStage(transition.id, type);
+      final before = parent.state.design!.stages.map((stage) => stage.id).toSet();
+      final reply = await paths(context).insert(parent.definition, transition.id, type);
+      ticket = reply['insertion_token'] as String;
+      created = (reply['stages'] as List).cast<Map>().where((row) => !before.contains(row['name'])).single['name'] as String;
+      editor = WorkflowDesignerCubit(repository: parent.repository, definition: parent.definition);
+      await editor.load();
+      final node = editor.state.design?.stages.where((stage) => stage.id == created).single;
+      if (node == null) throw StateError('مرحلهٔ جدید از سرور دریافت نشد.');
+      created = node.id;
+      if (context.mounted) {
+        await _openStage(context, node, editor.state.options,
+            editor: editor, onCommitted: () => committed = true);
+      }
+    }
+    } catch (error) {
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(failureMessage(error))));
+    } finally {
+      if (!committed && created != null && ticket != null && context.mounted) {
+        try { await paths(context).discard(parent.definition, created, ticket); }
+        catch (error) { if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('بازگردانی مرحله انجام نشد؛ نمودار را تازه کنید. ${failureMessage(error)}')));
+        } }
+      }
+      await editor?.close();
+      if (!parent.isClosed) await parent.load();
+      editingPath = false;
     }
   }
 
-  Future<void> _connectStage(
-      BuildContext context, WorkflowStage from, WorkflowDesign design) async {
-    final candidates = design.stages
-        .where((stage) => stage.id != from.id &&
-            (from.type != WorkflowStageType.condition || stage.type != WorkflowStageType.start))
-        .toList(growable: false);
-    if (candidates.isEmpty) return;
-    final result = await showModalBottomSheet<({String target, String action})>(
-      context: context,
-      showDragHandle: true,
-      builder: (sheetContext) => _ConnectSheet(stages: candidates,
-        condition: from.type == WorkflowStageType.condition),
-    );
-    if (result != null && context.mounted) {
-      await context.read<WorkflowDesignerCubit>().connectStages(
-            fromStage: from.id,
-            toStage: result.target,
-            action: result.action,
-            condition: from.type == WorkflowStageType.condition ? {'result': result.action == 'شرط برقرار است'} : const {},
-          );
-    }
+  Future<void> _removePath(BuildContext context, WorkflowTransition transition) async {
+    if (editingPath) return;
+    editingPath = true;
+    final cubit = context.read<WorkflowDesignerCubit>();
+    try {
+      final review = await paths(context).preview(cubit.definition, transition.id);
+      if (!context.mounted) return;
+      final names = (review['stage_labels'] as List).join('، ');
+      final accepted = await showDialog<bool>(context: context, builder: (dialog) => AlertDialog(
+        title: const Text('حذف مسیر'),
+        content: SingleChildScrollView(child: Text('این مسیر حذف می‌شود.\n'
+          '${names.isEmpty ? 'هیچ مرحلهٔ مشترکی حذف نمی‌شود.' : 'مراحل اختصاصی قابل حذف: $names'}\n'
+          'مراحل مشترک و شاخه‌های دیگر حفظ می‌شوند.')),
+        actions: [TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('انصراف')),
+          FilledButton(onPressed: () => Navigator.pop(dialog, true), child: const Text('تأیید حذف'))]));
+      if (accepted == true && context.mounted) {
+        await paths(context).remove(cubit.definition, transition.id, review['version'] as Object);
+        await cubit.load();
+      }
+    } catch (error) {
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(failureMessage(error))));
+    } finally { editingPath = false; }
   }
-}
 
-class _ConnectSheet extends StatefulWidget {
-  const _ConnectSheet({required this.stages, this.condition = false});
-  final List<WorkflowStage> stages;
-  final bool condition;
-
-  @override
-  State<_ConnectSheet> createState() => _ConnectSheetState();
-}
-
-class _ConnectSheetState extends State<_ConnectSheet> {
-  late String target = widget.stages.first.id;
-  late String action = widget.condition ? 'شرط برقرار است' : 'تأیید';
-
-  @override
-  Widget build(BuildContext context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const Text('ایجاد مسیر جدید',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              initialValue: target,
-              decoration: const InputDecoration(labelText: 'مرحله مقصد'),
-              items: [if (widget.condition) const DropdownMenuItem(value: '', child: Text('قطع اتصال این خروجی')),
-                ...widget.stages.where((stage) => !widget.condition || stage.type != WorkflowStageType.start)
-                  .map((stage) => DropdownMenuItem(
-                        value: stage.id,
-                        child: Text(stage.title),
-                      ))
-                  ],
-              onChanged: (value) => setState(() => target = value ?? target),
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              initialValue: action,
-              decoration: const InputDecoration(labelText: 'عملیات مسیر'),
-              items: (widget.condition ? const ['شرط برقرار است', 'شرط برقرار نیست'] : const [
-                'تأیید',
-                'رد',
-                'بازگشت برای اصلاح',
-                'ارجاع',
-                'ادامه'
-              ])
-                  .map((value) =>
-                      DropdownMenuItem(value: value, child: Text(value)))
-                  .toList(growable: false),
-              onChanged: (value) => setState(() => action = value ?? action),
-            ),
-            const SizedBox(height: 18),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: () =>
-                    Navigator.pop(context, (target: target, action: action)),
-                child: const Text('ثبت مسیر'),
-              ),
-            ),
-          ]),
-        ),
-      );
 }
 
 class _DraftBanner extends StatelessWidget {

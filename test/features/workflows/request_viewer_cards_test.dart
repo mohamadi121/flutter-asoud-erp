@@ -54,6 +54,20 @@ Future<void> _pump(WidgetTester tester, double width, Map<String, dynamic> data,
 }
 
 void main() {
+  for (final action in ['تأیید', 'بازگرداندن']) {
+    testWidgets('$action respects the mandatory comment policy without relying on legacy flags', (tester) async {
+      final tasks = _Tasks();
+      await _pump(tester, 390, _data(task: {'allow_return': true,
+        'comment_required': action == 'تأیید', 'reject_comment_required': false}), tasks, () {});
+      await tester.tap(find.text(action));
+      await tester.pumpAndSettle();
+      expect(tester.widget<FilledButton>(find.widgetWithText(FilledButton, action).last).onPressed, isNull);
+      expect(tasks.calls, isEmpty);
+      await tester.enterText(find.byType(TextField), 'دلیل تصمیم');
+      await tester.pump();
+      expect(tester.widget<FilledButton>(find.widgetWithText(FilledButton, action).last).onPressed, isNotNull);
+    });
+  }
   for (final width in [320.0, 390.0, 430.0]) {
     testWidgets('requester sees the status message at $width', (tester) async {
       await _pump(tester, width, _data(requester: true), _Tasks(), () {});
