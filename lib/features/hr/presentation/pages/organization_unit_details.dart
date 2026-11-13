@@ -1,8 +1,10 @@
 part of 'organization_page.dart';
 
 class _UnitDetails extends StatefulWidget {
-  const _UnitDetails({required this.unit, required this.units, required this.canManage, this.onDeleted});
-  final Map<String, dynamic> unit;
+  const _UnitDetails({this.unit, this.rootPosition, required this.units, required this.canManage, this.onDeleted})
+    : assert(unit != null || rootPosition != null);
+  final Map<String, dynamic>? unit;
+  final OrgPosition? rootPosition;
   final List<Map<String, dynamic>> units;
   final bool canManage;
   final ValueChanged<String?>? onDeleted;
@@ -11,7 +13,7 @@ class _UnitDetails extends StatefulWidget {
 }
 
 class _UnitDetailsState extends State<_UnitDetails> {
-  late String id = '${widget.unit['name']}';
+  late String? id = widget.unit?['name']?.toString();
   List<Map<String, dynamic>> units = [];
   bool loading = true, busy = false, permitted = false;
   String? error, assignment;
@@ -23,6 +25,8 @@ class _UnitDetailsState extends State<_UnitDetails> {
   OrganizationCubit get cubit => context.read<OrganizationCubit>();
   OrganizationUnitNavigation get nav => OrganizationUnitNavigation(units);
   Map<String, dynamic>? get unit => nav.byId(id);
+  bool get root => widget.rootPosition != null;
+  OrgPosition? get rootPosition => cubit.state.snapshot.rows.where((row) => row.code == widget.rootPosition?.code).firstOrNull;
   bool get locked => busy || loading || cubit.state.busy;
   bool get canManage => widget.canManage && permitted;
   @override
@@ -74,11 +78,12 @@ class _UnitDetailsState extends State<_UnitDetails> {
     if (mounted) await refresh();
   }
   Widget operation(_OrgEdit expected) {
-    if (action != expected || unit == null) return const SizedBox.shrink();
+    if (action != expected || (!root && unit == null)) return const SizedBox.shrink();
     final tint = expected == _OrgEdit.addUnit ? 1 :
         (expected == _OrgEdit.addPosition || expected == _OrgEdit.editPosition ? 2 : 0);
     return Padding(padding: const EdgeInsets.only(top: 10), child: _OrganizationInlineEditor(
-      key: editor, action: expected, unit: Map.of(unit!), units: units,
+      key: editor, action: expected, unit: unit == null ? const {} : Map.of(unit!), units: units,
+      root: root, rootPosition: rootPosition,
       position: editingPosition, detailsMode: true, background: _orgTints[tint].withValues(alpha: .55),
       onBusy: (v) { if (mounted) setState(() => busy = v); }, onCancel: closeEditor,
       onSaved: (_, fallback) async {
@@ -148,13 +153,13 @@ class _UnitDetailsState extends State<_UnitDetails> {
   Widget build(BuildContext context) => BlocBuilder<OrganizationCubit, OrganizationState>(builder: (context, state) {
     final current = unit;
     final children = nav.children(id);
-    final positions = state.snapshot.rows.where((r) => r.departmentId == id).toList();
+    final positions = state.snapshot.rows.where((r) => root ? r.code == widget.rootPosition?.code : r.departmentId == id).toList();
     final parent = nav.byId(current?['parent_department']?.toString());
     final parentLabel = parent == null ? ((current?['parent_department'] ?? '').toString().isEmpty
         ? 'ریشه ساختار سازمان' : 'نام بالادستی در دسترس نیست') : organizationUnitLabel(parent);
     return PopScope(canPop: !locked && action == null && assignment == null,
       onPopInvokedWithResult: (didPop, result) async { if (!didPop && !locked) await closeEditor(); },
-      child: Scaffold(key: ValueKey('unit-details-$id'), backgroundColor: _orgCanvas,
+      child: Scaffold(key: ValueKey(root ? 'unit-details-root-${widget.rootPosition!.code}' : 'unit-details-$id'), backgroundColor: _orgCanvas,
         appBar: const _OrganizationReferenceHeader(title: 'جزئیات واحد سازمانی', form: true, compact: true),
         body: ListView(controller: scroll, key: const PageStorageKey('unit-details-scroll'),
           padding: const EdgeInsets.fromLTRB(14, 0, 14, 16), children: [
@@ -162,20 +167,20 @@ class _UnitDetailsState extends State<_UnitDetails> {
           if (loading) const LinearProgressIndicator(),
           if (error != null) _OrgPanel(children: [Text(error!, style: const TextStyle(color: AsoudColors.danger)),
             TextButton(onPressed: locked ? null : refresh, child: const Text('دریافت دوباره اطلاعات واحد'))]),
-          if (!loading && error == null && current == null) const _OrgPanel(children: [Text('این واحد حذف شده یا در دسترس شما نیست.')]),
-          if (current != null && error == null) ...[
+          if (!loading && error == null && (root ? rootPosition == null : current == null)) const _OrgPanel(children: [Text('این واحد یا جایگاه اصلی حذف شده یا در دسترس شما نیست.')]),
+          if ((root ? rootPosition != null : current != null) && error == null) ...[
             _OrgPanel(children: [
-              _OrgDetailIdentity(title: organizationUnitLabel(current), subtitle: 'بالادستی: $parentLabel'),
-              Text('${current['description'] ?? ''}'.trim().isEmpty ? 'توضیحاتی ثبت نشده است.' : '${current['description']}',
+              _OrgDetailIdentity(title: root ? rootPosition!.displayTitle : organizationUnitLabel(current!), subtitle: root ? 'جایگاه اصلی / ریشه ساختار سازمانی' : 'بالادستی: $parentLabel'),
+              Text((root ? rootPosition!.duties : '${current!['description'] ?? ''}').trim().isEmpty ? 'توضیحاتی ثبت نشده است.' : root ? rootPosition!.duties : '${current!['description']}',
                 style: const TextStyle(fontSize: 12, color: AsoudColors.muted)),
               const SizedBox(height: 10), Row(children: [count('زیرواحدها', children.length, 0),
                 const SizedBox(width: 8), count('جایگاه‌ها', positions.length, 2)]),
-              if (canManage) ...[const SizedBox(height: 10),
+              if (canManage && !root) ...[const SizedBox(height: 10),
                 OutlinedButton.icon(key: const ValueKey('organization-unit-edit'),
                   onPressed: locked ? null : () => open(_OrgEdit.editUnit), icon: const Icon(Icons.edit_outlined, size: 15),
                   label: const Text('ویرایش مشخصات واحد')), operation(_OrgEdit.editUnit)],
             ]),
-            if (canManage) ...[const SizedBox(height: 10), _OrgPanel(children: [
+            if (canManage && !root) ...[const SizedBox(height: 10), _OrgPanel(children: [
               heading('مدیریت واحد', Icons.tune, 1), const SizedBox(height: 10),
               managementCard('انتقال واحد', 'انتقال به واحد بالادستی جدید', Icons.swap_horiz, 0, _OrgEdit.moveUnit),
               operation(_OrgEdit.moveUnit), const SizedBox(height: 10),
@@ -184,8 +189,8 @@ class _UnitDetailsState extends State<_UnitDetails> {
             ])],
             const SizedBox(height: 10), _OrgPanel(children: [
               heading('زیرواحدها', Icons.account_tree_outlined, 1, addKey: const ValueKey('organization-subunit-add'),
-                add: canManage && current['is_group'] == 1 ? () => open(_OrgEdit.addUnit) : null),
-              if (canManage && current['is_group'] != 1) const Text('این واحد امکان پذیرش زیرواحد ندارد.', style: TextStyle(fontSize: 11)),
+                add: canManage && (root || current?['is_group'] == 1) ? () => open(_OrgEdit.addUnit) : null),
+              if (canManage && !root && current?['is_group'] != 1) const Text('این واحد امکان پذیرش زیرواحد ندارد.', style: TextStyle(fontSize: 11)),
               const SizedBox(height: 8),
               if (children.isEmpty) const _OrgNotice(icon: Icons.account_tree_outlined, color: Color(0xff8965af), text: 'هنوز زیرواحدی تعریف نشده است.'),
               for (final (index, child) in children.indexed) Padding(padding: const EdgeInsets.only(bottom: 8),

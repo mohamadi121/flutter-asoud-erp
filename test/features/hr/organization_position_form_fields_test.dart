@@ -193,6 +193,58 @@ void main() {
     });
   }
   for (final width in [320.0, 390.0, 430.0]) {
+    testWidgets('CEO has full details and the same inline editors without detail menus at $width', (tester) async {
+      final client = _OrgClient(units: [
+        {'name': 'A', 'department_name': 'فروش', 'parent_department': '', 'is_group': 1, 'disabled': 0},
+      ], positions: [
+        {'code': 'CEO', 'title': 'مدیرعامل', 'parent': '', 'department_id': '', 'department': '',
+          'duties': 'راهبری سازمان', 'occupants': <String>[], 'capacity': 1},
+      ]);
+      await _openCreateForm(tester, client, openForm: false, focusFirst: false);
+      tester.view.physicalSize = Size(width, 1100);
+      await tester.pumpAndSettle();
+      Future<void> tap(Finder target) async {
+        await tester.scrollUntilVisible(target, 220, scrollable: find.descendant(
+          of: find.byKey(const PageStorageKey('organization-focused-scroll')), matching: find.byType(Scrollable)).first);
+        await tester.ensureVisible(target);
+        await tester.pumpAndSettle();
+        await tester.tap(target);
+        await tester.pumpAndSettle();
+      }
+      await tap(find.byKey(const ValueKey('organization-full-unit-details')));
+      expect(find.byKey(const ValueKey('unit-details-root-CEO')), findsOneWidget);
+      expect(find.byKey(const ValueKey('unit-position-CEO')), findsOneWidget);
+      expect(find.byKey(const ValueKey('organization-unit-delete-action')), findsNothing,
+        reason: 'CEO is a real position, not a fabricated native Department.');
+      await tester.tap(find.byTooltip('بازگشت'));
+      await tester.pumpAndSettle();
+      await tap(find.byKey(const ValueKey('focus-add-unit')));
+      expect(find.byKey(const ValueKey('focus-editor-title')), findsOneWidget);
+      expect(find.byKey(const ValueKey('focus-editor-description')), findsOneWidget);
+      expect(find.text('تعریف واحد سازمانی جدید'), findsNothing);
+      await tap(find.byTooltip('بستن فرم'));
+      await tap(find.byKey(const ValueKey('focus-add-position')));
+      expect(find.byKey(const ValueKey('focus-editor-unit')), findsOneWidget);
+      expect(find.byKey(const ValueKey('focus-editor-parent')), findsOneWidget);
+      await tap(find.byTooltip('بستن فرم'));
+      await tap(find.byTooltip('ویرایش مدیرعامل'));
+      expect(find.byType(BottomSheet), findsNothing);
+      expect(tester.widget<AppTextField>(find.byKey(const ValueKey('focus-editor-title'))).controller!.text, 'مدیرعامل');
+      expect(tester.widget<AppTextField>(find.byKey(const ValueKey('focus-editor-duties'))).controller!.text, 'راهبری سازمان');
+      final unit = tester.widget<AppSelectField>(find.byKey(const ValueKey('focus-editor-unit')));
+      expect(unit.displayValue, 'ریشه ساختار سازمانی (بدون ارتباط با واحد)');
+      final parent = tester.widget<AppSelectField>(find.byKey(const ValueKey('focus-editor-parent')));
+      expect(parent.displayValue, 'جایگاه اصلی / بدون بالادست');
+      expect(find.byTooltip('عملیات واحد'), findsNothing);
+      expect(find.byTooltip('عملیات مدیرعامل'), findsNothing);
+      await tap(find.byKey(const ValueKey('focus-editor-save')));
+      final stored = (client.lastSavePayload!['rows'] as List).single;
+      expect(stored['code'], 'CEO');
+      expect(stored['parent'], '');
+      expect(stored['department_id'], '');
+      expect(stored['duties'], 'راهبری سازمان');
+      expect(tester.takeException(), isNull);
+    });
     testWidgets('full unit management opens from selected chart and edits description at $width', (tester) async {
       final client = _OrgClient(units: [{
         'name': 'QUALITY', 'department_name': 'مدیریت کیفیت',
