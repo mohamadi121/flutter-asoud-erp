@@ -7,6 +7,7 @@ import 'package:asoud_erp/features/workflows/domain/entities/workflow_definition
 import 'package:asoud_erp/features/workflows/domain/repositories/workflow_repository.dart';
 import 'package:asoud_erp/features/workflows/presentation/cubit/workflow_designer_cubit.dart';
 import 'package:asoud_erp/features/workflows/presentation/pages/stage_settings_page.dart';
+import 'package:asoud_erp/features/workflows/presentation/widgets/document_template_visuals.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -74,7 +75,7 @@ const _options = WorkflowFormOptions(
 
 class _Workflows extends Fake implements WorkflowRepository {
   _Workflows([this.design]);
-  final WorkflowDesign? design;
+  WorkflowDesign? design;
   final saved = <Map<String, dynamic>>[];
   @override
   Future<WorkflowDesign> getDesign(String definition) async => design ?? _design;
@@ -222,6 +223,143 @@ Future<void> _choose(WidgetTester tester, String label, String option) async {
 }
 
 void main() {
+  testWidgets('approval with one valid forward node shows only that destination', (tester) async {
+    final single = WorkflowDesign(workflow: _design.workflow,
+      stages: _design.stages.where((stage) => stage.id != 'S3' && stage.id != 'S5').toList(),
+      transitions: [
+        ..._design.transitions.where((edge) => edge.fromStage != 'S2' && edge.fromStage != 'S3'),
+        const WorkflowTransition(id: 'only-end', fromStage: 'S2', toStage: 'S4'),
+      ]);
+    await _open(tester, 'S2', designOverride: single);
+    final route = find.byKey(const ValueKey('approval-route-Approve'));
+    await _tap(tester, find.descendant(of: route, matching: find.byType(PickerField)));
+    expect(find.byKey(const ValueKey('approval-destination-S4')), findsOneWidget);
+    expect(find.byKey(const ValueKey('approval-destination-S1')), findsNothing);
+    expect(find.byKey(const ValueKey('approval-destination-S2')), findsNothing);
+    expect(find.byKey(const ValueKey('approval-destination-search')), findsNothing);
+    await _tap(tester, find.byKey(const ValueKey('approval-destination-S4')));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('approval reloads real destinations, searches many nodes and keeps renamed IDs', (tester) async {
+    final (workflows, automation) = await _open(tester, 'S2');
+    workflows.design = WorkflowDesign(workflow: _design.workflow,
+      stages: [
+        ..._design.stages,
+        for (var i = 0; i < 24; i++) _stage('new-$i', WorkflowStageType.userTask, 'رسیدگی $i', 10 + i),
+        _stage('failed-end', WorkflowStageType.end, 'پایان رد', 50, {'outcome': 'Rejected'}),
+      ], transitions: _design.transitions);
+    final route = find.byKey(const ValueKey('approval-route-Approve'));
+    await _tap(tester, find.descendant(of: route, matching: find.byType(PickerField)));
+    expect(find.byKey(const ValueKey('approval-destination-failed-end')), findsNothing);
+    await tester.enterText(find.byKey(const ValueKey('approval-destination-search')), 'رسیدگی 23');
+    await tester.pumpAndSettle();
+    await _tap(tester, find.byKey(const ValueKey('approval-destination-new-23')));
+    expect(workflows.saved, isEmpty);
+    expect(automation.routes, isEmpty);
+    final added = workflows.design!;
+    workflows.design = WorkflowDesign(workflow: added.workflow,
+      stages: [for (final stage in added.stages) stage.id == 'new-23'
+        ? stage.copyWith(title: 'رسیدگی نهایی') : stage], transitions: added.transitions);
+    await _tap(tester, find.descendant(of: route, matching: find.byType(PickerField)));
+    await tester.enterText(find.byKey(const ValueKey('approval-destination-search')), 'رسیدگی نهایی');
+    await tester.pumpAndSettle();
+    final selected = find.byKey(const ValueKey('approval-destination-new-23'));
+    expect(find.descendant(of: selected, matching: find.byIcon(Icons.check_circle_outline)), findsOneWidget);
+    await _tap(tester, selected);
+    await _tap(tester, find.text('ذخیره'));
+    expect(automation.routes.single['Approve'], 'new-23');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('approval refuses a destination removed while settings are open before saving', (tester) async {
+    final (workflows, automation) = await _open(tester, 'S2');
+    workflows.design = WorkflowDesign(workflow: _design.workflow,
+      stages: _design.stages.where((stage) => stage.id != 'S3').toList(),
+      transitions: _design.transitions.where((edge) => edge.toStage != 'S3' && edge.fromStage != 'S3').toList());
+    await _tap(tester, find.text('ذخیره'));
+    expect(workflows.saved, isEmpty);
+    expect(automation.routes, isEmpty);
+    expect(find.textContaining('مقصد انتخاب‌شده معتبر نیست'), findsOneWidget);
+  });
+
+  testWidgets('all approval destinations and comment setting survive save and reopen', (tester) async {
+    final original = WorkflowDesign(workflow: _design.workflow, stages: _design.stages,
+      transitions: [..._design.transitions, const WorkflowTransition(id: 'reject-existing',
+        fromStage: 'S2', toStage: 'S5', condition: {'action': 'Reject'})]);
+    final (workflows, automation) = await _open(tester, 'S2', designOverride: original);
+    for (final choice in [('Approve', 'S4'), ('Reject', 'default'), ('Return', 'S1')]) {
+      final route = find.byKey(ValueKey('approval-route-${choice.$1}'));
+      await _scrollToFinder(tester, route);
+      await _tap(tester, find.descendant(of: route, matching: find.byType(PickerField)));
+      await _tap(tester, find.byKey(ValueKey('approval-destination-${choice.$2}')));
+    }
+    await _tap(tester, find.text('ذخیره'));
+    expect(automation.routes.single, {'Approve': 'S4', 'Reject': '', 'Return': 'S1'});
+    final reopened = WorkflowDesign(workflow: original.workflow,
+      stages: [for (final stage in original.stages) stage.id == 'S2'
+        ? stage.copyWith(config: workflows.saved.single) : stage],
+      transitions: [
+        for (final edge in original.transitions) if (edge.fromStage != 'S2') edge,
+        const WorkflowTransition(id: 'approved', fromStage: 'S2', toStage: 'S4', condition: {'action': 'Approve'}),
+        const WorkflowTransition(id: 'returned', fromStage: 'S2', toStage: 'S1', condition: {'action': 'Return'}),
+      ]);
+    await _open(tester, 'S2', designOverride: reopened);
+    for (final choice in [('Approve', 'S4'), ('Reject', 'default'), ('Return', 'S1')]) {
+      final route = find.byKey(ValueKey('approval-route-${choice.$1}'));
+      await _scrollToFinder(tester, route);
+      await _tap(tester, find.descendant(of: route, matching: find.byType(PickerField)));
+      final tile = find.byKey(ValueKey('approval-destination-${choice.$2}'));
+      expect(find.descendant(of: tile, matching: find.byIcon(Icons.check_circle_outline)), findsOneWidget);
+      await tester.tap(find.byTooltip('بستن').last);
+      await tester.pumpAndSettle();
+    }
+  });
+  for (final width in [320.0, 390.0, 430.0]) {
+    testWidgets('approval destinations share one sheet and exclude invalid correction targets at $width', (tester) async {
+      await tester.binding.setSurfaceSize(Size(width, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await _open(tester, 'S2');
+      for (final action in ['Approve', 'Reject', 'Return']) {
+        final route = find.byKey(ValueKey('approval-route-$action'));
+        await _scrollToFinder(tester, route);
+        await _tap(tester, find.descendant(of: route, matching: find.byType(PickerField)));
+        expect(find.text('انتخاب مقصد'), findsOneWidget);
+        expect(find.byType(ChoiceChip), findsNothing);
+        expect(find.byKey(const ValueKey('approval-destination-sheet')), findsOneWidget);
+        if (action == 'Return') {
+          expect(find.byKey(const ValueKey('approval-destination-S1')), findsOneWidget);
+          expect(find.byKey(const ValueKey('approval-destination-S4')), findsNothing);
+          expect(find.byKey(const ValueKey('approval-destination-S3')), findsNothing);
+          expect(find.text('آخرین مرحله قابل اصلاح'), findsWidgets);
+        }
+        await tester.tap(find.byTooltip('بستن').last);
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      }
+    });
+  }
+  testWidgets('approval extras expose only editable approval-comment policy and preserve legacy flags', (tester) async {
+    final design = WorkflowDesign(workflow: _design.workflow, transitions: _design.transitions,
+      stages: [for (final stage in _design.stages) stage.id == 'S2'
+        ? stage.copyWith(config: {...stage.config, 'reject_comment_required': false,
+          'return_comment_required': false, 'comment_required': false}) : stage]);
+    final (workflows, _) = await _open(tester, 'S2', designOverride: design);
+    await _tap(tester, find.text('تنظیمات اضافی (اختیاری)'));
+    expect(find.text('الزام توضیح هنگام رد'), findsNothing);
+    expect(find.text('الزام توضیح هنگام برگشت برای اصلاح'), findsNothing);
+    await _tap(tester, find.text('الزام توضیح هنگام تأیید'));
+    await _tap(tester, find.text('ذخیره'));
+    expect(workflows.saved.single['comment_required'], isTrue);
+    expect(workflows.saved.single['reject_comment_required'], isTrue);
+    final reopened = WorkflowDesign(workflow: design.workflow, transitions: design.transitions,
+      stages: [for (final stage in design.stages) stage.id == 'S2'
+        ? stage.copyWith(config: workflows.saved.single) : stage]);
+    await _open(tester, 'S2', designOverride: reopened);
+    await _tap(tester, find.text('تنظیمات اضافی (اختیاری)'));
+    final tile = tester.widget<SwitchListTile>(find.widgetWithText(SwitchListTile, 'الزام توضیح هنگام تأیید'));
+    expect(tile.value, isTrue);
+  });
   testWidgets('unrelated approval edits retain every previously saved role', (tester) async {
     final design = WorkflowDesign(workflow: _design.workflow, transitions: _design.transitions,
       stages: [for (final stage in _design.stages) stage.id == 'S2'
@@ -262,9 +400,7 @@ void main() {
     final (workflows, automation) = await _open(tester, 'S2');
     await _tap(tester, find.byKey(const ValueKey('approval-diagram-expand')));
     await _tap(tester, find.byKey(const ValueKey('approval-preview-unset-Reject')));
-    await tester.enterText(find.widgetWithText(TextField, 'جستجو در مراحل گردش کار...'), 'رد درخواست');
-    await tester.pumpAndSettle();
-    await _tap(tester, find.text('رد درخواست').last);
+    await _tap(tester, find.byKey(const ValueKey('approval-destination-S5')));
     expect(find.byKey(const ValueKey('approval-preview-target-Reject-S5')), findsOneWidget);
     expect(find.byKey(const ValueKey('approval-preview-unset-Reject')), findsNothing);
     expect(workflows.saved, isEmpty);
@@ -400,8 +536,7 @@ void main() {
       expect(find.text('طبق قواعد سامانه، دلیل رد همواره الزامی است.'), findsOneWidget);
       await _tap(tester, find.text('تنظیمات اضافی (اختیاری)'));
       await _tap(tester, find.text('پایان فرایند (رد درخواست)'));
-      // The route sheet selects the stage type before the concrete stage.
-      await _tap(tester, find.text('پایان فرایند'));
+      // All three sheets now list the actual destinations directly.
       await _tap(tester, find.text('رد درخواست'));
       await _tap(tester, find.text('ذخیره'));
       final config = workflows.saved.single;

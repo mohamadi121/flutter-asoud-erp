@@ -3,6 +3,16 @@ import 'package:asoud_erp/core/offline/local_record.dart';
 
 class FakeLocalRecordStore implements LocalRecordStore {
   final records = <String, LocalRecord>{};
+  DateTime? _lastTimestamp;
+
+  // Windows can report the same wall-clock time for consecutive saves. Keep
+  // fixture insertion order deterministic while preserving explicit dates.
+  DateTime _timestamp() {
+    final now = DateTime.now();
+    final last = _lastTimestamp;
+    return _lastTimestamp = last != null && !now.isAfter(last)
+        ? last.add(const Duration(microseconds: 1)) : now;
+  }
 
   @override
   Future<LocalRecord> save({
@@ -14,7 +24,7 @@ class FakeLocalRecordStore implements LocalRecordStore {
     DateTime? nextAttemptAt,
     DateTime? createdAt,
   }) async {
-    final now = DateTime.now();
+    final now = _timestamp();
     final recordId = id ?? 'LOCAL-${records.length + 1}';
     final record = LocalRecord(
       id: recordId,
@@ -67,7 +77,7 @@ class FakeLocalRecordStore implements LocalRecordStore {
       payload: old.payload,
       status: status,
       createdAt: old.createdAt,
-      updatedAt: DateTime.now(),
+      updatedAt: _timestamp(),
       remoteId: remoteId,
       lastError: error,
       attempts: attempts ?? old.attempts,

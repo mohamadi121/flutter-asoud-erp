@@ -59,7 +59,7 @@ class OrgPosition {
         'title': title,
         'parent': parent,
         'department': department,
-        if (departmentId.isNotEmpty) 'department_id': departmentId,
+        if (departmentId.isNotEmpty || parent.isEmpty) 'department_id': departmentId,
         if (occupants != null) ...{
           'occupants': occupants,
           'capacity': capacity,

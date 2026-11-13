@@ -7,6 +7,8 @@ class _OrganizationInlineEditor extends StatefulWidget {
       required this.unit,
       required this.units,
       this.position,
+      this.root = false,
+      this.rootPosition,
       this.detailsMode = false,
       this.background,
       required this.onBusy,
@@ -16,6 +18,8 @@ class _OrganizationInlineEditor extends StatefulWidget {
   final Map<String, dynamic> unit;
   final List<Map<String, dynamic>> units;
   final OrgPosition? position;
+  final bool root;
+  final OrgPosition? rootPosition;
   final bool detailsMode;
   final Color? background;
   final ValueChanged<bool> onBusy;
@@ -45,7 +49,7 @@ class _OrganizationInlineEditorState extends State<_OrganizationInlineEditor> {
           ? cubit.state.snapshot.rows.singleWhere((r) => r.parent.isEmpty).code : '')
       : '${sourceUnit['parent_department'] ?? ''}';
   late String destination =
-      widget.position?.departmentId ?? '${sourceUnit['name']}';
+      widget.position?.departmentId ?? (widget.root ? widget.rootPosition?.departmentId ?? '' : '${sourceUnit['name']}');
   late bool group = sourceUnit['is_group'] == 1;
   late final String initial = fingerprint;
   late final int revision = cubit.state.snapshot.revision;
@@ -64,6 +68,7 @@ class _OrganizationInlineEditorState extends State<_OrganizationInlineEditor> {
   bool get adding =>
       widget.action == _OrgEdit.addUnit ||
       widget.action == _OrgEdit.addPosition;
+  String get sourceTitle => widget.root ? widget.rootPosition?.displayTitle ?? 'ریشه ساختار سازمانی' : organizationUnitLabel(sourceUnit);
   String get fingerprint => jsonEncode(
       [title.text, capacity.text, duties.text, description.text, parent, destination, group]);
   bool get dirty => !deleting && fingerprint != initial;
@@ -163,16 +168,16 @@ class _OrganizationInlineEditorState extends State<_OrganizationInlineEditor> {
             OrgPosition(
                 code: code,
                 title: '',
-                departmentId: '${sourceUnit['name']}',
-                department: '${sourceUnit['department_name']}',
+                departmentId: widget.root ? '' : '${sourceUnit['name']}',
+                department: widget.root ? '' : '${sourceUnit['department_name']}',
                 occupants: const []);
         final updated = base.copyWith(
           title: organizationEditedTitle(title.text, widget.position?.title ?? ''),
           parent: parent,
           capacity: int.parse(toLatinDigits(capacity.text.trim())),
           duties: duties.text.trim(),
-          departmentId: moving ? destination : base.departmentId,
-          department: moving
+          departmentId: moving || widget.root ? destination : base.departmentId,
+          department: moving || widget.root
               ? '${nav.byId(destination)?['department_name'] ?? ''}'
               : base.department,
           occupants: base.activeEmployees,
@@ -196,7 +201,7 @@ class _OrganizationInlineEditorState extends State<_OrganizationInlineEditor> {
           'title': organizationEditedTitle(title.text, adding ? '' : '${sourceUnit['department_name']}'),
           if (!moving) 'description': description.text.trim(),
           'parent': adding
-              ? sourceUnit['name']
+              ? (widget.root ? '' : sourceUnit['name'])
               : moving
                   ? parent
                   : sourceUnit['parent_department'] ?? '',
@@ -255,7 +260,7 @@ class _OrganizationInlineEditorState extends State<_OrganizationInlineEditor> {
               onPressed: saving ? null : widget.onCancel,
               icon: const Icon(Icons.close, size: 18)),
         ]),
-        Text(widget.position?.displayTitle ?? organizationUnitLabel(sourceUnit),
+        Text(widget.position?.displayTitle ?? sourceTitle,
             style: const TextStyle(fontSize: 12, color: Color(0xff7d8798))),
         const SizedBox(height: 14),
         if (deleting)
@@ -314,17 +319,22 @@ class _OrganizationInlineEditorState extends State<_OrganizationInlineEditor> {
                         _fixed('واحد مبدأ', organizationUnitLabel(sourceUnit)),
                         const SizedBox(height: 14),
                       ],
-                      if (moving)
+                      if (moving || widget.root)
                         AppSelectField(
+                            key: const ValueKey('focus-editor-unit'),
+                            rounded: true,
                             value: destination,
-                            label: 'واحد مقصد',
+                            label: moving ? 'واحد مقصد' : 'واحد سازمانی مربوط',
                             displayValue: _nullableOrgUnitLabel(nav.byId(destination)) ??
-                                'واحد در دسترس نیست',
+                                (destination.isEmpty ? 'ریشه ساختار سازمانی (بدون ارتباط با واحد)' : 'واحد در دسترس نیست'),
                             enabled: !saving,
                             onPick: () => showAppOptionSheet(context,
                                 title: 'واحد مقصد',
                                 current: destination,
-                                options: widget.units
+                                options: [
+                                  if (!moving && widget.position?.parent.isEmpty == true)
+                                    const AppOption('', 'ریشه ساختار سازمانی (بدون ارتباط با واحد)'),
+                                  ...widget.units
                                     .where((u) => u['disabled'] != 1)
                                     .map((u) => AppOption(
                                         '${u['name']}',
@@ -332,13 +342,15 @@ class _OrganizationInlineEditorState extends State<_OrganizationInlineEditor> {
                                             .path('${u['name']}')
                                             .map((v) => organizationUnitLabel(v))
                                             .join(' / ')))
-                                    .toList()),
+                                    ]),
+                            validator: (value) => adding && nav.byId(value) == null ? 'واحد سازمانی مربوط را انتخاب کنید.' : null,
                             onChanged: (v) => setState(() => destination = v))
                       else
                         _fixed('واحد سازمانی مربوط',
                             organizationUnitLabel(sourceUnit)),
                       const SizedBox(height: 14),
-                      if (!adding || widget.detailsMode) AppSelectField(
+                      if (!adding || widget.detailsMode || widget.root) AppSelectField(
+                          key: const ValueKey('focus-editor-parent'),
                           rounded: true,
                           value: parent,
                           label: 'جایگاه بالادستی',
@@ -348,13 +360,13 @@ class _OrganizationInlineEditorState extends State<_OrganizationInlineEditor> {
                                   .firstOrNull
                                   ?.displayTitle ??
                               (parent.isEmpty
-                                  ? 'بدون بالادست'
+                                  ? 'جایگاه اصلی / بدون بالادست'
                                   : 'جایگاه در دسترس نیست'),
                           onPick: () => showAppOptionSheet(context,
                                   title: 'جایگاه بالادستی',
                                   current: parent,
                                   options: [
-                                    const AppOption('', 'بدون بالادست'),
+                                    const AppOption('', 'جایگاه اصلی / بدون بالادست'),
                                     ...cubit.state.snapshot.rows
                                         .where((r) =>
                                             !excludedPositions.contains(r.code))
@@ -392,6 +404,7 @@ class _OrganizationInlineEditorState extends State<_OrganizationInlineEditor> {
                             }),
                         const SizedBox(height: 14),
                         AppTextField(
+                            key: const ValueKey('focus-editor-duties'),
                             controller: duties,
                             labelOutside: true,
                             hintLocales: const [Locale('fa')],
@@ -399,7 +412,7 @@ class _OrganizationInlineEditorState extends State<_OrganizationInlineEditor> {
                             minLines: 3,
                             maxLines: 5,
                             label: 'توضیحات یا شرح وظایف (اختیاری)',
-                            hint: 'توضیحات را وارد کنید'),
+                            hint: !adding && duties.text.isEmpty ? 'شرح وظایفی ثبت نشده است' : 'توضیحات را وارد کنید'),
                       ],
                     ] else if (moving) ...[
                       _fixed(
@@ -445,7 +458,7 @@ class _OrganizationInlineEditorState extends State<_OrganizationInlineEditor> {
                       _fixed(
                           'واحد بالادستی',
                           adding
-                              ? organizationUnitLabel(sourceUnit)
+                              ? sourceTitle
                               : _nullableOrgUnitLabel(nav.byId(parent)) ??
                                   'ریشه بالادستی'),
                       if (!adding && !widget.detailsMode)

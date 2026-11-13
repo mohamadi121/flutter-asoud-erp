@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/persian_server_values.dart';
+import '../../../../core/utils/failure_message.dart';
 import '../../../../core/widgets/asoud_form.dart';
 import '../../../../core/utils/persian_format.dart';
 import '../../data/workflow_automation_repository.dart';
@@ -14,12 +15,13 @@ Map<String, dynamic> _map(Object? value) =>
 List<Map<String, dynamic>> _rows(Object? value) => value is List
     ? value.whereType<Map>().map(Map<String, dynamic>.from).toList()
     : [];
-const _numeric = {'Number', 'Currency', 'Int', 'Float', 'Percent'};
+const _numeric = {'Number', 'Currency', 'Int', 'Float', 'Percent', 'Integer', 'Decimal', 'Money', 'Rating', 'Formula'};
 const _textTypes = {
   'Text',
   'Data',
   'Short Text',
   'Long Text',
+  'LongText',
   'Small Text',
   'SmallText',
   'Select'
@@ -48,6 +50,7 @@ class _AutomaticActionPageState extends State<AutomaticActionPage> {
   late final description = TextEditingController(
       text: widget.stage.config['description']?.toString() ?? '');
   final message = TextEditingController();
+  final notificationTitle = TextEditingController();
   final formula = TextEditingController();
   final extra = TextEditingController(text: '0');
   final interval = TextEditingController(text: '60');
@@ -56,6 +59,9 @@ class _AutomaticActionPageState extends State<AutomaticActionPage> {
   Map<String, dynamic>? metadata;
   String? error;
   bool draftLoaded = false;
+  bool showErrors = false;
+  final scroll = ScrollController();
+  final anchors = <String, GlobalKey>{};
   bool loading = true,
       saving = false,
       linkOriginal = true,
@@ -103,6 +109,7 @@ class _AutomaticActionPageState extends State<AutomaticActionPage> {
       missing = op['missing']?.toString() ?? 'error';
       linkOriginal = op['link_original'] != false;
       message.text = op['message']?.toString() ?? '';
+      notificationTitle.text = op['title']?.toString() ?? '';
       formula.text = op['formula']?.toString() ?? '';
       mapping = _map(op['mapping']).map(
           (key, value) => MapEntry(key, ActionMapping.fromJson(_map(value))));
@@ -122,7 +129,7 @@ class _AutomaticActionPageState extends State<AutomaticActionPage> {
   }
 
   List<TextEditingController> get _controllers =>
-      [title, description, message, formula, extra, interval, timeout];
+      [title, description, message, notificationTitle, formula, extra, interval, timeout];
   void _changed() {
     if (mounted) {
       setState(() {});
@@ -131,6 +138,7 @@ class _AutomaticActionPageState extends State<AutomaticActionPage> {
 
   @override
   void dispose() {
+    scroll.dispose();
     for (final controller in _controllers) {
       controller.dispose();
     }
@@ -178,12 +186,7 @@ class _AutomaticActionPageState extends State<AutomaticActionPage> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          error = e is ApiException &&
-                  e.kind != ApiFailureKind.network &&
-                  e.kind != ApiFailureKind.timeout &&
-                  e.kind != ApiFailureKind.server
-              ? e.message
-              : 'دریافت تنظیمات از سرور ناموفق بود؛ اتصال، دسترسی یا نسخهٔ API را بررسی کنید.';
+          error = e is StateError ? 'پاسخ تنظیمات با نسخهٔ این فرم سازگار نیست؛ برنامه و سرور باید هماهنگ به‌روزرسانی شوند.' : failureMessage(e);
           loading = false;
         });
       }
@@ -206,7 +209,7 @@ class _AutomaticActionPageState extends State<AutomaticActionPage> {
       : _rows(
           prior.where((s) => s['id'] == targetStage).firstOrNull?['writable']);
   String get targetDoctype => targetStage.isEmpty
-      ? widget.design.workflow.targetDoctype
+      ? (sources['record_doctype']?.toString() ?? widget.design.workflow.targetDoctype)
       : prior
               .where((s) => s['id'] == targetStage)
               .firstOrNull?['doctype']
@@ -287,11 +290,12 @@ class _AutomaticActionPageState extends State<AutomaticActionPage> {
           .where((f) => !{'Table', 'Item Table'}.contains(f['type']))
           .map((f) => f['key'])
           .toSet();
-      final remaining = message.text.replaceAll(variables, '');
+      final template = '${notificationTitle.text}\n${message.text}';
+      final remaining = template.replaceAll(variables, '');
       if (remaining.contains('{{') ||
           remaining.contains('}}') ||
           variables
-              .allMatches(message.text)
+              .allMatches(template)
               .any((m) => !allowed.contains(m.group(1)))) {
         return 'متغیر پیام معتبر نیست؛ از نام فیلدهای نمایش‌داده‌شده استفاده کنید.';
       }
@@ -331,7 +335,7 @@ class _AutomaticActionPageState extends State<AutomaticActionPage> {
         AutomaticActionType.changeStatus =>
           ChangeStatusOperation(target, transition),
         AutomaticActionType.notify =>
-          NotifyOperation(recipients, channels, message.text.trim()),
+          NotifyOperation(recipients, channels, message.text.trim(), title: notificationTitle.text.trim()),
         AutomaticActionType.calculate => CalculateOperation(
             target, field, method, inputs,
             formula: toLatinDigits(formula.text.trim())),
@@ -374,6 +378,7 @@ class _AutomaticActionPageState extends State<AutomaticActionPage> {
       recipients = {};
       channels = {'in_app'};
       message.clear();
+      notificationTitle.clear();
       formula.clear();
       method = 'sum';
       initialState = 'Draft';
@@ -459,6 +464,32 @@ class _AutomaticActionPageState extends State<AutomaticActionPage> {
     }
   }
 
+  Future<void> _review() async {
+    setState(() => showErrors = true);
+    if (problem == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(
+          'بررسی اولیه انجام شد؛ مجوزها و اعتبار نهایی هنگام ذخیره در سرور بررسی می‌شوند.')));
+      return;
+    }
+    final label = title.text.trim().length < 2 ? 'title' :
+        success.isEmpty ? 'در صورت موفقیت *' :
+        type == AutomaticActionType.calculate ? 'فیلد مقصد عددی' :
+        type == AutomaticActionType.changeStatus ? 'انتقال وضعیت' :
+        type == AutomaticActionType.createRequest ? 'نوع درخواست' : 'نوع سند / رکورد';
+    final target = anchors[label];
+    if (target != null && scroll.hasClients) {
+      scroll.jumpTo(0);
+      await WidgetsBinding.instance.endOfFrame;
+      while (mounted && target.currentContext == null && scroll.offset < scroll.position.maxScrollExtent) {
+        await scroll.animateTo((scroll.offset + 300).clamp(0, scroll.position.maxScrollExtent),
+            duration: const Duration(milliseconds: 60), curve: Curves.easeOut);
+      }
+      if (mounted && target.currentContext != null) {
+        await Scrollable.ensureVisible(target.currentContext!, duration: const Duration(milliseconds: 180));
+      }
+    }
+  }
+
   Future<void> _persistDraft() => widget.repository.saveAutomaticActionDraft(
           widget.design.workflow.id, widget.stage.id, {
         'config': {
@@ -479,6 +510,7 @@ class _AutomaticActionPageState extends State<AutomaticActionPage> {
             'missing': missing,
             'link_original': linkOriginal,
             'message': message.text,
+            'title': notificationTitle.text,
             'formula': formula.text,
             'mapping':
                 mapping.map((key, value) => MapEntry(key, value.toJson())),
@@ -519,16 +551,26 @@ class _AutomaticActionPageState extends State<AutomaticActionPage> {
   Widget _select(String label, String value, Map<String, String> choices,
           ValueChanged<String> change) =>
       Padding(
+          key: anchors.putIfAbsent(label, GlobalKey.new),
           padding: const EdgeInsets.only(bottom: 14),
           child: DropdownButtonFormField<String>(
+            // Only a server-owned deterministic choice should ever be fixed.
             key: ValueKey('$label:$value:${choices.keys.join(',')}'),
             initialValue: choices.containsKey(value) ? value : null,
             isExpanded: true,
-            decoration: InputDecoration(labelText: label),
+            decoration: InputDecoration(labelText: label,
+              errorText: showErrors && !choices.containsKey(value)
+                  ? 'گزینهٔ ذخیره‌شده معتبر نیست؛ دوباره انتخاب کنید.' : null,
+              helperText: choices.isNotEmpty ? null : metadata == null
+                  ? 'برای این فهرست، تنظیمات معتبر سرور دریافت نشده است.'
+                  : label == 'فیلد مقصد عددی' ? 'فیلد عددیِ مجاز برای نوشتن در این رکورد وجود ندارد.'
+                  : label == 'انتقال وضعیت' ? 'انتقالی با نقش حساب اجرایی تعریف نشده یا در دسترس نیست.'
+                  : 'گزینهٔ مجاز و قابل استفاده‌ای برای این فهرست وجود ندارد.',
+              helperMaxLines: 3),
             items: choices.entries
                 .map((e) => DropdownMenuItem(
                     value: e.key,
-                    child: Text(e.value, overflow: TextOverflow.ellipsis)))
+                    child: Text(persianDoctypeLabel(e.value), overflow: TextOverflow.ellipsis)))
                 .toList(),
             onChanged: saving || choices.isEmpty
                 ? null
@@ -613,7 +655,8 @@ class _AutomaticActionPageState extends State<AutomaticActionPage> {
   Future<void> _pickRecipients() async {
     final picked = {...recipients};
     final users = [
-      {'id': 'initiator', 'label': 'درخواست‌کننده'},
+      if (metadata?['recipient_options'] is List) ..._rows(metadata?['recipient_options'])
+      else {'id': 'initiator', 'label': 'درخواست‌کننده'},
       ..._rows(metadata?['users'])
     ];
     final result = await showModalBottomSheet<Set<String>>(
@@ -711,6 +754,8 @@ class _AutomaticActionPageState extends State<AutomaticActionPage> {
             'این فهرست از گردش‌کار استاندارد سرور خوانده می‌شود. وضعیت رکورد، شرط انتقال و مجوز کاربر سیستمی هنگام اجرا دوباره بررسی می‌شوند.'),
       ],
       if (type == AutomaticActionType.notify) ...[
+        TextField(controller: notificationTitle, enabled: !saving, maxLength: 140,
+            decoration: const InputDecoration(labelText: 'عنوان اعلان (اختیاری)')),
         Card(
             child: ListTile(
                 title: const Text('انتخاب گیرندگان'),
@@ -733,7 +778,10 @@ class _AutomaticActionPageState extends State<AutomaticActionPage> {
             onPressed: saving
                 ? null
                 : () {
-                    message.text = 'درخواست {{subject}} بررسی شد.';
+                    final candidates = _rows(sources['current']).where((f) =>
+                        !{'Table', 'Item Table'}.contains(f['type']));
+                    final chosen = candidates.where((f) => f['key'] == 'subject').firstOrNull ?? candidates.firstOrNull;
+                    message.text = chosen == null ? 'اطلاعات فرایند بررسی شد.' : 'اطلاعات {{${chosen['key']}}} بررسی شد.';
                   },
             child: const Text('استفاده از متن پیشنهادی')),
         TextField(
@@ -742,10 +790,24 @@ class _AutomaticActionPageState extends State<AutomaticActionPage> {
             maxLines: 4,
             maxLength: 2000,
             decoration: const InputDecoration(labelText: 'متن پیام')),
-        _notice('متغیرها: ${_rows(sources['current']).where((f) => !{
-              'Table',
-              'Item Table'
-            }.contains(f['type'])).map((f) => '{{${f['key']}}}').join('، ')}'),
+        const Text('درج اطلاعات درخواست در متن پیام'),
+        Wrap(spacing: 6, runSpacing: 4, children: [
+          for (final f in _rows(sources['current']).where((f) =>
+              !{'Table', 'Item Table', 'ItemTable', 'Attachment'}.contains(f['type'])))
+            ActionChip(label: Text('${f['label']}'), onPressed: saving ? null : () {
+              final selection = message.selection;
+              final start = selection.isValid ? selection.start : message.text.length;
+              final end = selection.isValid ? selection.end : message.text.length;
+              final token = '{{${f['key']}}}';
+              message.value = TextEditingValue(text: message.text.replaceRange(start, end, token),
+                  selection: TextSelection.collapsed(offset: start + token.length));
+            }),
+        ]),
+        _notice('پیش‌نمایش متن، بدون ارسال اعلان:\n${message.text.replaceAllMapped(
+            RegExp(r'\{\{([a-z][a-z0-9_]{0,63})\}\}'), (match) {
+              final f = _rows(sources['current']).where((f) => f['key'] == match.group(1)).firstOrNull;
+              return f == null ? '«اطلاعات نامعتبر»' : '«${f['label']}»';
+            })}'),
         _notice(
             'خطای هر کانال جدا ثبت می‌شود. ایمیل ابتدا وارد صف ارسال سرور می‌شود.'),
       ],
@@ -839,6 +901,7 @@ class _AutomaticActionPageState extends State<AutomaticActionPage> {
         body: loading
             ? const Center(child: CircularProgressIndicator())
             : ListView(
+                controller: scroll,
                 padding: EdgeInsets.fromLTRB(
                     16, 8, 16, 24 + MediaQuery.viewInsetsOf(context).bottom),
                 children: [
@@ -854,9 +917,10 @@ class _AutomaticActionPageState extends State<AutomaticActionPage> {
                     ...[
                       if (metadata?['execution_ready'] != true)
                         _notice(
-                            'اجرای خودکار آماده نیست. ${metadata?['blocked_reason'] ?? 'دریافت تنظیمات معتبر و معرفی کاربر سیستمی محدود لازم است.'} ذخیرهٔ پیش‌نویس به معنی اجرای عملیات نیست.',
+                            'اجرای خودکار آماده نیست. ${metadata?['blocked_message'] ?? 'حساب اجرایی محدود و دسترسی دفتر باید توسط مدیر سامانه بررسی شود.'} ذخیرهٔ پیش‌نویس به معنی اجرای عملیات نیست.',
                             warning: true),
-                      TextField(
+                      _panel('مشخصات مرحله', Icons.description_outlined, [TextField(
+                          key: anchors.putIfAbsent('title', GlobalKey.new),
                           controller: title,
                           enabled: !saving,
                           decoration: const InputDecoration(
@@ -877,9 +941,9 @@ class _AutomaticActionPageState extends State<AutomaticActionPage> {
                               t.key: t.label
                           },
                           (v) => _changeType(AutomaticActionType.parse(v))),
-                      ..._operationFields(),
-                      const Divider(height: 30),
-                      _select(
+                      ]),
+                      _panel(type.label, Icons.settings_outlined, _operationFields()),
+                      _panel('مسیرهای نتیجه', Icons.route_outlined, [_select(
                           'در صورت موفقیت *',
                           success,
                           {
@@ -899,18 +963,22 @@ class _AutomaticActionPageState extends State<AutomaticActionPage> {
                               s.id: s.title
                           },
                           (v) => setState(() => failure = v)),
+                      _notice('مرحلهٔ شروع و خودِ اقدام جاری مقصد مجاز نیستند. اعتبار مقصدها و اتصالات هنگام ذخیره دوباره بررسی می‌شود.'),
+                      ]),
                       ExpansionTile(
                           title: const Text('سیاست خطا و تنظیمات فنی'),
                           children: [
                             _number('تعداد تلاش اضافه بر اجرای اول (۰ تا ۵)',
                                 extra),
-                            _number(
+                            if ((int.tryParse(toLatinDigits(extra.text)) ?? 0) > 0) _number(
                                 'فاصلهٔ اولیه به ثانیه (۳۰ تا ۳۶۰۰)', interval),
                             _number('مهلت فنی هر اجرا به ثانیه (۱۰ تا ۳۰۰)',
                                 timeout),
                             _notice(
-                                'فاصلهٔ Retry دوبرابر می‌شود، تا سقف یک ساعت. فقط خطاهای موقت تکرار می‌شوند. زمان‌بندی با دقت چرخهٔ زمان‌بند سرور انجام می‌شود.'),
+                                'فاصلهٔ تلاش مجدد دوبرابر می‌شود، تا سقف یک ساعت. فقط خطاهای موقت تکرار می‌شوند؛ خطای مجوز یا اطلاعات نامعتبر تکرار نمی‌شود.'),
                           ]),
+                      OutlinedButton(onPressed: saving ? null : _review,
+                          child: const Text('بررسی تنظیمات')),
                       _notice(
                           'لاگ ممیزی همیشه فعال است. مسئول انسانی و مهلت انجام انسانی در این مرحله وجود ندارد.'),
                       if (problem != null)
@@ -919,6 +987,16 @@ class _AutomaticActionPageState extends State<AutomaticActionPage> {
                     ],
                   ]),
       ));
+
+  Widget _panel(String heading, IconData icon, List<Widget> children) => Card(
+      margin: const EdgeInsets.only(bottom: 12), color: Colors.white, elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18),
+          side: const BorderSide(color: AsoudColors.border)),
+      child: Padding(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [Expanded(child: Text(heading, style: const TextStyle(fontWeight: FontWeight.w700))),
+          Icon(icon, size: 20, color: AsoudColors.primary)]),
+        const SizedBox(height: 14), ...children,
+      ])));
 
   Widget _number(String label, TextEditingController controller) => Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -1062,16 +1140,18 @@ class _MappingSheetState extends State<_MappingSheet> {
                   controller: constant,
                   label: 'مقدار ثابت تاریخ',
                   required: true)
-            else if (widget.field['type'] == 'Checkbox')
+            else if (['Checkbox', 'Boolean'].contains(widget.field['type']))
               select('مقدار ثابت', constant.text,
                   {'true': 'بله', 'false': 'خیر'}, (v) => constant.text = v)
-            else if (widget.field['type'] == 'Choice')
+            else if (['Choice', 'Select'].contains(widget.field['type']))
               select(
                   'مقدار ثابت',
                   constant.text,
                   {
                     for (final v in (widget.field['options'] as List? ?? []))
-                      '$v': '$v'
+                      v is Map ? '${v['value'] ?? v['id']}' : '$v': v is Map
+                          ? '${v['label'] ?? v['value'] ?? v['id']}'
+                          : '${_map(widget.field['option_labels'])['$v'] ?? v}'
                   },
                   (v) => constant.text = v)
             else
@@ -1118,7 +1198,7 @@ class _MappingSheetState extends State<_MappingSheet> {
                               ? (_numeric.contains(widget.field['type'])
                                   ? double.parse(
                                       toLatinDigits(constant.text.trim()))
-                                  : widget.field['type'] == 'Checkbox'
+                                  : ['Checkbox', 'Boolean'].contains(widget.field['type'])
                                       ? constant.text == 'true'
                                       : constant.text.trim())
                               : value,

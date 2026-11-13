@@ -145,17 +145,19 @@ class ChangeStatusOperation extends AutomaticOperation {
 }
 
 class NotifyOperation extends AutomaticOperation {
-  const NotifyOperation(this.recipients, this.channels, this.message);
+  const NotifyOperation(this.recipients, this.channels, this.message, {this.title = ''});
   final Set<String> recipients;
   final Set<String> channels;
   final String message;
+  final String title;
   @override
   AutomaticActionType get type => AutomaticActionType.notify;
   @override
   Map<String, dynamic> toJson() => {
         'recipients': recipients.toList(),
         'channels': channels.toList(),
-        'message': message
+        'message': message,
+        if (title.isNotEmpty) 'title': title,
       };
 }
 

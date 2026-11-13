@@ -6,13 +6,39 @@ import '../../domain/entities/workflow_definition.dart';
 import '../../domain/entities/workflow_start_settings.dart';
 import '../../domain/repositories/workflow_repository.dart';
 
-class FrappeWorkflowRepository
-    implements
-        WorkflowRepository,
-        WorkflowStartSettingsRepository,
-        WorkflowConditionTestRepository {
+class FrappeWorkflowRepository implements WorkflowRepository, WorkflowStartSettingsRepository, WorkflowDraftStartRepository, WorkflowConditionTestRepository {
   const FrappeWorkflowRepository(this._client);
   final FrappeApiClient _client;
+  @override
+  Future<void> validateStartSelection(String company, WorkflowStartSettings settings, {String? definition}) async {
+    final response = await _client.callMethod('asoud_erp.api.v1.workflow.save_start_settings', data: {
+      'definition': definition ?? '', 'company': company, 'validate_only': 1, 'settings': settings.toMap(),
+      'trigger_type': settings.manual ? 'Manual' : 'Document Event', 'initiator_roles': settings.roles,
+      'subject_source': 'Referenced Document'});
+    final envelope = response['message'];
+    if (envelope is! Map || envelope['ok'] != true || (envelope['data'] as Map?)?['valid'] != true) {
+      throw const ApiException.protocol();
+    }
+  }
+  @override
+  Future<WorkflowDefinition> createInitializedDraft(Map<String, dynamic> info, WorkflowStartSettings settings) async {
+    final response = await _client.callMethod('asoud_erp.api.v1.workflow.create_workflow_draft',
+      data: {...info, 'start_settings': settings.toMap()});
+    final envelope = response['message'];
+    if (envelope is! Map || envelope['ok'] != true || envelope['data'] is! Map) throw const ApiException.protocol();
+    final draft = _parse(envelope['data'] as Map);
+    // Confirm from the same transaction response; a second failing HTTP read
+    // must not leave a committed draft looking like a failed creation.
+    final config = (envelope['data'] as Map)['start_settings'];
+    final source = config is Map ? config['submission_source'] : null;
+    if (config is! Map || config['start_settings_version'] != 1 || config['trigger_type'] !=
+        (settings.manual ? 'Manual' : 'Document Event') || (!settings.manual &&
+          (source is! Map || source['form'] != settings.source?['form'] || source['revision'] != settings.source?['revision']))) {
+      throw const ApiException(kind: ApiFailureKind.validation,
+        message: 'تنظیمات شروع ثبت نشد؛ سرور باید به نسخهٔ هماهنگ به‌روزرسانی شود.');
+    }
+    return draft;
+  }
   @override
   bool get localStartSettings => !_client.isAuthenticated;
   @override
@@ -200,6 +226,7 @@ class FrappeWorkflowRepository
         name: '${raw['source_field']}', label: persianDocumentFieldLabel('${raw['label']}'), type: '${raw['field_type']}',
         source: '${raw['source_kind']}', sourceStage: '${raw['source_stage'] ?? ''}',
         stageTitle: '${raw['stage_title'] ?? ''}', conditionVersion: 2,
+        dataType: raw['data_type'] as String?,
         choices: List<String>.from(raw['options'] as List? ?? []),
         choiceLabels: Map<String, String>.from(raw['option_labels'] as Map? ?? {}),
         valueSource: _optionalText(raw['value_source']),

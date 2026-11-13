@@ -348,11 +348,7 @@ void main() {
         findsOneWidget);
     // Change the Approve target in the form to the end stage and save.
     await _tap(tester, find.byKey(const ValueKey('approval-route-Approve')));
-    await tester.enterText(
-        find.widgetWithText(TextField, 'جستجو در مراحل گردش کار...'),
-        'پایان فرایند');
-    await tester.pumpAndSettle();
-    await _tap(tester, find.text('پایان فرایند').last);
+    await _tap(tester, find.byKey(const ValueKey('approval-destination-S4')));
     await _tap(tester, find.text('ذخیره'));
     await tester.pumpAndSettle();
     // The form saved only the changed route.
@@ -371,22 +367,19 @@ void main() {
   });
 
   for (final width in [320.0, 390.0, 430.0]) {
-    testWidgets('a return to the end is blocked before save at $width',
+    testWidgets('a return to the end is excluded before save at $width',
         (tester) async {
       await tester.binding.setSurfaceSize(Size(width, 900));
       addTearDown(() => tester.binding.setSurfaceSize(null));
       final (workflows, automation, _) = await _open(tester, 'S2');
-      // Return is allowed by default for an approval; point it at the end stage.
+      // Invalid ends are filtered out before the user can select one.
       await _tap(tester, find.byKey(const ValueKey('approval-route-Return')));
-      await tester.enterText(
-          find.widgetWithText(TextField, 'جستجو در مراحل گردش کار...'),
-          'پایان فرایند');
-      await tester.pumpAndSettle();
-      await _tap(tester, find.text('پایان فرایند').last);
-      await _tap(tester, find.text('ذخیره'));
-      expect(
-          find.text('مقصد بازگشت برای اصلاح نباید پایان فرایند باشد؛ یک ایستگاه قابل‌اجرای قبلی را انتخاب کنید.'),
-          findsOneWidget);
+      expect(find.byKey(const ValueKey('approval-destination-S4')), findsNothing);
+      expect(find.byKey(const ValueKey('approval-destination-S1')), findsOneWidget);
+      expect(routeProblems(design: _design,
+        stage: _design.stages.firstWhere((stage) => stage.id == 'S2'),
+        routes: {'Return': 'S4'}), contains(
+          'مقصد بازگشت برای اصلاح نباید پایان فرایند باشد؛ یک ایستگاه قابل‌اجرای قبلی را انتخاب کنید.'));
       expect(workflows.saved, isEmpty);
       expect(automation.routes, isEmpty);
       expect(tester.takeException(), isNull);

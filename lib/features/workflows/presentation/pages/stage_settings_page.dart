@@ -138,12 +138,14 @@ class StageSettingsPage extends StatefulWidget {
     required this.design,
     this.options,
     this.automation,
+    this.onCommitted,
     super.key,
   });
   final WorkflowStage stage;
   final WorkflowDesign design;
   final WorkflowFormOptions? options;
   final WorkflowAutomationRepository? automation;
+  final VoidCallback? onCommitted;
 
   @override
   State<StageSettingsPage> createState() => _StageSettingsPageState();
@@ -443,7 +445,17 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
     }
     final main = _routeActions[type]!.first;
     if (type != WorkflowStageType.userTask && (routes[main] ?? '').isEmpty) return 'مسیر خروجی اصلی را انتخاب کنید.';
-    final routeProblem = routeProblems(design: widget.design, stage: widget.stage, routes: routes).firstOrNull;
+    if (type == WorkflowStageType.approval) {
+      for (final action in ['Approve', if (allowReject) 'Reject', if (allowReturn) 'Return']) {
+        final target = routes[action] ?? '';
+        if (target.isNotEmpty && !_approvalDestinations(action).any((stage) => stage.id == target)) {
+          return 'مقصد انتخاب‌شده معتبر نیست؛ مسیر ${action == 'Return' ? 'اصلاح' : action == 'Reject' ? 'رد' : 'تأیید'} را بازبینی کنید.';
+        }
+      }
+    }
+    final routeProblem = routeProblems(
+      design: context.read<WorkflowDesignerCubit>().state.design ?? widget.design,
+      stage: widget.stage, routes: routes).firstOrNull;
     if (routeProblem != null) return routeProblem;
     return null;
   }
@@ -534,6 +546,18 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
   }
 
   Future<void> save() async {
+    if (saving) return;
+    if (type == WorkflowStageType.approval) {
+      final cubit = context.read<WorkflowDesignerCubit>();
+      setState(() => saving = true);
+      await cubit.load();
+      if (!mounted) return;
+      setState(() => saving = false);
+      if (cubit.state.status == WorkflowDesignerStatus.failure) {
+        _message('دریافت مقصدهای فعلی ممکن نشد؛ هیچ تغییری ذخیره نشد.');
+        return;
+      }
+    }
     final problem = _validate();
     if (problem != null) return _message(problem);
     final cubit = context.read<WorkflowDesignerCubit>();
@@ -543,7 +567,7 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
       if (mounted) setState(() => saving = false);
       return;
     }
-    if (type == WorkflowStageType.userTask) { Navigator.pop(context); return; }
+    if (type == WorkflowStageType.userTask) { widget.onCommitted?.call(); Navigator.pop(context); return; }
     final current = stageRoutes(widget.design, widget.stage);
     final wanted = {
       for (final action in _routeActions[type]!)
@@ -573,7 +597,7 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
         }
         await cubit.load();
       }
-      if (mounted) Navigator.pop(context);
+      if (mounted) { widget.onCommitted?.call(); Navigator.pop(context); }
     } catch (e) {
       if (!mounted) return;
       setState(() => saving = false);
@@ -592,7 +616,7 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
           design: widget.design,
           repository: automation,
           initialRoutes: routes,
-          onSaved: () => context.read<WorkflowDesignerCubit>().load())
+          onSaved: () async { await context.read<WorkflowDesignerCubit>().load(); widget.onCommitted?.call(); })
       : Directionality(
           textDirection: TextDirection.rtl,
           child: Scaffold(
@@ -1306,14 +1330,10 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
         ]),
         _approvalDiagram(),
         _extra([
-          _switch(
-              'الزام توضیح هنگام رد',
-              true,
-              null,
-              subtitle: 'طبق قواعد سامانه، دلیل رد همواره الزامی است.'),
-          _switch('الزام توضیح هنگام برگشت برای اصلاح', true, null,
-              subtitle:
-                  'طبق قواعد فعلی سامانه، دلیل بازگشت همواره الزامی است.'),
+          const Text('طبق قواعد سامانه، دلیل رد همواره الزامی است.',
+              style: TextStyle(fontSize: 11, color: AsoudColors.muted)),
+          const Text('دلیل بازگشت برای اصلاح نیز همواره الزامی است.',
+              style: TextStyle(fontSize: 11, color: AsoudColors.muted)),
           const SizedBox(height: 4),
           AsoudSegmentedControl<String>(
             value: approvalMode,
@@ -1324,7 +1344,7 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
             ],
             onChanged: (next) => setState(() => approvalMode = next),
           ),
-          _switch('توضیح برای همه تصمیم‌ها الزامی باشد', commentRequired,
+          _switch('الزام توضیح هنگام تأیید', commentRequired,
               (value) => setState(() => commentRequired = value)),
           _accessControl(),
         ]),
@@ -1384,7 +1404,7 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
       {String? emptyLabel}) {
     final target = routes[action] ?? '';
     final selected =
-        _destinations.where((stage) => stage.id == target).firstOrNull;
+        _approvalDestinations(action).where((stage) => stage.id == target).firstOrNull;
     return Container(
       key: ValueKey('approval-route-$action'),
       margin: const EdgeInsets.only(bottom: 10),
@@ -1661,10 +1681,12 @@ class _StageRouteSheet extends StatefulWidget {
       {required this.stages,
       required this.selected,
       required this.returning,
+      required this.color,
       this.emptyLabel});
   final List<WorkflowStage> stages;
   final String selected;
   final bool returning;
+  final Color color;
   final String? emptyLabel;
 
   @override
@@ -1673,8 +1695,27 @@ class _StageRouteSheet extends StatefulWidget {
 
 class _StageRouteSheetState extends State<_StageRouteSheet> {
   String query = '';
-  WorkflowStageType? filter;
-
+  Widget _choice(BuildContext context, String id, String title, String subtitle,
+      IconData icon) {
+    final selected = widget.selected == id;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      color: selected ? widget.color.withValues(alpha: .08) : Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: selected ? widget.color : AsoudColors.border)),
+      child: ListTile(
+        key: ValueKey('approval-destination-${id.isEmpty ? 'default' : id}'),
+        minTileHeight: 88,
+        minVerticalPadding: 12,
+        title: Text(title, maxLines: 2, overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 13)),
+        subtitle: Text(subtitle, maxLines: 2, overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 11)),
+        leading: Icon(icon, color: widget.color),
+        trailing: selected ? Icon(Icons.check_circle_outline, color: widget.color) : null,
+        onTap: () => Navigator.pop(context, id),
+      ));
+  }
   (String, IconData, Color) _visual(WorkflowStageType type) => switch (type) {
         WorkflowStageType.userTask => (
         'اقدام کاربر',
@@ -1716,8 +1757,7 @@ class _StageRouteSheetState extends State<_StageRouteSheet> {
   @override
   Widget build(BuildContext context) {
     final visible = widget.stages.where((stage) =>
-        (filter == null || stage.type == filter) &&
-        stage.title.contains(query));
+        stage.title.toLowerCase().contains(query.toLowerCase())).toList();
     return Directionality(
       textDirection: TextDirection.rtl,
       child: SafeArea(
@@ -1725,16 +1765,12 @@ class _StageRouteSheetState extends State<_StageRouteSheet> {
         padding: EdgeInsets.fromLTRB(
             16, 0, 16, MediaQuery.viewInsetsOf(context).bottom + 12),
         child: SizedBox(
+          key: const ValueKey('approval-destination-sheet'),
           height: MediaQuery.sizeOf(context).height * .65,
           child: Column(children: [
             Row(children: [
               Expanded(
-                  child: Text(
-                      widget.returning
-                          ? 'انتخاب مقصد برگشت'
-                          : filter == null
-                              ? 'انتخاب نوع مرحله بعد'
-                              : 'انتخاب مرحله بعد',
+                  child: Text('انتخاب مقصد',
                       style: const TextStyle(
                           fontSize: 16, fontWeight: FontWeight.w800))),
               IconButton(
@@ -1742,80 +1778,29 @@ class _StageRouteSheetState extends State<_StageRouteSheet> {
                   tooltip: 'بستن',
                   icon: const Icon(Icons.close_rounded)),
             ]),
-            TextField(
-                onChanged: (value) => setState(() => query = value.trim()),
-                decoration: const InputDecoration(
-                    hintText: 'جستجو در مراحل گردش کار...',
-                    prefixIcon: Icon(Icons.search_rounded))),
             const SizedBox(height: 8),
-            if (filter != null || widget.returning || query.isNotEmpty)
-              SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(children: [
-                    ChoiceChip(
-                        label: const Text('همه'),
-                        selected: filter == null,
-                        onSelected: (_) => setState(() => filter = null)),
-                    for (final type
-                        in widget.stages.map((stage) => stage.type).toSet())
-                      Padding(
-                          padding: const EdgeInsetsDirectional.only(start: 6),
-                          child: ChoiceChip(
-                              label: Text(_visual(type).$1),
-                              selected: filter == type,
-                              onSelected: (_) =>
-                                  setState(() => filter = type))),
-                  ])),
+            if (widget.stages.length > 8)
+              Padding(padding: const EdgeInsets.only(bottom: 8), child: TextField(
+                key: const ValueKey('approval-destination-search'),
+                decoration: const InputDecoration(hintText: 'جستجوی مرحله...', prefixIcon: Icon(Icons.search_rounded)),
+                onChanged: (value) => setState(() => query = value.trim()),
+              )),
             Expanded(
                 child: ListView(children: [
-              if (widget.emptyLabel != null && query.isEmpty && filter == null)
-                ListTile(
-                  title: Text(widget.emptyLabel!),
-                  subtitle: widget.returning
-                      ? const Text(
-                          'آخرین مرحله قابل اصلاح از سابقه اجرا انتخاب می‌شود.')
-                      : null,
-                  leading: Icon(widget.returning
-                      ? Icons.history_rounded
-                      : Icons.stop_circle_outlined),
-                  trailing: widget.selected.isEmpty
-                      ? const Icon(Icons.check, color: AsoudColors.primary)
-                      : null,
-                  onTap: () => Navigator.pop(context, ''),
-                ),
+              if (widget.emptyLabel != null)
+                _choice(context, '', widget.emptyLabel!, widget.returning
+                    ? 'آخرین مرحله قابل اصلاح از سابقه اجرا انتخاب می‌شود.'
+                    : 'خاتمهٔ همین اجرا با نتیجهٔ رد', widget.returning
+                    ? Icons.history_rounded : Icons.stop_circle_outlined),
               if (visible.isEmpty)
-                const Padding(
+                Padding(
                     padding: EdgeInsets.all(16),
                     child: Text(
-                        'مرحله‌ای یافت نشد؛ مرحله مقصد را در طراح گردش کار ایجاد کنید.')),
-              if (!widget.returning && filter == null && query.isEmpty)
-                for (final type
-                    in widget.stages.map((stage) => stage.type).toSet())
-                  Card(
-                      child: ListTile(
-                    leading: Icon(_visual(type).$2, color: _visual(type).$3),
-                    title: Text(_visual(type).$1),
-                    subtitle: const Text('انتخاب از مراحل موجود گردش کار'),
-                    trailing: const Icon(Icons.chevron_left_rounded),
-                    onTap: () => setState(() => filter = type),
-                  )),
-              if (widget.returning || filter != null || query.isNotEmpty)
-                for (final stage in visible)
-                  Card(
-                      color: widget.selected == stage.id
-                          ? AsoudColors.primary.withValues(alpha: .06)
-                          : null,
-                      child: ListTile(
-                        leading: Icon(_visual(stage.type).$2,
-                            color: _visual(stage.type).$3),
-                        title: Text(stage.title),
-                        subtitle: Text(_visual(stage.type).$1),
-                        trailing: widget.selected == stage.id
-                            ? const Icon(Icons.check,
-                                color: AsoudColors.primary)
-                            : null,
-                        onTap: () => Navigator.pop(context, stage.id),
-                      )),
+                        query.isNotEmpty ? 'مرحله‌ای با این نام یافت نشد.' :
+                        widget.emptyLabel != null ? 'مرحلهٔ دیگری برای این مسیر وجود ندارد.' :
+                        'مرحلهٔ مقصد معتبری وجود ندارد؛ ابتدا طراحی مراحل را تکمیل کنید.')),
+              for (final stage in visible)
+                _choice(context, stage.id, stage.title, _visual(stage.type).$1, _visual(stage.type).$2),
             ])),
           ]),
         ),

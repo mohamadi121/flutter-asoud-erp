@@ -7,8 +7,9 @@ import '../../domain/entities/workflow_definition.dart';
 import '../cubit/workflow_designer_cubit.dart';
 
 class WorkflowEndSettingsPage extends StatefulWidget {
-  const WorkflowEndSettingsPage({required this.stage, super.key});
+  const WorkflowEndSettingsPage({required this.stage, this.onCommitted, super.key});
   final WorkflowStage stage;
+  final VoidCallback? onCommitted;
 
   @override
   State<WorkflowEndSettingsPage> createState() =>
@@ -19,7 +20,7 @@ class _WorkflowEndSettingsPageState extends State<WorkflowEndSettingsPage> {
   final form = GlobalKey<FormState>();
   late final TextEditingController title;
   late final TextEditingController message;
-  late String outcome;
+  late String? outcome;
   bool saving = false;
   static const outcomes = {
     'Completed': 'تکمیل موفق',
@@ -35,7 +36,7 @@ class _WorkflowEndSettingsPageState extends State<WorkflowEndSettingsPage> {
     message = TextEditingController(
         text: widget.stage.config['result_label']?.toString() ?? '');
     final saved = widget.stage.config['outcome']?.toString();
-    outcome = outcomes.containsKey(saved) ? saved! : 'Completed';
+    outcome = saved == null ? 'Completed' : outcomes.containsKey(saved) ? saved : null;
   }
 
   @override
@@ -63,12 +64,12 @@ class _WorkflowEndSettingsPageState extends State<WorkflowEndSettingsPage> {
       return;
     }
     if (saved) {
+      widget.onCommitted?.call();
       Navigator.pop(context);
     } else {
       setState(() => saving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ذخیره انجام نشد؛ دوباره تلاش کنید.')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(
+        context.read<WorkflowDesignerCubit>().state.message ?? 'ذخیره انجام نشد؛ دوباره تلاش کنید.')));
     }
   }
 
@@ -103,7 +104,7 @@ class _WorkflowEndSettingsPageState extends State<WorkflowEndSettingsPage> {
                   controller: title,
                   enabled: !saving,
                   decoration: const InputDecoration(labelText: 'عنوان مرحله *'),
-                  validator: (value) => (value ?? '').trim().isEmpty
+                  validator: (value) => (value ?? '').trim().length < 2
                       ? 'عنوان مرحله را وارد کنید.'
                       : null,
                 ),
@@ -111,6 +112,7 @@ class _WorkflowEndSettingsPageState extends State<WorkflowEndSettingsPage> {
                 DropdownButtonFormField<String>(
                   initialValue: outcome,
                   isExpanded: true,
+                  validator: (value) => outcomes.containsKey(value) ? null : 'نتیجه نهایی معتبر انتخاب کنید.',
                   decoration: const InputDecoration(labelText: 'نتیجه نهایی *'),
                   items: outcomes.entries
                       .map((entry) => DropdownMenuItem(

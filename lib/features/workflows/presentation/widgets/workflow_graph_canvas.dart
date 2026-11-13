@@ -14,7 +14,8 @@ class WorkflowGraphCanvas extends StatefulWidget {
     required this.onMoveStage,
     required this.onMoveEnd,
     required this.onInsertOnTransition,
-    required this.onCreateTransition,
+    this.onCreateTransition,
+    this.onRemoveTransition,
     this.highlightStage,
     super.key,
   });
@@ -26,7 +27,8 @@ class WorkflowGraphCanvas extends StatefulWidget {
   final void Function(String id, double x, double y) onMoveStage;
   final VoidCallback onMoveEnd;
   final ValueChanged<WorkflowTransition> onInsertOnTransition;
-  final ValueChanged<WorkflowStage> onCreateTransition;
+  final ValueChanged<WorkflowStage>? onCreateTransition;
+  final ValueChanged<WorkflowTransition>? onRemoveTransition;
 
   static const nodeSize = Size(190, 118);
 
@@ -98,24 +100,31 @@ class _WorkflowGraphCanvasState extends State<WorkflowGraphCanvas> {
                     Positioned(
                       left: (from.dx + to.dx) / 2 +
                           WorkflowGraphCanvas.nodeSize.width / 2 -
-                          18,
+                          24,
                       top: (from.dy + to.dy) / 2 +
                           WorkflowGraphCanvas.nodeSize.height / 2 -
-                          18,
+                          24,
                       child: Tooltip(
-                        message: 'افزودن مرحله بین این دو مرحله',
-                        child: InkWell(
-                          onTap: () => widget.onInsertOnTransition(edge),
-                          borderRadius: BorderRadius.circular(18),
+                        message: 'مدیریت مسیر',
+                        child: PopupMenuButton<String>(
+                          key: ValueKey('workflow-path-${edge.id}'),
+                          tooltip: 'مدیریت مسیر',
+                          onSelected: (choice) => choice == 'add'
+                              ? widget.onInsertOnTransition(edge) : widget.onRemoveTransition?.call(edge),
+                          itemBuilder: (_) => [
+                            const PopupMenuItem(value: 'add', child: Text('+ افزودن مرحله')),
+                            PopupMenuItem(value: 'remove', enabled: widget.onRemoveTransition != null,
+                                child: const Text('− حذف مسیر')),
+                          ],
                           child: Container(
-                            width: 36,
-                            height: 36,
+                            width: 48,
+                            height: 48,
                             decoration: BoxDecoration(
                               color: Colors.white,
                               shape: BoxShape.circle,
                               border: Border.all(color: AsoudColors.primary),
                             ),
-                            child: const Icon(Icons.add_rounded,
+                            child: const Icon(Icons.link_rounded,
                                 size: 20, color: AsoudColors.primary),
                           ),
                         ),
@@ -138,19 +147,14 @@ class _WorkflowGraphCanvasState extends State<WorkflowGraphCanvas> {
                     onPanEnd: (_) => widget.onMoveEnd(),
                     child: Container(
                       decoration: stage.id == widget.highlightStage
-                          ? BoxDecoration(
-                              border: Border.all(
-                                  color: AsoudColors.primary, width: 3),
-                              borderRadius: BorderRadius.circular(16),
-                            )
-                          : null,
+                          ? BoxDecoration(border: Border.all(color: AsoudColors.primary, width: 3),
+                              borderRadius: BorderRadius.circular(16)) : null,
                       child: _GraphNode(
-                        stage: stage,
-                        outgoing: widget.design.transitions
-                            .where((edge) => edge.fromStage == stage.id)
-                            .toList(growable: false),
-                        onTap: () => widget.onOpenStage(stage),
-                        onConnect: () => widget.onCreateTransition(stage),
+                      stage: stage,
+                      outgoing: widget.design.transitions
+                          .where((edge) => edge.fromStage == stage.id)
+                          .toList(growable: false),
+                      onTap: () => widget.onOpenStage(stage),
                       ),
                     ),
                   ),
@@ -168,12 +172,11 @@ class _GraphNode extends StatelessWidget {
     required this.stage,
     required this.outgoing,
     required this.onTap,
-    required this.onConnect,
   });
 
   final WorkflowStage stage;
   final List<WorkflowTransition> outgoing;
-  final VoidCallback onTap, onConnect;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -227,13 +230,6 @@ class _GraphNode extends StatelessWidget {
                 maxLines: 1, overflow: TextOverflow.ellipsis,
                 style: TextStyle(fontSize: 10, color: visual.color))),
             ),
-          if (stage.type != WorkflowStageType.end)
-            Positioned(right: 0, bottom: 0, child: Tooltip(
-              message: 'ایجاد مسیر جدید',
-              child: InkWell(onTap: onConnect, borderRadius: BorderRadius.circular(20),
-                child: SizedBox(width: 40, height: 40,
-                  child: Icon(Icons.add_link_rounded, size: 20, color: visual.color))),
-            )),
         ]),
       ),
     );

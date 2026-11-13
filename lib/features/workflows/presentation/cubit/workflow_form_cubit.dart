@@ -124,7 +124,12 @@ class WorkflowFormCubit extends Cubit<WorkflowFormState> {
     emit(state.copyWith(
         status: WorkflowFormStatus.submitting, clearMessage: true));
     try {
+      if (supportsStart && shouldConfigureStart && repository is WorkflowDraftStartRepository) {
+        await (repository as WorkflowDraftStartRepository).validateStartSelection(state.company, state.startSettings,
+          definition: existing?.id ?? _workingDraft?.id);
+      }
       final old = existing ?? _workingDraft;
+      final atomic = old == null && repository is WorkflowDraftStartRepository;
       var draft = old != null
           ? await repository.saveRequestTypeInfo(
               definition: old.id,
@@ -143,7 +148,13 @@ class WorkflowFormCubit extends Cubit<WorkflowFormState> {
           : state.creationMode == 'Template'
           ? await templates!.copy(company: state.company, source: state.selectedTemplate!,
               title: state.title.trim(), description: state.description.trim(),
-              icon: state.iconKey, color: state.colorHex)
+              icon: state.iconKey, color: state.colorHex,
+              startSettings: atomic ? state.startSettings.toMap() : null)
+          : atomic ? await (repository as WorkflowDraftStartRepository).createInitializedDraft({
+              'workflow_title': state.title.trim(), 'process_description': state.description.trim(),
+              'company': state.company, 'module_key': state.moduleKey, 'target_doctype': state.targetDoctype,
+              'creation_mode': state.creationMode, 'icon_key': state.iconKey, 'color_hex': state.colorHex,
+            }, state.startSettings)
           : await repository.createDraft(
               title: state.title.trim(),
               description: state.description.trim(),
@@ -163,7 +174,7 @@ class WorkflowFormCubit extends Cubit<WorkflowFormState> {
           category: draft.category ?? '', showInList: draft.showInList, userSubmittable: draft.userSubmittable));
         _workingDraft = draft;
       }
-      if (supportsStart && shouldConfigureStart) {
+      if (!atomic && supportsStart && shouldConfigureStart) {
         await (repository as WorkflowStartSettingsRepository).configureStart(draft.id, state.startSettings);
       }
       if (isClosed) return;

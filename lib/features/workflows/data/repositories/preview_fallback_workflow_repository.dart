@@ -10,14 +10,29 @@ import '../../domain/entities/workflow_start_settings.dart';
 import '../../domain/repositories/workflow_repository.dart';
 
 class PreviewFallbackWorkflowRepository
-    implements
-        WorkflowRepository,
-        OfflinePreviewAware,
-        WorkflowStartSettingsRepository,
-        WorkflowConditionTestRepository {
+    implements WorkflowRepository, OfflinePreviewAware, WorkflowStartSettingsRepository, WorkflowDraftStartRepository, WorkflowConditionTestRepository {
   PreviewFallbackWorkflowRepository(this._remote);
 
   final WorkflowRepository _remote;
+  @override
+  Future<void> validateStartSelection(String company, WorkflowStartSettings settings, {String? definition}) async {
+    if (!localStartSettings) {
+      if (_remote is! WorkflowDraftStartRepository) throw StateError('ذخیرهٔ ایمن تنظیمات شروع در این نسخه پشتیبانی نمی‌شود.');
+      await (_remote as WorkflowDraftStartRepository).validateStartSelection(company, settings, definition: definition);
+    }
+  }
+  @override
+  Future<WorkflowDefinition> createInitializedDraft(Map<String, dynamic> info, WorkflowStartSettings settings) async {
+    if (!localStartSettings) {
+      return (_remote as WorkflowDraftStartRepository).createInitializedDraft(info, settings);
+    }
+    final draft = await createDraft(title: info['workflow_title'] as String, moduleKey: info['module_key'] as String,
+      targetDoctype: info['target_doctype'] as String, company: info['company'] as String?,
+      description: info['process_description'] as String?, creationMode: info['creation_mode'] as String,
+      iconKey: info['icon_key'] as String?, colorHex: info['color_hex'] as String?);
+    await configureStart(draft.id, settings);
+    return draft;
+  }
   @override
   bool get localStartSettings => _remote is WorkflowStartSettingsRepository &&
       (_remote as WorkflowStartSettingsRepository).localStartSettings;

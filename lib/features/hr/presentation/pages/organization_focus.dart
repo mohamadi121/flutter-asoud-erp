@@ -38,7 +38,6 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
   _OrgEdit? action;
   OrgPosition? editingPosition;
   final editor = GlobalKey<_OrganizationInlineEditorState>();
-  final rootEditor = GlobalKey<_OrganizationCreateFormState>();
   final actionAnchor = GlobalKey();
   late Future<List<OrganizationEmployee>> people;
   late String? loadError = widget.initialError;
@@ -83,7 +82,7 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
 
   Future<bool> leaveEditor() async {
     if (busy || editor.currentState?.saving == true) return false;
-    if (editor.currentState?.dirty != true && rootEditor.currentState?.dirty != true) return true;
+    if (editor.currentState?.dirty != true) return true;
     final answer = await showDialog<String>(
         context: context,
         builder: (dialog) => AlertDialog(
@@ -104,10 +103,6 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
             ));
     if (!mounted) return false;
     if (answer == 'save') {
-      if (rootEditor.currentState != null) {
-        await rootEditor.currentState!.save();
-        return action == null;
-      }
       return await editor.currentState?.submit() ?? false;
     }
     return answer == 'discard';
@@ -218,20 +213,19 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
   }
 
   Future<void> editPositionAction(_OrgEdit next, OrgPosition row) async {
-    if (unit != null) { await open(next, row); return; }
-    if (!canManage || !await leaveEditor() || !mounted) return;
-    final saved = await _openOrganizationPage<bool>(context,
-        _OrgSheetTheme(child: _OrganizationPositionForm(item: row)));
-    if (saved == true && mounted) await reload();
+    await open(next, row);
   }
 
   Future<void> openFullDetails() async {
-    if (unit == null || !await leaveEditor() || !mounted) return;
-    final current = Map<String, dynamic>.of(unit!);
+    if (!await leaveEditor() || !mounted) return;
+    final current = unit == null ? null : Map<String, dynamic>.of(unit!);
+    final roots = cubit.state.snapshot.rows.where((row) => row.parent.isEmpty).toList();
+    if (current == null && roots.length != 1) return;
     String? fallback;
     setState(() { action = null; assigningPosition = null; });
     await _openOrganizationPage<void>(context, _OrgSheetTheme(child: _UnitDetails(
-      unit: current, units: units, canManage: canManage,
+      unit: current, rootPosition: current == null ? roots.single : null,
+      units: units, canManage: canManage,
       onDeleted: (parent) => fallback = parent)));
     if (mounted) await refresh(fallback: fallback);
   }
@@ -263,24 +257,16 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
                       code: assigningPosition!.code, canManage: canManage, embedded: true,
                       onBusy: (value) { if (mounted) setState(() => busy = value); },
                       onClose: () => setState(() => assigningPosition = null))])),
-                if (action != null && unit == null)
-                  Padding(key: actionAnchor, padding: const EdgeInsets.only(top: 12),
-                    child: _OrgPanel(children: [_OrganizationCreateForm(
-                      key: rootEditor, embedded: true, position: action == _OrgEdit.addPosition,
-                      onBusy: (value) { if (mounted) setState(() => busy = value); },
-                      onCancel: () => setState(() => action = null),
-                      onSaved: (id) async {
-                        await refresh(newUnit: id);
-                        if (mounted) setState(() => action = null);
-                      })])),
-                if (action != null && unit != null)
+                if (action != null)
                   Padding(
                       key: actionAnchor,
                       padding: const EdgeInsets.only(top: 12),
                       child: _OrganizationInlineEditor(
                         key: editor,
                         action: action!,
-                        unit: Map.of(unit!),
+                        unit: unit == null ? const {} : Map.of(unit!),
+                        root: unit == null,
+                        rootPosition: roots.length == 1 ? roots.single : null,
                         units: units,
                         position: editingPosition,
                         onBusy: (v) {
@@ -507,16 +493,7 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
                                       child: ListTile(
                                         key: ValueKey(
                                             'focus-position-${row.code}'),
-                                        leading: PopupMenuButton<String>(
-                                          tooltip: 'عملیات ${row.displayTitle}', enabled: !locked && canManage,
-                                          icon: const AsoudIconBox(icon: Icons.work_outline, color: AsoudColors.primary, size: 36),
-                                          onSelected: (v) => v == 'assign' ? assign(row) : editPositionAction(_OrgEdit.values.byName(v), row),
-                                          itemBuilder: (_) => [
-                                            PopupMenuItem(value: 'editPosition', child: Text('ویرایش جایگاه')),
-                                            PopupMenuItem(value: 'movePosition', child: Text('جابه‌جایی جایگاه')),
-                                            PopupMenuItem(value: 'assign', child: Text('مدیریت انتصاب پرسنل')),
-                                            if (unit != null) const PopupMenuItem(value: 'deletePosition', child: Text('حذف ایمن جایگاه')),
-                                          ]),
+                                        leading: const AsoudIconBox(icon: Icons.work_outline, color: AsoudColors.primary, size: 36),
                                         title: Text(row.displayTitle,
                                             style: TextStyle(
                                                 fontSize: 13,
@@ -550,22 +527,6 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
                       const Expanded(
                           child: Text('جزئیات واحد انتخاب‌شده',
                               style: TextStyle(fontWeight: FontWeight.bold))),
-                      if (canManage && unit != null)
-                        PopupMenuButton<_OrgEdit>(
-                            tooltip: 'عملیات واحد',
-                            enabled: !locked,
-                            onSelected: (v) => open(v),
-                            itemBuilder: (_) => const [
-                                  PopupMenuItem(
-                                      value: _OrgEdit.editUnit,
-                                      child: Text('ویرایش مشخصات')),
-                                  PopupMenuItem(
-                                      value: _OrgEdit.moveUnit,
-                                      child: Text('جابه‌جایی واحد')),
-                                  PopupMenuItem(
-                                      value: _OrgEdit.deleteUnit,
-                                      child: Text('حذف ایمن واحد')),
-                                ]),
                     ]),
                     Container(padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(color: const Color(0xfff4f6fb), borderRadius: BorderRadius.circular(12)),
@@ -577,7 +538,7 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
                         if (unit != null && '${unit!['description'] ?? ''}'.trim().isNotEmpty)
                           _detail('توضیحات', '${unit!['description']}'),
                       ])),
-                    if (unit != null) ...[
+                    if (unit != null || roots.length == 1) ...[
                       const SizedBox(height: 10),
                       FilledButton(
                         key: const ValueKey('organization-full-unit-details'),

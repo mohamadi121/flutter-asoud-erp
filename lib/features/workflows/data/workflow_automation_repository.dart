@@ -176,12 +176,17 @@ class WorkflowAutomationRepository {
       required String stage,
       required Map<String, dynamic> config,
       required Map<String, String> routes}) async {
-    await _call('asoud_erp.api.v1.automatic_actions.save', {
+    // A validated save requires the server response; it is not an offline draft.
+    final response = await client.callMethod('asoud_erp.api.v1.automatic_actions.save', data: {
       'definition': definition,
       'stage': stage,
       'config': config,
       'routes': routes,
     });
+    final envelope = response['message'];
+    if (envelope is! Map || envelope['ok'] != true || envelope['data'] is! Map) {
+      throw StateError('ذخیرهٔ معتبر تنظیمات از سرور تأیید نشد؛ پیش‌نویس حفظ شده است.');
+    }
   }
 
   static const _templates = 'asoud_erp.api.v1.document_templates';

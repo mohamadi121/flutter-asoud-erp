@@ -53,11 +53,27 @@ class WorkflowTemplateRepository {
       value['next_start'] as int?);
   }
   Future<WorkflowDefinition> copy({required String company, required WorkflowTemplate source,
-      required String title, required String description, required String icon, required String color}) async {
+      required String title, required String description, required String icon, required String color,
+      Map<String, dynamic>? startSettings}) async {
     _requireOnline();
-    final value = await client.callAsoudMethod('asoud_erp.api.v1.workflow_templates.create_from_template',
-        data: {'company': company, 'source': source.id, 'source_modified': source.modified,
-          'workflow_title': title, 'process_description': description, 'icon_key': icon, 'color_hex': color});
+    final args = {'company': company, 'source': source.id, 'source_modified': source.modified,
+          'workflow_title': title, 'process_description': description, 'icon_key': icon, 'color_hex': color,
+          if (startSettings != null) 'start_settings': startSettings};
+    dynamic value;
+    if (startSettings == null) {
+      value = await client.callAsoudMethod('asoud_erp.api.v1.workflow_templates.create_from_template', data: args);
+    } else {
+      final response = await client.callMethod('asoud_erp.api.v1.workflow_templates.create_from_template', data: args);
+      final envelope = response['message'];
+      value = envelope is Map && envelope['ok'] == true ? envelope['data'] : null;
+      final config = value is Map ? value['start_settings'] : null;
+      final selected = startSettings['submission_source'];
+      final stored = config is Map ? config['submission_source'] : null;
+      if (config is! Map || config['start_settings_version'] != 1 || config['trigger_type'] != startSettings['trigger_type'] ||
+          (selected is Map && (stored is! Map || selected['form'] != stored['form'] || selected['revision'] != stored['revision']))) {
+        throw const ApiException(kind: ApiFailureKind.validation, message: 'تنظیمات شروع کپی الگو ثبت نشد؛ سرور باید به‌روزرسانی شود.');
+      }
+    }
     if (value is! Map) throw const ApiException.protocol();
     return FrappeWorkflowRepository(client).parseDefinition(value);
   }

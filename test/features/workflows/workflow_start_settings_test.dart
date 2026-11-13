@@ -4,6 +4,7 @@ import 'package:asoud_erp/core/network/api_exception.dart';
 import 'package:asoud_erp/core/network/frappe_client.dart';
 import 'package:asoud_erp/core/theme/asoud_theme.dart';
 import 'package:asoud_erp/features/workflows/domain/entities/workflow_definition.dart';
+import 'package:asoud_erp/features/workflows/data/repositories/frappe_workflow_repository.dart';
 import 'package:asoud_erp/features/workflows/domain/entities/workflow_start_settings.dart';
 import 'package:asoud_erp/features/workflows/domain/repositories/workflow_repository.dart';
 import 'package:asoud_erp/features/workflows/presentation/cubit/workflow_form_cubit.dart';
@@ -88,6 +89,42 @@ class Repository extends Fake
   }
 }
 
+class AtomicRepository extends Repository implements WorkflowDraftStartRepository {
+  int validations = 0, initialized = 0;
+  bool reject = false;
+  @override
+  Future<void> validateStartSelection(String company, WorkflowStartSettings settings, {String? definition}) async {
+    validations++;
+    if (reject) throw const ApiException(kind: ApiFailureKind.validation, message: 'نسخهٔ فرم تغییر کرده است.');
+  }
+  @override
+  Future<WorkflowDefinition> createInitializedDraft(Map<String, dynamic> info, WorkflowStartSettings settings) async {
+    initialized++;
+    saved = settings;
+    return definition;
+  }
+}
+
+class AtomicClient extends Fake implements FrappeApiClient {
+  bool omitSavedStart = false;
+  final methods = <String>[];
+  @override
+  Future<Map<String, dynamic>> callMethod(String method, {Map<String, dynamic>? data}) async {
+    methods.add(method);
+    if (method.endsWith('save_start_settings')) return {'message': {'ok': true, 'data': {'valid': true}}};
+    expect(method, 'asoud_erp.api.v1.workflow.create_workflow_draft');
+    return {'message': {'ok': true, 'data': {
+      'name': 'created', 'workflow_code': 'WF-test', 'workflow_title': 'درخواست جدید',
+      'company': 'company', 'module_key': 'HR', 'target_doctype': 'ASOUD Workflow Request',
+      'status': 'Inactive', 'readiness_status': 'Pending', 'is_locked': true,
+      'version_no': 1, 'steps_count': 0, 'missing_requirements': [],
+      if (!omitSavedStart) 'start_settings': {
+        ...Map<String, dynamic>.from(data!['start_settings'] as Map), 'start_settings_version': 1,
+      },
+    }}};
+  }
+}
+
 class Client extends Fake implements FrappeApiClient {
   int calls = 0;
   Map<String, dynamic>? sent;
@@ -126,6 +163,58 @@ class LegacyRepository extends Repository {
 }
 
 void main() {
+  test('initialized draft verifies the saved Start from one transaction response', () async {
+    final client = AtomicClient();
+    final repository = FrappeWorkflowRepository(client);
+    const settings = WorkflowStartSettings(source: {'form': 'leave', 'revision': 'published'});
+    await repository.validateStartSelection('company', settings);
+    final result = await repository.createInitializedDraft({'workflow_title': 'درخواست جدید', 'company': 'company'}, settings);
+    expect(result.id, 'created');
+    expect(client.methods, ['asoud_erp.api.v1.workflow.save_start_settings', 'asoud_erp.api.v1.workflow.create_workflow_draft']);
+  });
+  test('a draft response without confirmed Start is never reported as saved', () async {
+    final client = AtomicClient()..omitSavedStart = true;
+    await expectLater(FrappeWorkflowRepository(client).createInitializedDraft({},
+      const WorkflowStartSettings(manual: true)), throwsA(isA<ApiException>()));
+  });
+  test('atomic form draft preserves source and route, never runs a second start save', () async {
+    final repository = AtomicRepository();
+    final cubit = WorkflowFormCubit(repository: repository);
+    addTearDown(cubit.close);
+    await cubit.load();
+    cubit.changeTitle('درخواست جدید');
+    cubit.changeStart(const WorkflowStartSettings(source: {'form': 'leave', 'revision': 'published'}, sourceRoute: 'Available'));
+    await cubit.submit();
+    expect(cubit.state.status, WorkflowFormStatus.success);
+    expect(repository.initialized, 1);
+    expect(repository.creates, 0);
+    expect(repository.saves, 0);
+    expect(repository.saved!.manual, isFalse);
+    expect(repository.saved!.source!['form'], 'leave');
+    expect(repository.saved!.copyWith(roles: ['Employee']).sourceRoute, 'Available');
+  });
+  test('preflight rejection creates nothing and keeps the selected form visible', () async {
+    final repository = AtomicRepository()..reject = true;
+    final cubit = WorkflowFormCubit(repository: repository);
+    addTearDown(cubit.close);
+    await cubit.load();
+    cubit.changeTitle('درخواست جدید');
+    cubit.changeStart(const WorkflowStartSettings(source: {'form': 'leave', 'revision': 'old'}));
+    await cubit.submit();
+    expect(repository.initialized, 0);
+    expect(repository.creates, 0);
+    expect(cubit.state.createdDraft, isNull);
+    expect(cubit.state.startSettings.manual, isFalse);
+    expect(cubit.state.startSettings.source!['form'], 'leave');
+    expect(cubit.state.message, contains('نسخهٔ فرم'));
+  });
+  test('a pending placeholder Manual is not a deliberate manual start selection', () {
+    final settings = WorkflowStartSettings.fromDesign(WorkflowDesign(workflow: definition, stages: const [
+      WorkflowStage(id: 'start', key: 'start', type: WorkflowStageType.start, title: 'شروع', sequence: 0,
+        configurationComplete: false, config: {'trigger_type': 'Manual', 'initiator_roles': []})], transitions: const []));
+    expect(settings.manual, isFalse);
+    expect(settings.source, isNull);
+  });
   testWidgets('a pending manual start cannot be dismissed or submitted twice',
       (tester) async {
     final client = Client()..hold = Completer<void>();

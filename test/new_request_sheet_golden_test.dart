@@ -49,5 +49,5 @@ void main() {
     await tester.pumpAndSettle();
     await expectLater(find.byType(MaterialApp),
         matchesGoldenFile('goldens/new_request_sheet_360x800.png'));
-  });
+  }, tags: 'golden');
 }
