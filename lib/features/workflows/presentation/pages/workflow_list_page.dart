@@ -18,6 +18,7 @@ import '../../domain/repositories/workflow_repository.dart';
 import '../../domain/repositories/workflow_notification_repository.dart';
 import '../cubit/workflow_list_cubit.dart';
 import '../widgets/workflow_details_dialog.dart';
+import '../widgets/workflow_system_copy_dialog.dart';
 import '../../data/repositories/frappe_workflow_repository.dart';
 import 'workflow_form_page.dart';
 import 'workflow_notifications_page.dart';
@@ -37,12 +38,13 @@ class WorkflowListPage extends StatelessWidget {
           repository: context.read<WorkflowRepository>(),
           company: company,
         )..load(),
-        child: _WorkflowCapabilityGate(onCreate: onCreate),
+        child: _WorkflowCapabilityGate(company: company, onCreate: onCreate),
       );
 }
 
 class _WorkflowCapabilityGate extends StatelessWidget {
-  const _WorkflowCapabilityGate({this.onCreate});
+  const _WorkflowCapabilityGate({this.company, this.onCreate});
+  final String? company;
   final VoidCallback? onCreate;
 
   @override
@@ -58,13 +60,19 @@ class _WorkflowCapabilityGate extends StatelessWidget {
           return const AccessDeniedScaffold();
         }
         return _WorkflowListView(
+            company: company,
             onCreate: onCreate,
             canManageWorkflows: capabilities.canManageWorkflows);
       });
 }
 
 class _WorkflowListView extends StatelessWidget {
-  const _WorkflowListView({this.onCreate, required this.canManageWorkflows});
+  const _WorkflowListView({
+    this.company,
+    this.onCreate,
+    required this.canManageWorkflows,
+  });
+  final String? company;
   final VoidCallback? onCreate;
   final bool canManageWorkflows;
 
@@ -145,7 +153,7 @@ class _WorkflowListView extends StatelessWidget {
                     onPressed: onCreate ?? () async {
                       final cubit = context.read<WorkflowListCubit>();
                       await Navigator.of(context).push(MaterialPageRoute<void>(
-                          builder: (_) => const WorkflowFormPage()));
+                          builder: (_) => WorkflowFormPage(company: company)));
                       if (!cubit.isClosed) await cubit.load();
                     },
                     icon: const Icon(Icons.add_rounded),
@@ -465,6 +473,9 @@ class _WorkflowCardState extends State<_WorkflowCard> {
                   if (widget.canManageWorkflows) const PopupMenuItem(
                       value: 'design',
                       child: Text('طراحی مراحل و فرم درخواست')),
+                  if (widget.canManageWorkflows && item.isSystemTemplate)
+                    const PopupMenuItem(
+                        value: 'copy-system', child: Text('ایجاد کپی مستقل')),
                   if (widget.canManageWorkflows) PopupMenuItem(
                     value: 'activate',
                     child: Text(item.status == WorkflowDefinitionStatus.active
@@ -485,9 +496,9 @@ class _WorkflowCardState extends State<_WorkflowCard> {
                   } else if (value == 'details') {
                     _showDetails(context);
                   } else if (value == 'design') {
-                    Navigator.of(context).push(MaterialPageRoute<void>(
-                      builder: (_) => WorkflowDesignerPage(definition: item.id),
-                    ));
+                    _openDesigner(item.id).ignore();
+                  } else if (value == 'copy-system') {
+                    _copySystem(context).ignore();
                   } else if (value == 'activate' || value == 'delete') {
                     _operate(value).ignore();
                   }
@@ -509,6 +520,15 @@ class _WorkflowCardState extends State<_WorkflowCard> {
     return '${toPersianDigits(item.stepsCount)} مرحله • آخرین ویرایش: $date';
   }
 
+  Future<void> _openDesigner(String id) async {
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => WorkflowDesignerPage(definition: id),
+    ));
+    if (!mounted) return;
+    final cubit = context.read<WorkflowListCubit>();
+    if (!cubit.isClosed) await cubit.load();
+  }
+
   Future<void> _showDetails(BuildContext context) async {
     WorkflowRepository repository = context.read<WorkflowRepository>();
     try {
@@ -520,9 +540,21 @@ class _WorkflowCardState extends State<_WorkflowCard> {
     final openStages = await showDialog<bool>(context: context,
         builder: (_) => WorkflowDetailsDialog(load: () => repository.getDesign(item.id)));
     if (openStages == true && context.mounted) {
-      await Navigator.of(context).push(MaterialPageRoute<void>(
-          builder: (_) => WorkflowDesignerPage(definition: item.id)));
+      await _openDesigner(item.id);
     }
+  }
+
+  Future<void> _copySystem(BuildContext context) async {
+    final cubit = context.read<WorkflowListCubit>();
+    final created = await showDialog<WorkflowDefinition>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => WorkflowSystemCopyDialog(
+            source: item, client: context.read<FrappeApiClient>()));
+    if (created == null || !context.mounted) return;
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => WorkflowDesignerPage(definition: created.id)));
+    if (!cubit.isClosed) await cubit.load();
   }
 }
 
@@ -531,7 +563,11 @@ class _StatusBadge extends StatelessWidget {
   final WorkflowDefinition item;
   @override
   Widget build(BuildContext context) {
-    final (label, color, surface) = item.isLocked
+    final isDraft =
+        item.status == WorkflowDefinitionStatus.inactive && item.isLocked;
+    final (label, color, surface) = isDraft
+        ? ('پیش‌نویس', AsoudColors.warning, AsoudColors.warningSurface)
+        : item.isLocked
         ? ('نیازمند تکمیل', AsoudColors.warning, AsoudColors.warningSurface)
         : switch (item.status) {
             WorkflowDefinitionStatus.active =>

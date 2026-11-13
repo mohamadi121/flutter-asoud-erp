@@ -24,6 +24,11 @@ import '../widgets/workflow_graph_canvas.dart';
 import 'workflow_end_settings_page.dart';
 import 'workflow_stage_settings_page.dart';
 import '../../../form_builder/form_runtime/form_fields_view.dart';
+import '../../../form_builder/form_editor/editor_page.dart';
+import '../../../form_builder/form_runtime/form_preview_page.dart';
+import '../../../../core/auth/capabilities.dart';
+import '../../../../core/utils/failure_message.dart';
+import '../widgets/stage_form_sheet.dart';
 
 part 'stage_user_action.dart';
 part 'stage_approval.dart';
@@ -54,6 +59,76 @@ Map<String, String> stageRoutes(WorkflowDesign design, WorkflowStage stage) {
     routes.putIfAbsent(action, () => edge.toStage);
   }
   return routes;
+}
+
+String _routeActionLabel(String action) => switch (action) {
+      'Approve' => 'تأیید',
+      'Reject' => 'رد',
+      'Return' => 'بازگشت برای اصلاح',
+      'Complete' => 'ادامه',
+      'Success' => 'موفقیت',
+      'Error' => 'خطا',
+      _ => action,
+    };
+
+/// Persian warnings for a stage's exit routes, checked before saving.
+/// An empty target is the engine default (end / latest editable task) and is
+/// not a problem. A correction loop (Return to an earlier task) is allowed;
+/// only a main route that cycles without reaching an End is flagged.
+List<String> routeProblems({
+  required WorkflowDesign design,
+  required WorkflowStage stage,
+  required Map<String, String> routes,
+}) {
+  final actions = _routeActions[stage.type] ?? const <String>[];
+  final problems = <String>[];
+  final byId = {for (final item in design.stages) item.id: item};
+  for (final action in actions) {
+    final target = routes[action] ?? '';
+    if (target.isEmpty) continue;
+    final destination = byId[target];
+    if (destination == null) {
+      problems.add(
+          'مقصد «${_routeActionLabel(action)}» به مرحله‌ای خارج از این گردش‌کار اشاره می‌کند؛ دوباره انتخاب کنید.');
+    } else if (destination.id == stage.id) {
+      problems.add('مقصد «${_routeActionLabel(action)}» نمی‌تواند خودِ این مرحله باشد.');
+    } else if (destination.type == WorkflowStageType.start) {
+      problems.add('مقصد «${_routeActionLabel(action)}» نمی‌تواند مرحلهٔ شروع باشد.');
+    } else if (action == 'Return' && destination.type == WorkflowStageType.end) {
+      problems.add(
+          'مقصد بازگشت برای اصلاح نباید پایان فرایند باشد؛ یک ایستگاه قابل‌اجرای قبلی را انتخاب کنید.');
+    } else if (action == 'Return' && destination.type == WorkflowStageType.wait) {
+      problems.add(
+          'مقصد بازگشت برای اصلاح باید یک ایستگاه قابل‌اجرا باشد؛ مرحلهٔ انتظار قابل اجرا نیست.');
+    }
+  }
+  if (_mainRouteLoops(design, stage.id, override: routes)) {
+    problems.add(
+        'مسیرهای اصلی حلقه‌ای بدون خروج به پایان فرایند می‌سازند؛ یک مسیر باید به پایان برسد.');
+  }
+  return problems;
+}
+
+/// Follows the main route (Approve/Complete/Success) from [startId]; a cycle
+/// that never reaches an End is an unintended endless loop. [override] holds
+/// the routes being edited for the start stage, so a loop the user is fixing
+/// is not flagged and one they create is.
+bool _mainRouteLoops(WorkflowDesign design, String startId,
+    {Map<String, String>? override}) {
+  final byId = {for (final item in design.stages) item.id: item};
+  final seen = <String>{};
+  var current = startId;
+  while (true) {
+    final stage = byId[current];
+    if (stage == null || stage.type == WorkflowStageType.end) return false;
+    if (!seen.add(current)) return true;
+    final actions = _routeActions[stage.type];
+    if (actions == null) return false;
+    final source = current == startId && override != null ? override : stageRoutes(design, stage);
+    final target = source[actions.first] ?? '';
+    if (target.isEmpty) return false;
+    current = target;
+  }
 }
 
 /// Settings of a user task, approval or automatic stage, laid out per type.
@@ -157,6 +232,14 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
           .whereType<Map>()
           .map(Map<String, dynamic>.from)
           .toList();
+  // A real ASOUD Form (kind 'Stage') bound to this approval stage.
+  late Map<String, dynamic>? supplementaryForm =
+      config['supplementary_form'] is Map
+          ? formMap(config['supplementary_form'])
+          : null;
+  // The bound form's title, filled by the server from the pinned revision.
+  String get _boundFormTitle =>
+      '${supplementaryForm?['title'] ?? ''}'.trim();
 
   // Automatic action.
   late String action = switch (config['action_type']?.toString()) {
@@ -174,6 +257,8 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
   bool previewingApprovalSource = false;
   bool changingApprovalDecision = false;
   final confirmedDisabledApprovalRoutes = <String>{};
+  // Whether the signed-in user may edit or copy stage forms (designer roles).
+  bool canEditForms = false;
   void _updateAction(VoidCallback update) => setState(update);
 
   @override
@@ -182,6 +267,7 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
     _initOwner();
     initialApprovalOwner = approvalOwnerFingerprint;
     if (type == WorkflowStageType.userTask) _initAction();
+    _loadFormCapabilities();
     document = CreateDocumentConfig(
         transferValues: config['transfer_values'] != false,
         remark: (config['document_remark'] ?? '').toString());
@@ -189,6 +275,12 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
     if (template.isNotEmpty) {
       _loadTemplate(template);
     }
+  }
+
+  // Designer roles may create or copy stage forms; others only bind existing.
+  Future<void> _loadFormCapabilities() async {
+    final capabilities = await capabilitiesOf(context);
+    if (mounted) setState(() => canEditForms = capabilities.canManageForms);
   }
 
   void _initOwner() {
@@ -361,6 +453,10 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
         }
       }
     }
+    final routeProblem = routeProblems(
+      design: context.read<WorkflowDesignerCubit>().state.design ?? widget.design,
+      stage: widget.stage, routes: routes).firstOrNull;
+    if (routeProblem != null) return routeProblem;
     return null;
   }
 
@@ -414,7 +510,14 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
           'description': text,
           ..._assignment(),
           'approval_mode': approvalMode,
-          'form_fields': formFields.map((field) => field.toMap()).toList(),
+          // A bound stage form and the legacy inline fields are mutually
+          // exclusive; the server rejects a config that carries both.
+          'supplementary_form': supplementaryForm,
+          'form_fields': supplementaryForm == null
+              ? formFields.map((field) => field.toMap()).toList()
+              : <Map<String, dynamic>>[],
+          if (supplementaryForm == null && formLayout.isNotEmpty)
+            'form_layout': formLayout,
           'document_access': access,
           'allow_reject': allowReject,
           'allow_return': allowReturn,
@@ -1042,47 +1145,121 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
   }
 
   Future<void> _pickForm() async {
-    final available = widget.design.stages
-        .where((stage) =>
-            stage.id != widget.stage.id &&
-            (stage.type == WorkflowStageType.userTask ||
-                stage.type == WorkflowStageType.approval) &&
-            ((stage.config['form_fields'] as List?) ?? const []).isNotEmpty)
-        .toList();
-    final choice = await showModalBottomSheet<String>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      showDragHandle: true,
-      builder: (sheetContext) => Directionality(
-        textDirection: TextDirection.rtl,
-        child: SafeArea(
-            child: Padding(
-                padding: EdgeInsets.only(
-                    bottom: MediaQuery.viewInsetsOf(sheetContext).bottom),
-                child: SizedBox(
-                  height: MediaQuery.sizeOf(sheetContext).height * .6,
-                  child: _StageFormChoices(
-                    stages: available,
-                    hasForm: formFields.isNotEmpty,
-                  ),
-                ))),
-      ),
+    final repository = FormRepository(automation.client, company ?? '');
+    final choice = await showStageFormSheet(
+      context,
+      repository: repository,
+      company: company ?? '',
+      selectedName: supplementaryForm?['form']?.toString(),
     );
     if (choice == null || !mounted) return;
-    if (choice == '__edit__') {
-      await _editForm();
+    if (choice is StageFormCreate) {
+      await _createStageForm();
       return;
     }
-    final source = available.where((stage) => stage.id == choice).firstOrNull;
-    if (source == null) return;
+    if (choice is! StageFormPicked) return;
+    // Resolve the picked form to a pinned {form, revision, title} binding.
+    FormMap record;
+    try {
+      record = choice.builtinKey != null
+          ? formMap(await repository.call('open_builtin', {
+              'company': company ?? '',
+              'key': choice.builtinKey,
+            }))
+          : formMap(await repository.call('get_form', {
+              'name': choice.name,
+            }));
+    } catch (failure) {
+      if (mounted) _message(failureMessage(failure));
+      return;
+    }
+    if (!mounted) return;
+    await _bindForm(record);
+  }
+
+  /// Opens the existing form editor to create a new stage form (kind 'Stage').
+  /// On a successful save+publish the new form is bound automatically.
+  Future<void> _createStageForm() async {
+    if (!canEditForms) {
+      _message('ساخت فرم به مجوز طراح نیاز دارد.');
+      return;
+    }
+    final repository = FormRepository(automation.client, company ?? '');
+    final schema = {...blankSchema('Stage'), 'title': '', 'usage': 'approval'};
+    final record = await Navigator.push<FormMap>(
+      context,
+      MaterialPageRoute(builder: (_) => FormEditorPage(
+          repository: repository,
+          initial: {'schema': schema, 'client_id': newFormId()})),
+    );
+    if (record != null && mounted) {
+      await _bindForm(record);
+    }
+  }
+
+  /// Edits a bound stage form. A default or shared form is copied first so the
+  /// original is never changed; the copy's new revision is then bound.
+  Future<void> _editBoundForm() async {
+    final binding = supplementaryForm;
+    if (binding == null || saving) return;
+    if (!canEditForms) {
+      _message('ویرایش فرم به مجوز طراح نیاز دارد.');
+      return;
+    }
+    final repository = FormRepository(automation.client, company ?? '');
+    final name = binding['form']?.toString() ?? '';
+    final usedElsewhere = widget.design.stages.any((stage) =>
+        stage.id != widget.stage.id &&
+        formMap(stage.config['supplementary_form'])['form'] == name);
+    FormMap record;
+    try {
+      record = formMap(
+          await repository.call('get_form', {'name': name, 'manage': 1}));
+    } catch (failure) {
+      if (mounted) {
+        _message(failure is ApiException
+            ? failure.message
+            : 'دریافت فرم در دسترس نیست؛ اتصال و مجوز را بررسی کنید.');
+      }
+      return;
+    }
+    if (!mounted) return;
+    if (record['builtin_key'] != null || usedElsewhere) {
+      try {
+        record = formMap(await repository.call('copy_form', {
+          'company': company ?? '',
+          'name': name,
+        }));
+      } catch (failure) {
+        if (mounted) {
+          _message(failure is ApiException
+              ? failure.message
+              : 'کپی فرم در دسترس نیست؛ اتصال و مجوز را بررسی کنید.');
+        }
+        return;
+      }
+      if (!mounted) return;
+    }
+    final edited = await Navigator.push<FormMap>(
+      context,
+      MaterialPageRoute(builder: (_) => FormEditorPage(
+          repository: repository, initial: record)),
+    );
+    if (edited != null && mounted) {
+      await _bindForm(edited);
+    }
+  }
+
+  /// Binds [record] (a saved+published form) to this stage, clearing any legacy
+  /// inline fields. Asks first when a legacy inline form exists.
+  Future<void> _bindForm(FormMap record) async {
     if (formFields.isNotEmpty) {
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('جایگزینی فرم مرحله'),
           content: const Text(
-              'فیلدهای فعلی با یک نسخه از فرم انتخاب‌شده جایگزین شوند؟ فرم اصلی تغییر نمی‌کند.'),
+              'فرم فعلی این مرحله با فرم انتخاب‌شده جایگزین شود؟ فیلدهای قبلی در سوابق اجراهای گذشته حفظ می‌شوند.'),
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(context, false),
@@ -1096,14 +1273,13 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
       if (confirmed != true || !mounted) return;
     }
     setState(() {
-      formFields = (source.config['form_fields'] as List)
-          .whereType<Map>()
-          .map(WorkflowFormFieldDefinition.fromMap)
-          .toList();
-      formLayout = ((source.config['form_layout'] as List?) ?? const [])
-          .whereType<Map>()
-          .map(Map<String, dynamic>.from)
-          .toList();
+      formFields = [];
+      formLayout = [];
+      supplementaryForm = {
+        'form': record['name'],
+        'revision': record['active_revision'],
+        'title': formMap(record['schema'])['title'] ?? '',
+      };
     });
   }
 
@@ -1629,68 +1805,6 @@ class _StageRouteSheetState extends State<_StageRouteSheet> {
           ]),
         ),
       )),
-    );
-  }
-}
-
-/// Searches existing forms without changing the source stage.
-class _StageFormChoices extends StatefulWidget {
-  const _StageFormChoices({required this.stages, required this.hasForm});
-  final List<WorkflowStage> stages;
-  final bool hasForm;
-
-  @override
-  State<_StageFormChoices> createState() => _StageFormChoicesState();
-}
-
-class _StageFormChoicesState extends State<_StageFormChoices> {
-  String query = '';
-
-  @override
-  Widget build(BuildContext context) {
-    final stages = widget.stages.where((stage) => stage.title.contains(query));
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(children: [
-        Row(children: [
-          const Expanded(
-              child: Text('انتخاب فرم',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800))),
-          IconButton(
-              onPressed: () => Navigator.pop(context),
-              tooltip: 'بستن',
-              icon: const Icon(Icons.close_rounded)),
-        ]),
-        TextField(
-          decoration: const InputDecoration(
-              hintText: 'جستجو در فرم‌های این گردش کار...',
-              prefixIcon: Icon(Icons.search_rounded)),
-          onChanged: (value) => setState(() => query = value.trim()),
-        ),
-        const SizedBox(height: 8),
-        ListTile(
-          leading:
-              const Icon(Icons.edit_note_rounded, color: AsoudColors.primary),
-          title: Text(widget.hasForm ? 'ویرایش فرم فعلی' : 'ساخت فرم اختصاصی'),
-          onTap: () => Navigator.pop(context, '__edit__'),
-        ),
-        Expanded(
-            child: ListView(children: [
-          if (stages.isEmpty)
-            const Padding(
-                padding: EdgeInsets.all(16),
-                child: Text('فرم دیگری در این گردش کار یافت نشد.')),
-          for (final stage in stages)
-            ListTile(
-              leading: const Icon(Icons.description_outlined,
-                  color: AsoudColors.primary),
-              title: Text(stage.title),
-              subtitle: const Text('استفاده از یک نسخه مستقل از فیلدهای فرم'),
-              trailing: const Icon(Icons.chevron_left_rounded),
-              onTap: () => Navigator.pop(context, stage.id),
-            ),
-        ])),
-      ]),
     );
   }
 }

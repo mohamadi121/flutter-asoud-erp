@@ -77,4 +77,20 @@ class WorkflowTemplateRepository {
     if (value is! Map) throw const ApiException.protocol();
     return FrappeWorkflowRepository(client).parseDefinition(value);
   }
+
+  /// Copies an existing (system) workflow into an independent draft. The server
+  /// compares `source_modified` verbatim, so the raw string must be passed.
+  Future<WorkflowDefinition> copyFromWorkflow(
+      {required String company, required WorkflowDefinition source,
+      required String title, required String description,
+      required String icon, required String color}) async {
+    _requireOnline();
+    final modified = source.modifiedRaw;
+    if (modified == null || modified.isEmpty) throw const ApiException.protocol();
+    final value = await client.callAsoudMethod('asoud_erp.api.v1.workflow_templates.create_from_template',
+        data: {'company': company, 'source': source.id, 'source_modified': modified,
+          'workflow_title': title, 'process_description': description, 'icon_key': icon, 'color_hex': color});
+    if (value is! Map) throw const ApiException.protocol();
+    return FrappeWorkflowRepository(client).parseDefinition(value);
+  }
 }

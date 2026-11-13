@@ -16,6 +16,12 @@ import 'package:mocktail/mocktail.dart';
 class _WaitRepository extends Mock implements WorkflowWaitRepository {}
 
 class _PreviewRepository implements WorkflowRepository {
+  _PreviewRepository({this.includeCondition = false});
+
+  final bool includeCondition;
+  Map<String, dynamic>? connectedCondition;
+  String? connectedFromStage, connectedToStage;
+
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
   @override
@@ -51,7 +57,22 @@ class _PreviewRepository implements WorkflowRepository {
       _design(includeUserTask: true);
 
   @override
-  Future<WorkflowDesign> getDesign(String definition) async => _design();
+  Future<WorkflowDesign> connectStages({
+    required String definition,
+    required String fromStage,
+    required String toStage,
+    required String action,
+    Map<String, dynamic> condition = const {},
+  }) async {
+    connectedFromStage = fromStage;
+    connectedToStage = toStage;
+    connectedCondition = condition;
+    return _design(includeCondition: includeCondition);
+  }
+
+  @override
+  Future<WorkflowDesign> getDesign(String definition) async =>
+      _design(includeCondition: includeCondition);
 
   @override
   Future<WorkflowStage> saveStartSettings(
@@ -75,7 +96,9 @@ class _PreviewRepository implements WorkflowRepository {
         },
       );
 
-  WorkflowDesign _design({bool includeUserTask = false}) => WorkflowDesign(
+  WorkflowDesign _design(
+          {bool includeUserTask = false, bool includeCondition = false}) =>
+      WorkflowDesign(
         workflow: WorkflowDefinition(
           id: 'WF-1405-001',
           code: 'WF-1405-001',
@@ -84,7 +107,7 @@ class _PreviewRepository implements WorkflowRepository {
           status: WorkflowDefinitionStatus.inactive,
           isLocked: true,
           version: 1,
-          stepsCount: includeUserTask ? 1 : 0,
+          stepsCount: includeUserTask || includeCondition ? 1 : 0,
           modified: DateTime(2026, 8, 8),
         ),
         stages: [
@@ -102,22 +125,36 @@ class _PreviewRepository implements WorkflowRepository {
               'pass_mode': 'Direct',
             },
           ),
-          if (includeUserTask)
+          if (includeCondition)
             const WorkflowStage(
+              id: 'CONDITION-1',
+              key: 'condition-1',
+              type: WorkflowStageType.condition,
+              title: 'شرط درخواست',
+              sequence: 1,
+              configurationComplete: true,
+            ),
+          if (includeUserTask || includeCondition)
+            WorkflowStage(
               id: 'TASK-1',
               key: 'task-1',
               type: WorkflowStageType.userTask,
               title: 'وظیفه کاربر',
-              sequence: 1,
+              sequence: includeCondition ? 2 : 1,
               configurationComplete: false,
             ),
         ],
-        transitions: includeUserTask
+        transitions: includeCondition
             ? const [
                 WorkflowTransition(
-                    id: 'TR-1', fromStage: 'START-1', toStage: 'TASK-1')
+                    id: 'TR-1', fromStage: 'START-1', toStage: 'CONDITION-1')
               ]
-            : const [],
+            : includeUserTask
+                ? const [
+                    WorkflowTransition(
+                        id: 'TR-1', fromStage: 'START-1', toStage: 'TASK-1')
+                  ]
+                : const [],
       );
 
   @override
@@ -215,8 +252,9 @@ class _PreviewRepository implements WorkflowRepository {
       throw UnimplementedError();
 }
 
-Widget _app(Widget child) => RepositoryProvider<WorkflowRepository>.value(
-      value: _PreviewRepository(),
+Widget _app(Widget child, {WorkflowRepository? repository}) =>
+    RepositoryProvider<WorkflowRepository>.value(
+      value: repository ?? _PreviewRepository(),
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
         locale: const Locale('fa'),
@@ -270,6 +308,40 @@ void main() {
     await expectLater(find.byType(MaterialApp),
         matchesGoldenFile('goldens/workflow_designer_390.png'));
   }, tags: 'golden');
+
+  for (final branch in [
+    (label: 'شرط برقرار است', result: true),
+    (label: 'شرط برقرار نیست', result: false),
+  ]) {
+    testWidgets('condition connection sends ${branch.label} result',
+        (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final repository = _PreviewRepository(includeCondition: true);
+      await tester.pumpWidget(_app(
+        const WorkflowDesignerPage(definition: 'WF-1405-001'),
+        repository: repository,
+      ));
+      await tester.pumpAndSettle();
+
+      // The node-side chain was intentionally removed. Keep verifying the
+      // existing routing contract independently of that retired control.
+      final node = find.byKey(const ValueKey('workflow-node-CONDITION-1'));
+      expect(find.descendant(of: node,
+        matching: find.byIcon(Icons.add_link_rounded)), findsNothing);
+      final cubit = BlocProvider.of<WorkflowDesignerCubit>(tester.element(node));
+      await cubit.connectStages(fromStage: 'CONDITION-1', toStage: 'TASK-1',
+        action: branch.label, condition: {'result': branch.result});
+      await tester.pumpAndSettle();
+
+      expect(repository.connectedFromStage, 'CONDITION-1');
+      expect(repository.connectedToStage, 'TASK-1');
+      expect(repository.connectedCondition, {'result': branch.result});
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   testWidgets('six stage buttons preview', (tester) async {
     tester.view.physicalSize = const Size(390, 844);

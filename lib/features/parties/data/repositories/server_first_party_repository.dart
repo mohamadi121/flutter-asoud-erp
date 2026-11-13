@@ -127,7 +127,7 @@ class ServerFirstPartyRepository
     } catch (error) {
       if (!isRetryableOfflineFailure(error)) rethrow;
       await _saveProfile(draft, LocalSyncStatus.pendingSync);
-      return draft;
+      return _copyProfile(draft, pendingSync: true);
     }
   }
 
@@ -552,9 +552,11 @@ class ServerFirstPartyRepository
           {String? id,
           Set<String>? detailGroups,
           List<FloatingDetail>? floatingDetails,
-          bool? disabled}) =>
+          bool? disabled,
+          bool? pendingSync}) =>
       PartyProfile(
         id: id ?? value.id,
+        pendingSync: pendingSync ?? value.pendingSync,
         company: value.company,
         kind: value.kind,
         displayName: value.displayName,

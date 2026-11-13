@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/failure_message.dart';
+import '../../../../core/offline/queued_offline_exception.dart';
 import '../../../../core/utils/persian_format.dart';
 import '../../../../core/widgets/app_fields.dart';
 import '../../../../core/widgets/asoud_ui.dart';
@@ -168,7 +170,7 @@ class _PartyFormPageState extends State<PartyFormPage> {
           ? '${fields['firstName']!.text.trim()} ${fields['lastName']!.text.trim()}'
               .trim()
           : fields['name']!.text.trim();
-      await context.read<PartyRepository>().save(
+      final saved = await context.read<PartyRepository>().save(
           PartyProfile(
             id: widget.profile?.id,
             company: widget.company,
@@ -219,15 +221,35 @@ class _PartyFormPageState extends State<PartyFormPage> {
           ),
           primaryRole: widget.initialRole,
           detailGroups: selectedGroups);
-      if (mounted) Navigator.of(context).pop(true);
-    } catch (_) {
       if (mounted) {
-        setState(() => error =
-            'ذخیره در ASOUD ERP انجام نشد؛ اطلاعات یا اتصال سرور را بررسی کنید.');
+        if (saved.pendingSync) await _queuedNotice();
+        if (mounted) Navigator.of(context).pop(true);
+      }
+    } on QueuedOfflineException {
+      await _queuedNotice();
+      if (mounted) Navigator.of(context).pop(true);
+    } catch (failure) {
+      if (mounted) {
+        setState(() => error = failureMessage(failure));
       }
     } finally {
       if (mounted) setState(() => saving = false);
     }
+  }
+
+  Future<void> _queuedNotice() async {
+    if (!mounted) return;
+    await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+              content: const Text(
+                  'ذخیره روی گوشی انجام شد و هنوز به سرور ارسال نشده است'),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('باشه')),
+              ],
+            ));
   }
 
   String? _value(String key) {
@@ -330,6 +352,11 @@ class _PartyFormPageState extends State<PartyFormPage> {
                       const SizedBox(width: 8),
                       Expanded(child: _input('department', 'واحد سازمانی')),
                     ]),
+                  if (employee)
+                    const Text(
+                      'سمت باید از سمت‌های ثبت‌شده در سرور باشد؛ اگر مطمئن نیستید خالی بگذارید.',
+                      style: TextStyle(fontSize: 11, color: AsoudColors.muted),
+                    ),
                 ],
               ),
               AsoudFormSection(
@@ -457,7 +484,7 @@ class _PartyFormPageState extends State<PartyFormPage> {
               for (final option in options.entries)
                 AppOption(option.key, option.value)
             ]),
-        onChanged: (value) => controller.text = value,
+        onChanged: (value) => setState(() => controller.text = value),
         validator: (value) => value == null || value.isEmpty
             ? 'این فیلد الزامی است.'
             : null);
@@ -570,7 +597,7 @@ class _AdditionalRoleSelector extends StatelessWidget {
           crossAxisCount: 4,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          childAspectRatio: .9,
+          mainAxisExtent: 94,
           crossAxisSpacing: 6,
           children: roles.map((role) {
             final selected = value.contains(role.$1);

@@ -3,9 +3,13 @@ import 'dart:convert';
 import '../../domain/entities/workflow_task.dart';
 import '../../domain/entities/workflow_definition.dart';
 import '../../domain/repositories/workflow_task_repository.dart';
+import '../../domain/repositories/workflow_task_supplementary_repository.dart';
 
 class FrappeWorkflowTaskRepository
-    implements WorkflowTaskRepository, CompleteWorkflowLists {
+    implements
+        WorkflowTaskRepository,
+        CompleteWorkflowLists,
+        WorkflowTaskSupplementaryRepository {
   FrappeWorkflowTaskRepository(this._client);
   final FrappeClient _client;
   bool _complete = true;
@@ -119,6 +123,23 @@ class FrappeWorkflowTaskRepository
     );
   }
 
+  Map<String, dynamic> _completeData({
+    required String task,
+    required String action,
+    String? comment,
+    Map<String, dynamic> response = const {},
+    Map<String, dynamic>? supplementaryValues,
+  }) =>
+      {
+        'task': task,
+        'action': action,
+        if (comment?.trim().isNotEmpty == true) 'comment': comment!.trim(),
+        'response': response,
+        // The supplementary form travels separately from the decision response.
+        if (supplementaryValues != null && supplementaryValues.isNotEmpty)
+          'supplementary_values': supplementaryValues,
+      };
+
   @override
   Future<void> completeTask({
     required String task,
@@ -128,12 +149,27 @@ class FrappeWorkflowTaskRepository
   }) async {
     await _client.callAsoudMethod(
       'asoud_erp.api.v1.workflow_runtime.complete_workflow_task',
-      data: {
-        'task': task,
-        'action': action,
-        if (comment?.trim().isNotEmpty == true) 'comment': comment!.trim(),
-        'response': response,
-      },
+      data: _completeData(
+          task: task, action: action, comment: comment, response: response),
+    );
+  }
+
+  @override
+  Future<void> completeTaskWithSupplementary({
+    required String task,
+    required String action,
+    String? comment,
+    Map<String, dynamic> response = const {},
+    required Map<String, dynamic> supplementaryValues,
+  }) async {
+    await _client.callAsoudMethod(
+      'asoud_erp.api.v1.workflow_runtime.complete_workflow_task',
+      data: _completeData(
+          task: task,
+          action: action,
+          comment: comment,
+          response: response,
+          supplementaryValues: supplementaryValues),
     );
   }
 
@@ -236,6 +272,9 @@ class FrappeWorkflowTaskRepository
       requestValues: item['request_values'] is Map
           ? Map<String, dynamic>.from(item['request_values'] as Map)
           : const {},
+      supplementaryForm: item['supplementary_form'] is Map
+          ? Map<String, dynamic>.from(item['supplementary_form'] as Map)
+          : const {},
     );
   }
 
@@ -244,6 +283,23 @@ class FrappeWorkflowTaskRepository
     await _client.callAsoudMethod(
       'asoud_erp.api.v1.workflow_runtime.save_workflow_task_draft',
       data: {'task': task, 'response': values},
+    );
+  }
+
+  @override
+  Future<void> saveDraftWithSupplementary(
+    String task,
+    Map<String, dynamic> values, {
+    required Map<String, dynamic> supplementaryValues,
+  }) async {
+    await _client.callAsoudMethod(
+      'asoud_erp.api.v1.workflow_runtime.save_workflow_task_draft',
+      data: {
+        'task': task,
+        'response': values,
+        if (supplementaryValues.isNotEmpty)
+          'supplementary_values': supplementaryValues,
+      },
     );
   }
 

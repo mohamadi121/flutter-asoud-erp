@@ -13,6 +13,7 @@ class WorkflowDefinition extends Equatable {
     required this.version,
     required this.stepsCount,
     required this.modified,
+    this.modifiedRaw,
     this.company,
     this.description,
     this.moduleKey,
@@ -37,6 +38,8 @@ class WorkflowDefinition extends Equatable {
   final bool isLocked;
   final int version, stepsCount;
   final DateTime? modified;
+  /// Raw `modified` string from the server, needed verbatim by `create_from_template`.
+  final String? modifiedRaw;
   final String? company, description, moduleKey, creationMode;
   final String? frappeWorkflow, pendingReason, iconKey, colorHex;
   final String? shortTitle, category;
@@ -137,6 +140,7 @@ class WorkflowTargetOption extends Equatable {
     this.parent,
     this.isGroup = false,
     this.designation,
+    this.userId,
   });
 
   final String id;
@@ -151,9 +155,12 @@ class WorkflowTargetOption extends Equatable {
   /// Employees: their designation, shown under the name.
   final String? designation;
 
+  /// Employees: the system user account, used by `user` condition values.
+  final String? userId;
+
   @override
   List<Object?> get props =>
-      [id, label, department, company, parent, isGroup, designation];
+      [id, label, department, company, parent, isGroup, designation, userId];
 }
 
 class WorkflowModuleOption extends Equatable {
@@ -289,17 +296,17 @@ class WorkflowFieldOption extends Equatable {
       required this.type,
       this.source = 'Document', this.sourceStage = '', this.stageTitle = '',
       this.choices = const [], this.choiceLabels = const {}, this.conditionVersion = 0,
-      this.linkDoctype, this.currency, this.dataType});
+      this.valueSource, this.linkDoctype, this.currency, this.dataType});
   final String name, label, type;
   final String source;
   final String sourceStage, stageTitle;
   final List<String> choices;
   final Map<String, String> choiceLabels;
   final int conditionVersion;
-  final String? linkDoctype, currency, dataType;
+  final String? valueSource, linkDoctype, currency, dataType;
   @override
   List<Object?> get props => [name, label, type, source, sourceStage, stageTitle,
-    choices, choiceLabels, conditionVersion, linkDoctype, currency, dataType];
+    choices, choiceLabels, conditionVersion, valueSource, linkDoctype, currency, dataType];
 }
 
 /// `visible_when` of a form field: shown only while the controlling field's

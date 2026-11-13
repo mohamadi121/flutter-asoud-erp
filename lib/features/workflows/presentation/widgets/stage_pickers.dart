@@ -278,3 +278,117 @@ class _OrgUnitPickerPageState extends State<OrgUnitPickerPage> {
     );
   }
 }
+
+/// «انتخاب کاربر»: one employee that has a system user account.
+Future<WorkflowTargetOption?> pickUser(BuildContext context,
+        {required List<WorkflowTargetOption> employees,
+        String? selectedUserId}) =>
+    Navigator.push<WorkflowTargetOption>(
+        context,
+        MaterialPageRoute(
+            builder: (_) => UserPickerPage(
+                employees: employees, selectedUserId: selectedUserId)));
+
+class UserPickerPage extends StatefulWidget {
+  const UserPickerPage(
+      {required this.employees, this.selectedUserId, super.key});
+  final List<WorkflowTargetOption> employees;
+  final String? selectedUserId;
+
+  @override
+  State<UserPickerPage> createState() => _UserPickerPageState();
+}
+
+class _UserPickerPageState extends State<UserPickerPage> {
+  String query = '';
+  late WorkflowTargetOption? selected = _initialSelected();
+
+  WorkflowTargetOption? _initialSelected() {
+    final id = widget.selectedUserId;
+    if (id == null) return null;
+    for (final person in widget.employees) {
+      if (person.userId == id) return person;
+    }
+    return null;
+  }
+
+  /// Only employees with a system user account can be chosen.
+  List<WorkflowTargetOption> get _people => widget.employees
+      .where((person) => (person.userId ?? '').isNotEmpty)
+      .toList();
+
+  /// Persian normalization: treat ي as ی and ك as ک.
+  String _normalize(String value) => value
+      .replaceAll('ي', 'ی')
+      .replaceAll('ك', 'ک')
+      .toLowerCase();
+
+  bool _matches(WorkflowTargetOption person) =>
+      query.isEmpty || _normalize(person.label).contains(_normalize(query));
+
+  @override
+  Widget build(BuildContext context) {
+    final people = _people;
+    final visible = people.where(_matches).toList();
+    return Scaffold(
+      appBar: AsoudHeader(title: 'انتخاب کاربر'),
+      body: ListView(padding: const EdgeInsets.all(16), children: [
+        TextField(
+          decoration: const InputDecoration(
+              hintText: 'جستجوی پرسنل...',
+              prefixIcon: Icon(Icons.search_rounded)),
+          onChanged: (value) => setState(() => query = value.trim()),
+        ),
+        const SizedBox(height: 12),
+        if (people.isEmpty)
+          const Padding(
+            padding: EdgeInsets.all(24),
+            child: Text('هیچ پرسنلی حساب کاربری ندارد.',
+                textAlign: TextAlign.center),
+          )
+        else if (visible.isEmpty)
+          const Padding(
+            padding: EdgeInsets.all(24),
+            child: Text('نتیجه‌ای پیدا نشد.', textAlign: TextAlign.center),
+          )
+        else
+          for (final person in visible)
+            _row(person),
+      ]),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+          child: FilledButton(
+            onPressed: selected == null
+                ? null
+                : () => Navigator.pop(context, selected),
+            child: const Text('تأیید انتخاب'),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _row(WorkflowTargetOption person) {
+    final active = selected == person;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      color: active ? AsoudColors.primary.withValues(alpha: .06) : null,
+      child: ListTile(
+        leading: const AsoudPickerIcon(
+            icon: Icons.person_rounded, color: AsoudColors.muted),
+        title: Text(person.label,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+        subtitle: person.designation == null
+            ? null
+            : Text(person.designation!, style: const TextStyle(fontSize: 11)),
+        trailing: Icon(
+            active
+                ? Icons.radio_button_checked_rounded
+                : Icons.radio_button_unchecked_rounded,
+            color: active ? AsoudColors.primary : AsoudColors.border),
+        onTap: () => setState(() => selected = person),
+      ),
+    );
+  }
+}

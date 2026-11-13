@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/network/frappe_client.dart';
+import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/failure_message.dart';
 import '../../data/workflow_path_repository.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../domain/entities/workflow_definition.dart';
 import '../../domain/repositories/workflow_repository.dart';
 import '../cubit/workflow_designer_cubit.dart';
+import '../widgets/workflow_check_sheet.dart';
+import '../widgets/workflow_dry_run_sheet.dart';
 import '../widgets/workflow_graph_canvas.dart';
+import '../widgets/workflow_system_copy_dialog.dart';
 import 'stage_settings_page.dart';
 import 'workflow_stage_settings_page.dart';
 import 'workflow_form_page.dart';
@@ -45,8 +48,7 @@ class _DesignerViewState extends State<_DesignerView> {
       BlocConsumer<WorkflowDesignerCubit, WorkflowDesignerState>(
         listenWhen: (previous, current) =>
             previous.message != current.message && current.message != null,
-        listener: (context, state) => ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(state.message!))),
+        listener: (context, state) => _onMessage(context, state),
         builder: (context, state) {
           final design = state.design;
           if (design == null) {
@@ -67,15 +69,21 @@ class _DesignerViewState extends State<_DesignerView> {
               subtitle: design.workflow.title,
               action: IconButton(
                 tooltip: 'تنظیمات فرایند',
-                onPressed: () => _editWorkflow(context),
+                onPressed: () => _showWorkflowMenu(context, design,
+                    state.offlinePreview),
                 icon: const Icon(Icons.settings_outlined),
               ),
             ),
             body: Column(children: [
               if (state.offlinePreview) const AsoudOfflinePreviewBanner(),
+              if (design.workflow.isSystemTemplate)
+                _SystemWorkflowBanner(workflow: design.workflow),
               _DraftBanner(
                   workflow: design.workflow,
-                  saving: state.status == WorkflowDesignerStatus.saving),
+                  saving: state.status == WorkflowDesignerStatus.saving,
+                  failed: state.status == WorkflowDesignerStatus.failure,
+                  failureMessage: state.message,
+                  offlinePreview: state.offlinePreview),
               Expanded(
                 child: WorkflowGraphCanvas(
                   design: design,
@@ -105,6 +113,34 @@ class _DesignerViewState extends State<_DesignerView> {
           );
         },
       );
+
+  void _onMessage(BuildContext context, WorkflowDesignerState state) {
+    final message = state.message!;
+    final workflow = state.design?.workflow;
+    final messenger = ScaffoldMessenger.of(context);
+    if (message.contains('ابتدا یک کپی مستقل') &&
+        workflow != null &&
+        workflow.isSystemTemplate) {
+      messenger.showSnackBar(SnackBar(
+          content: Text(message),
+          action: SnackBarAction(
+              label: 'ایجاد کپی مستقل',
+              onPressed: () => _copySystem(context, workflow).ignore())));
+      return;
+    }
+    messenger.showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _copySystem(BuildContext context, WorkflowDefinition workflow) async {
+    final created = await showDialog<WorkflowDefinition>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => WorkflowSystemCopyDialog(
+            source: workflow, client: context.read<FrappeApiClient>()));
+    if (created == null || !context.mounted) return;
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => WorkflowDesignerPage(definition: created.id)));
+  }
 
   Future<void> _openStage(BuildContext context, WorkflowStage stage,
       WorkflowFormOptions? options, {WorkflowDesignerCubit? editor, VoidCallback? onCommitted}) async {
@@ -182,6 +218,78 @@ class _DesignerViewState extends State<_DesignerView> {
     }
   }
 
+  Future<void> _showWorkflowMenu(
+      BuildContext context, WorkflowDesign design, bool offlinePreview) async {
+    final client = context.read<FrappeApiClient>();
+    final choice = await showModalBottomSheet<_WorkflowMenuChoice>(
+      context: context,
+      showDragHandle: true,
+      builder: (_) => const _WorkflowMenuSheet(),
+    );
+    if (choice == null || !context.mounted) return;
+    switch (choice) {
+      case _WorkflowMenuChoice.edit:
+        await _editWorkflow(context);
+      case _WorkflowMenuChoice.validate:
+        await _openCheckSheet(context, design, offlinePreview, client);
+      case _WorkflowMenuChoice.dryRun:
+        await _openDryRunSheet(context, design, offlinePreview, client);
+    }
+  }
+
+  Future<void> _openCheckSheet(BuildContext context, WorkflowDesign design,
+      bool offlinePreview, FrappeApiClient client) async {
+    if (offlinePreview) {
+      await _showServerOnlySheet(context, 'بررسی اعتبار گردش کار');
+      return;
+    }
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => WorkflowCheckSheet(
+          definition: design.workflow.id, design: design, client: client),
+    );
+  }
+
+  Future<void> _openDryRunSheet(BuildContext context, WorkflowDesign design,
+      bool offlinePreview, FrappeApiClient client) async {
+    if (offlinePreview) {
+      await _showServerOnlySheet(context, 'اجرای آزمایشی فرایند');
+      return;
+    }
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => WorkflowDryRunSheet(
+          definition: design.workflow.id, design: design, client: client),
+    );
+  }
+
+  Future<void> _showServerOnlySheet(
+      BuildContext context, String title) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text(title,
+                style:
+                    const TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 10),
+            const Text(
+              'این قابلیت برای بررسی نسخهٔ ذخیره‌شده به سرور نیاز دارد و در پیش‌نمایش آفلاین در دسترس نیست.',
+              style: TextStyle(fontSize: 11, height: 1.6),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
+
   Future<void> _insertStage(
       BuildContext context, WorkflowTransition transition) async {
     if (editingPath) return;
@@ -255,33 +363,103 @@ class _DesignerViewState extends State<_DesignerView> {
 }
 
 class _DraftBanner extends StatelessWidget {
-  const _DraftBanner({required this.workflow, required this.saving});
+  const _DraftBanner({
+    required this.workflow,
+    required this.saving,
+    required this.failed,
+    this.failureMessage,
+    this.offlinePreview = false,
+  });
   final WorkflowDefinition workflow;
   final bool saving;
+  final bool failed;
+  final String? failureMessage;
+  final bool offlinePreview;
+  @override
+  Widget build(BuildContext context) {
+    final color = failed ? AsoudColors.warning : AsoudColors.primary;
+    return Container(
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: .06),
+          border: Border.all(color: color.withValues(alpha: .2)),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(children: [
+          Icon(
+            saving
+                ? Icons.sync_rounded
+                : failed
+                    ? Icons.cloud_off_outlined
+                    : Icons.cloud_done_outlined,
+            color: color,
+            size: 19,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              saving
+                  ? 'در حال ذخیره تغییرات...'
+                  : failed
+                      ? failureMessage ??
+                          'ذخیره تغییرات ناموفق بود؛ تغییرات را دوباره ذخیره کنید.'
+                      : offlinePreview
+                          ? 'تغییرات این پیش‌نویس روی دستگاه ذخیره شد؛ همگام‌سازی با سرور تأیید نشده است.'
+                          : 'تغییرات این پیش‌نویس روی سرور ذخیره شده است.',
+              style: TextStyle(fontSize: 9, color: color),
+            ),
+          ),
+          Text(workflow.code,
+              textDirection: TextDirection.ltr,
+              style: const TextStyle(fontSize: 9, color: AsoudColors.muted)),
+        ]),
+      );
+  }
+}
+
+/// A system workflow cannot be edited in place; the only path is an
+/// independent copy, so the designer offers it directly.
+class _SystemWorkflowBanner extends StatelessWidget {
+  const _SystemWorkflowBanner({required this.workflow});
+  final WorkflowDefinition workflow;
+
+  Future<void> _copy(BuildContext context) async {
+    final created = await showDialog<WorkflowDefinition>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => WorkflowSystemCopyDialog(
+            source: workflow, client: context.read<FrappeApiClient>()));
+    if (created == null || !context.mounted) return;
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => WorkflowDesignerPage(definition: created.id)));
+  }
+
   @override
   Widget build(BuildContext context) => Container(
         margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
         decoration: BoxDecoration(
-          color: AsoudColors.primary.withValues(alpha: .06),
-          border: Border.all(color: AsoudColors.primary.withValues(alpha: .2)),
+          color: AsoudColors.warning.withValues(alpha: .06),
+          border: Border.all(color: AsoudColors.warning.withValues(alpha: .2)),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(children: [
-          Icon(saving ? Icons.sync_rounded : Icons.cloud_done_outlined,
-              color: AsoudColors.primary, size: 19),
+          const Icon(Icons.lock_outline_rounded,
+              color: AsoudColors.warning, size: 19),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-                saving
-                    ? 'در حال ذخیره تغییرات...'
-                    : 'تغییرات این پیش‌نویس روی سرور ذخیره شده است.',
-                style:
-                    const TextStyle(fontSize: 9, color: AsoudColors.primary)),
+              'این الگوی سیستمی است و ویرایش مستقیم ندارد؛ برای تغییر، کپی مستقل بسازید.',
+              style: TextStyle(fontSize: 9, color: AsoudColors.warning),
+            ),
           ),
-          Text(workflow.code,
-              textDirection: TextDirection.ltr,
-              style: const TextStyle(fontSize: 9, color: AsoudColors.muted)),
+          TextButton(
+              onPressed: () => _copy(context).ignore(),
+              style: TextButton.styleFrom(
+                  foregroundColor: AsoudColors.warning,
+                  padding: const EdgeInsets.symmetric(horizontal: 8)),
+              child: const Text('ایجاد کپی مستقل')),
         ]),
       );
 }
@@ -491,6 +669,62 @@ class _StagePickerSheet extends StatelessWidget {
   }
 }
 
+enum _WorkflowMenuChoice { edit, validate, dryRun }
+
+class _WorkflowMenuSheet extends StatelessWidget {
+  const _WorkflowMenuSheet();
+  @override
+  Widget build(BuildContext context) {
+    const items = [
+      (_WorkflowMenuChoice.edit, Icons.edit_outlined,
+          'ویرایش تنظیمات گردش کار', 'محرک شروع، نقش‌ها و مشخصات فرایند'),
+      (_WorkflowMenuChoice.validate, Icons.verified_user_outlined,
+          'بررسی اعتبار گردش کار', 'یافتن خطاها و هشدارها قبل از فعال‌سازی'),
+      (_WorkflowMenuChoice.dryRun, Icons.play_circle_outline_rounded,
+          'اجرای آزمایشی فرایند', 'پیمایش مرحله‌به‌مرحله بدون اثر واقعی'),
+    ];
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 18),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Text('تنظیمات فرایند',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+          const SizedBox(height: 12),
+          for (final item in items)
+            InkWell(
+              onTap: () => Navigator.pop(context, item.$1),
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  border: Border.all(color: AsoudColors.border),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Row(children: [
+                  AsoudIconBox(icon: item.$2, color: AsoudColors.primary),
+                  const SizedBox(width: 10),
+                  Expanded(child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(item.$3,
+                            style: const TextStyle(
+                                fontSize: 12, fontWeight: FontWeight.w900)),
+                        const SizedBox(height: 2),
+                        Text(item.$4,
+                            style: const TextStyle(
+                                fontSize: 9, color: AsoudColors.muted)),
+                      ])),
+                ]),
+              ),
+            ),
+        ]),
+      ),
+    );
+  }
+}
+
 class StartSettingsPage extends StatefulWidget {
   const StartSettingsPage(
       {required this.stage, required this.roles, super.key});
@@ -523,6 +757,7 @@ class _StartSettingsPageState extends State<StartSettingsPage> {
         body: ListView(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 110),
           children: [
+            const _StartSaveErrorBanner(),
             const _StartNotice(),
             const SizedBox(height: 14),
             const AsoudSectionTitle(title: 'روش آغاز فرایند'),
@@ -568,17 +803,48 @@ class _StartSettingsPageState extends State<StartSettingsPage> {
         bottomNavigationBar: AsoudBottomActions(
           primaryLabel: 'ذخیره تنظیمات شروع',
           onPrimary: () async {
-            await context.read<WorkflowDesignerCubit>().saveStart(
+            final saved = await context.read<WorkflowDesignerCubit>().saveStart(
                   triggerType: triggerType,
                   initiatorRoles: selectedRoles.toList(growable: false),
                   subjectSource: 'Referenced Document',
                   passMode: 'Direct',
                 );
-            if (context.mounted) Navigator.pop(context);
+            if (saved && context.mounted) Navigator.pop(context);
           },
           secondaryLabel: 'انصراف',
           onSecondary: () => Navigator.pop(context),
         ),
+      );
+}
+
+class _StartSaveErrorBanner extends StatelessWidget {
+  const _StartSaveErrorBanner();
+
+  @override
+  Widget build(BuildContext context) =>
+      BlocBuilder<WorkflowDesignerCubit, WorkflowDesignerState>(
+        builder: (context, state) {
+          final message = state.status == WorkflowDesignerStatus.failure
+              ? state.message
+              : null;
+          if (message == null) return const SizedBox.shrink();
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AsoudColors.warningSurface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AsoudColors.warning),
+              ),
+              child: Text(
+                message,
+                style: const TextStyle(
+                    fontSize: 11, color: AsoudColors.warning),
+              ),
+            ),
+          );
+        },
       );
 }
 

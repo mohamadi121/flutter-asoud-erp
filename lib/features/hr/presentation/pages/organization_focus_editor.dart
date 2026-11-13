@@ -342,7 +342,7 @@ class _OrganizationInlineEditorState extends State<_OrganizationInlineEditor> {
                                             .path('${u['name']}')
                                             .map((v) => organizationUnitLabel(v))
                                             .join(' / ')))
-                                    .toList()]),
+                                    ]),
                             validator: (value) => adding && nav.byId(value) == null ? 'واحد سازمانی مربوط را انتخاب کنید.' : null,
                             onChanged: (v) => setState(() => destination = v))
                       else

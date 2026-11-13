@@ -16,10 +16,13 @@ class WorkflowGraphCanvas extends StatefulWidget {
     required this.onInsertOnTransition,
     this.onCreateTransition,
     this.onRemoveTransition,
+    this.highlightStage,
     super.key,
   });
 
   final WorkflowDesign design;
+  /// Stage id to ring in the check/dry-run sheets; null for the designer.
+  final String? highlightStage;
   final ValueChanged<WorkflowStage> onOpenStage;
   final void Function(String id, double x, double y) onMoveStage;
   final VoidCallback onMoveEnd;
@@ -142,12 +145,17 @@ class _WorkflowGraphCanvasState extends State<WorkflowGraphCanvas> {
                       );
                     },
                     onPanEnd: (_) => widget.onMoveEnd(),
-                    child: _GraphNode(
+                    child: Container(
+                      decoration: stage.id == widget.highlightStage
+                          ? BoxDecoration(border: Border.all(color: AsoudColors.primary, width: 3),
+                              borderRadius: BorderRadius.circular(16)) : null,
+                      child: _GraphNode(
                       stage: stage,
                       outgoing: widget.design.transitions
                           .where((edge) => edge.fromStage == stage.id)
                           .toList(growable: false),
                       onTap: () => widget.onOpenStage(stage),
+                      ),
                     ),
                   ),
                 ),

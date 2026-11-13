@@ -95,6 +95,7 @@ void main() {
       expect(persianWorkflowStatus('Completed'), 'تکمیل‌شده');
       expect(persianWorkflowStatus('Rejected'), 'ردشده');
       expect(persianWorkflowStatus('Cancelled'), 'لغوشده');
+      expect(persianWorkflowStatus('Stopped'), 'متوقف‌شده');
       expect(persianWorkflowStatus('Open'), 'در انتظار اقدام');
       expect(persianWorkflowStatus('Draft'), 'پیش‌نویس');
       expect(persianWorkflowStatus('Approved'), 'تأییدشده');

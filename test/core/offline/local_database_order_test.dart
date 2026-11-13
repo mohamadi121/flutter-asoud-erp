@@ -23,6 +23,7 @@ void main() {
   test('فهرست رکوردها به ترتیب آخرین به‌روزرسانی (جدیدترین اول) است', () async {
     final store = LocalDatabaseStore.forPath(
         path.join(directory.path, 'asoud_erp_local_v1.db'));
+    addTearDown(() async => (await store.database).close());
     await store.save(id: 'a', entityType: 'office', payload: {'n': 1});
     await Future<void>.delayed(const Duration(milliseconds: 5));
     await store.save(id: 'b', entityType: 'office', payload: {'n': 2});

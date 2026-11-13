@@ -535,7 +535,7 @@ void main() {
     expect(find.byType(Scaffold), findsOneWidget);
     final title = find.byType(TextFormField).first;
     await tester.enterText(title, 'واحد مستقل جدید');
-    final save = find.byKey(const ValueKey('organization-compact-create-submit'));
+    final save = find.byKey(const ValueKey('focus-editor-save'));
     await tester.ensureVisible(save);
     await tester.tap(save);
     await tester.pumpAndSettle();
@@ -554,16 +554,20 @@ void main() {
         'assignment_history': [{'employee': 'employee:OLD', 'started_at': null, 'ended_at': '2026-01-01'}]},
     ]);
     await _openCreateForm(tester, client, openForm: false);
-    final assign = find.byTooltip('عملیات کارشناس منابع انسانی');
+    final details = find.byKey(const ValueKey('organization-full-unit-details'));
+    await tester.scrollUntilVisible(details, 220, scrollable: find.descendant(
+      of: find.byKey(const PageStorageKey('organization-focused-scroll')), matching: find.byType(Scrollable)).first);
+    await tester.tap(details);
+    await tester.pumpAndSettle();
+    final assign = find.byKey(const ValueKey('unit-position-assign-P1'));
     await tester.ensureVisible(assign);
     await tester.tap(assign);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('مدیریت انتصاب پرسنل'));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('inline-assignment-P1')), findsOneWidget);
+    expect(find.byKey(const ValueKey('unit-assignment-P1-false')), findsOneWidget);
     expect(find.byType(Scaffold), findsOneWidget);
     expect(find.text('ظرفیت کل'), findsOneWidget);
-    expect(find.text('سوابق انتساب'), findsOneWidget);
+    expect(find.descendant(of: find.byKey(const ValueKey('unit-assignment-P1-false')),
+      matching: find.text('سوابق انتساب')), findsOneWidget);
     expect(client.writes, isEmpty);
     expect(client.positions!.last['assignment_history'], hasLength(1));
     expect(tester.takeException(), isNull);
@@ -745,9 +749,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('focus-unit-HR-CO')), findsOneWidget);
     expect(find.byKey(const ValueKey('focus-unit-P1')), findsNothing);
-    await tester.tap(find.byTooltip('عملیات مدیر آموزش'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('ویرایش جایگاه'));
+    await tester.tap(find.byTooltip('ویرایش مدیر آموزش'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const ValueKey('focus-editor-title')), 'مدیر یادگیری');
     await tester.enterText(find.byKey(const ValueKey('focus-editor-capacity')), '۱');

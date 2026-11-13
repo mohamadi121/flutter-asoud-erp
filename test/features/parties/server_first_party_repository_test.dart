@@ -44,6 +44,22 @@ void main() {
     expect(values.single.mobile, profile.mobile);
   });
 
+  test('pending and synced save results differ even with an existing server id', () async {
+    final local = FakeLocalRecordStore();
+    final pending = await ServerFirstPartyRepository(
+      _PartyRepository(profile, error: _networkError), local: local,
+    ).save(profile);
+    final synced = await ServerFirstPartyRepository(
+      _PartyRepository(profile), local: local,
+    ).save(profile);
+
+    expect(pending.id, synced.id);
+    expect(pending.displayName, synced.displayName);
+    // Save status must remain observable even when all person fields match.
+    expect(pending, isNot(equals(synced)));
+    expect(local.records.values.single.status, LocalSyncStatus.synced);
+  });
+
   test('کد آفلاین از ابتدای بازه گروه و سپس به‌ترتیب ساخته می‌شود', () async {
     final local = FakeLocalRecordStore();
     final repository = ServerFirstPartyRepository(

@@ -208,12 +208,33 @@ class _ConditionSettingsState extends State<_ConditionSettings> {
     FocusScope.of(context).unfocus();
     setState(() { testing = true; testError = null; });
     try {
-      final result = await repository.test(definition: context.read<WorkflowDesignerCubit>().definition,
-        stage: widget.stage.id, config: payload(), samples: {
+      final samples = <String, dynamic>{
           for (final row in rows) row.id: selected(row)?.type == 'MultiSelect' ? row.sampleChoices :
             selected(row)?.type == 'Number' ? numeric(row.sample.text) : row.sample.text,
-        });
+        };
+      final cubit = context.read<WorkflowDesignerCubit>();
+      final source = cubit.repository;
+      final Map<String, dynamic> result;
+      if (widget.repository == null && source is WorkflowConditionTestRepository) {
+        final response = await (source as WorkflowConditionTestRepository).testWorkflowCondition(
+          definition: cubit.definition, stage: widget.stage.id, config: payload(), samples: samples);
+        result = {'result': response.result, 'rows': [for (final row in response.rows)
+          {'id': row.id, 'result': row.result, if (row.error != null) 'error': row.error}]};
+      } else {
+        result = await repository.test(definition: cubit.definition,
+          stage: widget.stage.id, config: payload(), samples: samples);
+      }
       if (mounted) setState(() => testResult = result);
+    } on ConditionTestUnsupportedException {
+      if (mounted) setState(() => testError = 'سرور فعلی از آزمایش شرط پشتیبانی نمی‌کند؛ این بخش فقط ساختار تنظیمات را بررسی می‌کند؛ اجرای آزمایشی فرایند نیست.');
+    } on ApiException catch (failure) {
+      if (mounted) {
+        setState(() => testError = failure.kind == ApiFailureKind.forbidden
+        ? 'دسترسی لازم برای آزمایش شرط را ندارید.' :
+          failure.kind == ApiFailureKind.validation ? failureDetail(failure) :
+          failure.kind == ApiFailureKind.network && RegExp(r'[\u0600-\u06ff]').hasMatch(failure.message)
+            ? failure.message : failureMessage(failure));
+      }
     } catch (failure) {
       if (mounted) setState(() => testError = failureMessage(failure));
     } finally {
@@ -270,6 +291,22 @@ class _ConditionSettingsState extends State<_ConditionSettings> {
     final label = sample ? 'مقدار نمونه' : row.operator == 'Between' ? (end ? 'مقدار دوم' : 'مقدار اول') : 'مقدار مقایسه';
     final problem = !sample && (end || row.operator != 'Between') ? rowErrors[row.id] : null;
     final key = ValueKey('condition-${sample ? 'sample' : end ? 'end' : 'value'}-${row.id}');
+    if (['user', 'employee'].contains(field.valueSource) && field.linkDoctype == null) {
+      final people = context.read<WorkflowDesignerCubit>().state.options?.employees ?? <WorkflowTargetOption>[];
+      final user = field.valueSource == 'user';
+      final chosen = people.where((person) => (user ? person.userId : person.id) == controller.text).firstOrNull;
+      return Padding(padding: const EdgeInsets.only(bottom: 14), child: AppSelectField(
+        key: key, label: label, value: controller.text, enabled: !saving && !testing, errorText: problem,
+        displayValue: chosen?.label ?? 'انتخاب کنید',
+        onPick: () async {
+          if (user) {
+            final person = await pickUser(context, employees: people, selectedUserId: controller.text);
+            return person?.userId;
+          }
+          return showAppOptionSheet(context, title: 'انتخاب پرسنل', current: controller.text,
+            options: people.map((person) => AppOption(person.id, person.label)).toList());
+        }, onChanged: (value) => update(() => controller.text = value)));
+    }
     if (sample && field.type == 'MultiSelect') {
       return buildChoiceInput(context: context, f: {'key': row.id, 'type': 'MultiSelect',
         'options': [for (final choice in field.choices) {'id': choice, 'label': field.choiceLabels[choice] ?? choice}]},
@@ -322,7 +359,8 @@ class _ConditionSettingsState extends State<_ConditionSettings> {
         return date?.toIso8601String().substring(0, 10);
       }, onChanged: (value) => update(() => controller.text = value))); }
     return Padding(padding: const EdgeInsets.only(bottom: 14), child: AppTextField(
-      key: key, label: field.currency == null ? label : '$label (${field.currency})',
+      key: key, label: label,
+      suffixIcon: sample || field.currency == null ? null : Padding(padding: const EdgeInsets.only(left: 10), child: Text(field.currency!)),
       errorText: problem, controller: controller, enabled: !saving && !testing, rounded: true,
       keyboardType: field.type == 'Number' ? const TextInputType.numberWithOptions(decimal: true, signed: true) : TextInputType.text,
       hintLocales: field.type == 'Number' ? const [Locale('en')] : const [Locale('fa')],
@@ -392,16 +430,20 @@ class _ConditionSettingsState extends State<_ConditionSettings> {
               onTap: saving ? null : () => update(() => combine = item.$1),
               title: Text(item.$2, style: const TextStyle(fontSize: 12)), subtitle: Text(item.$3, style: const TextStyle(fontSize: 10))))),
       ]),
-      panel([const Text('خروجی‌های شرط', style: TextStyle(fontWeight: FontWeight.bold)),
+      panel([Text('${toPersianDigits(rows.length > 1 ? 3 : 2)}. خروجی‌های شرط', style: const TextStyle(fontWeight: FontWeight.bold)),
         const Text('سیستم نتیجهٔ ارزیابی را از طریق یکی از دو خروجی ادامه می‌دهد.', style: TextStyle(fontSize: 11, color: AsoudColors.muted)),
         for (final item in [('شرط برقرار است', AsoudColors.success, Icons.check_circle_outline),
           ('شرط برقرار نیست', AsoudColors.danger, Icons.cancel_outlined)]) Container(
             margin: const EdgeInsets.only(top: 8), padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(color: item.$2.withValues(alpha: .08), borderRadius: BorderRadius.circular(10)),
-            child: Row(children: [Icon(item.$3, color: item.$2, size: 18), const SizedBox(width: 8), Text(item.$1, style: TextStyle(color: item.$2, fontSize: 12))])),
-        const SizedBox(height: 10), const Text('مقصد هر دو خروجی را در صفحه طراحی گردش کار مشخص کنید.', style: TextStyle(fontSize: 11, color: AsoudColors.primary)),
+            child: Row(children: [Icon(item.$3, color: item.$2, size: 18), const SizedBox(width: 8),
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(item.$1, style: TextStyle(color: item.$2, fontSize: 12)),
+                Text(item.$2 == AsoudColors.success ? 'خروجی اول' : 'خروجی دوم', style: TextStyle(color: item.$2, fontSize: 10))])])),
+        const SizedBox(height: 10), const Text('اتصال خروجی‌ها به مراحل بعدی فقط در صفحه طراحی گردش کار انجام می‌شود.', style: TextStyle(fontSize: 11, color: AsoudColors.primary)),
       ]),
-      Card(child: ExpansionTile(title: const Text('آزمایش تنظیمات شرط', style: TextStyle(fontSize: 13)), childrenPadding: const EdgeInsets.all(12), children: [
+      panel([Text('${toPersianDigits(rows.length > 1 ? 4 : 3)}. آزمایش شرط', style: const TextStyle(fontWeight: FontWeight.bold)),
+        const Text('آزمایش تنظیمات شرط', style: TextStyle(fontSize: 13)),
         const Text('مقدارهای نمونه فقط برای آزمایش همین شرط‌اند؛ درخواست یا وظیفه‌ای ساخته نمی‌شود.', style: TextStyle(fontSize: 11, color: AsoudColors.muted)),
         OutlinedButton(onPressed: saving || testing ? null : () async {
           setState(() { showErrors = true; final problem = validate(); error = rowErrors.isEmpty ? problem : null; checked = problem == null; });
@@ -421,7 +463,7 @@ class _ConditionSettingsState extends State<_ConditionSettings> {
         if (testResult?['rows'] is List) for (final row in testResult!['rows'] as List)
           if (row is Map && row['error'] != null) Text('${row['error']}', style: const TextStyle(color: AsoudColors.danger)),
         if (testError != null) Text(testError!, style: const TextStyle(color: AsoudColors.danger)),
-      ])),
+      ]),
       if (error != null) Text(error!, style: const TextStyle(color: AsoudColors.danger)),
     ]),
     bottomNavigationBar: FilledButtonTheme(
