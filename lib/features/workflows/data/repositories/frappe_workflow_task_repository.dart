@@ -339,4 +339,5 @@ WorkflowInstanceSummary _instance(Map<String, dynamic> item) =>
       referenceName: item['reference_name']?.toString() ?? '',
       startedOn: DateTime.tryParse(item['started_on']?.toString() ?? ''),
       completedOn: DateTime.tryParse(item['completed_on']?.toString() ?? ''),
+      endOutcome: item['end_outcome']?.toString() ?? '',
     );
