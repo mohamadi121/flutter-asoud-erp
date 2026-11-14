@@ -88,6 +88,7 @@ class RequestSummary extends Equatable {
     this.pendingSync = false,
     this.localPreview = false,
     this.isSample = false,
+    this.endOutcome = '',
     this.raw = const {},
   });
 
@@ -97,6 +98,9 @@ class RequestSummary extends Equatable {
     final key = RequestStatusKey.fromMap(map);
     final group = _text(map['status_group']);
     final label = _text(map['status_label']);
+    final status = _text(map['status']);
+    final endOutcome = _text(map['end_outcome']);
+    final isStopped = (status == 'Failed' || key == RequestStatusKey.failed) && endOutcome == 'Stopped';
     return RequestSummary(
       name: _text(map['name']),
       number: _text(map['number']).isNotEmpty
@@ -114,7 +118,7 @@ class RequestSummary extends Equatable {
       requiredBy: _text(map['required_by']),
       priority: _text(map['priority']),
       statusKey: key,
-      statusLabel: label.isNotEmpty ? label : key.label,
+      statusLabel: isStopped ? 'متوقف شد' : (label.isNotEmpty ? label : key.label),
       statusGroup: group.isNotEmpty || map.containsKey('status_group')
           ? group
           : key.group,
@@ -124,12 +128,13 @@ class RequestSummary extends Equatable {
       pendingSync: pendingSync,
       localPreview: _flag(map['local_preview']),
       isSample: _flag(map['is_sample']),
+      endOutcome: endOutcome,
       raw: map,
     );
   }
 
   final String name, number, templateKey, subject, requestType, requesterName;
-  final String creation, requiredBy, priority;
+  final String creation, requiredBy, priority, endOutcome;
   final RequestStatusKey statusKey;
   final String statusLabel, statusGroup;
   final int itemCount, attachmentCount;
@@ -167,6 +172,7 @@ class RequestSummary extends Equatable {
         pendingSync,
         localPreview,
         isSample,
+        endOutcome,
       ];
 }
 
@@ -521,6 +527,7 @@ class RequestDetail extends Equatable {
     this.pendingSync = false,
     this.localPreview = false,
     this.isSample = false,
+    this.endOutcome = '',
     this.raw = const {},
   });
 
@@ -528,8 +535,11 @@ class RequestDetail extends Equatable {
     final map = _map(source);
     final key = RequestStatusKey.fromMap(map);
     final label = _text(map['status_label']);
+    final status = _text(map['status']);
+    final endOutcome = _text(map['end_outcome']);
     final pendingSync = _flag(map['pending_sync']);
     final local = _text(map['local_number']);
+    final isStopped = (status == 'Failed' || key == RequestStatusKey.failed) && endOutcome == 'Stopped';
     return RequestDetail(
       name: _text(map['name']),
       number: _text(map['number']).isNotEmpty
@@ -554,10 +564,10 @@ class RequestDetail extends Equatable {
       requesterEmployee: _text(map['requester_employee']),
       creation: _text(map['creation']),
       workflowInstance: _text(map['workflow_instance']),
-      status: _text(map['status']),
+      status: status,
       displayStatus: _text(map['display_status']),
       statusKey: key,
-      statusLabel: label.isNotEmpty ? label : key.label,
+      statusLabel: isStopped ? 'متوقف شد' : (label.isNotEmpty ? label : key.label),
       statusGroup: _text(map['status_group']).isNotEmpty
           ? _text(map['status_group'])
           : key.group,
@@ -587,6 +597,7 @@ class RequestDetail extends Equatable {
       pendingSync: pendingSync,
       localPreview: _flag(map['local_preview']),
       isSample: _flag(map['is_sample']),
+      endOutcome: endOutcome,
       raw: map,
     );
   }
@@ -595,7 +606,7 @@ class RequestDetail extends Equatable {
   final String requestType, subject, priority, requiredBy, project, department;
   final String owner, requesterName, requesterEmployee, creation;
   final String workflowInstance, status, displayStatus, requestId;
-  final String rejectionReason, statusLabel, statusGroup;
+  final String rejectionReason, statusLabel, statusGroup, endOutcome;
   final int templateVersion, itemCount, attachmentCount, commentCount;
   final RequestStatusKey statusKey;
   final bool canEdit, canCancel, pendingSync, localPreview, isSample;
@@ -673,6 +684,7 @@ class RequestDetail extends Equatable {
         pendingSync,
         localPreview,
         isSample,
+        endOutcome,
       ];
 }
 

@@ -193,6 +193,7 @@ class WorkflowInstanceSummary extends Equatable {
     this.startedOn,
     this.completedOn,
     this.localOnly = false,
+    this.endOutcome = '',
   });
   final String id, subject, status, workflowDefinition;
   final String currentStage, currentStageTitle;
@@ -200,6 +201,7 @@ class WorkflowInstanceSummary extends Equatable {
   final String referenceDoctype, referenceName;
   final DateTime? startedOn, completedOn;
   final bool localOnly;
+  final String endOutcome;
   @override
   List<Object?> get props => [
         id,
@@ -214,6 +216,7 @@ class WorkflowInstanceSummary extends Equatable {
         startedOn,
         completedOn,
         localOnly,
+        endOutcome,
       ];
 }
 

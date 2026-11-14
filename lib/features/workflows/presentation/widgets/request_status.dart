@@ -22,6 +22,11 @@ Color requestStatusColor(RequestStatusKey key) => switch (key) {
 /// mapping of the instance `status`.
 (String, Color) requestStatus(Map<String, dynamic> data) {
   final key = '${data['status_key'] ?? ''}';
+  final status = '${data['status'] ?? ''}';
+  final endOutcome = '${data['end_outcome'] ?? ''}';
+  if ((status == 'Failed' || key == 'failed') && endOutcome == 'Stopped') {
+    return ('متوقف شد', AsoudColors.muted);
+  }
   if (data['local_preview'] == true) {
     return ('ذخیره روی گوشی', AsoudColors.primary);
   }
@@ -44,18 +49,18 @@ Color requestStatusColor(RequestStatusKey key) => switch (key) {
           : requestStatusColor(status)
     );
   }
-  final status = '${data['status'] ?? ''}';
-  if (status == 'Draft') {
+  final instanceStatus = '${data['status'] ?? ''}';
+  if (instanceStatus == 'Draft') {
     return (display.isNotEmpty ? display : 'پیش‌نویس', AsoudColors.warning);
   }
-  final base = switch (status) {
+  final base = switch (instanceStatus) {
     'Completed' => ('تکمیل شده', AsoudColors.success),
     'Rejected' => ('رد شده', AsoudColors.danger),
     'Cancelled' => ('لغو شده', AsoudColors.muted),
     'Failed' => ('نیازمند بررسی', AsoudColors.danger),
     _ => ('در انتظار تأیید', AsoudColors.warning),
   };
-  return display.isNotEmpty && status == 'Running'
+  return display.isNotEmpty && instanceStatus == 'Running'
       ? (display, AsoudColors.primary)
       : base;
 }
