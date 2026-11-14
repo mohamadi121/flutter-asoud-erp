@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/persian_format.dart';
+import '../../../../core/utils/persian_server_values.dart';
 import '../../domain/entities/workflow_task.dart';
 import 'request_print.dart' show requestActionLabel;
 import 'request_returned_banner.dart' show requestActivityComment;
@@ -21,8 +22,7 @@ WorkflowActivityOutcome workflowActivityOutcome(String action) =>
       'Reject' ||
       'Condition False' ||
       'Workflow request rejected' ||
-      'Wait Failed' ||
-      'System Action Failed' =>
+      'Wait Failed' =>
         WorkflowActivityOutcome.rejected,
       'Return' ||
       'Workflow request returned for correction' =>
@@ -31,31 +31,39 @@ WorkflowActivityOutcome workflowActivityOutcome(String action) =>
     };
 
 /// Persian label for a workflow activity, replacing the raw server action.
-String workflowActivityLabel(String action) => switch (action.trim()) {
-      'Complete' || 'Workflow stage completed' => 'مرحله تکمیل شد',
-      'Approve' || 'Workflow request approved' => 'تأیید شد',
-      'Reject' || 'Workflow request rejected' => 'رد شد',
-      'Return' || 'Workflow request returned for correction' => 'برای اصلاح بازگردانده شد',
-      'Condition True' => 'شرط برقرار بود',
-      'Condition False' => 'شرط برقرار نبود',
-      'System Action Succeeded' => 'اقدام خودکار انجام شد',
-      'Cancelled' => 'لغو شد',
-      'Edited' => 'ویرایش شد',
-      'Resubmitted' => 'اصلاح و ارسال مجدد',
-      'Voided' => 'ابطال سند',
-      'Reissued' => 'صدور مجدد سند',
-      'Execution Effects' => 'ثبت وضعیت پیش از اجرا',
-      'Workflow Started' => 'گردش کار آغاز شد',
-      'Claim' => 'اقدام از صف دریافت شد',
-      'Assigned' => 'اقدام ارجاع شد',
-      'Escalated' => 'مسئول اقدام تغییر کرد',
-      'Reassigned' => 'وظیفه به مسئول جدید واگذار شد',
-      'Follow Up' => 'اقدام نیازمند پیگیری است',
-      'Blocked' => 'مانع انجام اقدام ثبت شد',
-      'Draft Saved' => 'پیش‌نویس اقدام ذخیره شد',
-      'Claimed Elsewhere' => 'اقدام توسط فرد دیگری دریافت شد',
-      _ => requestActionLabel(action.trim()),
-    };
+String workflowActivityLabel(String action) {
+  final trimmed = action.trim();
+  return switch (trimmed) {
+    'Complete' || 'Workflow stage completed' => 'مرحله تکمیل شد',
+    'Approve' || 'Workflow request approved' => 'تأیید شد',
+    'Reject' || 'Workflow request rejected' => 'رد شد',
+    'Return' || 'Workflow request returned for correction' =>
+      'برای اصلاح بازگردانده شد',
+    'Condition True' => 'شرط برقرار بود',
+    'Condition False' => 'شرط برقرار نبود',
+    'System Action Succeeded' => 'اقدام خودکار انجام شد',
+    'System Action Failed' => 'خطای اقدام خودکار',
+    'Cancelled' => 'لغو شد',
+    'Edited' => 'ویرایش شد',
+    'Resubmitted' => 'اصلاح و ارسال مجدد',
+    'Voided' => 'ابطال سند',
+    'Reissued' => 'صدور مجدد سند',
+    'Execution Effects' => 'ثبت وضعیت پیش از اجرا',
+    'Workflow Started' => 'گردش کار آغاز شد',
+    'Claim' => 'اقدام از صف دریافت شد',
+    'Assigned' => 'اقدام ارجاع شد',
+    'Escalated' => 'مسئول اقدام تغییر کرد',
+    'Reassigned' => 'وظیفه به مسئول جدید واگذار شد',
+    'Follow Up' => 'اقدام نیازمند پیگیری است',
+    'Blocked' => 'مانع انجام اقدام ثبت شد',
+    'Draft Saved' => 'پیش‌نویس اقدام ذخیره شد',
+    'Claimed Elsewhere' => 'اقدام توسط فرد دیگری دریافت شد',
+    _ => () {
+        final label = requestActionLabel(trimmed);
+        return label != trimmed ? label : persianWorkflowStageTitle(trimmed);
+      }(),
+  };
+}
 
 Color _outcomeColor(WorkflowActivityOutcome outcome) => switch (outcome) {
       WorkflowActivityOutcome.approved => AsoudColors.success,

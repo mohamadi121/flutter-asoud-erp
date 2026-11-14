@@ -101,6 +101,11 @@ void main() {
     expect(requestActionLabel('Wait Cancelled'), 'لغو انتظار');
     expect(requestActionLabel('Wait Failed'), 'خطای انتظار');
   });
+
+  test('unknown actions fall back to persianWorkflowStageTitle', () {
+    expect(workflowActivityLabel('Start'), 'شروع');
+    expect(workflowActivityLabel('wait stage'), 'انتظار');
+  });
   test('نتیجهٔ اقدام‌ها به رنگ/آیکون درست نگاشت می‌شود', () {
     expect(workflowActivityOutcome('Approve'),
         WorkflowActivityOutcome.approved);
