@@ -705,7 +705,94 @@ void main() {
         expect(tester.takeException(), isNull);
       });
     }
+
+    for (final width in [320.0, 390.0]) {
+      testWidgets('history tab shows Persian wait actions and Wait Cancelled as not done at $width',
+          (tester) async {
+        final waitActivities = [
+          WorkflowTaskActivity(actor: 'سیستم', action: 'Wait Scheduled', stageTitle: ''),
+          WorkflowTaskActivity(actor: 'سیستم', action: 'Wait Rescheduled', stageTitle: ''),
+          WorkflowTaskActivity(actor: 'سیستم', action: 'Wait Completed', stageTitle: ''),
+          WorkflowTaskActivity(actor: 'سیستم', action: 'Wait Cancelled', stageTitle: ''),
+          WorkflowTaskActivity(actor: 'سیستم', action: 'Wait Failed', stageTitle: ''),
+        ];
+        final repo = _Repo(_fixture('get_request_purchase'));
+        await tester.binding.setSurfaceSize(Size(width, 1800));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        await tester.pumpWidget(MaterialApp(
+          theme: AsoudTheme.light,
+          home: Directionality(
+            textDirection: TextDirection.rtl,
+            child: RequestDetailScaffold(
+                repository: repo,
+                name: 'PR-1405-0023',
+                subtitle: 'تست انتظار',
+                tasks: _WaitInstanceTasks(waitActivities)),
+          ),
+        ));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('سوابق'));
+        await tester.pumpAndSettle();
+
+        expect(find.textContaining('Wait Scheduled'), findsNothing);
+        expect(find.textContaining('Wait Rescheduled'), findsNothing);
+        expect(find.textContaining('Wait Completed'), findsNothing);
+        expect(find.textContaining('Wait Cancelled'), findsNothing);
+        expect(find.textContaining('Wait Failed'), findsNothing);
+
+        expect(find.text('شروع انتظار'), findsOneWidget);
+        expect(find.text('تغییر زمان انتظار'), findsOneWidget);
+        expect(find.text('پایان انتظار'), findsOneWidget);
+        expect(find.text('لغو انتظار'), findsOneWidget);
+        expect(find.text('خطای انتظار'), findsOneWidget);
+
+        final cancelledStep = find.ancestor(
+          of: find.text('لغو انتظار'),
+          matching: find.byWidgetPredicate((w) => w.runtimeType.toString() == '_Step'),
+        );
+        expect(
+          find.descendant(of: cancelledStep, matching: find.byIcon(Icons.cancel_rounded)),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: cancelledStep, matching: find.byIcon(Icons.check_circle_rounded)),
+          findsNothing,
+        );
+
+        final completedStep = find.ancestor(
+          of: find.text('پایان انتظار'),
+          matching: find.byWidgetPredicate((w) => w.runtimeType.toString() == '_Step'),
+        );
+        expect(
+          find.descendant(of: completedStep, matching: find.byIcon(Icons.check_circle_rounded)),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: completedStep, matching: find.byIcon(Icons.cancel_rounded)),
+          findsNothing,
+        );
+
+        expect(tester.takeException(), isNull);
+      });
+    }
   });
+}
+
+class _WaitInstanceTasks extends Fake implements WorkflowTaskRepository {
+  _WaitInstanceTasks(this.activities);
+  final List<WorkflowTaskActivity> activities;
+
+  @override
+  Future<WorkflowInstanceDetail> getInstance(String id) async =>
+      WorkflowInstanceDetail(
+        summary: WorkflowInstanceSummary(
+            id: id,
+            subject: 'خرید',
+            status: 'Running',
+            currentStageTitle: 'انتظار'),
+        activities: activities,
+      );
 }
 
 class _InstanceTasks extends Fake implements WorkflowTaskRepository {
