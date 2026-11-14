@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/persian_format.dart';
-import '../../../../core/utils/persian_server_values.dart';
 import '../../domain/entities/workflow_task.dart';
+import 'request_print.dart' show requestActionLabel;
 import 'request_returned_banner.dart' show requestActivityComment;
 
 /// The meaning of a workflow action, used to colour and icon the timeline.
@@ -15,11 +15,14 @@ WorkflowActivityOutcome workflowActivityOutcome(String action) =>
       'Complete' ||
       'Condition True' ||
       'Workflow stage completed' ||
-      'Workflow request approved' =>
+      'Workflow request approved' ||
+      'Wait Completed' =>
         WorkflowActivityOutcome.approved,
       'Reject' ||
       'Condition False' ||
-      'Workflow request rejected' =>
+      'Workflow request rejected' ||
+      'Wait Failed' ||
+      'System Action Failed' =>
         WorkflowActivityOutcome.rejected,
       'Return' ||
       'Workflow request returned for correction' =>
@@ -36,7 +39,6 @@ String workflowActivityLabel(String action) => switch (action.trim()) {
       'Condition True' => 'شرط برقرار بود',
       'Condition False' => 'شرط برقرار نبود',
       'System Action Succeeded' => 'اقدام خودکار انجام شد',
-      'System Action Failed' => 'خطای اقدام خودکار',
       'Cancelled' => 'لغو شد',
       'Edited' => 'ویرایش شد',
       'Resubmitted' => 'اصلاح و ارسال مجدد',
@@ -52,7 +54,7 @@ String workflowActivityLabel(String action) => switch (action.trim()) {
       'Blocked' => 'مانع انجام اقدام ثبت شد',
       'Draft Saved' => 'پیش‌نویس اقدام ذخیره شد',
       'Claimed Elsewhere' => 'اقدام توسط فرد دیگری دریافت شد',
-      _ => persianWorkflowStageTitle(action),
+      _ => requestActionLabel(action.trim()),
     };
 
 Color _outcomeColor(WorkflowActivityOutcome outcome) => switch (outcome) {
