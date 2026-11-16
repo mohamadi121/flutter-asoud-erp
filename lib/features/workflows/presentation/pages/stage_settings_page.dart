@@ -235,7 +235,14 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
   late bool editAfterSubmit = config['allow_edit_after_submit'] == true;
   late String approvalMode = config['approval_mode']?.toString() ??
       (type == WorkflowStageType.approval && !widget.stage.configurationComplete ? 'All' : 'Any');
-  late String access = config['document_access']?.toString() ?? 'Read Only';
+  // The backend has no field-level contract for 'Limited Edit', and the app
+  // treats any non-Read-Only access as editable. Normalize it to 'Edit' so a
+  // stage saved with the legacy value keeps its real (editable) behaviour and
+  // the radio list stays consistent.
+  late String access = switch (config['document_access']?.toString()) {
+    'Limited Edit' => 'Edit',
+    final value => value ?? 'Read Only',
+  };
   late String activityType =
       config['activity_type']?.toString() ?? 'Data Entry';
   late String taskPurpose = config['task_purpose']?.toString() ?? 'Existing';
@@ -1105,13 +1112,12 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
           const SizedBox(height: 8),
           _label('دسترسی به سند اصلی'),
           const Text(
-              'دسترسی مسئول در زمان انجام این مرحله به سند مرجع؛ نه مجوز پس از پایان. حالت محدود تابع فیلدهای مجاز سامانه است.',
+              'دسترسی مسئول در زمان انجام این مرحله به سند مرجع؛ نه مجوز پس از پایان.',
               style: TextStyle(fontSize: 11, color: AsoudColors.muted)),
           const SizedBox(height: 8),
           for (final mode in const [
             ('Read Only', 'فقط مشاهده', 'بدون تغییر اطلاعات اصلی'),
             ('Edit', 'مشاهده و ثبت اقدام', 'ثبت نتیجه، نظر و مستندات اقدام در حدود مجوزهای موجود'),
-            ('Limited Edit', 'مشاهده و ویرایش مجاز', 'ویرایش فقط در حدود فیلدها و وضعیت مجاز سند'),
           ])
             Padding(padding: const EdgeInsets.only(bottom: 7),
               child: Material(color: access == mode.$1 ? const Color(0xfff0f6ff) : Colors.white,
