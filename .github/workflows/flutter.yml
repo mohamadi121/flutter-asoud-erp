@@ -5,7 +5,10 @@ on:
   pull_request:
 
 env:
-  # Match the verified development SDK; upgrade in a dedicated migration PR.
+  # Pinned to the verified SDK release (3.47.1 / Dart 3.13.1) so CI is
+  # reproducible. The local development SDK may run a newer patch (e.g.
+  # 3.47.7 / Dart 3.13.5); that is expected and does not change this pin.
+  # Upgrade the pin in a dedicated migration PR, not as a side effect.
   FLUTTER_VERSION: '3.47.1'
 
 jobs:

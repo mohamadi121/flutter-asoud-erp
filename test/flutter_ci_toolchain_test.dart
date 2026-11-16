@@ -24,4 +24,15 @@ void main() {
     expect(workflow, isNot(contains('--no-fatal-infos')));
     expect(workflow, isNot(contains('--no-fatal-warnings')));
   });
+
+  test('the CI pin documents the local-vs-CI SDK relationship', () {
+    final workflow = File('.github/workflows/flutter.yml').readAsStringSync();
+    // The pin must not claim CI equals the local development SDK, because the
+    // local SDK runs a newer patch (3.47.7) than the verified CI pin (3.47.1).
+    expect(workflow, isNot(contains('Match the verified development SDK')),
+        reason: 'CI is pinned to the verified release, not the moving local SDK.');
+    // The comment must state that the local SDK may run a newer patch.
+    expect(workflow, contains('local development SDK'));
+    expect(workflow, contains('newer patch'));
+  });
 }
