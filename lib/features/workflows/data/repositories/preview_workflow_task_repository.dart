@@ -16,7 +16,8 @@ class PreviewWorkflowTaskRepository
     implements
         WorkflowTaskRepository,
         CompleteWorkflowLists,
-        WorkflowTaskSupplementaryRepository {
+        WorkflowTaskSupplementaryRepository,
+        WorkflowInstanceSummariesRepository {
   PreviewWorkflowTaskRepository(this._remote);
   static const _storageKey = 'asoud_workflow_offline_tasks_v1';
   static const _demoDoneKey = 'asoud_workflow_demo_done_v1';
@@ -232,6 +233,27 @@ class PreviewWorkflowTaskRepository
         'DEMO-WFI-004' => 'Rejected',
         _ => 'Running',
       };
+
+  @override
+  Future<List<WorkflowInstanceSummary>> getInstanceSummaries(
+      List<String> names) async {
+    final remote = _remote;
+    if (remote is WorkflowInstanceSummariesRepository) {
+      return (remote as WorkflowInstanceSummariesRepository)
+          .getInstanceSummaries(names);
+    }
+    // A wrapped repository without the batch method still resolves the
+    // cartable's missing summaries, one instance at a time.
+    final results = <WorkflowInstanceSummary>[];
+    for (final name in names) {
+      try {
+        results.add((await getInstance(name)).summary);
+      } catch (_) {
+        // Omitted, matching the batch contract for unreadable instances.
+      }
+    }
+    return results;
+  }
 
   @override
   Future<WorkflowTaskDetail> getTask(String task) async {

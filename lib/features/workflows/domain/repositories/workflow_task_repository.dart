@@ -5,6 +5,17 @@ abstract interface class CompleteWorkflowLists {
   bool get listsAreComplete;
 }
 
+/// Optional capability for repositories that can fetch many instance summaries
+/// in one call (the cartable's "missing summaries" batch, PA-032).
+///
+/// Inaccessible or missing names are omitted from the result, never an error.
+/// Implementations must fall back to per-instance fetches when the server does
+/// not have the batch method, so the cartable keeps working against an older
+/// server.
+abstract interface class WorkflowInstanceSummariesRepository {
+  Future<List<WorkflowInstanceSummary>> getInstanceSummaries(List<String> names);
+}
+
 abstract interface class WorkflowTaskRepository {
   bool get isOfflinePreview;
   Future<List<WorkflowTask>> getMyTasks({String status = 'Open'});

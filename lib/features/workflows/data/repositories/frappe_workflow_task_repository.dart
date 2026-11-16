@@ -1,3 +1,4 @@
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/network/frappe_client.dart';
 import 'dart:convert';
 import '../../domain/entities/workflow_task.dart';
@@ -9,7 +10,8 @@ class FrappeWorkflowTaskRepository
     implements
         WorkflowTaskRepository,
         CompleteWorkflowLists,
-        WorkflowTaskSupplementaryRepository {
+        WorkflowTaskSupplementaryRepository,
+        WorkflowInstanceSummariesRepository {
   FrappeWorkflowTaskRepository(this._client);
   final FrappeClient _client;
   bool _complete = true;
@@ -19,6 +21,55 @@ class FrappeWorkflowTaskRepository
 
   @override
   bool get listsAreComplete => _complete;
+
+  /// The server caps a single batch call at 100 instance names.
+  static const _summaryBatchSize = 100;
+
+  @override
+  Future<List<WorkflowInstanceSummary>> getInstanceSummaries(
+      List<String> names) async {
+    final summaries = <String, WorkflowInstanceSummary>{};
+    for (var offset = 0; offset < names.length; offset += _summaryBatchSize) {
+      final chunk = names.skip(offset).take(_summaryBatchSize).toList();
+      try {
+        final data = await _client.callAsoudMethod(
+          'asoud_erp.api.v1.workflow_runtime.get_workflow_instance_summaries',
+          data: {'names': chunk},
+        );
+        if (data is! List) {
+          throw StateError('پاسخ خلاصهٔ گردش‌ها معتبر نیست.');
+        }
+        for (final raw in data.whereType<Map>()) {
+          final summary = _instance(Map<String, dynamic>.from(raw));
+          if (summary.id.isNotEmpty) summaries[summary.id] = summary;
+        }
+      } on ApiException catch (error) {
+        // An older server has no batch method: Frappe answers 417 with the raw
+        // "Failed to get method" text. Fall back to the per-instance fetch so
+        // the cartable still works against the live server.
+        if (error.statusCode == 417 &&
+            error.message.contains('get_workflow_instance_summaries')) {
+          await _fetchSummariesOneByOne(chunk, summaries);
+        } else {
+          rethrow;
+        }
+      }
+    }
+    return summaries.values.toList(growable: false);
+  }
+
+  Future<void> _fetchSummariesOneByOne(
+      List<String> names, Map<String, WorkflowInstanceSummary> into) async {
+    for (final name in names) {
+      try {
+        final detail = await getInstance(name);
+        into[detail.summary.id] = detail.summary;
+      } catch (_) {
+        // A single unreadable instance must not break the whole cartable; the
+        // page already reports the count of unavailable records.
+      }
+    }
+  }
 
   Future<List<dynamic>> _allPages(
       String method, Map<String, dynamic> filters) async {

@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/network/frappe_client.dart';
+import '../../../../core/widgets/app_fields.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../data/workflow_template_repository.dart';
 import '../../domain/repositories/workflow_repository.dart';
@@ -201,6 +202,23 @@ class _FormContentState extends State<_FormContent> {
               hintText: 'هدف و کاربرد این گردش کار را بنویسید…',
               alignLabelWithHint: true),
         ),
+        const SizedBox(height: 22),
+        AppSelectField(
+          key: const ValueKey('workflow-module'),
+          label: 'ماژول گردش کار *',
+          value: state.moduleKey,
+          displayValue: _moduleLabel(state.moduleKey),
+          required: true,
+          enabled: enabled,
+          onPick: () => showAppOptionSheet(context,
+              title: 'انتخاب ماژول گردش کار',
+              current: state.moduleKey,
+              options: [
+                for (final module in state.options!.modules)
+                  AppOption(module.key, _moduleLabel(module.key)),
+              ]),
+          onChanged: (module) => cubit.changeModule(module),
+        ),
         ]),
         const SizedBox(height: 14),
         _WorkflowSection(title: 'تنظیمات ظاهری', icon: Icons.palette_outlined,
@@ -259,6 +277,17 @@ class _FormContentState extends State<_FormContent> {
     );
   }
 }
+
+/// Persian label for a workflow module key, matching the source picker.
+String _moduleLabel(String key) => switch (key) {
+      'HR' => 'منابع انسانی',
+      'Accounting' || 'Finance' => 'مالی',
+      'Purchase' => 'خرید',
+      'Sales' => 'فروش',
+      'Inventory' => 'انبار',
+      'Support' => 'پشتیبانی',
+      _ => key,
+    };
 
 class _WorkflowSection extends StatelessWidget {
   const _WorkflowSection({required this.title, required this.icon, required this.children});

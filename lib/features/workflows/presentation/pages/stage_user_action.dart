@@ -163,8 +163,8 @@ extension _UserActionSettings on _StageSettingsPageState {
     if (resultMode == 'Form' && !addActionAttachments && formMaps(resultSchema['sections'])
         .expand((section) => formMaps(section['fields']))
         .expand((field) => [field, ...formMaps(field['columns'])])
-        .any((field) => field['required'] == true && {'File', 'Image', 'Signature'}.contains(field['type']))) {
-      return 'فرم پیوست الزامی دارد؛ امکان افزودن پیوست را روشن کنید.';
+        .any((field) => {'File', 'Image', 'Signature'}.contains(field['type']))) {
+      return 'فرم دارای فیلد پیوست است؛ امکان افزودن پیوست را روشن کنید.';
     }
     if (ownerMode == 'role') {
       if (!roles.contains(role) ||

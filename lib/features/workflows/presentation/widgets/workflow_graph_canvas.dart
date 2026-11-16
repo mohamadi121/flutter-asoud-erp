@@ -7,6 +7,25 @@ import '../../../../core/utils/persian_server_values.dart';
 import '../../domain/entities/workflow_definition.dart';
 import 'workflow_graph_geometry.dart';
 
+/// True when a node placed at [candidate] (of [nodeSize]) would cover any
+/// other node in [positions]. The moving node itself is ignored.
+///
+/// Keeping this pure makes the collision rule unit-testable and shared by the
+/// drag handler, so a node can never be dropped on top of another.
+bool nodeOverlaps(
+  Offset candidate,
+  String movingId,
+  Map<String, Offset> positions, {
+  Size nodeSize = const Size(190, 118),
+}) {
+  final moving = candidate & nodeSize;
+  for (final entry in positions.entries) {
+    if (entry.key == movingId) continue;
+    if (moving.overlaps(entry.value & nodeSize)) return true;
+  }
+  return false;
+}
+
 class WorkflowGraphCanvas extends StatefulWidget {
   const WorkflowGraphCanvas({
     required this.design,
@@ -138,11 +157,24 @@ class _WorkflowGraphCanvasState extends State<WorkflowGraphCanvas> {
                     key: ValueKey('workflow-node-${stage.id}'),
                     onPanUpdate: (details) {
                       final current = positions[stage.id]!;
-                      widget.onMoveStage(
-                        stage.id,
-                        math.max(0, current.dx + details.delta.dx),
-                        math.max(0, current.dy + details.delta.dy),
-                      );
+                      double x = math.max(0, current.dx + details.delta.dx);
+                      double y = math.max(0, current.dy + details.delta.dy);
+                      // A step that would cover another node is rejected, so the
+                      // node stops at the boundary instead of hiding under it.
+                      if (nodeOverlaps(Offset(x, y), stage.id, positions,
+                          nodeSize: WorkflowGraphCanvas.nodeSize)) {
+                        if (nodeOverlaps(
+                            Offset(current.dx, y), stage.id, positions,
+                            nodeSize: WorkflowGraphCanvas.nodeSize)) {
+                          y = current.dy;
+                        }
+                        if (nodeOverlaps(
+                            Offset(x, current.dy), stage.id, positions,
+                            nodeSize: WorkflowGraphCanvas.nodeSize)) {
+                          x = current.dx;
+                        }
+                      }
+                      widget.onMoveStage(stage.id, x, y);
                     },
                     onPanEnd: (_) => widget.onMoveEnd(),
                     child: Container(
