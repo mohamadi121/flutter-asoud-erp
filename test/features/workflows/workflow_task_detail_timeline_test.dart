@@ -151,6 +151,37 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('متن فعالیت تأییدِ جزئی سرور بدون تغییر نمایش داده می‌شود',
+      (tester) async {
+    const partial =
+        'تأیید ثبت شد؛ برای ادامهٔ مرحله ۱ تأیید دیگر لازم است';
+    final detail = WorkflowTaskDetail(
+      task: const WorkflowTask(
+        id: 'WFT-2026-00043',
+        instance: 'WFI-2026-00043',
+        stage: 'STAGE-APPROVAL',
+        title: 'تأیید درخواست خرید لپ‌تاپ',
+        status: 'Open',
+      ),
+      stageType: 'Approval',
+      activities: [
+        WorkflowTaskActivity(
+            actor: 'علی رضایی', action: 'Approve', comment: partial),
+      ],
+    );
+    for (final width in [320.0, 390.0]) {
+      await tester.binding.setSurfaceSize(Size(width, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(_wrap(
+          const WorkflowTaskDetailPage(task: 'WFT-2026-00043'),
+          _Repo(detail: detail)));
+      await tester.pumpAndSettle();
+      // The server's Persian activity text is shown verbatim, not replaced.
+      expect(find.text(partial), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    }
+  });
+
   testWidgets('صفحهٔ پیگیری هم از همان خط زمان رنگی استفاده می‌کند',
       (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 900));

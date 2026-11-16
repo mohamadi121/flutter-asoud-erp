@@ -1,4 +1,5 @@
 import 'package:asoud_erp/core/theme/asoud_theme.dart';
+import 'package:asoud_erp/core/widgets/asoud_ui.dart';
 import 'package:asoud_erp/core/network/frappe_client.dart';
 import 'package:asoud_erp/features/form_builder/form_runtime/form_fields_view.dart';
 import 'package:asoud_erp/features/workflows/data/workflow_automation_repository.dart';
@@ -517,6 +518,120 @@ void main() {
     final (workflows, _) = await _open(tester, 'S2', designOverride: design);
     await _tap(tester, find.text('ذخیره'));
     expect(workflows.saved.single['approval_mode'], 'All');
+  });
+
+  // --- decision mode (approval_mode): هر یک / همه / اکثریت (PA-067) ---
+
+  /// The decision-mode segmented control, identified by its «هر یک» option so
+  /// it is not confused with the owner / person segmented controls.
+  AsoudSegmentedControl<String> decisionMode(WidgetTester tester) {
+    for (final element in find.byType(AsoudSegmentedControl<String>).evaluate()) {
+      final control = element.widget as AsoudSegmentedControl<String>;
+      if (control.options.any((o) => o.label == 'هر یک از تأییدکنندگان')) {
+        return control;
+      }
+    }
+    throw StateError('decision-mode control not found');
+  }
+
+  WorkflowDesign designWithS2(Map<String, dynamic> config) => WorkflowDesign(
+        workflow: _design.workflow,
+        stages: [
+          for (final stage in _design.stages)
+            stage.id == 'S2'
+                ? _stage('S2', WorkflowStageType.approval, 'تأیید مدیر مستقیم',
+                    3, config)
+                : stage
+        ],
+        transitions: _design.transitions,
+      );
+
+  /// The decision mode lives inside the «تنظیمات اضافی» expansion, so open it.
+  Future<void> openExtra(WidgetTester tester) async {
+    await _tap(tester, find.text('تنظیمات اضافی (اختیاری)'));
+  }
+
+  testWidgets('a single-approver approval hides the decision mode',
+      (tester) async {
+    // Direct Manager resolves to one approver, so the mode is not shown.
+    final (workflows, _) = await _open(tester, 'S2');
+    await openExtra(tester);
+    expect(find.text('حالت رأی‌گیری'), findsNothing);
+    expect(find.text('هر یک از تأییدکنندگان'), findsNothing);
+    expect(find.text('اکثریت تأییدکنندگان'), findsNothing);
+    // The old always-shown control (with its old label) is gone too.
+    expect(find.text('تأیید یک نفر کافی است'), findsNothing);
+    await _tap(tester, find.text('ذخیره'));
+    expect(workflows.saved.single['approval_mode'], 'Any');
+  });
+
+  testWidgets('a multi-approver approval shows the three decision modes and keeps its value',
+      (tester) async {
+    final design = designWithS2({
+      'assignment_type': 'Role',
+      'approver_roles': ['Purchase Manager'],
+      'approval_mode': 'Any',
+    });
+    final (workflows, _) = await _open(tester, 'S2', designOverride: design);
+    await openExtra(tester);
+    await _scrollToFinder(tester, find.text('حالت رأی‌گیری'));
+    expect(find.text('هر یک از تأییدکنندگان'), findsOneWidget);
+    expect(find.text('همهٔ تأییدکنندگان'), findsOneWidget);
+    expect(find.text('اکثریت تأییدکنندگان'), findsOneWidget);
+    // The saved value is kept.
+    expect(decisionMode(tester).value, 'Any');
+    await _tap(tester, find.text('ذخیره'));
+    expect(workflows.saved.single['approval_mode'], 'Any');
+  });
+
+  for (final width in [320.0, 390.0]) {
+    testWidgets('the decision mode fits without overflow at $width',
+        (tester) async {
+      await tester.binding.setSurfaceSize(Size(width, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final design = designWithS2({
+        'assignment_type': 'Role',
+        'approver_roles': ['Purchase Manager'],
+        'approval_mode': 'Majority',
+      });
+      await _open(tester, 'S2', designOverride: design);
+      await openExtra(tester);
+      await _scrollToFinder(tester, find.text('حالت رأی‌گیری'));
+      expect(find.text('هر یک از تأییدکنندگان'), findsOneWidget);
+      expect(find.text('همهٔ تأییدکنندگان'), findsOneWidget);
+      expect(find.text('اکثریت تأییدکنندگان'), findsOneWidget);
+      expect(decisionMode(tester).value, 'Majority');
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('a multi-approver approval without a saved mode shows همه and saves All',
+      (tester) async {
+    final design = designWithS2({
+      'assignment_type': 'Role',
+      'approver_roles': ['Purchase Manager'],
+    });
+    final (workflows, _) = await _open(tester, 'S2', designOverride: design);
+    await openExtra(tester);
+    await _scrollToFinder(tester, find.text('حالت رأی‌گیری'));
+    // A missing value shows «همه» (All), matching the server default.
+    expect(decisionMode(tester).value, 'All');
+    await _tap(tester, find.text('ذخیره'));
+    expect(workflows.saved.single['approval_mode'], 'All');
+  });
+
+  testWidgets('selecting majority saves Majority', (tester) async {
+    final design = designWithS2({
+      'assignment_type': 'Role',
+      'approver_roles': ['Purchase Manager'],
+      'approval_mode': 'Any',
+    });
+    final (workflows, _) = await _open(tester, 'S2', designOverride: design);
+    await openExtra(tester);
+    await _scrollToFinder(tester, find.text('حالت رأی‌گیری'));
+    await _tap(tester, find.text('اکثریت تأییدکنندگان'));
+    await _tap(tester, find.text('ذخیره'));
+    expect(workflows.saved.single['approval_mode'], 'Majority');
   });
 
   for (final confirm in [false, true]) {
