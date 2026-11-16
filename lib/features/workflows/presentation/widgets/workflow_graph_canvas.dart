@@ -377,7 +377,7 @@ class _GraphNode extends StatelessWidget {
                       shape: BoxShape.circle,
                       border: Border.all(color: visual.color, width: 1.6),
                     ),
-                    child: Icon(Icons.add_link_rounded,
+                    child: Icon(Icons.route_rounded,
                         size: 14, color: visual.color),
                   ),
                 ),
