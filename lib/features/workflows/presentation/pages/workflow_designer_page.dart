@@ -94,6 +94,8 @@ class _DesignerViewState extends State<_DesignerView> {
                       context.read<WorkflowDesignerCubit>().savePositions,
                   onInsertOnTransition: (edge) => _insertStage(context, edge),
                   onRemoveTransition: (edge) => _removePath(context, edge),
+                  onCreateTransition: (from, to) =>
+                      _connectStages(context, from, to),
                 ),
               ),
             ]),
@@ -360,6 +362,89 @@ class _DesignerViewState extends State<_DesignerView> {
     } finally { editingPath = false; }
   }
 
+  /// The user dragged from one node's handle onto another: ask for a route
+  /// name and save a new transition through the existing route-save call.
+  Future<void> _connectStages(
+      BuildContext context, WorkflowStage from, WorkflowStage to) async {
+    if (editingPath) return;
+    editingPath = true;
+    final cubit = context.read<WorkflowDesignerCubit>();
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final action = await showDialog<String>(
+        context: context,
+        builder: (dialog) => _ConnectRouteDialog(from: from, to: to),
+      );
+      if (action == null || !context.mounted) return;
+      final name = action.trim();
+      if (name.isEmpty) {
+        messenger.showSnackBar(const SnackBar(
+            content: Text('نام مسیر را وارد کنید.')));
+        return;
+      }
+      if (name.length > 140) {
+        messenger.showSnackBar(const SnackBar(
+            content: Text('نام مسیر باید حداکثر ۱۴۰ نویسه باشد.')));
+        return;
+      }
+      await cubit.connectStages(
+          fromStage: from.id, toStage: to.id, action: name);
+    } catch (error) {
+      if (context.mounted) {
+        messenger.showSnackBar(SnackBar(content: Text(failureMessage(error))));
+      }
+    } finally {
+      editingPath = false;
+    }
+  }
+
+}
+
+/// Asks for a route name when the user drags one node onto another. The
+/// controller is owned and disposed by this dialog, per the project rule.
+class _ConnectRouteDialog extends StatefulWidget {
+  const _ConnectRouteDialog({required this.from, required this.to});
+  final WorkflowStage from, to;
+
+  @override
+  State<_ConnectRouteDialog> createState() => _ConnectRouteDialogState();
+}
+
+class _ConnectRouteDialogState extends State<_ConnectRouteDialog> {
+  late final controller = TextEditingController();
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        title: const Text('اتصال دو مرحله'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text('مسیر جدید از «${widget.from.title}» به «${widget.to.title}» ساخته می‌شود.'),
+          const SizedBox(height: 12),
+          TextField(
+            controller: controller,
+            autofocus: true,
+            textDirection: TextDirection.rtl,
+            decoration: const InputDecoration(
+              labelText: 'نام مسیر *',
+              hintText: 'مثلاً ادامه، تأیید یا ارجاع',
+              floatingLabelBehavior: FloatingLabelBehavior.always,
+            ),
+          ),
+        ]),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('انصراف')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, controller.text),
+              child: const Text('ایجاد مسیر')),
+        ],
+      );
 }
 
 class _DraftBanner extends StatelessWidget {

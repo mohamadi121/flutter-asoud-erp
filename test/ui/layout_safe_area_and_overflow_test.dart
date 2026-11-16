@@ -52,7 +52,7 @@ void main() {
                 onMoveStage: (_, __, ___) {},
                 onMoveEnd: () {},
                 onInsertOnTransition: (_) {},
-                onCreateTransition: (_) {},
+                onCreateTransition: null,
               ),
             ),
           ),

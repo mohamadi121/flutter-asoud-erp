@@ -167,7 +167,7 @@ void main() {
                 onOpenStage: (_) {},
                 onMoveStage: (_, __, ___) {},
                 onMoveEnd: () {},
-                onCreateTransition: (_) {},
+                onCreateTransition: null,
                 onInsertOnTransition: (_) {},
               ),
             ),

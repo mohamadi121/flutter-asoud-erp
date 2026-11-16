@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/network/frappe_client.dart';
+import '../../../../core/utils/persian_server_values.dart';
 import '../../../../core/widgets/app_fields.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../data/workflow_template_repository.dart';
@@ -219,6 +220,8 @@ class _FormContentState extends State<_FormContent> {
               ]),
           onChanged: (module) => cubit.changeModule(module),
         ),
+        const SizedBox(height: 22),
+        _TargetDoctypeField(state: state, enabled: enabled),
         ]),
         const SizedBox(height: 14),
         _WorkflowSection(title: 'تنظیمات ظاهری', icon: Icons.palette_outlined,
@@ -276,6 +279,86 @@ class _FormContentState extends State<_FormContent> {
       ],
     );
   }
+}
+
+/// The target-document picker. It lists the documents the backend already
+/// returns for the chosen module (plus the always-valid generic request) and
+/// lets the designer pick which document the workflow runs on.
+class _TargetDoctypeField extends StatelessWidget {
+  const _TargetDoctypeField({required this.state, required this.enabled});
+  final WorkflowFormState state;
+  final bool enabled;
+
+  List<WorkflowDoctypeOption> get _options {
+    final module = state.options?.modules
+        .where((item) => item.key == state.moduleKey)
+        .firstOrNull;
+    final doctypes = module?.doctypes ?? const <WorkflowDoctypeOption>[];
+    // The generic request is valid for every module and is not part of the
+    // module's own list, so it is always offered first.
+    final generic = WorkflowDoctypeOption(
+        name: 'ASOUD Workflow Request', available: true);
+    final rest = doctypes
+        .where((item) => item.name != 'ASOUD Workflow Request')
+        .toList(growable: false);
+    return [generic, ...rest];
+  }
+
+  Future<String?> _pick(BuildContext context) async {
+    FocusScope.of(context).unfocus();
+    return showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (sheet) => SafeArea(
+        top: false,
+        child: ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.fromLTRB(8, 0, 8, 16),
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 4, 16, 8),
+              child: Text('نوع سند گردش کار',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+            ),
+            for (final option in _options)
+              ListTile(
+                key: ValueKey('workflow-doctype-${option.name}'),
+                enabled: option.available,
+                title: Text(persianDoctypeLabel(option.name)),
+                subtitle: option.available
+                    ? null
+                    : const Text('روی این سرور نصب نیست',
+                        style: TextStyle(fontSize: 10)),
+                trailing: option.name == state.targetDoctype
+                    ? const Icon(Icons.check_rounded,
+                        color: AsoudColors.primary, size: 22)
+                    : null,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+                onTap: option.available
+                    ? () => Navigator.pop(sheet, option.name)
+                    : null,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => AppSelectField(
+        key: const ValueKey('workflow-doctype'),
+        label: 'نوع سند گردش کار *',
+        value: state.targetDoctype,
+        displayValue: persianDoctypeLabel(state.targetDoctype),
+        required: true,
+        enabled: enabled,
+        onPick: () => _pick(context),
+        onChanged: (value) =>
+            context.read<WorkflowFormCubit>().changeDoctype(value),
+      );
 }
 
 /// Persian label for a workflow module key, matching the source picker.
