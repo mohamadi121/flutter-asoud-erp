@@ -109,6 +109,31 @@ void main() {
     verifyNever(() => repository.save('wf', 'wait', any()));
   });
 
+  testWidgets('FormDate with a Date field pre-fills the continue clock to 09:00', (tester) async {
+    tester.view.physicalSize = const Size(390, 1100);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    // A FormDate bound to a Date field with no stored clock: the continue
+    // clock must be seeded so the user is not blocked by an empty required field.
+    final stage = WorkflowStage(id: 'wait', key: 'wait', type: WorkflowStageType.wait,
+        title: 'انتظار پیش از ادامهٔ فرایند', sequence: 1, configurationComplete: true,
+        config: {'wait_version': 1, 'wait_type': 'FormDate',
+          'date_source': {'source_kind': 'Original', 'source_stage': '', 'source_field': 'starts', 'field_type': 'Date'},
+          'offset_direction': 'Same', 'offset_days': 0, 'date_change_policy': 'Keep'});
+    await tester.pumpWidget(MaterialApp(debugShowCheckedModeBanner: false, theme: AsoudTheme.light,
+      home: WorkflowWaitSettingsPage(definition: 'wf', stage: stage, repository: repository, onSaved: () async {})));
+    await tester.pumpAndSettle();
+    final clock = find.widgetWithText(TextFormField, 'ساعت ادامه فرایند *');
+    expect(clock, findsOneWidget);
+    expect(tester.widget<TextFormField>(clock).initialValue, '۰۹:۰۰');
+    // Saving must carry the seeded clock, not an empty one.
+    await tap(tester, 'اعتبارسنجی و ذخیره');
+    final sent = verify(() => repository.save('wf', 'wait', captureAny())).captured.single as Map;
+    expect(sent['clock'], '09:00');
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('DateTime source uses its own clock and does not send a second clock', (tester) async {
     await open(tester, 'FormDate', extra: const {'date_source': {'source_kind': 'Original', 'source_stage': '',
       'source_field': 'scheduled_at', 'field_type': 'DateTime'}});

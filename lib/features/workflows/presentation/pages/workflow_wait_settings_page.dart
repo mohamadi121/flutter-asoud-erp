@@ -94,6 +94,9 @@ class _WorkflowWaitSettingsPageState extends State<WorkflowWaitSettingsPage> {
     days.text = '${config['offset_days'] ?? 0}';
     past = '${config['past_policy'] ?? 'Continue'}';
     changedDate = '${config['date_change_policy'] ?? 'Keep'}';
+    // A clock-bound wait that has no stored clock is seeded with the picker's
+    // own default so the required field is not empty on first open.
+    if (needsClock && time == null) time = const TimeOfDay(hour: 9, minute: 0);
   }
 
   Future<void> load() async {
