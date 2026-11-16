@@ -86,7 +86,7 @@ class _WorkflowCheckSheetState extends State<WorkflowCheckSheet> {
               onMoveStage: (_, __, ___) {},
               onMoveEnd: () {},
               onInsertOnTransition: (_) {},
-              onCreateTransition: (_) {},
+              onCreateTransition: null,
             ),
           ),
           const Divider(height: 20),

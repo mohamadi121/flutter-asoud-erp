@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/utils/module_vocabulary.dart';
+
 /// Presentation metadata for the request picker. Server request types remain
 /// the source of truth; this only adds stable module, subgroup and search
 /// information to types that are available to the current user.
@@ -169,19 +171,24 @@ NewRequestMetadata? _bankRow(String title) => [
       ...hrRequestBank
     ].where((row) => row.title == title).firstOrNull;
 
-const _moduleLabels = <String, String>{
-  'HR': 'منابع انسانی',
-  'Human Resources': 'منابع انسانی',
-  'Accounts': 'مالی',
-  'Accounting': 'مالی',
+/// Display title for each canonical module in the request picker. The picker
+/// groups requests by its own titles (IT is «فناوری اطلاعات» and there is a
+/// «سایر» bucket), so this maps the shared canonical keys to those titles.
+const _moduleTitles = <String, String>{
   'Finance': 'مالی',
   'Purchase': 'خرید',
-  'Buying': 'خرید',
-  'Stock': 'انبار',
-  'Inventory': 'انبار',
   'Selling': 'فروش',
-  'Sales': 'فروش',
+  'Stock': 'انبار',
+  'HR': 'منابع انسانی',
   'IT': 'فناوری اطلاعات',
+};
+
+// Server values that name a module but are not part of the shared module
+// vocabulary; kept so older records keep their grouping.
+const _moduleAliases = <String, String>{
+  'Accounts': 'مالی',
+  'Human Resources': 'منابع انسانی',
+  'Buying': 'خرید',
   'Information Technology': 'فناوری اطلاعات',
 };
 
@@ -189,9 +196,11 @@ String requestModule(Map<String, dynamic> type) {
   final title = '${type['workflow_title'] ?? ''}';
   final bank = _bankRow(title);
   if (bank != null) return bank.module;
-  return _moduleLabels[
-          '${type['module'] ?? type['module_key'] ?? type['request_category'] ?? ''}'] ??
-      'سایر';
+  final raw =
+      '${type['module'] ?? type['module_key'] ?? type['request_category'] ?? ''}';
+  final canonical = normalizeModuleKey(raw);
+  if (canonical != null) return _moduleTitles[canonical] ?? 'سایر';
+  return _moduleAliases[raw] ?? 'سایر';
 }
 
 String requestSubgroup(Map<String, dynamic> type) {

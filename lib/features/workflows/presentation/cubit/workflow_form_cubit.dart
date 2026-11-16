@@ -2,6 +2,7 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
 import '../../../../core/utils/failure_message.dart';
+import '../../../../core/utils/module_vocabulary.dart';
 import '../../data/workflow_template_repository.dart';
 
 import '../../domain/entities/workflow_definition.dart';
@@ -45,7 +46,9 @@ class WorkflowFormCubit extends Cubit<WorkflowFormState> {
             initialCompany ??
             options.companies.firstOrNull ??
             '',
-        moduleKey: existing?.moduleKey ?? firstModule?.key ?? '',
+        moduleKey: normalizeModuleKey(existing?.moduleKey) ??
+            firstModule?.key ??
+            '',
         targetDoctype: existing?.targetDoctype ?? 'ASOUD Workflow Request',
         title: existing?.title ?? '',
         description: existing?.description ?? '',
@@ -87,7 +90,19 @@ class WorkflowFormCubit extends Cubit<WorkflowFormState> {
 
   void changeModule(String? value) {
     final key = value ?? '';
-    emit(state.copyWith(moduleKey: key));
+    final module = state.options?.modules
+        .where((item) => item.key == key)
+        .firstOrNull;
+    final doctypes = module?.doctypes ?? const <WorkflowDoctypeOption>[];
+    final current = state.targetDoctype;
+    // 'ASOUD Workflow Request' is valid for every module; any other choice is
+    // only kept when the new module still offers it, otherwise fall back.
+    final stillValid = current == 'ASOUD Workflow Request' ||
+        doctypes.any((item) => item.name == current);
+    emit(state.copyWith(
+      moduleKey: key,
+      targetDoctype: stillValid ? current : 'ASOUD Workflow Request',
+    ));
   }
 
   void changeDoctype(String? value) =>
@@ -114,6 +129,19 @@ class WorkflowFormCubit extends Cubit<WorkflowFormState> {
     }
     if (state.moduleKey.isEmpty || state.targetDoctype.isEmpty) {
       emit(state.copyWith(message: 'ماژول گردش کار را انتخاب کنید.'));
+      return;
+    }
+    final module = state.options?.modules
+        .where((item) => item.key == state.moduleKey)
+        .firstOrNull;
+    final doctypes = module?.doctypes ?? const <WorkflowDoctypeOption>[];
+    // 'ASOUD Workflow Request' is valid for every module; any other choice
+    // must be one the chosen module offers and that is installed on the server.
+    final doctypeOk = state.targetDoctype == 'ASOUD Workflow Request' ||
+        doctypes.any((item) => item.name == state.targetDoctype && item.available);
+    if (!doctypeOk) {
+      emit(state.copyWith(
+          message: 'نوع سند انتخاب‌شده در این ماژول در دسترس نیست؛ ماژول یا نوع سند را دوباره انتخاب کنید.'));
       return;
     }
     if (existing == null && state.creationMode == 'Template' &&

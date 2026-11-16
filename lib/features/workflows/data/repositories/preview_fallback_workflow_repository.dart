@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/network/api_exception.dart';
+import '../../../../core/utils/module_vocabulary.dart';
 import '../../domain/entities/workflow_condition_test.dart';
 import '../../domain/entities/workflow_definition.dart';
 import '../../domain/entities/workflow_start_settings.dart';
@@ -190,7 +191,7 @@ class PreviewFallbackWorkflowRepository
         modified: null,
         company: workflow['company']?.toString(),
         description: workflow['description']?.toString(),
-        moduleKey: workflow['module_key']?.toString(),
+        moduleKey: normalizeModuleKey(workflow['module_key']?.toString()),
         creationMode: workflow['creation_mode']?.toString(),
         pendingReason: 'ذخیره محلی؛ در انتظار همگام‌سازی با ASOUD ERP',
         iconKey: workflow['icon_key']?.toString(),
@@ -263,7 +264,7 @@ class PreviewFallbackWorkflowRepository
         WorkflowDoctypeOption(name: 'Material Request', available: true),
         WorkflowDoctypeOption(name: 'Purchase Order', available: true),
       ]),
-      WorkflowModuleOption(key: 'Accounting', doctypes: [
+      WorkflowModuleOption(key: 'Finance', doctypes: [
         WorkflowDoctypeOption(name: 'Payment Request', available: true),
         WorkflowDoctypeOption(name: 'Expense Claim', available: true),
         WorkflowDoctypeOption(name: 'Journal Entry', available: true),
