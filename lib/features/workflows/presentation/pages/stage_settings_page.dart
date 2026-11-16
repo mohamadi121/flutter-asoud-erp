@@ -71,6 +71,18 @@ String _routeActionLabel(String action) => switch (action) {
       _ => action,
     };
 
+/// Short Persian name of a stage type, used to disambiguate same-titled
+/// destinations in the route pickers.
+String _stageTypeLabel(WorkflowStageType type) => switch (type) {
+      WorkflowStageType.userTask => 'اقدام کاربر',
+      WorkflowStageType.approval => 'تأیید',
+      WorkflowStageType.systemAction => 'اقدام خودکار',
+      WorkflowStageType.condition => 'شرط',
+      WorkflowStageType.wait => 'انتظار',
+      WorkflowStageType.end => 'پایان فرایند',
+      WorkflowStageType.start => 'شروع',
+    };
+
 /// Persian warnings for a stage's exit routes, checked before saving.
 /// An empty target is the engine default (end / latest editable task) and is
 /// not a problem. A correction loop (Return to an earlier task) is allowed;
@@ -1120,7 +1132,7 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
               for (final stage in stages)
                 DropdownMenuItem(
                     value: stage.id,
-                    child: Text(stage.title,
+                    child: Text('${stage.title} (${_stageTypeLabel(stage.type)} · گام ${stage.sequence})',
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(fontSize: 12))),
             ],

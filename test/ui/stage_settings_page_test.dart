@@ -660,4 +660,17 @@ void main() {
     expect(workflows.saved.single['request_status'], 'تأیید شده');
     expect(automation.routes, isEmpty);
   });
+
+  testWidgets('destination dropdown names the stage type and step so same-titled stages differ', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await _open(tester, 'S3');
+    await _scrollToFinder(tester, find.text('در صورت موفقیت'));
+    final successRow = find.ancestor(of: find.text('در صورت موفقیت'), matching: find.byType(Row)).first;
+    await _tap(tester, find.descendant(of: successRow, matching: find.byType(DropdownButtonFormField<String>)));
+    // S1 is a user task at step 2; the item must carry both so it is distinguishable.
+    expect(find.text('ثبت درخواست (اقدام کاربر · گام 2)'), findsOneWidget);
+    expect(find.text('تأیید مدیر مستقیم (تأیید · گام 3)'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
