@@ -233,8 +233,20 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
   late bool allowDraft = config['allow_draft'] != false;
   late bool requireAll = config['require_all_fields'] == true;
   late bool editAfterSubmit = config['allow_edit_after_submit'] == true;
-  late String approvalMode = config['approval_mode']?.toString() ??
-      (type == WorkflowStageType.approval && !widget.stage.configurationComplete ? 'All' : 'Any');
+  // A saved value is kept as-is; a missing value shows «همه» (All), matching
+  // the server, which treats a missing `approval_mode` as All.
+  late String approvalMode = config['approval_mode']?.toString() ?? 'All';
+  /// Whether the approval assignment can resolve to more than one approver,
+  /// in which case the decision mode (هر یک / همه / اکثریت) is meaningful.
+  bool get _severalApprovers {
+    if (type != WorkflowStageType.approval) return false;
+    if (ownerMode == 'role') {
+      return role != directManagerRole && role != initiatorRole;
+    }
+    // A unit (department / initiator department) or a specific person.
+    if (specificPerson && selectedPeople.length <= 1) return false;
+    return true;
+  }
   // The backend has no field-level contract for 'Limited Edit', and the app
   // treats any non-Read-Only access as editable. Normalize it to 'Edit' so a
   // stage saved with the legacy value keeps its real (editable) behaviour and
@@ -1404,24 +1416,39 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
           const Text('دلیل بازگشت برای اصلاح نیز همواره الزامی است.',
               style: TextStyle(fontSize: 11, color: AsoudColors.muted)),
           const SizedBox(height: 4),
-          AsoudSegmentedControl<String>(
-            value: approvalMode,
-            options: const [
-              AsoudSegmentedOption(
-                  value: 'Any', label: 'تأیید یک نفر کافی است'),
-              AsoudSegmentedOption(value: 'All', label: 'تأیید همه لازم است'),
-            ],
-            onChanged: (next) => setState(() => approvalMode = next),
-          ),
+          if (_severalApprovers) ...[
+            _label('حالت رأی‌گیری'),
+            AsoudSegmentedControl<String>(
+              value: approvalMode,
+              options: const [
+                AsoudSegmentedOption(
+                    value: 'Any', label: 'هر یک از تأییدکنندگان'),
+                AsoudSegmentedOption(
+                    value: 'All', label: 'همهٔ تأییدکنندگان'),
+                AsoudSegmentedOption(
+                    value: 'Majority', label: 'اکثریت تأییدکنندگان'),
+              ],
+              onChanged: (next) => setState(() => approvalMode = next),
+            ),
+            const SizedBox(height: 8),
+          ],
           _switch('الزام توضیح هنگام تأیید', commentRequired,
               (value) => setState(() => commentRequired = value)),
           _accessControl(),
         ]),
         const SizedBox(height: 12),
-        _notice(approvalMode == 'Any'
-            ? 'تأیید یک نفر کافی است؛ پس از تأیید، کار سایر مسئولان این مرحله بسته می‌شود.'
-            : 'تأیید همه مسئولان لازم است؛ تا تکمیل همه تأییدها، مرحله ادامه نمی‌یابد.'),
+        if (_severalApprovers)
+          _notice(_approvalModeNotice),
       ];
+
+  String get _approvalModeNotice => switch (approvalMode) {
+        'Any' =>
+          'تأیید هر یک از مسئولان کافی است؛ پس از تأیید، کار سایر مسئولان این مرحله بسته می‌شود.',
+        'Majority' =>
+          'تأیید اکثریت مسئولان لازم است؛ تا رسیدن به اکثریت، مرحله ادامه نمی‌یابد.',
+        _ =>
+          'تأیید همهٔ مسئولان لازم است؛ تا تکمیل همهٔ تأییدها، مرحله ادامه نمی‌یابد.',
+      };
 
   Widget _decision(String label, bool value, Color color,
           ValueChanged<bool>? onChanged) =>
