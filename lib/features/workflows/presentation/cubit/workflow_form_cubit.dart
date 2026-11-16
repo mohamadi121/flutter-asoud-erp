@@ -2,6 +2,7 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
 import '../../../../core/utils/failure_message.dart';
+import '../../../../core/utils/module_vocabulary.dart';
 import '../../data/workflow_template_repository.dart';
 
 import '../../domain/entities/workflow_definition.dart';
@@ -45,7 +46,9 @@ class WorkflowFormCubit extends Cubit<WorkflowFormState> {
             initialCompany ??
             options.companies.firstOrNull ??
             '',
-        moduleKey: existing?.moduleKey ?? firstModule?.key ?? '',
+        moduleKey: normalizeModuleKey(existing?.moduleKey) ??
+            firstModule?.key ??
+            '',
         targetDoctype: existing?.targetDoctype ?? 'ASOUD Workflow Request',
         title: existing?.title ?? '',
         description: existing?.description ?? '',

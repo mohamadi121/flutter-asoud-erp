@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/network/frappe_client.dart';
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/module_vocabulary.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../data/workflow_automation_repository.dart';
 import '../../domain/entities/document_template.dart';
@@ -87,10 +88,11 @@ class _DocumentTemplatesPageState extends State<DocumentTemplatesPage> {
   }
 
   Future<void> filter() async {
-    const modules = {
+    // Only the modules that offer an enabled document type are filterable.
+    final modules = {
       '': 'همه ماژول‌ها',
-      'Finance': 'مالی',
-      'Purchase': 'خرید',
+      'Finance': moduleLabel('Finance'),
+      'Purchase': moduleLabel('Purchase'),
     };
     final choice = await showModalBottomSheet<String>(
         context: context,
