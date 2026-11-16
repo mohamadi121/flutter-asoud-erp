@@ -674,6 +674,53 @@ void main() {
     expect(automation.routes, isEmpty);
   });
 
+  testWidgets('approval deadline exposes reminder and escalation controls and saves them (PA-053)', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final (workflows, _) = await _open(tester, 'S2');
+    await _tap(tester, find.text('مهلت دارد'));
+    await tester.enterText(find.byKey(const ValueKey('stage-deadline-value')), '۲');
+    await tester.enterText(find.byKey(const ValueKey('stage-deadline-reminder')), '۳۰');
+    await _tap(tester, find.byKey(const ValueKey('stage-escalation-role-Accounts Manager')));
+    await _tap(tester, find.byKey(const ValueKey('stage-escalation-role-Purchase Manager')));
+    await _tap(tester, find.text('ارجاع خودکار پس از سررسید'));
+    await _tap(tester, find.text('ذخیره'));
+    final config = workflows.saved.single;
+    expect(config['deadline_value'], 2);
+    expect(config['reminder_before_minutes'], 30);
+    expect(config['escalation_roles'], ['Accounts Manager', 'Purchase Manager']);
+    expect(config['reassign_on_overdue'], isTrue);
+  });
+
+  testWidgets('approval deadline without a role blocks automatic reassignment (PA-053)', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final (workflows, _) = await _open(tester, 'S2');
+    await _tap(tester, find.text('مهلت دارد'));
+    await tester.enterText(find.byKey(const ValueKey('stage-deadline-value')), '۲');
+    await _tap(tester, find.text('ارجاع خودکار پس از سررسید'));
+    await _tap(tester, find.text('ذخیره'));
+    expect(workflows.saved, isEmpty);
+    expect(find.textContaining('حداقل یک نقش تشدید'), findsOneWidget);
+  });
+
+  testWidgets('user task deadline saves reminder, escalation roles and reassignment (PA-053)', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final (workflows, _) = await _open(tester, 'S1');
+    await _tap(tester, find.text('مهلت دارد'));
+    await tester.enterText(find.byKey(const ValueKey('stage-deadline-value')), '۱');
+    await tester.enterText(find.byKey(const ValueKey('stage-deadline-reminder')), '۱۵');
+    await _tap(tester, find.byKey(const ValueKey('stage-escalation-role-Accounts Manager')));
+    await _tap(tester, find.text('ارجاع خودکار پس از سررسید'));
+    await _tap(tester, find.text('ذخیره'));
+    final config = workflows.saved.single;
+    expect(config['deadline_value'], 1);
+    expect(config['reminder_before_minutes'], 15);
+    expect(config['escalation_roles'], ['Accounts Manager']);
+    expect(config['reassign_on_overdue'], isTrue);
+  });
+
   testWidgets('destination dropdown names the stage type and step so same-titled stages differ', (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));

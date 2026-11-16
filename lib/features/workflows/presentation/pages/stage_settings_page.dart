@@ -213,7 +213,15 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
   List<FormMap> sourceEmployeeFields = [];
   bool loadingEmployeeFields = false;
   late bool hasDeadline = ((config['deadline_value'] as num?) ?? 0) > 0;
-  late int reminderMinutes = (config['reminder_before_minutes'] as num?)?.toInt() ?? 0;
+  late final TextEditingController reminder = TextEditingController(
+      text: ((config['reminder_before_minutes'] as num?) ?? 0) == 0
+          ? ''
+          : (config['reminder_before_minutes'] as num).toString());
+  late Set<String> escalationRoles =
+      ((config['escalation_roles'] as List?) ?? const [])
+          .map((item) => item.toString())
+          .toSet();
+  late bool reassignOnOverdue = config['reassign_on_overdue'] == true;
 
   // Decisions and extra settings.
   late bool allowReject =
@@ -353,7 +361,7 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
 
   @override
   void dispose() {
-    for (final controller in [title, description, deadline, message, status]) {
+    for (final controller in [title, description, deadline, reminder, message, status]) {
       controller.dispose();
     }
     super.dispose();
@@ -400,13 +408,13 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
   Map<String, dynamic> _deadline() => {
         'deadline_value': hasDeadline ? _deadlineValue : 0,
         'deadline_unit': deadlineUnit,
-        'reminder_before_minutes': hasDeadline ? reminderMinutes : 0,
-        'escalation_roles': config['escalation_roles'] ?? const [],
-        'reassign_on_overdue': config['reassign_on_overdue'] == true,
+        'reminder_before_minutes': hasDeadline ? _reminderValue : 0,
+        'escalation_roles': hasDeadline ? escalationRoles.toList() : const [],
+        'reassign_on_overdue': hasDeadline && reassignOnOverdue,
       };
 
-  int? get _deadlineValue {
-    var value = deadline.text.trim();
+  int? _parseDigits(String text) {
+    var value = text.trim();
     for (var i = 0; i < 10; i++) {
       value = value
           .replaceAll('۰۱۲۳۴۵۶۷۸۹'[i], '$i')
@@ -414,6 +422,10 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
     }
     return int.tryParse(value);
   }
+
+  int? get _deadlineValue => _parseDigits(deadline.text);
+
+  int? get _reminderValue => _parseDigits(reminder.text);
 
   String? _validate() {
     if (type == WorkflowStageType.userTask) {
@@ -436,10 +448,14 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
             _deadlineValue! > 3650)) {
       return 'مهلت انجام باید یک عدد صحیح بین ۱ تا ۳۶۵۰ باشد.';
     }
-    if (hasDeadline && reminderMinutes != 0) {
-      final total = (_deadlineValue ?? 0) * (deadlineUnit == 'Day' ? 1440 : deadlineUnit == 'Hour' ? 60 : 1);
-      if (reminderMinutes < 1 || reminderMinutes > total || reminderMinutes > 525600) {
-        return 'زمان یادآوری باید مثبت و حداکثر به‌اندازهٔ مهلت انجام باشد.';
+    if (hasDeadline) {
+      final reminder = _reminderValue;
+      if (reminder != null &&
+          (reminder < 1 || reminder > 525600)) {
+        return 'زمان یادآوری باید عددی مثبت و حداکثر ۵۲۵۶۰۰ دقیقه باشد.';
+      }
+      if (reassignOnOverdue && escalationRoles.isEmpty) {
+        return 'برای ارجاع خودکار پس از سررسید، حداقل یک نقش تشدید انتخاب کنید.';
       }
     }
     if (type == WorkflowStageType.systemAction) {
@@ -979,6 +995,7 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
               Expanded(
                 flex: 3,
                 child: TextField(
+                  key: const ValueKey('stage-deadline-value'),
                   controller: deadline,
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(
@@ -1032,6 +1049,40 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
                 ),
               ),
             ]),
+            const SizedBox(height: 8),
+            TextField(
+              key: const ValueKey('stage-deadline-reminder'),
+              controller: reminder,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                  hintText: 'یادآوری چند دقیقه قبل از سررسید؟ (اختیاری)',
+                  prefixIcon: Icon(Icons.notifications_outlined, size: 18)),
+            ),
+            const SizedBox(height: 8),
+            _label('نقش‌های تشدید هنگام انقضا'),
+            if (roles.isEmpty)
+              const Text('نقشی از سرور دریافت نشده است.',
+                  style: TextStyle(fontSize: 11, color: AsoudColors.warning))
+            else
+              Wrap(spacing: 6, runSpacing: 6, children: [
+                for (final item in roles.where((item) => item != 'Administrator'))
+                  FilterChip(
+                    key: ValueKey('stage-escalation-role-$item'),
+                    label: Text(roleLabel(item),
+                        style: const TextStyle(fontSize: 11)),
+                    selected: escalationRoles.contains(item),
+                    onSelected: (checked) => setState(() {
+                      checked
+                          ? escalationRoles.add(item)
+                          : escalationRoles.remove(item);
+                    }),
+                  ),
+              ]),
+            const SizedBox(height: 4),
+            _switch('ارجاع خودکار پس از سررسید', reassignOnOverdue,
+                (value) => setState(() => reassignOnOverdue = value),
+                subtitle:
+                    'در حالت خاموش فقط اعلان تشدید به نقش‌های انتخاب‌شده ارسال می‌شود.'),
           ],
         ],
       );
