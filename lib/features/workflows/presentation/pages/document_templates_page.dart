@@ -88,11 +88,12 @@ class _DocumentTemplatesPageState extends State<DocumentTemplatesPage> {
   }
 
   Future<void> filter() async {
-    // Only the modules that offer an enabled document type are filterable.
+    // Only the modules that offer an enabled document type on the server
+    // (backend document_templates.MODULES) are filterable.
     final modules = {
       '': 'همه ماژول‌ها',
-      'Finance': moduleLabel('Finance'),
-      'Purchase': moduleLabel('Purchase'),
+      for (final key in const ['Finance', 'Purchase', 'Selling', 'Stock', 'Admin'])
+        key: moduleLabel(key),
     };
     final choice = await showModalBottomSheet<String>(
         context: context,
