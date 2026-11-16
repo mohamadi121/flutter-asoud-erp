@@ -674,6 +674,32 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  testWidgets('condition title follows the shared 3-140 rule', (tester) async {
+    final repository = DryRunRepository();
+    final configured = stage.copyWith(config: {
+      'condition_version': 2,
+      'combine': 'All',
+      'conditions': [
+        {
+          'id': 'r',
+          'source_kind': 'Original',
+          'source_field': 'amount',
+          'field_type': 'Number',
+          'operator': 'Equals',
+          'value': '1'
+        }
+      ]
+    });
+    await pumpCondition(tester, repository, stageOverride: configured);
+    // Shrink the title to two characters: the shared rule must reject it.
+    await tester.enterText(find.byKey(const ValueKey('condition-title')), 'شر');
+    await tester.pumpAndSettle();
+    await tap(tester, find.text('تأیید تنظیمات شرط و مسیر'));
+    expect(repository.saved, isNull);
+    expect(find.text('عنوان باید بین ۳ تا ۱۴۰ نویسه باشد.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('condition with one row numbers outputs and test as 2 and 3',
       (tester) async {
     await pumpCondition(tester, DryRunRepository());
