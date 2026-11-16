@@ -56,6 +56,22 @@ Widget app(WorkflowDesign design,
                 onCreateTransition: connect ?? (_) {})));
 
 void main() {
+  test('nodeOverlaps flags a drop that covers another node', () {
+    const size = Size(190, 118);
+    final positions = {
+      'a': Offset(0, 0),
+      'b': Offset(400, 0),
+    };
+    // Directly on top of 'a'.
+    expect(nodeOverlaps(Offset(10, 10), 'b', positions, nodeSize: size), isTrue);
+    // Touching the edge is not an overlap.
+    expect(nodeOverlaps(Offset(190, 0), 'b', positions, nodeSize: size), isFalse);
+    // The moving node never collides with itself.
+    expect(nodeOverlaps(Offset(0, 0), 'a', positions, nodeSize: size), isFalse);
+    // Far away from both.
+    expect(nodeOverlaps(Offset(800, 800), 'b', positions, nodeSize: size), isFalse);
+  });
+
   setUpAll(() async {
     await (FontLoader('Vazirmatn')
           ..addFont(rootBundle.load('assets/fonts/Vazirmatn-Regular.ttf')))
@@ -165,6 +181,50 @@ void main() {
     expect(committed, isTrue);
     expect(task.positionX, 30);
     expect(task.positionY, 30);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('dragging a node onto another stops at the boundary, never covering it',
+      (tester) async {
+    final a = node(WorkflowStageType.start, x: 30, y: 30);
+    final b = node(WorkflowStageType.userTask, x: 500, y: 30);
+    final design = WorkflowDesign(
+        workflow: _workflow, stages: [a, b], transitions: const []);
+    final moves = <(String, double, double)>[];
+    // Mirror the real designer: each committed move rebuilds the canvas so the
+    // next pan delta is measured from the new position.
+    await tester.pumpWidget(MaterialApp(
+        debugShowCheckedModeBanner: false,
+        theme: AsoudTheme.light,
+        builder: (_, child) =>
+            Directionality(textDirection: TextDirection.rtl, child: child!),
+        home: StatefulBuilder(builder: (context, setState) => Scaffold(
+            body: WorkflowGraphCanvas(
+                design: design,
+                onOpenStage: (_) {},
+                onMoveStage: (id, x, y) {
+                  moves.add((id, x, y));
+                  for (var i = 0; i < design.stages.length; i++) {
+                    if (design.stages[i].id == id) {
+                      design.stages[i] = design.stages[i]
+                          .copyWith(positionX: x, positionY: y);
+                    }
+                  }
+                  setState(() {});
+                },
+                onMoveEnd: () {},
+                onInsertOnTransition: (_) {})))));
+    await tester.pumpAndSettle();
+    // Drag 'b' far left, straight onto 'a'.
+    await tester.timedDrag(find.text(b.title), const Offset(-470, 0),
+        const Duration(milliseconds: 400));
+    await tester.pumpAndSettle();
+    // The last committed position of 'b' must not cover 'a'.
+    final lastB = moves.lastWhere((m) => m.$1 == b.id);
+    final bRect = Offset(lastB.$2, lastB.$3) & WorkflowGraphCanvas.nodeSize;
+    final aRect = Offset(a.positionX, a.positionY) & WorkflowGraphCanvas.nodeSize;
+    expect(bRect.overlaps(aRect), isFalse,
+        reason: 'b must stop before covering a');
     expect(tester.takeException(), isNull);
   });
 
