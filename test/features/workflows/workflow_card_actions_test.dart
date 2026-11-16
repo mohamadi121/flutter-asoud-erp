@@ -49,10 +49,9 @@ class _Server extends Mock implements FrappeApiClient {
       throw ApiException(kind: ApiFailureKind.validation, message: rejection);
     }
     final row = rows.singleWhere((row) => row['name'] == data!['name']);
-    if (method == 'frappe.client.delete') {
-      expect(data!['doctype'], 'ASOUD Workflow Definition');
+    if (method == 'asoud_erp.api.v1.workflow.delete_workflow') {
       rows.remove(row);
-      return {'message': null};
+      return {'message': {'ok': true, 'data': {'name': data!['name'], 'deleted': true}}};
     }
     expect(method, 'asoud_erp.api.v1.workflow.set_workflow_status');
     row['status'] = data!['status'];
@@ -77,7 +76,25 @@ Future<void> _menu(WidgetTester tester, String title) async {
   await tester.pumpAndSettle();
 }
 
+class _RecordingClient extends Mock implements FrappeApiClient {
+  final methods = <String>[];
+  @override
+  bool get isAuthenticated => true;
+  @override
+  Future<Map<String, dynamic>> callMethod(String method, {Map<String, dynamic>? data}) async {
+    methods.add(method);
+    return {'message': {'ok': true, 'data': {'name': data!['name'], 'deleted': true}}};
+  }
+}
+
 void main() {
+  test('delete uses the dedicated server method, not the generic client delete', () async {
+    final client = _RecordingClient();
+    await WorkflowCardRepository(client).delete('custom');
+    expect(client.methods, ['asoud_erp.api.v1.workflow.delete_workflow']);
+    expect(client.methods, isNot(contains('frappe.client.delete')));
+  });
+
   for (final width in [320.0, 390.0, 430.0]) {
     testWidgets('switching filter while status write is pending still refreshes at $width', (tester) async {
       addTearDown(tester.view.resetPhysicalSize);

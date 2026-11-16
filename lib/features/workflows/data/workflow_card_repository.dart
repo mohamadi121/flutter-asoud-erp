@@ -44,6 +44,12 @@ class WorkflowCardRepository {
   }
 
   Future<void> delete(String name) async {
-    await _call('frappe.client.delete', {'doctype': 'ASOUD Workflow Definition', 'name': name});
+    final response = await _call('asoud_erp.api.v1.workflow.delete_workflow', {'name': name});
+    final envelope = response['message'];
+    final data = envelope is Map ? envelope['data'] : null;
+    if (envelope is! Map || envelope['ok'] != true || data is! Map ||
+        data['name'] != name || data['deleted'] != true) {
+      throw const ApiException.protocol();
+    }
   }
 }
