@@ -222,7 +222,9 @@ Future<void> _choose(WidgetTester tester, String label, String option) async {
       find.descendant(
           of: dropdown,
           matching: find.byType(DropdownButtonFormField<String>)));
-  await tester.tap(find.text(option).last);
+  // Destination items now carry the stage type and step (PA-058), so match
+  // by the title prefix rather than the exact text.
+  await tester.tap(find.textContaining(option).last);
   await tester.pumpAndSettle();
 }
 
@@ -432,6 +434,17 @@ void main() {
     expect(automation.client.calls.single['name'], 'form-1');
     expect(automation.client.calls.single['revision_name'], 'rev-1');
     expect(automation.client.calls.single['method'], endsWith('.get_form'));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('saving the approval form does not re-send a canvas-drawn Approve route', (tester) async {
+    // T3 draws the Approve route S2 -> S3 on the canvas.
+    final (workflows, automation) = await _open(tester, 'S2');
+    await _tap(tester, find.text('ذخیره'));
+    // The Approve route was not changed, so it must not be sent for
+    // delete-and-recreate; the canvas-drawn transition survives the save.
+    expect(automation.routes, isEmpty);
+    expect(workflows.saved, isNotEmpty);
     expect(tester.takeException(), isNull);
   });
 
