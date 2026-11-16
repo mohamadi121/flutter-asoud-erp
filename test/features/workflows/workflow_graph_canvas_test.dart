@@ -37,7 +37,7 @@ Widget app(WorkflowDesign design,
         {ValueChanged<WorkflowStage>? open,
         ValueChanged<WorkflowTransition>? insert,
         ValueChanged<WorkflowTransition>? remove,
-        ValueChanged<WorkflowStage>? connect,
+        void Function(WorkflowStage, WorkflowStage)? connect,
         void Function(String, double, double)? move,
         VoidCallback? moved}) =>
     MaterialApp(
@@ -53,7 +53,7 @@ Widget app(WorkflowDesign design,
                 onMoveEnd: moved ?? () {},
                 onInsertOnTransition: insert ?? (_) {},
                 onRemoveTransition: remove,
-                onCreateTransition: connect ?? (_) {})));
+                onCreateTransition: connect)));
 
 void main() {
   test('nodeOverlaps flags a drop that covers another node', () {
@@ -104,16 +104,15 @@ void main() {
         final saved = node(type, title: 'بررسی و ثبت اطلاعات درخواست');
         final design = WorkflowDesign(
             workflow: _workflow, stages: [saved], transitions: const []);
-        WorkflowStage? opened, connected;
+        WorkflowStage? opened;
         await tester.pumpWidget(app(design,
-            open: (stage) => opened = stage,
-            connect: (stage) => connected = stage));
+            open: (stage) => opened = stage));
         await tester.pumpAndSettle();
         await tester.tap(find.text(saved.title));
         await tester.pumpAndSettle();
         expect(opened, same(saved));
+        // No connect callback is wired in this case, so the handle is hidden.
         expect(find.byIcon(Icons.add_link_rounded), findsNothing);
-        expect(connected, isNull);
         expect(design.stages.single, same(saved));
         expect(design.transitions, isEmpty);
         expect(tester.takeException(), isNull);
@@ -181,6 +180,65 @@ void main() {
     expect(committed, isTrue);
     expect(task.positionX, 30);
     expect(task.positionY, 30);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('dragging from a node handle onto another node creates a route',
+      (tester) async {
+    final from = node(WorkflowStageType.userTask, title: 'مرحله مبدأ', x: 30, y: 30);
+    final to = node(WorkflowStageType.approval, title: 'مرحله مقصد', x: 30, y: 300);
+    final design = WorkflowDesign(
+        workflow: _workflow, stages: [from, to], transitions: const []);
+    (WorkflowStage, WorkflowStage)? created;
+    await tester.pumpWidget(app(design,
+        connect: (a, b) => created = (a, b)));
+    await tester.pumpAndSettle();
+
+    // The source node shows a connect handle; the target (approval) does too.
+    expect(find.byKey(ValueKey('workflow-connect-handle-${from.id}')), findsOneWidget);
+    expect(find.byKey(ValueKey('workflow-connect-handle-${to.id}')), findsOneWidget);
+
+    // Drag from the source handle onto the target node.
+    final handle = find.byKey(ValueKey('workflow-connect-handle-${from.id}'));
+    final targetCenter = tester.getCenter(find.text(to.title));
+    final start = tester.getCenter(handle);
+    await tester.timedDrag(
+        handle, targetCenter - start, const Duration(milliseconds: 400));
+    await tester.pumpAndSettle();
+
+    expect(created, isNotNull);
+    expect(created!.$1, same(from));
+    expect(created!.$2, same(to));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('dropping the connect handle on empty space creates no route',
+      (tester) async {
+    final from = node(WorkflowStageType.userTask, title: 'مرحله مبدأ', x: 30, y: 30);
+    final to = node(WorkflowStageType.approval, title: 'مرحله مقصد', x: 30, y: 300);
+    final design = WorkflowDesign(
+        workflow: _workflow, stages: [from, to], transitions: const []);
+    var created = 0;
+    await tester.pumpWidget(app(design, connect: (_, __) => created++));
+    await tester.pumpAndSettle();
+
+    final handle = find.byKey(ValueKey('workflow-connect-handle-${from.id}'));
+    // Drop far to the right, away from any node.
+    await tester.timedDrag(
+        handle, const Offset(900, 0), const Duration(milliseconds: 400));
+    await tester.pumpAndSettle();
+
+    expect(created, 0);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('end node has no connect handle', (tester) async {
+    final end = node(WorkflowStageType.end, title: 'پایان', x: 30, y: 30);
+    final design = WorkflowDesign(
+        workflow: _workflow, stages: [end], transitions: const []);
+    await tester.pumpWidget(app(design, connect: (_, __) {}));
+    await tester.pumpAndSettle();
+    expect(find.byKey(ValueKey('workflow-connect-handle-${end.id}')), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
