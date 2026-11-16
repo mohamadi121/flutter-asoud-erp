@@ -140,6 +140,14 @@ class DryRunRepository extends Fake
             source: 'Original',
             conditionVersion: 2,
             currency: 'ریال'),
+        WorkflowFieldOption(
+            name: 'tags',
+            label: 'گزینه‌ها',
+            type: 'MultiSelect',
+            source: 'Original',
+            conditionVersion: 2,
+            choices: ['a', 'b'],
+            choiceLabels: {'a': 'اول', 'b': 'دوم'}),
       ];
   @override
   Future<WorkflowFormOptions> getFormOptions() async => WorkflowFormOptions(
@@ -673,6 +681,37 @@ void main() {
             child: WorkflowStageSettingsPage(stage: target, roles: const []))));
     await tester.pumpAndSettle();
   }
+
+  testWidgets('MultiSelect condition sample is sent as a list, never a string',
+      (tester) async {
+    final repository = DryRunRepository();
+    final configured = stage.copyWith(config: {
+      'condition_version': 2,
+      'combine': 'All',
+      'conditions': [
+        {
+          'id': 'r',
+          'source_kind': 'Original',
+          'source_field': 'tags',
+          'field_type': 'MultiSelect',
+          'operator': 'Contains',
+          'value': 'a',
+        }
+      ]
+    });
+    await pumpCondition(tester, repository, stageOverride: configured);
+    // Pick two sample choices through the chip input. The sample chips are
+    // FilterChips; the comparison value is an AppSelectField, so scope to chips.
+    await tap(tester, find.widgetWithText(FilterChip, 'اول'));
+    await tap(tester, find.widgetWithText(FilterChip, 'دوم'));
+    await tap(tester, find.text('اجرای آزمایشی'));
+    final sample = repository.lastSamples!['r'];
+    expect(sample, isA<List>(),
+        reason: 'a MultiSelect sample must travel as a list of ids');
+    expect(sample, isNot(isA<String>()));
+    expect(sample.cast<String>(), ['a', 'b']);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('condition title follows the shared 3-140 rule', (tester) async {
     final repository = DryRunRepository();
