@@ -67,11 +67,15 @@ jobs:
           exit 1
       - name: Build release APK
         if: github.event_name == 'push'
+        env:
+          # Hosts the release app may reach over plain http (comma separated).
+          # Empty keeps the https-only policy for every server.
+          ALLOWED_CLEARTEXT_HOSTS: ${{ vars.ALLOWED_CLEARTEXT_HOSTS }}
         run: |
           set -o pipefail
           out=/tmp/flutter-build-release.log
           for attempt in 1 2 3 4; do
-            if flutter build apk --release 2>&1 | tee "$out"; then
+            if flutter build apk --release --dart-define=ALLOWED_CLEARTEXT_HOSTS="$ALLOWED_CLEARTEXT_HOSTS" 2>&1 | tee "$out"; then
               exit 0
             fi
             # Retry only on GitHub release download outages, not on real build failures.
