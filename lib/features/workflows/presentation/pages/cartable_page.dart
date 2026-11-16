@@ -107,19 +107,30 @@ class _CartablePageState extends State<CartablePage> {
       }
       final summaries = {for (final item in sent) item.id: item};
       // Task completion is not instance completion. Resolve the real lifecycle
-      // for incoming records, with bounded concurrency rather than one burst.
+      // for incoming records in one batch call (PA-032) instead of one request
+      // per instance; repositories without the batch method keep the old loop.
       final missing = tasks.keys
           .where((id) => !summaries.containsKey(id) && !id.startsWith('task:'))
           .toList();
       var unavailable = 0;
-      for (var offset = 0; offset < missing.length; offset += 6) {
-        await Future.wait(missing.skip(offset).take(6).map((id) async {
-          try {
-            summaries[id] = (await repository.getInstance(id)).summary;
-          } catch (_) {
-            unavailable++;
-          }
-        }));
+      if (repository is WorkflowInstanceSummariesRepository) {
+        final fetched = await (repository as WorkflowInstanceSummariesRepository)
+            .getInstanceSummaries(missing);
+        for (final summary in fetched) {
+          summaries[summary.id] = summary;
+        }
+        // Inaccessible or missing instances are omitted, not an error.
+        unavailable = missing.length - fetched.length;
+      } else {
+        for (var offset = 0; offset < missing.length; offset += 6) {
+          await Future.wait(missing.skip(offset).take(6).map((id) async {
+            try {
+              summaries[id] = (await repository.getInstance(id)).summary;
+            } catch (_) {
+              unavailable++;
+            }
+          }));
+        }
       }
       if (unavailable > 0) {
         warnings.add(
