@@ -11,6 +11,7 @@ import 'package:asoud_erp/features/workflows/presentation/widgets/document_templ
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 WorkflowStage _stage(String id, WorkflowStageType type, String title, int seq,
         [Map<String, dynamic> config = const {}]) =>
@@ -108,6 +109,9 @@ class _FormClient extends Fake implements FrappeApiClient {
   @override
   Future<Map<String, dynamic>> callMethod(String method, {Map<String, dynamic>? data}) async {
     calls.add({'method': method, ...?data});
+    if (method.endsWith('list_forms')) {
+      return {'message': {'ok': true, 'meta': {'api_version': 'v1'}, 'data': <Map<String, dynamic>>[]}};
+    }
     expect(method, 'asoud_erp.api.v1.forms.get_form');
     return {'message': {'ok': true, 'meta': {'api_version': 'v1'}, 'data': {
       'schema': {'kind': 'Request', 'title': 'درخواست مرخصی', 'sections': [
@@ -521,6 +525,35 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets('a form with an optional attachment field blocks saving while attachments are off', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    SharedPreferences.setMockInitialValues({});
+    final design = WorkflowDesign(workflow: _design.workflow, transitions: _design.transitions,
+      stages: [for (final stage in _design.stages)
+        stage.id == 'S1'
+            ? stage.copyWith(config: {
+                'result_mode': 'Form',
+                'result_form': {'form': 'form-1', 'revision': 'rev-1'},
+                'result_schema': {
+                  'kind': 'Stage',
+                  'sections': [
+                    {'id': 'main', 'fields': [
+                      {'key': 'note', 'label': 'شرح', 'type': 'Text'},
+                      {'key': 'proof', 'label': 'سند', 'type': 'File', 'required': false},
+                    ]}
+                  ]
+                },
+                'allow_add_attachments': false,
+              })
+            : stage]);
+    final (workflows, _) = await _open(tester, 'S1', designOverride: design);
+    await _tap(tester, find.text('ذخیره'));
+    expect(workflows.saved, isEmpty);
+    expect(find.textContaining('فرم دارای فیلد پیوست است'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
   for (final width in [320.0, 390.0]) {
     testWidgets('approval stage saves decisions and a reject route at $width',
         (tester) async {
