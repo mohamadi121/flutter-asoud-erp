@@ -362,6 +362,29 @@ void main() {
     });
 
     testWidgets(
+        'the manual-reason section shows a notice, not a dead input, at $width RTL',
+        (tester) async {
+      tester.view.physicalSize = Size(width, 840);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      const original = WorkflowStartSettings(manual: true);
+      await tester.pumpWidget(MaterialApp(
+          theme: AsoudTheme.light,
+          home: Scaffold(body: SingleChildScrollView(child:
+              WorkflowStartAdditionalFields(value: original, onChanged: (_) {})))));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+          find.text('۳. الزام ثبت علت شروع دستی'), 160,
+          scrollable: find.byType(Scrollable).first);
+      // The designer must not show a disabled reason input; it is collected
+      // only at real start time.
+      expect(find.text('علت شروع گردش کار *'), findsNothing);
+      expect(find.textContaining('در زمان شروع واقعی'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
         'manual run requires a fresh reason and calls the existing online API at $width RTL',
         (tester) async {
       tester.view.physicalSize = Size(width, 840);

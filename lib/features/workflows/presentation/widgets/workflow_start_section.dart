@@ -342,14 +342,7 @@ class _WorkflowStartAdditionalFieldsState
                           childrenPadding: const EdgeInsets.all(12),
                           children: [
                         notice(
-                            'فقط شروع دستی\nعلت شروع توسط آغازکننده در زمان شروع واقعی وارد می‌شود.'),
-                        const TextField(
-                            enabled: false,
-                            maxLines: 2,
-                            decoration: InputDecoration(
-                                labelText: 'علت شروع گردش کار *',
-                                hintText: 'علت شروع دستی را وارد کنید…')),
-                        const SizedBox(height: 12),
+                            'فقط شروع دستی\nدر زمان شروع واقعی، آغازکننده ملزم به ثبت علت شروع است؛ این مقدار در صفحهٔ طراح ذخیره نمی‌شود.'),
                       ]),
                   const Divider(height: 1, indent: 12, endIndent: 12),
                   ListTile(
