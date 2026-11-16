@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/utils/failure_message.dart';
+import '../../../../core/utils/module_vocabulary.dart';
 import '../../../../core/utils/persian_format.dart';
 import '../../../form_builder/form_repository.dart';
 
@@ -23,8 +24,7 @@ class _StageFormSourcePickerState extends State<StageFormSourcePicker> {
   FormMap? picked;
   bool confirming = false, showAll = true;
   @override
-  void initState() { super.initState(); module = switch (widget.initialModule) {
-    'Accounting' => 'Finance', 'Support' => 'Admin', _ => widget.initialModule}; load(kind); }
+  void initState() { super.initState(); module = normalizeModuleKey(widget.initialModule) ?? widget.initialModule; load(kind); }
 
   Future<void> load(String target) async {
     if (loading.contains(target)) return;
@@ -71,8 +71,7 @@ class _StageFormSourcePickerState extends State<StageFormSourcePicker> {
       if (mounted) {
         Navigator.pop(context, <String, dynamic>{'form': result['name'],
           'revision': result['revision'], 'title': schema['title'], 'kind': schema['kind'],
-          'workflow_module': switch (module.isEmpty ? _module(row) : module) {
-            'Finance' => 'Accounting', 'Admin' => 'Support', final key => key}});
+          'workflow_module': module.isEmpty ? _module(row) : module});
       }
     } catch (failure) {
       if (mounted) setState(() => errors[kind] = failureDetail(failure));
@@ -178,12 +177,13 @@ class _StageFormSourcePickerState extends State<StageFormSourcePicker> {
 
 String _module(FormMap row) {
   final key = '${row['module_key'] ?? formMap(row['schema'])['module'] ?? ''}';
-  return switch (key) {'Stock' => 'Inventory', 'Accounting' => 'Finance', 'Administration' || 'Support' => 'Admin', _ => key};
+  if (key == 'Administration') return 'Admin';
+  return normalizeModuleKey(key) ?? key;
 }
 const _modules = [('', 'همه', Icons.grid_view_rounded, Color(0xff2478e7)),
   ('HR', 'منابع انسانی', Icons.people_outline, Color(0xff279468)),
   ('Finance', 'مالی', Icons.account_balance_wallet_outlined, Color(0xffdd9417)),
-  ('Admin', 'اداری', Icons.description_outlined, Color(0xffec467a)),
-  ('Inventory', 'انبار', Icons.inventory_2_outlined, Color(0xff19a6a2)),
-  ('Sales', 'فروش', Icons.storefront_outlined, Color(0xffa449ce)),
+  ('Admin', 'خدمات اداری', Icons.description_outlined, Color(0xffec467a)),
+  ('Stock', 'انبار', Icons.inventory_2_outlined, Color(0xff19a6a2)),
+  ('Selling', 'فروش', Icons.storefront_outlined, Color(0xffa449ce)),
   ('Purchase', 'خرید', Icons.shopping_cart_outlined, Color(0xff647eae))];

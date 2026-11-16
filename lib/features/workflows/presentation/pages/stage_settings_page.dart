@@ -6,6 +6,7 @@ import '../../../form_builder/form_repository.dart';
 import '../../../form_builder/execution_settings.dart';
 import '../../../../core/network/frappe_client.dart';
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/module_vocabulary.dart';
 import '../../../../core/utils/persian_format.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../data/repositories/preview_fallback_workflow_repository.dart';
@@ -1721,11 +1722,7 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
         _ => key,
       };
 
-  String _moduleLabel(String key) => switch (key) {
-        'Finance' => 'مالی',
-        'Purchase' => 'خرید',
-        _ => key,
-      };
+  String _moduleLabel(String key) => moduleLabel(key);
 
   List<Widget> _changeStatus() => [
         _label('وضعیت جدید درخواست', required: true),

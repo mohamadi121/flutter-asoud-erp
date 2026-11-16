@@ -1,5 +1,6 @@
 import '../../../../core/network/frappe_client.dart';
 import '../../../../core/network/api_exception.dart';
+import '../../../../core/utils/module_vocabulary.dart';
 import '../../../../core/utils/persian_server_values.dart';
 import '../../domain/entities/workflow_condition_test.dart';
 import '../../domain/entities/workflow_definition.dart';
@@ -303,7 +304,7 @@ class FrappeWorkflowRepository implements WorkflowRepository, WorkflowStartSetti
               final module = Map<String, dynamic>.from(raw);
               final doctypes = module['doctypes'];
               return WorkflowModuleOption(
-                key: module['key']?.toString() ?? '',
+                key: normalizeModuleKey(module['key']?.toString()) ?? '',
                 doctypes: doctypes is List
                     ? doctypes.whereType<Map>().map((rawDoctype) {
                         final doctype = Map<String, dynamic>.from(rawDoctype);
@@ -458,7 +459,7 @@ class FrappeWorkflowRepository implements WorkflowRepository, WorkflowStartSetti
       modifiedRaw: item['modified']?.toString(),
       company: item['company']?.toString(),
       description: item['process_description']?.toString(),
-      moduleKey: item['module_key']?.toString(),
+      moduleKey: normalizeModuleKey(item['module_key']?.toString()),
       creationMode: item['creation_mode']?.toString(),
       frappeWorkflow: item['frappe_workflow']?.toString(),
       pendingReason: item['pending_reason'] == null

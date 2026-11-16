@@ -1,5 +1,6 @@
 import '../../../core/network/api_exception.dart';
 import '../../../core/network/frappe_client.dart';
+import '../../../core/utils/module_vocabulary.dart';
 import '../domain/entities/workflow_definition.dart';
 import 'repositories/frappe_workflow_repository.dart';
 
@@ -12,7 +13,8 @@ class WorkflowTemplate {
       if (row[key] is! String || (row[key] as String).isEmpty) throw const ApiException.protocol();
     }
     return WorkflowTemplate(id: row['name'] as String, title: row['workflow_title'] as String,
-        modified: row['modified'] as String, module: row['module_key'] as String,
+        modified: row['modified'] as String,
+        module: normalizeModuleKey(row['module_key'] as String) ?? row['module_key'] as String,
         targetDoctype: row['target_doctype'] as String,
         description: row['process_description'] as String? ?? '',
         icon: row['icon_key'] as String? ?? 'hub', color: row['color_hex'] as String? ?? '#315CF5',

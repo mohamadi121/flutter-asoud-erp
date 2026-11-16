@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/network/frappe_client.dart';
+import '../../../../core/utils/module_vocabulary.dart';
 import '../../../../core/utils/persian_server_values.dart';
 import '../../../../core/widgets/app_fields.dart';
 import '../../../../core/widgets/asoud_ui.dart';
@@ -361,16 +362,8 @@ class _TargetDoctypeField extends StatelessWidget {
       );
 }
 
-/// Persian label for a workflow module key, matching the source picker.
-String _moduleLabel(String key) => switch (key) {
-      'HR' => 'منابع انسانی',
-      'Accounting' || 'Finance' => 'مالی',
-      'Purchase' => 'خرید',
-      'Sales' => 'فروش',
-      'Inventory' => 'انبار',
-      'Support' => 'پشتیبانی',
-      _ => key,
-    };
+/// Persian label for a workflow module key, from the shared vocabulary.
+String _moduleLabel(String key) => moduleLabel(key);
 
 class _WorkflowSection extends StatelessWidget {
   const _WorkflowSection({required this.title, required this.icon, required this.children});

@@ -162,7 +162,7 @@ class RequestTypeBuilderCubit extends Cubit<RequestTypeBuilderState> {
       final draft = state.definition ??
           await repository.createDraft(
             title: info.title.trim(),
-            moduleKey: 'Support',
+            moduleKey: 'Admin',
             targetDoctype: requestTargetDoctype,
             creationMode: 'Custom',
             description: info.description,
