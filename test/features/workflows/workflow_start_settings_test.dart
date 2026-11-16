@@ -325,18 +325,18 @@ void main() {
 
   for (final width in [320.0, 390.0, 430.0]) {
     testWidgets(
-        'inline additional settings contain four sections and confirm an editable copy at $width RTL',
+        'inline additional settings commit the manager-restart toggle immediately at $width RTL',
         (tester) async {
       tester.view.physicalSize = Size(width, 840);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
       const original = WorkflowStartSettings(manual: true);
-      WorkflowStartSettings? result;
+      final committed = <WorkflowStartSettings>[];
       await tester.pumpWidget(MaterialApp(
           theme: AsoudTheme.light,
           home: Scaffold(body: SingleChildScrollView(child:
-              WorkflowStartAdditionalFields(value: original, onConfirmed: (value) => result = value)))));
+              WorkflowStartAdditionalFields(value: original, onChanged: (value) => committed.add(value))))));
       await tester.pumpAndSettle();
       expect(find.byType(BottomSheet), findsNothing);
       expect(find.text('۱. جلوگیری از شروع تکراری'), findsOneWidget);
@@ -345,6 +345,11 @@ void main() {
           find.byKey(const ValueKey('workflow-manager-restart')));
       await tester.tap(find.byKey(const ValueKey('workflow-manager-restart')));
       await tester.pumpAndSettle();
+      // The toggle is committed straight to the parent, with no confirm button.
+      expect(find.text('تأیید تنظیمات اضافی'), findsNothing);
+      expect(committed, hasLength(1));
+      expect(committed.single.allowManagerRestart, isTrue);
+      expect(original.allowManagerRestart, isFalse);
       await tester.scrollUntilVisible(
           find.text('۳. الزام ثبت علت شروع دستی'), 160,
           scrollable: find.byType(Scrollable).first);
@@ -353,14 +358,6 @@ void main() {
           find.text('۴. ثبت سوابق آغاز گردش کار'), 160,
           scrollable: find.byType(Scrollable).first);
       expect(find.text('۴. ثبت سوابق آغاز گردش کار'), findsOneWidget);
-      await tester.scrollUntilVisible(find.text('تأیید تنظیمات اضافی'), 120,
-          scrollable: find.byType(Scrollable).first);
-      await tester.ensureVisible(find.text('تأیید تنظیمات اضافی'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('تأیید تنظیمات اضافی').hitTestable());
-      await tester.pumpAndSettle();
-      expect(result!.allowManagerRestart, isTrue);
-      expect(original.allowManagerRestart, isFalse);
       expect(tester.takeException(), isNull);
     });
 

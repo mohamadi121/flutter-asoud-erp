@@ -234,18 +234,15 @@ class _WorkflowStartSectionState extends State<WorkflowStartSection> {
                     style: TextStyle(fontSize: 11, color: AsoudColors.muted)),
                 childrenPadding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
                 children: [WorkflowStartAdditionalFields(value: widget.value,
-                    enabled: widget.enabled, onConfirmed: (value) {
-                      widget.onChanged(value);
-                      additionalController.collapse();
-                    })])),
+                    enabled: widget.enabled, onChanged: widget.onChanged)])),
       ]);
 }
 
 class WorkflowStartAdditionalFields extends StatefulWidget {
-  const WorkflowStartAdditionalFields({required this.value, required this.onConfirmed,
+  const WorkflowStartAdditionalFields({required this.value, required this.onChanged,
       this.enabled = true, super.key});
   final WorkflowStartSettings value;
-  final ValueChanged<WorkflowStartSettings> onConfirmed;
+  final ValueChanged<WorkflowStartSettings> onChanged;
   final bool enabled;
   @override
   State<WorkflowStartAdditionalFields> createState() =>
@@ -254,7 +251,6 @@ class WorkflowStartAdditionalFields extends StatefulWidget {
 
 class _WorkflowStartAdditionalFieldsState
     extends State<WorkflowStartAdditionalFields> {
-  late bool exception = widget.value.allowManagerRestart;
   Widget notice(String text, {Color color = AsoudColors.primary}) => Container(
       width: double.infinity,
       padding: const EdgeInsets.all(10),
@@ -327,9 +323,10 @@ class _WorkflowStartAdditionalFieldsState
                             subtitle: const Text(
                                 'اجازه شروع مجدد با مجوز مدیریتی و ثبت علت',
                                 style: TextStyle(fontSize: 10)),
-                            value: exception,
+                            value: widget.value.allowManagerRestart,
                             onChanged: !widget.enabled ? null : (checked) =>
-                                setState(() => exception = checked == true)),
+                                widget.onChanged(
+                                    widget.value.copyWith(allowManagerRestart: checked == true))),
                       ]),
                   const Divider(height: 1, indent: 12, endIndent: 12),
                   ExpansionTile(
@@ -369,17 +366,6 @@ class _WorkflowStartAdditionalFieldsState
                                   borderRadius: BorderRadius.circular(14)),
                               child: const Text('همیشه فعال',
                                   style: TextStyle(fontSize: 10, color: AsoudColors.success)))),
-            Padding(
-                padding: const EdgeInsets.all(10),
-                child: SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                        style: FilledButton.styleFrom(
-                            backgroundColor: const Color(0xff191919),
-                            minimumSize: const Size.fromHeight(42), shape: const StadiumBorder()),
-                        onPressed: !widget.enabled ? null : () => widget.onConfirmed(
-                            widget.value.copyWith(allowManagerRestart: exception)),
-                        child: const Text('تأیید تنظیمات اضافی')))),
           ])));
 }
 
