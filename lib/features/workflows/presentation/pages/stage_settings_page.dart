@@ -248,14 +248,11 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
     if (specificPerson && selectedPeople.length <= 1) return false;
     return true;
   }
-  // The backend has no field-level contract for 'Limited Edit', and the app
-  // treats any non-Read-Only access as editable. Normalize it to 'Edit' so a
-  // stage saved with the legacy value keeps its real (editable) behaviour and
-  // the radio list stays consistent.
-  late String access = switch (config['document_access']?.toString()) {
-    'Limited Edit' => 'Edit',
-    final value => value ?? 'Read Only',
-  };
+  // The stored value is kept as-is. 'Limited Edit' is a legacy value the
+  // radio list no longer offers: it is not converted, not selected, and is
+  // sent back unchanged until the user explicitly picks an option.
+  late String access = config['document_access']?.toString() ?? 'Read Only';
+  bool accessChanged = false;
   late String activityType =
       config['activity_type']?.toString() ?? 'Data Entry';
   late String taskPurpose = config['task_purpose']?.toString() ?? 'Existing';
@@ -535,6 +532,7 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
           },
           ..._assignment(),
           'document_access': access,
+          if (accessChanged) 'document_access_changed': true,
           'form_fields': formFields.map((field) => field.toMap()).toList(),
           if (formLayout.isNotEmpty)
             'form_layout': [
@@ -567,6 +565,7 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
           if (supplementaryForm == null && formLayout.isNotEmpty)
             'form_layout': formLayout,
           'document_access': access,
+          if (accessChanged) 'document_access_changed': true,
           'allow_reject': allowReject,
           'allow_return': allowReturn,
           'comment_required': commentRequired,
@@ -1142,7 +1141,14 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
                       color: access == mode.$1 ? AsoudColors.primary : AsoudColors.muted, size: 19),
                   title: Text(mode.$2, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                   subtitle: Text(mode.$3, style: const TextStyle(fontSize: 10, color: AsoudColors.muted)),
-                  onTap: saving ? null : () => setState(() => access = mode.$1)))),
+                  onTap: saving ? null : () => setState(() {
+                    access = mode.$1;
+                    accessChanged = true;
+                  })))),
+          if (access == 'Limited Edit') ...[
+            const SizedBox(height: 4),
+            _notice('این مرحله تنظیم قدیمی «ویرایش محدود» دارد و تا انتخاب شما تغییر نمی‌کند.'),
+          ],
           const SizedBox(height: 4),
           _notice('این انتخاب مجوز جدیدی نمی‌دهد. ویرایش پرونده از مسیر اصلی و فقط با مجوز و وضعیت مجاز آن انجام می‌شود؛ ثبت اصلی فرم ارسال‌شده تغییر نمی‌کند.'),
         ],

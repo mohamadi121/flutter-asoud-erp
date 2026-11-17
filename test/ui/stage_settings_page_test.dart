@@ -384,7 +384,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('legacy Limited Edit stage normalizes to Edit and saves Edit (PA-066)', (tester) async {
+  testWidgets('legacy Limited Edit stage keeps its value and shows a notice (PA-066)', (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final design = WorkflowDesign(workflow: _design.workflow, transitions: _design.transitions,
@@ -392,12 +392,32 @@ void main() {
         ? stage.copyWith(config: {...stage.config, 'document_access': 'Limited Edit'}) : stage]);
     final (workflows, _) = await _open(tester, 'S2', designOverride: design);
     await _tap(tester, find.text('تنظیمات اضافی (اختیاری)'));
-    // The legacy value is editable, so it must land on Edit, not Read Only.
+    // The legacy value is not converted and not offered: no radio is selected
+    // and a notice line explains the stored value stays until the user picks.
     expect(find.byKey(const ValueKey('stage-access-Limited Edit')), findsNothing);
+    expect(find.descendant(of: find.byKey(const ValueKey('stage-access-Read Only')),
+        matching: find.byIcon(Icons.radio_button_checked)), findsNothing);
     expect(find.descendant(of: find.byKey(const ValueKey('stage-access-Edit')),
-        matching: find.byIcon(Icons.radio_button_checked)), findsOneWidget);
+        matching: find.byIcon(Icons.radio_button_checked)), findsNothing);
+    expect(find.text('این مرحله تنظیم قدیمی «ویرایش محدود» دارد و تا انتخاب شما تغییر نمی‌کند.'),
+        findsOneWidget);
+    // Saving another setting sends the stored value back unchanged, with no
+    // document_access_changed flag.
+    await _tap(tester, find.text('ذخیره'));
+    expect(workflows.saved.single['document_access'], 'Limited Edit');
+    expect(workflows.saved.single.containsKey('document_access_changed'), isFalse);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('an explicit access pick sends the value and the changed flag (PA-066)', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final (workflows, _) = await _open(tester, 'S2');
+    await _tap(tester, find.text('تنظیمات اضافی (اختیاری)'));
+    await _tap(tester, find.byKey(const ValueKey('stage-access-Edit')));
     await _tap(tester, find.text('ذخیره'));
     expect(workflows.saved.single['document_access'], 'Edit');
+    expect(workflows.saved.single['document_access_changed'], isTrue);
     expect(tester.takeException(), isNull);
   });
 

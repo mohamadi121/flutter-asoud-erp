@@ -19,7 +19,12 @@ extension _UserActionSettings on _StageSettingsPageState {
                 leading: Icon(access == mode.$1 ? Icons.radio_button_checked : Icons.radio_button_off,
                     color: AsoudColors.primary, size: 20),
                 title: Text(mode.$2, style: const TextStyle(fontSize: 12)),
-                onTap: saving ? null : () => _updateAction(() => access = mode.$1)),
+                onTap: saving ? null : () => _updateAction(() {
+                  access = mode.$1;
+                  accessChanged = true;
+                })),
+            if (access == 'Limited Edit')
+              _notice('این مرحله تنظیم قدیمی «ویرایش محدود» دارد و تا انتخاب شما تغییر نمی‌کند.'),
             _notice('این انتخاب مجوز جدیدی نمی‌دهد؛ ثبت ارسال‌شدهٔ تغییرناپذیر و سند قفل‌شده قابل ویرایش نیستند.'),
           ],
           const Divider(),
