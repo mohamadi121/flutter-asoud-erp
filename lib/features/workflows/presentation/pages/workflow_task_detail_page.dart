@@ -181,7 +181,11 @@ void _openRequest(BuildContext context, WorkflowTaskDetail detail) {
           child: RequestDetailPage(
               name: detail.requestName,
               repository: repository,
-              readOnly: detail.documentAccess == 'Read Only' || detail.task.status != 'Open' || detail.requiresClaim))));
+              // Editability is the server's `can_edit` (requester only, while
+              // running and un-acted); the stage's document_access no longer
+              // grants edit. Client-side gates stay for a closed task or a
+              // task that still needs claiming.
+              readOnly: detail.task.status != 'Open' || detail.requiresClaim))));
 }
 
 /// The sticky decision bar. Approve is the primary action; Reject and Return

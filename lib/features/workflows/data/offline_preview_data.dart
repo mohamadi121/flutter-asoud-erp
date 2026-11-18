@@ -398,7 +398,7 @@ Future<Map<String, dynamic>> offlineTemplateOptions(String? workflow) async => {
         },
         {
           'key': 'IT',
-          'label': 'IT و تجهیزات',
+          'label': 'فناوری اطلاعات',
           'description': 'تجهیزات و زیرساخت',
           'types': []
         },

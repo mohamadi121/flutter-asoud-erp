@@ -31,7 +31,7 @@ const moduleLabels = <String, String>{
   'Stock': 'انبار',
   'HR': 'منابع انسانی',
   'Admin': 'خدمات اداری',
-  'IT': 'IT و تجهیزات',
+  'IT': 'فناوری اطلاعات',
 };
 
 /// Legacy workflow-definition key -> canonical key. Both old vocabularies stay

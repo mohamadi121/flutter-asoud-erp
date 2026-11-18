@@ -32,7 +32,7 @@ void main() {
       expect(moduleLabel('Stock'), 'انبار');
       expect(moduleLabel('HR'), 'منابع انسانی');
       expect(moduleLabel('Admin'), 'خدمات اداری');
-      expect(moduleLabel('IT'), 'IT و تجهیزات');
+      expect(moduleLabel('IT'), 'فناوری اطلاعات');
     });
 
     test('legacy keys show the canonical Persian label', () {
