@@ -521,6 +521,9 @@ class FrappeWorkflowRepository implements WorkflowRepository, WorkflowStartSetti
               : const {},
         );
       }).toList(growable: false),
+      notice: raw['notice'] is String && (raw['notice'] as String).isNotEmpty
+          ? raw['notice'] as String
+          : null,
     );
   }
 

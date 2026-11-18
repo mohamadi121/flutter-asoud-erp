@@ -221,10 +221,14 @@ class WorkflowDesignerCubit extends Cubit<WorkflowDesignerState> {
         stage: stage.id,
         config: config,
       );
+      // A server notice (for example a legacy-value warning) takes precedence
+      // over the plain confirmation; both go through the same snackbar.
       emit(state.copyWith(
         status: WorkflowDesignerStatus.ready,
         design: updated,
-        message: 'تنظیمات مرحله ذخیره شد.',
+        message: (updated.notice ?? '').isNotEmpty
+            ? updated.notice!
+            : 'تنظیمات مرحله ذخیره شد.',
       ));
       return true;
     } catch (error) {
