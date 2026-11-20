@@ -55,6 +55,7 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
   String function = 'Review';
   String assignmentType = 'Role';
   String accessMode = 'Read Only';
+  bool accessChanged = false;
   String secondary = '';
   bool allowReject = true;
   bool allowReturn = true;
@@ -420,16 +421,17 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
             options: const [
               AsoudSegmentedOption(value: 'Read Only', label: 'فقط مشاهده'),
               AsoudSegmentedOption(value: 'Edit', label: 'مشاهده و ویرایش'),
-              AsoudSegmentedOption(
-                  value: 'Limited Edit', label: 'ویرایش محدود'),
             ],
-            onChanged: (next) => setState(() => accessMode = next),
+            onChanged: (next) => setState(() {
+              accessMode = next;
+              accessChanged = true;
+            }),
           ),
           if (accessMode == 'Limited Edit') ...[
             const SizedBox(height: 8),
             const _Notice(
               text:
-                  'انتخاب فیلدهای مجاز پس از اتصال متادیتای ASOUD ERP فعال می‌شود.',
+                  'این مرحله تنظیم قدیمی «ویرایش محدود» دارد و تا انتخاب شما تغییر نمی‌کند.',
             ),
           ],
         ],
@@ -596,6 +598,7 @@ class _WorkflowStageSettingsPageState extends State<WorkflowStageSettingsPage> {
           'activity_type': function,
           ..._assignment('assignee'),
           'document_access': accessMode,
+          if (accessChanged) 'document_access_changed': true,
           'instructions': details.text.trim(),
           'form_fields': formFields.map((field) => field.toMap()).toList(),
           'allow_reject': allowReject,

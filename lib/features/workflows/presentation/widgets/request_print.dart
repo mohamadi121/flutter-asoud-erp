@@ -22,6 +22,11 @@ String requestActionLabel(String action) => switch (action) {
       'System Action Succeeded' => 'اقدام خودکار',
       'System Action Failed' => 'خطای اقدام خودکار',
       'Condition True' || 'Condition False' => 'بررسی شرط',
+      'Wait Scheduled' => 'شروع انتظار',
+      'Wait Rescheduled' => 'تغییر زمان انتظار',
+      'Wait Completed' => 'پایان انتظار',
+      'Wait Cancelled' => 'لغو انتظار',
+      'Wait Failed' => 'خطای انتظار',
       _ => action,
     };
 

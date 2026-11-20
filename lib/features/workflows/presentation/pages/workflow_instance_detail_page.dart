@@ -96,7 +96,7 @@ class WorkflowInstanceOverviewCard extends StatelessWidget {
               style:
                   const TextStyle(fontSize: 15, fontWeight: FontWeight.w900)),
           const SizedBox(height: 10),
-          _row('وضعیت', _status(item.status)),
+          _row('وضعیت', _status(item)),
           _row(
               'مرحله فعلی',
               item.currentStageTitle.isEmpty
@@ -158,11 +158,16 @@ class _EmptyTimeline extends StatelessWidget {
       );
 }
 
-String _status(String value) => switch (value) {
-      'Running' => 'در حال گردش',
-      'Completed' => 'تکمیل‌شده',
-      'Rejected' => 'ردشده',
-      'Cancelled' => 'لغوشده',
-      'Failed' => 'ناموفق',
-      _ => value,
-    };
+String _status(WorkflowInstanceSummary item) {
+  if (item.status == 'Failed' && item.endOutcome == 'Stopped') {
+    return 'متوقف شد';
+  }
+  return switch (item.status) {
+    'Running' => 'در حال گردش',
+    'Completed' => 'تکمیل‌شده',
+    'Rejected' => 'ردشده',
+    'Cancelled' => 'لغوشده',
+    'Failed' => 'ناموفق',
+    _ => item.status,
+  };
+}

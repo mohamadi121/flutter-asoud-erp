@@ -229,19 +229,23 @@ void main() {
           .dy,
       lessThan(tester.getCenter(find.text('یک مرحله به خودش برمی‌گردد.')).dy),
     );
-    // Tapping the error highlights its stage on the diagram.
-    await tester.tap(find.text(
-        'تنظیمات یا مسیر خروج یکی از مراحل کامل و معتبر نیست.'));
-    await tester.pumpAndSettle();
-    final ring = tester
+    Iterable<Color> borderColors() => tester
         .widgetList<Container>(find.descendant(
             of: find.byKey(const ValueKey('workflow-node-approve')),
             matching: find.byType(Container)))
         .map((node) => node.decoration)
         .whereType<BoxDecoration>()
-        .firstWhere((decoration) => decoration.border != null);
-    expect(ring.border, isA<Border>());
-    expect((ring.border! as Border).top.color, AsoudColors.primary);
+        .map((decoration) => decoration.border)
+        .whereType<Border>()
+        .map((border) => border.top.color);
+    expect(borderColors(), isNot(contains(AsoudColors.primary)));
+    // Tapping the error highlights its stage on the diagram.
+    await tester.tap(find.text(
+        'تنظیمات یا مسیر خروج یکی از مراحل کامل و معتبر نیست.'));
+    await tester.pumpAndSettle();
+    // The node also holds a connect handle with its own border, so look for
+    // the highlight ring among all bordered containers of the node.
+    expect(borderColors(), contains(AsoudColors.primary));
     expect(tester.takeException(), isNull);
   });
 

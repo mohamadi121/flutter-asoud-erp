@@ -16,10 +16,15 @@ extension _UserActionSettings on _StageSettingsPageState {
           if (allowOriginalAccess) ...[
             for (final mode in const [('Read Only', 'فقط مشاهده درخواست'), ('Edit', 'مشاهده و ویرایش درخواست')])
               ListTile(dense: true, contentPadding: EdgeInsets.zero,
-                leading: Icon((access == mode.$1 || (mode.$1 == 'Edit' && access == 'Limited Edit')) ? Icons.radio_button_checked : Icons.radio_button_off,
+                leading: Icon(access == mode.$1 ? Icons.radio_button_checked : Icons.radio_button_off,
                     color: AsoudColors.primary, size: 20),
                 title: Text(mode.$2, style: const TextStyle(fontSize: 12)),
-                onTap: saving ? null : () => _updateAction(() => access = mode.$1)),
+                onTap: saving ? null : () => _updateAction(() {
+                  access = mode.$1;
+                  accessChanged = true;
+                })),
+            if (access == 'Limited Edit')
+              _notice('این مرحله تنظیم قدیمی «ویرایش محدود» دارد و تا انتخاب شما تغییر نمی‌کند.'),
             _notice('این انتخاب مجوز جدیدی نمی‌دهد؛ ثبت ارسال‌شدهٔ تغییرناپذیر و سند قفل‌شده قابل ویرایش نیستند.'),
           ],
           const Divider(),
@@ -163,8 +168,8 @@ extension _UserActionSettings on _StageSettingsPageState {
     if (resultMode == 'Form' && !addActionAttachments && formMaps(resultSchema['sections'])
         .expand((section) => formMaps(section['fields']))
         .expand((field) => [field, ...formMaps(field['columns'])])
-        .any((field) => field['required'] == true && {'File', 'Image', 'Signature'}.contains(field['type']))) {
-      return 'فرم پیوست الزامی دارد؛ امکان افزودن پیوست را روشن کنید.';
+        .any((field) => {'File', 'Image', 'Signature'}.contains(field['type']))) {
+      return 'فرم دارای فیلد پیوست است؛ امکان افزودن پیوست را روشن کنید.';
     }
     if (ownerMode == 'role') {
       if (!roles.contains(role) ||

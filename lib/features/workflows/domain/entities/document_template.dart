@@ -2,6 +2,8 @@
 /// automatic action. Mirrors `asoud_erp.api.v1.document_templates`.
 library;
 
+import '../../../../core/utils/module_vocabulary.dart';
+
 Map<String, dynamic> _map(Object? value) =>
     value is Map ? Map<String, dynamic>.from(value) : const {};
 List<Map<String, dynamic>> _rows(Object? value) => value is List
@@ -45,7 +47,7 @@ class DocumentModule {
       this.description = '',
       this.types = const []});
   factory DocumentModule.fromJson(Map<String, dynamic> json) => DocumentModule(
-      key: _text(json['key']),
+      key: normalizeModuleKey(_text(json['key'])) ?? _text(json['key']),
       label: _text(json['label']),
       description: _text(json['description']),
       types: _rows(json['types']).map(DocumentTypeOption.fromJson).toList());
@@ -162,7 +164,7 @@ class DocumentTemplate {
       DocumentTemplate(
         name: _text(json['name']),
         title: _text(json['title']),
-        module: _text(json['module']),
+        module: normalizeModuleKey(_text(json['module'])) ?? _text(json['module']),
         documentType: _text(json['document_type']),
         description: _text(json['description']),
         mapping: {

@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 
 import 'package:asoud_erp/core/theme/asoud_theme.dart';
 import 'package:asoud_erp/core/network/frappe_client.dart';
+import 'package:asoud_erp/features/workflows/domain/entities/workflow_definition.dart';
 import 'package:asoud_erp/features/workflows/domain/entities/workflow_start_settings.dart';
 import 'package:asoud_erp/features/workflows/domain/repositories/workflow_repository.dart';
 import 'package:asoud_erp/features/workflows/presentation/pages/workflow_form_page.dart';
@@ -19,6 +20,18 @@ import 'workflow_start_settings_test.dart' as fixtures;
 class _PreviewClient extends Fake implements FrappeApiClient {
   @override
   bool get isAuthenticated => false;
+}
+
+class _TwoModuleRepository extends fixtures.Repository {
+  @override
+  Future<WorkflowFormOptions> getFormOptions() async =>
+      const WorkflowFormOptions(
+          companies: ['company'],
+          roles: ['System Manager', 'Employee'],
+          modules: [
+            WorkflowModuleOption(key: 'HR', doctypes: []),
+            WorkflowModuleOption(key: 'Purchase', doctypes: []),
+          ]);
 }
 
 Future<void> capture(WidgetTester tester, String name) async {
@@ -120,10 +133,10 @@ void main() {
       await tester.scrollUntilVisible(find.text('۴. ثبت سوابق آغاز گردش کار'), 160,
         scrollable: scroll);
       await capture(tester, 'workflow-start-additional-bottom-${width.toInt()}');
-      await tester.scrollUntilVisible(find.text('تأیید تنظیمات اضافی'), 120, scrollable: scroll);
-      await tester.ensureVisible(find.text('تأیید تنظیمات اضافی'));
+      await tester.scrollUntilVisible(find.text('تنظیمات اضافی (اختیاری)'), 120, scrollable: scroll);
+      await tester.ensureVisible(find.text('تنظیمات اضافی (اختیاری)'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('تأیید تنظیمات اضافی').hitTestable());
+      await tester.tap(find.text('تنظیمات اضافی (اختیاری)').hitTestable());
       await tester.pumpAndSettle();
       expect(find.byType(WorkflowStartAdditionalFields), findsNothing);
       expect(find.text('نقش‌های مجاز شروع دستی'), findsOneWidget);
@@ -131,6 +144,29 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     });
   }
+  testWidgets('the workflow module is chosen explicitly, independent of the form', (tester) async {
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    SharedPreferences.setMockInitialValues({});
+    await tester.pumpWidget(RepositoryProvider<FrappeApiClient>.value(value: _PreviewClient(),
+      child: RepositoryProvider<WorkflowRepository>.value(value: _TwoModuleRepository(),
+        child: MaterialApp(theme: AsoudTheme.light, home: const WorkflowFormPage()))));
+    await tester.pumpAndSettle();
+    final module = find.byKey(const ValueKey('workflow-module'));
+    expect(module, findsOneWidget);
+    // Defaults to the first server module (HR).
+    expect(find.text('منابع انسانی'), findsOneWidget);
+    await tester.tap(module.hitTestable());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('خرید').last);
+    await tester.pumpAndSettle();
+    // The explicit choice is shown in the module field.
+    expect(find.text('خرید'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   test('switching modes cannot send a stale form as a manual trigger', () {
     const source =
         WorkflowStartSettings(source: {'form': 'form', 'revision': 'revision'});

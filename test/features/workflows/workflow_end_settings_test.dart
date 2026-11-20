@@ -66,6 +66,16 @@ void main() {
     }
   }
 
+  testWidgets('a two-character end title is rejected with the shared 3-140 rule', (tester) async {
+    final repository = await open(tester);
+    await tester.enterText(find.byType(TextFormField).first, 'پا');
+    await tester.tap(find.text('ذخیره تنظیمات پایان'));
+    await tester.pumpAndSettle();
+    expect(find.text('عنوان باید بین ۳ تا ۱۴۰ نویسه باشد.'), findsOneWidget);
+    expect(repository.saved, isNull);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('cancel does not save unconfirmed title or message', (tester) async {
     final repository = await open(tester);
     await tester.enterText(find.byType(TextFormField).first, 'تغییر تأییدنشده');

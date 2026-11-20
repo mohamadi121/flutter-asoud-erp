@@ -7,6 +7,25 @@ import '../../../../core/utils/persian_server_values.dart';
 import '../../domain/entities/workflow_definition.dart';
 import 'workflow_graph_geometry.dart';
 
+/// True when a node placed at [candidate] (of [nodeSize]) would cover any
+/// other node in [positions]. The moving node itself is ignored.
+///
+/// Keeping this pure makes the collision rule unit-testable and shared by the
+/// drag handler, so a node can never be dropped on top of another.
+bool nodeOverlaps(
+  Offset candidate,
+  String movingId,
+  Map<String, Offset> positions, {
+  Size nodeSize = const Size(190, 118),
+}) {
+  final moving = candidate & nodeSize;
+  for (final entry in positions.entries) {
+    if (entry.key == movingId) continue;
+    if (moving.overlaps(entry.value & nodeSize)) return true;
+  }
+  return false;
+}
+
 class WorkflowGraphCanvas extends StatefulWidget {
   const WorkflowGraphCanvas({
     required this.design,
@@ -27,7 +46,9 @@ class WorkflowGraphCanvas extends StatefulWidget {
   final void Function(String id, double x, double y) onMoveStage;
   final VoidCallback onMoveEnd;
   final ValueChanged<WorkflowTransition> onInsertOnTransition;
-  final ValueChanged<WorkflowStage>? onCreateTransition;
+  /// Called when the user drags from one node's handle onto another node,
+  /// passing the source and the target so a new route can be saved.
+  final void Function(WorkflowStage from, WorkflowStage to)? onCreateTransition;
   final ValueChanged<WorkflowTransition>? onRemoveTransition;
 
   static const nodeSize = Size(190, 118);
@@ -39,6 +60,9 @@ class WorkflowGraphCanvas extends StatefulWidget {
 class _WorkflowGraphCanvasState extends State<WorkflowGraphCanvas> {
   final _controller = TransformationController();
   double? _appliedScale;
+  final _stackKey = GlobalKey();
+  WorkflowStage? _connectFrom;
+  Offset? _connectPointer;
 
   @override
   void dispose() {
@@ -51,6 +75,47 @@ class _WorkflowGraphCanvasState extends State<WorkflowGraphCanvas> {
       return Offset(stage.positionX, stage.positionY);
     }
     return Offset(155, 40 + (stage.sequence * 175));
+  }
+
+  /// Convert a global pointer position into the canvas's own coordinate space
+  /// (the space the node positions live in), so a drop can be hit-tested.
+  Offset? _toStack(Offset global) {
+    final box = _stackKey.currentContext?.findRenderObject();
+    if (box is! RenderBox) return null;
+    return box.globalToLocal(global);
+  }
+
+  void _connectStart(WorkflowStage stage, Offset global) {
+    if (widget.onCreateTransition == null) return;
+    setState(() {
+      _connectFrom = stage;
+      _connectPointer = _toStack(global);
+    });
+  }
+
+  void _connectMove(Offset global) {
+    if (_connectFrom == null) return;
+    setState(() => _connectPointer = _toStack(global));
+  }
+
+  void _connectEnd(Offset global) {
+    final from = _connectFrom;
+    final local = _toStack(global);
+    setState(() {
+      _connectFrom = null;
+      _connectPointer = null;
+    });
+    if (from == null || local == null || widget.onCreateTransition == null) return;
+    final positions = {
+      for (final stage in widget.design.stages) stage.id: _position(stage),
+    };
+    for (final stage in widget.design.stages) {
+      if (stage.id == from.id) continue;
+      if ((positions[stage.id]! & WorkflowGraphCanvas.nodeSize).contains(local)) {
+        widget.onCreateTransition?.call(from, stage);
+        return;
+      }
+    }
   }
 
   @override
@@ -81,6 +146,7 @@ class _WorkflowGraphCanvasState extends State<WorkflowGraphCanvas> {
           width: maxX,
           height: maxY,
           child: Stack(
+            key: _stackKey,
             clipBehavior: Clip.none,
             children: [
               Positioned.fill(
@@ -138,11 +204,24 @@ class _WorkflowGraphCanvasState extends State<WorkflowGraphCanvas> {
                     key: ValueKey('workflow-node-${stage.id}'),
                     onPanUpdate: (details) {
                       final current = positions[stage.id]!;
-                      widget.onMoveStage(
-                        stage.id,
-                        math.max(0, current.dx + details.delta.dx),
-                        math.max(0, current.dy + details.delta.dy),
-                      );
+                      double x = math.max(0, current.dx + details.delta.dx);
+                      double y = math.max(0, current.dy + details.delta.dy);
+                      // A step that would cover another node is rejected, so the
+                      // node stops at the boundary instead of hiding under it.
+                      if (nodeOverlaps(Offset(x, y), stage.id, positions,
+                          nodeSize: WorkflowGraphCanvas.nodeSize)) {
+                        if (nodeOverlaps(
+                            Offset(current.dx, y), stage.id, positions,
+                            nodeSize: WorkflowGraphCanvas.nodeSize)) {
+                          y = current.dy;
+                        }
+                        if (nodeOverlaps(
+                            Offset(x, current.dy), stage.id, positions,
+                            nodeSize: WorkflowGraphCanvas.nodeSize)) {
+                          x = current.dx;
+                        }
+                      }
+                      widget.onMoveStage(stage.id, x, y);
                     },
                     onPanEnd: (_) => widget.onMoveEnd(),
                     child: Container(
@@ -155,7 +234,27 @@ class _WorkflowGraphCanvasState extends State<WorkflowGraphCanvas> {
                           .where((edge) => edge.fromStage == stage.id)
                           .toList(growable: false),
                       onTap: () => widget.onOpenStage(stage),
+                      onConnectStart: widget.onCreateTransition == null
+                          ? null
+                          : (global) => _connectStart(stage, global),
+                      onConnectMove: widget.onCreateTransition == null
+                          ? null
+                          : _connectMove,
+                      onConnectEnd: widget.onCreateTransition == null
+                          ? null
+                          : _connectEnd,
                       ),
+                    ),
+                  ),
+                ),
+              if (_connectFrom != null && _connectPointer != null)
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: _ConnectLinePainter(
+                      from: _position(_connectFrom!) +
+                          Offset(WorkflowGraphCanvas.nodeSize.width / 2,
+                              WorkflowGraphCanvas.nodeSize.height / 2),
+                      to: _connectPointer!,
                     ),
                   ),
                 ),
@@ -167,16 +266,44 @@ class _WorkflowGraphCanvasState extends State<WorkflowGraphCanvas> {
   }
 }
 
+class _ConnectLinePainter extends CustomPainter {
+  const _ConnectLinePainter({required this.from, required this.to});
+  final Offset from, to;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final line = Paint()
+      ..color = AsoudColors.primary.withValues(alpha: .8)
+      ..strokeWidth = 2.5
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(from, to, line);
+    canvas.drawCircle(to, 5, Paint()..color = AsoudColors.primary);
+  }
+
+  @override
+  bool shouldRepaint(covariant _ConnectLinePainter old) =>
+      old.from != from || old.to != to;
+}
+
 class _GraphNode extends StatelessWidget {
   const _GraphNode({
     required this.stage,
     required this.outgoing,
     required this.onTap,
+    this.onConnectStart,
+    this.onConnectMove,
+    this.onConnectEnd,
   });
 
   final WorkflowStage stage;
   final List<WorkflowTransition> outgoing;
   final VoidCallback onTap;
+  /// When non-null the node shows a small handle the user can drag onto
+  /// another node to draw a new route.
+  final void Function(Offset global)? onConnectStart;
+  final void Function(Offset global)? onConnectMove;
+  final void Function(Offset global)? onConnectEnd;
 
   @override
   Widget build(BuildContext context) {
@@ -229,6 +356,32 @@ class _GraphNode extends StatelessWidget {
                 outgoing.map((e) => '${persianTransitionLabel(e.label)} ←').join('  '),
                 maxLines: 1, overflow: TextOverflow.ellipsis,
                 style: TextStyle(fontSize: 10, color: visual.color))),
+            ),
+          if (onConnectStart != null && stage.type != WorkflowStageType.end)
+            Positioned(
+              right: -9,
+              top: WorkflowGraphCanvas.nodeSize.height / 2 - 12,
+              child: GestureDetector(
+                key: ValueKey('workflow-connect-handle-${stage.id}'),
+                behavior: HitTestBehavior.opaque,
+                onPanStart: (details) => onConnectStart!(details.globalPosition),
+                onPanUpdate: (details) => onConnectMove?.call(details.globalPosition),
+                onPanEnd: (details) => onConnectEnd?.call(details.globalPosition),
+                child: Tooltip(
+                  message: 'کشیدن به گرهٔ دیگر برای اتصال',
+                  child: Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: visual.color, width: 1.6),
+                    ),
+                    child: Icon(Icons.route_rounded,
+                        size: 14, color: visual.color),
+                  ),
+                ),
+              ),
             ),
         ]),
       ),

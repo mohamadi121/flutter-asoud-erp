@@ -37,7 +37,7 @@ Widget app(WorkflowDesign design,
         {ValueChanged<WorkflowStage>? open,
         ValueChanged<WorkflowTransition>? insert,
         ValueChanged<WorkflowTransition>? remove,
-        ValueChanged<WorkflowStage>? connect,
+        void Function(WorkflowStage, WorkflowStage)? connect,
         void Function(String, double, double)? move,
         VoidCallback? moved}) =>
     MaterialApp(
@@ -53,9 +53,25 @@ Widget app(WorkflowDesign design,
                 onMoveEnd: moved ?? () {},
                 onInsertOnTransition: insert ?? (_) {},
                 onRemoveTransition: remove,
-                onCreateTransition: connect ?? (_) {})));
+                onCreateTransition: connect)));
 
 void main() {
+  test('nodeOverlaps flags a drop that covers another node', () {
+    const size = Size(190, 118);
+    final positions = {
+      'a': Offset(0, 0),
+      'b': Offset(400, 0),
+    };
+    // Directly on top of 'a'.
+    expect(nodeOverlaps(Offset(10, 10), 'b', positions, nodeSize: size), isTrue);
+    // Touching the edge is not an overlap.
+    expect(nodeOverlaps(Offset(190, 0), 'b', positions, nodeSize: size), isFalse);
+    // The moving node never collides with itself.
+    expect(nodeOverlaps(Offset(0, 0), 'a', positions, nodeSize: size), isFalse);
+    // Far away from both.
+    expect(nodeOverlaps(Offset(800, 800), 'b', positions, nodeSize: size), isFalse);
+  });
+
   setUpAll(() async {
     await (FontLoader('Vazirmatn')
           ..addFont(rootBundle.load('assets/fonts/Vazirmatn-Regular.ttf')))
@@ -88,16 +104,15 @@ void main() {
         final saved = node(type, title: 'بررسی و ثبت اطلاعات درخواست');
         final design = WorkflowDesign(
             workflow: _workflow, stages: [saved], transitions: const []);
-        WorkflowStage? opened, connected;
+        WorkflowStage? opened;
         await tester.pumpWidget(app(design,
-            open: (stage) => opened = stage,
-            connect: (stage) => connected = stage));
+            open: (stage) => opened = stage));
         await tester.pumpAndSettle();
         await tester.tap(find.text(saved.title));
         await tester.pumpAndSettle();
         expect(opened, same(saved));
+        // No connect callback is wired in this case, so the handle is hidden.
         expect(find.byIcon(Icons.add_link_rounded), findsNothing);
-        expect(connected, isNull);
         expect(design.stages.single, same(saved));
         expect(design.transitions, isEmpty);
         expect(tester.takeException(), isNull);
@@ -165,6 +180,109 @@ void main() {
     expect(committed, isTrue);
     expect(task.positionX, 30);
     expect(task.positionY, 30);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('dragging from a node handle onto another node creates a route',
+      (tester) async {
+    final from = node(WorkflowStageType.userTask, title: 'مرحله مبدأ', x: 30, y: 30);
+    final to = node(WorkflowStageType.approval, title: 'مرحله مقصد', x: 30, y: 300);
+    final design = WorkflowDesign(
+        workflow: _workflow, stages: [from, to], transitions: const []);
+    (WorkflowStage, WorkflowStage)? created;
+    await tester.pumpWidget(app(design,
+        connect: (a, b) => created = (a, b)));
+    await tester.pumpAndSettle();
+
+    // The source node shows a connect handle; the target (approval) does too.
+    expect(find.byKey(ValueKey('workflow-connect-handle-${from.id}')), findsOneWidget);
+    expect(find.byKey(ValueKey('workflow-connect-handle-${to.id}')), findsOneWidget);
+
+    // Drag from the source handle onto the target node.
+    final handle = find.byKey(ValueKey('workflow-connect-handle-${from.id}'));
+    final targetCenter = tester.getCenter(find.text(to.title));
+    final start = tester.getCenter(handle);
+    await tester.timedDrag(
+        handle, targetCenter - start, const Duration(milliseconds: 400));
+    await tester.pumpAndSettle();
+
+    expect(created, isNotNull);
+    expect(created!.$1, same(from));
+    expect(created!.$2, same(to));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('dropping the connect handle on empty space creates no route',
+      (tester) async {
+    final from = node(WorkflowStageType.userTask, title: 'مرحله مبدأ', x: 30, y: 30);
+    final to = node(WorkflowStageType.approval, title: 'مرحله مقصد', x: 30, y: 300);
+    final design = WorkflowDesign(
+        workflow: _workflow, stages: [from, to], transitions: const []);
+    var created = 0;
+    await tester.pumpWidget(app(design, connect: (_, __) => created++));
+    await tester.pumpAndSettle();
+
+    final handle = find.byKey(ValueKey('workflow-connect-handle-${from.id}'));
+    // Drop far to the right, away from any node.
+    await tester.timedDrag(
+        handle, const Offset(900, 0), const Duration(milliseconds: 400));
+    await tester.pumpAndSettle();
+
+    expect(created, 0);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('end node has no connect handle', (tester) async {
+    final end = node(WorkflowStageType.end, title: 'پایان', x: 30, y: 30);
+    final design = WorkflowDesign(
+        workflow: _workflow, stages: [end], transitions: const []);
+    await tester.pumpWidget(app(design, connect: (_, __) {}));
+    await tester.pumpAndSettle();
+    expect(find.byKey(ValueKey('workflow-connect-handle-${end.id}')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('dragging a node onto another stops at the boundary, never covering it',
+      (tester) async {
+    final a = node(WorkflowStageType.start, x: 30, y: 30);
+    final b = node(WorkflowStageType.userTask, x: 500, y: 30);
+    final design = WorkflowDesign(
+        workflow: _workflow, stages: [a, b], transitions: const []);
+    final moves = <(String, double, double)>[];
+    // Mirror the real designer: each committed move rebuilds the canvas so the
+    // next pan delta is measured from the new position.
+    await tester.pumpWidget(MaterialApp(
+        debugShowCheckedModeBanner: false,
+        theme: AsoudTheme.light,
+        builder: (_, child) =>
+            Directionality(textDirection: TextDirection.rtl, child: child!),
+        home: StatefulBuilder(builder: (context, setState) => Scaffold(
+            body: WorkflowGraphCanvas(
+                design: design,
+                onOpenStage: (_) {},
+                onMoveStage: (id, x, y) {
+                  moves.add((id, x, y));
+                  for (var i = 0; i < design.stages.length; i++) {
+                    if (design.stages[i].id == id) {
+                      design.stages[i] = design.stages[i]
+                          .copyWith(positionX: x, positionY: y);
+                    }
+                  }
+                  setState(() {});
+                },
+                onMoveEnd: () {},
+                onInsertOnTransition: (_) {})))));
+    await tester.pumpAndSettle();
+    // Drag 'b' far left, straight onto 'a'.
+    await tester.timedDrag(find.text(b.title), const Offset(-470, 0),
+        const Duration(milliseconds: 400));
+    await tester.pumpAndSettle();
+    // The last committed position of 'b' must not cover 'a'.
+    final lastB = moves.lastWhere((m) => m.$1 == b.id);
+    final bRect = Offset(lastB.$2, lastB.$3) & WorkflowGraphCanvas.nodeSize;
+    final aRect = Offset(a.positionX, a.positionY) & WorkflowGraphCanvas.nodeSize;
+    expect(bRect.overlaps(aRect), isFalse,
+        reason: 'b must stop before covering a');
     expect(tester.takeException(), isNull);
   });
 

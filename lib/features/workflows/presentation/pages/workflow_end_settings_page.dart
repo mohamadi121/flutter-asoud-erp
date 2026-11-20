@@ -104,9 +104,12 @@ class _WorkflowEndSettingsPageState extends State<WorkflowEndSettingsPage> {
                   controller: title,
                   enabled: !saving,
                   decoration: const InputDecoration(labelText: 'عنوان مرحله *'),
-                  validator: (value) => (value ?? '').trim().length < 2
-                      ? 'عنوان مرحله را وارد کنید.'
-                      : null,
+                  validator: (value) {
+                    final t = (value ?? '').trim();
+                    return t.length < 3 || t.length > 140
+                        ? 'عنوان باید بین ۳ تا ۱۴۰ نویسه باشد.'
+                        : null;
+                  },
                 ),
                 const SizedBox(height: 20),
                 DropdownButtonFormField<String>(

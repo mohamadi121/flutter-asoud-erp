@@ -268,14 +268,20 @@ class WorkflowDesign extends Equatable {
       {required this.workflow,
       required this.stages,
       required this.transitions,
-      this.detailsSummary});
+      this.detailsSummary,
+      this.notice});
   final WorkflowDefinition workflow;
   final List<WorkflowStage> stages;
   final List<WorkflowTransition> transitions;
   final WorkflowDetailsSummary? detailsSummary;
 
+  /// An optional Persian notice the server returns with a save (for example,
+  /// a legacy-value warning). Shown through the existing snackbar pattern.
+  final String? notice;
+
   @override
-  List<Object?> get props => [workflow, stages, transitions, detailsSummary];
+  List<Object?> get props =>
+      [workflow, stages, transitions, detailsSummary, notice];
 }
 
 class WorkflowDetailsSummary extends Equatable {

@@ -764,7 +764,8 @@ class _RequestDetailScaffoldState extends State<RequestDetailScaffold> {
                             : activity.labels[key] ?? 'مقدار',
                     format: view.format),
                 done: !activity.action.contains('Failed') &&
-                    activity.action != 'Reject'),
+                    activity.action != 'Reject' &&
+                    activity.action != 'Wait Cancelled'),
         ]),
       ];
 

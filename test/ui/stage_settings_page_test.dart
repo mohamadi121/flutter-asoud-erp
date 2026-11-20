@@ -1,4 +1,5 @@
 import 'package:asoud_erp/core/theme/asoud_theme.dart';
+import 'package:asoud_erp/core/widgets/asoud_ui.dart';
 import 'package:asoud_erp/core/network/frappe_client.dart';
 import 'package:asoud_erp/features/form_builder/form_runtime/form_fields_view.dart';
 import 'package:asoud_erp/features/workflows/data/workflow_automation_repository.dart';
@@ -11,6 +12,7 @@ import 'package:asoud_erp/features/workflows/presentation/widgets/document_templ
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 WorkflowStage _stage(String id, WorkflowStageType type, String title, int seq,
         [Map<String, dynamic> config = const {}]) =>
@@ -108,6 +110,9 @@ class _FormClient extends Fake implements FrappeApiClient {
   @override
   Future<Map<String, dynamic>> callMethod(String method, {Map<String, dynamic>? data}) async {
     calls.add({'method': method, ...?data});
+    if (method.endsWith('list_forms')) {
+      return {'message': {'ok': true, 'meta': {'api_version': 'v1'}, 'data': <Map<String, dynamic>>[]}};
+    }
     expect(method, 'asoud_erp.api.v1.forms.get_form');
     return {'message': {'ok': true, 'meta': {'api_version': 'v1'}, 'data': {
       'schema': {'kind': 'Request', 'title': 'درخواست مرخصی', 'sections': [
@@ -218,7 +223,9 @@ Future<void> _choose(WidgetTester tester, String label, String option) async {
       find.descendant(
           of: dropdown,
           matching: find.byType(DropdownButtonFormField<String>)));
-  await tester.tap(find.text(option).last);
+  // Destination items now carry the stage type and step (PA-058), so match
+  // by the title prefix rather than the exact text.
+  await tester.tap(find.textContaining(option).last);
   await tester.pumpAndSettle();
 }
 
@@ -360,6 +367,60 @@ void main() {
     final tile = tester.widget<SwitchListTile>(find.widgetWithText(SwitchListTile, 'الزام توضیح هنگام تأیید'));
     expect(tile.value, isTrue);
   });
+  testWidgets('approval access hides the unimplemented Limited Edit option (PA-066)', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await _open(tester, 'S2');
+    await _tap(tester, find.text('تنظیمات اضافی (اختیاری)'));
+    // The backend has no field-level contract for Limited Edit, so the option
+    // is not offered; only Read Only and Edit remain.
+    expect(find.byKey(const ValueKey('stage-access-Limited Edit')), findsNothing);
+    expect(find.text('مشاهده و ویرایش مجاز'), findsNothing);
+    expect(find.byKey(const ValueKey('stage-access-Read Only')), findsOneWidget);
+    expect(find.byKey(const ValueKey('stage-access-Edit')), findsOneWidget);
+    // Default access is Read Only, so that radio is the checked one.
+    expect(find.descendant(of: find.byKey(const ValueKey('stage-access-Read Only')),
+        matching: find.byIcon(Icons.radio_button_checked)), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('legacy Limited Edit stage keeps its value and shows a notice (PA-066)', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final design = WorkflowDesign(workflow: _design.workflow, transitions: _design.transitions,
+      stages: [for (final stage in _design.stages) stage.id == 'S2'
+        ? stage.copyWith(config: {...stage.config, 'document_access': 'Limited Edit'}) : stage]);
+    final (workflows, _) = await _open(tester, 'S2', designOverride: design);
+    await _tap(tester, find.text('تنظیمات اضافی (اختیاری)'));
+    // The legacy value is not converted and not offered: no radio is selected
+    // and a notice line explains the stored value stays until the user picks.
+    expect(find.byKey(const ValueKey('stage-access-Limited Edit')), findsNothing);
+    expect(find.descendant(of: find.byKey(const ValueKey('stage-access-Read Only')),
+        matching: find.byIcon(Icons.radio_button_checked)), findsNothing);
+    expect(find.descendant(of: find.byKey(const ValueKey('stage-access-Edit')),
+        matching: find.byIcon(Icons.radio_button_checked)), findsNothing);
+    expect(find.text('این مرحله تنظیم قدیمی «ویرایش محدود» دارد و تا انتخاب شما تغییر نمی‌کند.'),
+        findsOneWidget);
+    // Saving another setting sends the stored value back unchanged, with no
+    // document_access_changed flag.
+    await _tap(tester, find.text('ذخیره'));
+    expect(workflows.saved.single['document_access'], 'Limited Edit');
+    expect(workflows.saved.single.containsKey('document_access_changed'), isFalse);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('an explicit access pick sends the value and the changed flag (PA-066)', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final (workflows, _) = await _open(tester, 'S2');
+    await _tap(tester, find.text('تنظیمات اضافی (اختیاری)'));
+    await _tap(tester, find.byKey(const ValueKey('stage-access-Edit')));
+    await _tap(tester, find.text('ذخیره'));
+    expect(workflows.saved.single['document_access'], 'Edit');
+    expect(workflows.saved.single['document_access_changed'], isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('unrelated approval edits retain every previously saved role', (tester) async {
     final design = WorkflowDesign(workflow: _design.workflow, transitions: _design.transitions,
       stages: [for (final stage in _design.stages) stage.id == 'S2'
@@ -431,6 +492,17 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('saving the approval form does not re-send a canvas-drawn Approve route', (tester) async {
+    // T3 draws the Approve route S2 -> S3 on the canvas.
+    final (workflows, automation) = await _open(tester, 'S2');
+    await _tap(tester, find.text('ذخیره'));
+    // The Approve route was not changed, so it must not be sent for
+    // delete-and-recreate; the canvas-drawn transition survives the save.
+    expect(automation.routes, isEmpty);
+    expect(workflows.saved, isNotEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('unrelated approval edit preserves an already-disabled stored route', (tester) async {
     final design = WorkflowDesign(workflow: _design.workflow,
         stages: [for (final stage in _design.stages) stage.id == 'S2'
@@ -466,6 +538,120 @@ void main() {
     final (workflows, _) = await _open(tester, 'S2', designOverride: design);
     await _tap(tester, find.text('ذخیره'));
     expect(workflows.saved.single['approval_mode'], 'All');
+  });
+
+  // --- decision mode (approval_mode): هر یک / همه / اکثریت (PA-067) ---
+
+  /// The decision-mode segmented control, identified by its «هر یک» option so
+  /// it is not confused with the owner / person segmented controls.
+  AsoudSegmentedControl<String> decisionMode(WidgetTester tester) {
+    for (final element in find.byType(AsoudSegmentedControl<String>).evaluate()) {
+      final control = element.widget as AsoudSegmentedControl<String>;
+      if (control.options.any((o) => o.label == 'هر یک از تأییدکنندگان')) {
+        return control;
+      }
+    }
+    throw StateError('decision-mode control not found');
+  }
+
+  WorkflowDesign designWithS2(Map<String, dynamic> config) => WorkflowDesign(
+        workflow: _design.workflow,
+        stages: [
+          for (final stage in _design.stages)
+            stage.id == 'S2'
+                ? _stage('S2', WorkflowStageType.approval, 'تأیید مدیر مستقیم',
+                    3, config)
+                : stage
+        ],
+        transitions: _design.transitions,
+      );
+
+  /// The decision mode lives inside the «تنظیمات اضافی» expansion, so open it.
+  Future<void> openExtra(WidgetTester tester) async {
+    await _tap(tester, find.text('تنظیمات اضافی (اختیاری)'));
+  }
+
+  testWidgets('a single-approver approval hides the decision mode',
+      (tester) async {
+    // Direct Manager resolves to one approver, so the mode is not shown.
+    final (workflows, _) = await _open(tester, 'S2');
+    await openExtra(tester);
+    expect(find.text('حالت رأی‌گیری'), findsNothing);
+    expect(find.text('هر یک از تأییدکنندگان'), findsNothing);
+    expect(find.text('اکثریت تأییدکنندگان'), findsNothing);
+    // The old always-shown control (with its old label) is gone too.
+    expect(find.text('تأیید یک نفر کافی است'), findsNothing);
+    await _tap(tester, find.text('ذخیره'));
+    expect(workflows.saved.single['approval_mode'], 'Any');
+  });
+
+  testWidgets('a multi-approver approval shows the three decision modes and keeps its value',
+      (tester) async {
+    final design = designWithS2({
+      'assignment_type': 'Role',
+      'approver_roles': ['Purchase Manager'],
+      'approval_mode': 'Any',
+    });
+    final (workflows, _) = await _open(tester, 'S2', designOverride: design);
+    await openExtra(tester);
+    await _scrollToFinder(tester, find.text('حالت رأی‌گیری'));
+    expect(find.text('هر یک از تأییدکنندگان'), findsOneWidget);
+    expect(find.text('همهٔ تأییدکنندگان'), findsOneWidget);
+    expect(find.text('اکثریت تأییدکنندگان'), findsOneWidget);
+    // The saved value is kept.
+    expect(decisionMode(tester).value, 'Any');
+    await _tap(tester, find.text('ذخیره'));
+    expect(workflows.saved.single['approval_mode'], 'Any');
+  });
+
+  for (final width in [320.0, 390.0]) {
+    testWidgets('the decision mode fits without overflow at $width',
+        (tester) async {
+      await tester.binding.setSurfaceSize(Size(width, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final design = designWithS2({
+        'assignment_type': 'Role',
+        'approver_roles': ['Purchase Manager'],
+        'approval_mode': 'Majority',
+      });
+      await _open(tester, 'S2', designOverride: design);
+      await openExtra(tester);
+      await _scrollToFinder(tester, find.text('حالت رأی‌گیری'));
+      expect(find.text('هر یک از تأییدکنندگان'), findsOneWidget);
+      expect(find.text('همهٔ تأییدکنندگان'), findsOneWidget);
+      expect(find.text('اکثریت تأییدکنندگان'), findsOneWidget);
+      expect(decisionMode(tester).value, 'Majority');
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('a multi-approver approval without a saved mode shows همه and saves All',
+      (tester) async {
+    final design = designWithS2({
+      'assignment_type': 'Role',
+      'approver_roles': ['Purchase Manager'],
+    });
+    final (workflows, _) = await _open(tester, 'S2', designOverride: design);
+    await openExtra(tester);
+    await _scrollToFinder(tester, find.text('حالت رأی‌گیری'));
+    // A missing value shows «همه» (All), matching the server default.
+    expect(decisionMode(tester).value, 'All');
+    await _tap(tester, find.text('ذخیره'));
+    expect(workflows.saved.single['approval_mode'], 'All');
+  });
+
+  testWidgets('selecting majority saves Majority', (tester) async {
+    final design = designWithS2({
+      'assignment_type': 'Role',
+      'approver_roles': ['Purchase Manager'],
+      'approval_mode': 'Any',
+    });
+    final (workflows, _) = await _open(tester, 'S2', designOverride: design);
+    await openExtra(tester);
+    await _scrollToFinder(tester, find.text('حالت رأی‌گیری'));
+    await _tap(tester, find.text('اکثریت تأییدکنندگان'));
+    await _tap(tester, find.text('ذخیره'));
+    expect(workflows.saved.single['approval_mode'], 'Majority');
   });
 
   for (final confirm in [false, true]) {
@@ -521,6 +707,35 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets('a form with an optional attachment field blocks saving while attachments are off', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    SharedPreferences.setMockInitialValues({});
+    final design = WorkflowDesign(workflow: _design.workflow, transitions: _design.transitions,
+      stages: [for (final stage in _design.stages)
+        stage.id == 'S1'
+            ? stage.copyWith(config: {
+                'result_mode': 'Form',
+                'result_form': {'form': 'form-1', 'revision': 'rev-1'},
+                'result_schema': {
+                  'kind': 'Stage',
+                  'sections': [
+                    {'id': 'main', 'fields': [
+                      {'key': 'note', 'label': 'شرح', 'type': 'Text'},
+                      {'key': 'proof', 'label': 'سند', 'type': 'File', 'required': false},
+                    ]}
+                  ]
+                },
+                'allow_add_attachments': false,
+              })
+            : stage]);
+    final (workflows, _) = await _open(tester, 'S1', designOverride: design);
+    await _tap(tester, find.text('ذخیره'));
+    expect(workflows.saved, isEmpty);
+    expect(find.textContaining('فرم دارای فیلد پیوست است'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
   for (final width in [320.0, 390.0]) {
     testWidgets('approval stage saves decisions and a reject route at $width',
         (tester) async {
@@ -626,5 +841,65 @@ void main() {
     await _tap(tester, find.text('ذخیره'));
     expect(workflows.saved.single['request_status'], 'تأیید شده');
     expect(automation.routes, isEmpty);
+  });
+
+  testWidgets('approval deadline exposes reminder and escalation controls and saves them (PA-053)', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final (workflows, _) = await _open(tester, 'S2');
+    await _tap(tester, find.text('مهلت دارد'));
+    await tester.enterText(find.byKey(const ValueKey('stage-deadline-value')), '۲');
+    await tester.enterText(find.byKey(const ValueKey('stage-deadline-reminder')), '۳۰');
+    await _tap(tester, find.byKey(const ValueKey('stage-escalation-role-Accounts Manager')));
+    await _tap(tester, find.byKey(const ValueKey('stage-escalation-role-Purchase Manager')));
+    await _tap(tester, find.text('ارجاع خودکار پس از سررسید'));
+    await _tap(tester, find.text('ذخیره'));
+    final config = workflows.saved.single;
+    expect(config['deadline_value'], 2);
+    expect(config['reminder_before_minutes'], 30);
+    expect(config['escalation_roles'], ['Accounts Manager', 'Purchase Manager']);
+    expect(config['reassign_on_overdue'], isTrue);
+  });
+
+  testWidgets('approval deadline without a role blocks automatic reassignment (PA-053)', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final (workflows, _) = await _open(tester, 'S2');
+    await _tap(tester, find.text('مهلت دارد'));
+    await tester.enterText(find.byKey(const ValueKey('stage-deadline-value')), '۲');
+    await _tap(tester, find.text('ارجاع خودکار پس از سررسید'));
+    await _tap(tester, find.text('ذخیره'));
+    expect(workflows.saved, isEmpty);
+    expect(find.textContaining('حداقل یک نقش تشدید'), findsOneWidget);
+  });
+
+  testWidgets('user task deadline saves reminder, escalation roles and reassignment (PA-053)', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final (workflows, _) = await _open(tester, 'S1');
+    await _tap(tester, find.text('مهلت دارد'));
+    await tester.enterText(find.byKey(const ValueKey('stage-deadline-value')), '۱');
+    await tester.enterText(find.byKey(const ValueKey('stage-deadline-reminder')), '۱۵');
+    await _tap(tester, find.byKey(const ValueKey('stage-escalation-role-Accounts Manager')));
+    await _tap(tester, find.text('ارجاع خودکار پس از سررسید'));
+    await _tap(tester, find.text('ذخیره'));
+    final config = workflows.saved.single;
+    expect(config['deadline_value'], 1);
+    expect(config['reminder_before_minutes'], 15);
+    expect(config['escalation_roles'], ['Accounts Manager']);
+    expect(config['reassign_on_overdue'], isTrue);
+  });
+
+  testWidgets('destination dropdown names the stage type and step so same-titled stages differ', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await _open(tester, 'S3');
+    await _scrollToFinder(tester, find.text('در صورت موفقیت'));
+    final successRow = find.ancestor(of: find.text('در صورت موفقیت'), matching: find.byType(Row)).first;
+    await _tap(tester, find.descendant(of: successRow, matching: find.byType(DropdownButtonFormField<String>)));
+    // S1 is a user task at step 2; the item must carry both so it is distinguishable.
+    expect(find.text('ثبت درخواست (اقدام کاربر · گام 2)'), findsOneWidget);
+    expect(find.text('تأیید مدیر مستقیم (تأیید · گام 3)'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }

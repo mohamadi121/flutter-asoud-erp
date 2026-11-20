@@ -173,7 +173,8 @@ class _ConditionSettingsState extends State<_ConditionSettings> {
   }
   String? validate() {
     collectErrors();
-    if (title.text.trim().isEmpty) return 'عنوان مرحله الزامی است.';
+    final t = title.text.trim();
+    if (t.length < 3 || t.length > 140) return 'عنوان باید بین ۳ تا ۱۴۰ نویسه باشد.';
     return rowErrors.isEmpty ? null : rowErrors.values.first;
   }
   Future<void> focusError() async {
@@ -412,7 +413,7 @@ class _ConditionSettingsState extends State<_ConditionSettings> {
     body: ListView(controller: scroll, padding: const EdgeInsets.all(14), children: [
       panel([const Text('۱. تعریف شروط', style: TextStyle(fontWeight: FontWeight.bold)),
         const Text('اطلاعات و مقادیر مورد بررسی را مشخص کنید.', style: TextStyle(fontSize: 11, color: AsoudColors.muted)),
-        const SizedBox(height: 12), AppTextField(controller: title, label: 'عنوان مرحله', enabled: !saving && !testing,
+        const SizedBox(height: 12), AppTextField(key: const ValueKey('condition-title'), controller: title, label: 'عنوان مرحله', enabled: !saving && !testing,
           onChanged: (_) => update(() {}))]),
       for (final (index, row) in rows.indexed) KeyedSubtree(key: ValueKey('condition-row-${row.id}'), child: condition(row, index)),
       OutlinedButton.icon(key: const ValueKey('condition-add'), onPressed: saving || rows.length >= 50 ? null :

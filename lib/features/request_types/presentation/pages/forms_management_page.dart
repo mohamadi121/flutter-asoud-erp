@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/network/frappe_client.dart';
+import '../../../../core/utils/module_vocabulary.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../workflows/data/workflow_automation_repository.dart';
 import '../../../workflows/domain/entities/document_template.dart';
@@ -526,13 +527,5 @@ class _FormsManagementPageState extends State<FormsManagementPage> {
   }
 }
 
-String _moduleTitle(String key) => switch (key) {
-  'Finance' || 'Accounting' => 'مالی',
-  'Purchase' => 'خرید',
-  'Sales' => 'فروش',
-  'HR' => 'منابع انسانی',
-  'Inventory' || 'Stock' => 'انبار',
-  'Support' => 'پشتیبانی',
-  '' => 'عمومی',
-  _ => key,
-};
+String _moduleTitle(String key) =>
+    key.isEmpty ? 'عمومی' : moduleLabel(key);

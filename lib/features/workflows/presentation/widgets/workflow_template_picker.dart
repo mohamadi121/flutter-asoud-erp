@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/failure_message.dart';
+import '../../../../core/utils/module_vocabulary.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../data/workflow_template_repository.dart';
 import '../../domain/entities/workflow_definition.dart';
@@ -114,7 +115,4 @@ class _WorkflowTemplatePickerState extends State<WorkflowTemplatePicker> {
         ])))));
 }
 
-String _moduleLabel(String key) => switch (key) {
-  '' => 'همه', 'Purchase' => 'خرید', 'Accounting' => 'مالی', 'Sales' => 'فروش',
-  'Inventory' => 'انبار', 'Support' => 'پشتیبانی', 'HR' => 'منابع انسانی', _ => 'سایر',
-};
+String _moduleLabel(String key) => key.isEmpty ? 'همه' : moduleLabel(key);

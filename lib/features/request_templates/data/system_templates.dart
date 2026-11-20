@@ -80,7 +80,7 @@ Map<String, dynamic> systemRequestType(
             'درخواست تأمین کالا یا خدمت؛ بر اساس روش تأمین، پس از تأیید مدیر مستقیم درخواست مواد ایجاد می‌شود.',
         prefix: 'SP',
         category: 'Purchase',
-        module: 'Inventory',
+        module: 'Stock',
         icon: 'purchase',
         color: '#0E9F6E',
         subjectMode: 'input',

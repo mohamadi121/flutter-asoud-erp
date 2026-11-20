@@ -6,6 +6,7 @@ import '../../../form_builder/form_repository.dart';
 import '../../../form_builder/execution_settings.dart';
 import '../../../../core/network/frappe_client.dart';
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/module_vocabulary.dart';
 import '../../../../core/utils/persian_format.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../data/repositories/preview_fallback_workflow_repository.dart';
@@ -69,6 +70,18 @@ String _routeActionLabel(String action) => switch (action) {
       'Success' => 'موفقیت',
       'Error' => 'خطا',
       _ => action,
+    };
+
+/// Short Persian name of a stage type, used to disambiguate same-titled
+/// destinations in the route pickers.
+String _stageTypeLabel(WorkflowStageType type) => switch (type) {
+      WorkflowStageType.userTask => 'اقدام کاربر',
+      WorkflowStageType.approval => 'تأیید',
+      WorkflowStageType.systemAction => 'اقدام خودکار',
+      WorkflowStageType.condition => 'شرط',
+      WorkflowStageType.wait => 'انتظار',
+      WorkflowStageType.end => 'پایان فرایند',
+      WorkflowStageType.start => 'شروع',
     };
 
 /// Persian warnings for a stage's exit routes, checked before saving.
@@ -201,7 +214,15 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
   List<FormMap> sourceEmployeeFields = [];
   bool loadingEmployeeFields = false;
   late bool hasDeadline = ((config['deadline_value'] as num?) ?? 0) > 0;
-  late int reminderMinutes = (config['reminder_before_minutes'] as num?)?.toInt() ?? 0;
+  late final TextEditingController reminder = TextEditingController(
+      text: ((config['reminder_before_minutes'] as num?) ?? 0) == 0
+          ? ''
+          : (config['reminder_before_minutes'] as num).toString());
+  late Set<String> escalationRoles =
+      ((config['escalation_roles'] as List?) ?? const [])
+          .map((item) => item.toString())
+          .toSet();
+  late bool reassignOnOverdue = config['reassign_on_overdue'] == true;
 
   // Decisions and extra settings.
   late bool allowReject =
@@ -213,9 +234,25 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
   late bool allowDraft = config['allow_draft'] != false;
   late bool requireAll = config['require_all_fields'] == true;
   late bool editAfterSubmit = config['allow_edit_after_submit'] == true;
-  late String approvalMode = config['approval_mode']?.toString() ??
-      (type == WorkflowStageType.approval && !widget.stage.configurationComplete ? 'All' : 'Any');
+  // A saved value is kept as-is; a missing value shows «همه» (All), matching
+  // the server, which treats a missing `approval_mode` as All.
+  late String approvalMode = config['approval_mode']?.toString() ?? 'All';
+  /// Whether the approval assignment can resolve to more than one approver,
+  /// in which case the decision mode (هر یک / همه / اکثریت) is meaningful.
+  bool get _severalApprovers {
+    if (type != WorkflowStageType.approval) return false;
+    if (ownerMode == 'role') {
+      return role != directManagerRole && role != initiatorRole;
+    }
+    // A unit (department / initiator department) or a specific person.
+    if (specificPerson && selectedPeople.length <= 1) return false;
+    return true;
+  }
+  // The stored value is kept as-is. 'Limited Edit' is a legacy value the
+  // radio list no longer offers: it is not converted, not selected, and is
+  // sent back unchanged until the user explicitly picks an option.
   late String access = config['document_access']?.toString() ?? 'Read Only';
+  bool accessChanged = false;
   late String activityType =
       config['activity_type']?.toString() ?? 'Data Entry';
   late String taskPurpose = config['task_purpose']?.toString() ?? 'Existing';
@@ -341,7 +378,7 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
 
   @override
   void dispose() {
-    for (final controller in [title, description, deadline, message, status]) {
+    for (final controller in [title, description, deadline, reminder, message, status]) {
       controller.dispose();
     }
     super.dispose();
@@ -388,13 +425,13 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
   Map<String, dynamic> _deadline() => {
         'deadline_value': hasDeadline ? _deadlineValue : 0,
         'deadline_unit': deadlineUnit,
-        'reminder_before_minutes': hasDeadline ? reminderMinutes : 0,
-        'escalation_roles': config['escalation_roles'] ?? const [],
-        'reassign_on_overdue': config['reassign_on_overdue'] == true,
+        'reminder_before_minutes': hasDeadline ? _reminderValue : 0,
+        'escalation_roles': hasDeadline ? escalationRoles.toList() : const [],
+        'reassign_on_overdue': hasDeadline && reassignOnOverdue,
       };
 
-  int? get _deadlineValue {
-    var value = deadline.text.trim();
+  int? _parseDigits(String text) {
+    var value = text.trim();
     for (var i = 0; i < 10; i++) {
       value = value
           .replaceAll('۰۱۲۳۴۵۶۷۸۹'[i], '$i')
@@ -402,6 +439,10 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
     }
     return int.tryParse(value);
   }
+
+  int? get _deadlineValue => _parseDigits(deadline.text);
+
+  int? get _reminderValue => _parseDigits(reminder.text);
 
   String? _validate() {
     if (type == WorkflowStageType.userTask) {
@@ -424,10 +465,14 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
             _deadlineValue! > 3650)) {
       return 'مهلت انجام باید یک عدد صحیح بین ۱ تا ۳۶۵۰ باشد.';
     }
-    if (hasDeadline && reminderMinutes != 0) {
-      final total = (_deadlineValue ?? 0) * (deadlineUnit == 'Day' ? 1440 : deadlineUnit == 'Hour' ? 60 : 1);
-      if (reminderMinutes < 1 || reminderMinutes > total || reminderMinutes > 525600) {
-        return 'زمان یادآوری باید مثبت و حداکثر به‌اندازهٔ مهلت انجام باشد.';
+    if (hasDeadline) {
+      final reminder = _reminderValue;
+      if (reminder != null &&
+          (reminder < 1 || reminder > 525600)) {
+        return 'زمان یادآوری باید عددی مثبت و حداکثر ۵۲۵۶۰۰ دقیقه باشد.';
+      }
+      if (reassignOnOverdue && escalationRoles.isEmpty) {
+        return 'برای ارجاع خودکار پس از سررسید، حداقل یک نقش تشدید انتخاب کنید.';
       }
     }
     if (type == WorkflowStageType.systemAction) {
@@ -487,6 +532,7 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
           },
           ..._assignment(),
           'document_access': access,
+          if (accessChanged) 'document_access_changed': true,
           'form_fields': formFields.map((field) => field.toMap()).toList(),
           if (formLayout.isNotEmpty)
             'form_layout': [
@@ -519,6 +565,7 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
           if (supplementaryForm == null && formLayout.isNotEmpty)
             'form_layout': formLayout,
           'document_access': access,
+          if (accessChanged) 'document_access_changed': true,
           'allow_reject': allowReject,
           'allow_return': allowReturn,
           'comment_required': commentRequired,
@@ -967,6 +1014,7 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
               Expanded(
                 flex: 3,
                 child: TextField(
+                  key: const ValueKey('stage-deadline-value'),
                   controller: deadline,
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(
@@ -1020,6 +1068,40 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
                 ),
               ),
             ]),
+            const SizedBox(height: 8),
+            TextField(
+              key: const ValueKey('stage-deadline-reminder'),
+              controller: reminder,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                  hintText: 'یادآوری چند دقیقه قبل از سررسید؟ (اختیاری)',
+                  prefixIcon: Icon(Icons.notifications_outlined, size: 18)),
+            ),
+            const SizedBox(height: 8),
+            _label('نقش‌های تشدید هنگام انقضا'),
+            if (roles.isEmpty)
+              const Text('نقشی از سرور دریافت نشده است.',
+                  style: TextStyle(fontSize: 11, color: AsoudColors.warning))
+            else
+              Wrap(spacing: 6, runSpacing: 6, children: [
+                for (final item in roles.where((item) => item != 'Administrator'))
+                  FilterChip(
+                    key: ValueKey('stage-escalation-role-$item'),
+                    label: Text(roleLabel(item),
+                        style: const TextStyle(fontSize: 11)),
+                    selected: escalationRoles.contains(item),
+                    onSelected: (checked) => setState(() {
+                      checked
+                          ? escalationRoles.add(item)
+                          : escalationRoles.remove(item);
+                    }),
+                  ),
+              ]),
+            const SizedBox(height: 4),
+            _switch('ارجاع خودکار پس از سررسید', reassignOnOverdue,
+                (value) => setState(() => reassignOnOverdue = value),
+                subtitle:
+                    'در حالت خاموش فقط اعلان تشدید به نقش‌های انتخاب‌شده ارسال می‌شود.'),
           ],
         ],
       );
@@ -1042,13 +1124,12 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
           const SizedBox(height: 8),
           _label('دسترسی به سند اصلی'),
           const Text(
-              'دسترسی مسئول در زمان انجام این مرحله به سند مرجع؛ نه مجوز پس از پایان. حالت محدود تابع فیلدهای مجاز سامانه است.',
+              'دسترسی مسئول در زمان انجام این مرحله به سند مرجع؛ نه مجوز پس از پایان.',
               style: TextStyle(fontSize: 11, color: AsoudColors.muted)),
           const SizedBox(height: 8),
           for (final mode in const [
             ('Read Only', 'فقط مشاهده', 'بدون تغییر اطلاعات اصلی'),
             ('Edit', 'مشاهده و ثبت اقدام', 'ثبت نتیجه، نظر و مستندات اقدام در حدود مجوزهای موجود'),
-            ('Limited Edit', 'مشاهده و ویرایش مجاز', 'ویرایش فقط در حدود فیلدها و وضعیت مجاز سند'),
           ])
             Padding(padding: const EdgeInsets.only(bottom: 7),
               child: Material(color: access == mode.$1 ? const Color(0xfff0f6ff) : Colors.white,
@@ -1060,7 +1141,14 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
                       color: access == mode.$1 ? AsoudColors.primary : AsoudColors.muted, size: 19),
                   title: Text(mode.$2, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                   subtitle: Text(mode.$3, style: const TextStyle(fontSize: 10, color: AsoudColors.muted)),
-                  onTap: saving ? null : () => setState(() => access = mode.$1)))),
+                  onTap: saving ? null : () => setState(() {
+                    access = mode.$1;
+                    accessChanged = true;
+                  })))),
+          if (access == 'Limited Edit') ...[
+            const SizedBox(height: 4),
+            _notice('این مرحله تنظیم قدیمی «ویرایش محدود» دارد و تا انتخاب شما تغییر نمی‌کند.'),
+          ],
           const SizedBox(height: 4),
           _notice('این انتخاب مجوز جدیدی نمی‌دهد. ویرایش پرونده از مسیر اصلی و فقط با مجوز و وضعیت مجاز آن انجام می‌شود؛ ثبت اصلی فرم ارسال‌شده تغییر نمی‌کند.'),
         ],
@@ -1120,7 +1208,7 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
               for (final stage in stages)
                 DropdownMenuItem(
                     value: stage.id,
-                    child: Text(stage.title,
+                    child: Text('${stage.title} (${_stageTypeLabel(stage.type)} · گام ${stage.sequence})',
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(fontSize: 12))),
             ],
@@ -1335,24 +1423,39 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
           const Text('دلیل بازگشت برای اصلاح نیز همواره الزامی است.',
               style: TextStyle(fontSize: 11, color: AsoudColors.muted)),
           const SizedBox(height: 4),
-          AsoudSegmentedControl<String>(
-            value: approvalMode,
-            options: const [
-              AsoudSegmentedOption(
-                  value: 'Any', label: 'تأیید یک نفر کافی است'),
-              AsoudSegmentedOption(value: 'All', label: 'تأیید همه لازم است'),
-            ],
-            onChanged: (next) => setState(() => approvalMode = next),
-          ),
+          if (_severalApprovers) ...[
+            _label('حالت رأی‌گیری'),
+            AsoudSegmentedControl<String>(
+              value: approvalMode,
+              options: const [
+                AsoudSegmentedOption(
+                    value: 'Any', label: 'هر یک از تأییدکنندگان'),
+                AsoudSegmentedOption(
+                    value: 'All', label: 'همهٔ تأییدکنندگان'),
+                AsoudSegmentedOption(
+                    value: 'Majority', label: 'اکثریت تأییدکنندگان'),
+              ],
+              onChanged: (next) => setState(() => approvalMode = next),
+            ),
+            const SizedBox(height: 8),
+          ],
           _switch('الزام توضیح هنگام تأیید', commentRequired,
               (value) => setState(() => commentRequired = value)),
           _accessControl(),
         ]),
         const SizedBox(height: 12),
-        _notice(approvalMode == 'Any'
-            ? 'تأیید یک نفر کافی است؛ پس از تأیید، کار سایر مسئولان این مرحله بسته می‌شود.'
-            : 'تأیید همه مسئولان لازم است؛ تا تکمیل همه تأییدها، مرحله ادامه نمی‌یابد.'),
+        if (_severalApprovers)
+          _notice(_approvalModeNotice),
       ];
+
+  String get _approvalModeNotice => switch (approvalMode) {
+        'Any' =>
+          'تأیید هر یک از مسئولان کافی است؛ پس از تأیید، کار سایر مسئولان این مرحله بسته می‌شود.',
+        'Majority' =>
+          'تأیید اکثریت مسئولان لازم است؛ تا رسیدن به اکثریت، مرحله ادامه نمی‌یابد.',
+        _ =>
+          'تأیید همهٔ مسئولان لازم است؛ تا تکمیل همهٔ تأییدها، مرحله ادامه نمی‌یابد.',
+      };
 
   Widget _decision(String label, bool value, Color color,
           ValueChanged<bool>? onChanged) =>
@@ -1625,11 +1728,7 @@ class _StageSettingsPageState extends State<StageSettingsPage> {
         _ => key,
       };
 
-  String _moduleLabel(String key) => switch (key) {
-        'Finance' => 'مالی',
-        'Purchase' => 'خرید',
-        _ => key,
-      };
+  String _moduleLabel(String key) => moduleLabel(key);
 
   List<Widget> _changeStatus() => [
         _label('وضعیت جدید درخواست', required: true),
