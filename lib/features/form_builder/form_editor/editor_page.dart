@@ -64,9 +64,18 @@ class _FormEditorPageState extends State<FormEditorPage> {
       final data = formMap(
         await widget.repository.call('get_options', {
           'company': widget.repository.company,
+          if (schema['kind'] == 'Request') 'kind': 'Request',
+          if (record['name'] != null && record['local'] != true)
+            'form': record['name'],
         }),
       );
-      if (mounted) setState(() => options = data);
+      if (mounted) {
+        setState(() {
+          options = data;
+          final warning = data['department_notice'];
+          if (warning is String && warning.isNotEmpty) notice = warning;
+        });
+      }
     } catch (_) {
       if (mounted) {
         setState(

@@ -458,6 +458,18 @@ FormMap evaluatedValues(FormMap schema, FormMap raw) {
 
 List<String> schemaProblems(FormMap schema) {
   final problems = <String>[];
+  if (schema['kind'] == 'Request') {
+    final mode = schema['workflow_mode'];
+    if (mode != null && mode != '' &&
+        !const ['Fixed', 'Conditional', 'RecordOnly'].contains(mode)) {
+      problems.add('روش اتصال فرم به گردش‌کار معتبر نیست.');
+    }
+    if (mode == 'Fixed' && (schema['workflow'] is! String ||
+        (schema['workflow'] as String).trim().isEmpty ||
+        (schema['workflow'] as String).length > 140)) {
+      problems.add('برای روش گردش مشخص، یک گردش‌کار معتبر انتخاب کنید.');
+    }
+  }
   if (schema['schema_version'] != null && schema['schema_version'] != formSchemaVersion) {
     problems.add('نسخه ساختار فرم معتبر نیست.');
   }
