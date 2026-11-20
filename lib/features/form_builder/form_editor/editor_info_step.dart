@@ -93,15 +93,43 @@ class EditorInfoStep extends StatelessWidget {
               title: const Text('اتصال به گردش‌کار (اختیاری)'),
               children: [
                 formSelect(
+                  'نحوه اتصال',
+                  '${schema['workflow_mode'] ?? ''}',
+                  const {
+                    '': 'حفظ تنظیمات قبلی',
+                    'Fixed': 'گردش مشخص',
+                    'Conditional': 'انتخاب بر اساس شرط',
+                    'RecordOnly': 'فقط ثبت فرم',
+                  },
+                  (value) => change(() {
+                    if (value.isEmpty) {
+                      schema.remove('workflow_mode');
+                    } else {
+                      schema['workflow_mode'] = value;
+                    }
+                  }),
+                ),
+                if (schema['workflow_mode'] == 'RecordOnly')
+                  const Text(
+                    'انتشار این حالت تا تعیین سیاست معتبرِ بی‌نیازی فرم از تأیید مجاز نیست.',
+                  ),
+                if (schema['workflow_mode'] == 'Conditional')
+                  const Text(
+                    'مسیر معتبر با قواعد مشروط موجود انتخاب می‌شود؛ نبود مسیر یا تعارض، ارسال را متوقف می‌کند.',
+                  ),
+                if (schema['workflow_mode'] != 'Conditional' &&
+                    schema['workflow_mode'] != 'RecordOnly')
+                formSelect(
                   'گردش‌کار آماده',
                   '${schema['workflow'] ?? ''}',
                   {
-                    '': 'بدون گردش‌کار؛ فقط ثبت فرم',
+                    '': 'گردش‌کار انتخاب نشده است',
                     for (final workflow in formMaps(options['workflows']))
                       '${workflow['name']}': '${workflow['title']}',
                   },
                   (value) => change(() {
                     schema['workflow'] = value;
+                    if (value.isNotEmpty) schema['workflow_mode'] = 'Fixed';
                     schema['workflow_fields'] = formMaps(options['workflows'])
                             .where((w) => w['name'] == value)
                             .firstOrNull?['fields'] ??
