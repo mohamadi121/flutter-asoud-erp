@@ -440,7 +440,9 @@ class _DateCard extends StatelessWidget {
     if (date == null ||
         date.year != now.year ||
         date.month != now.month ||
-        date.day != now.day) return 'امروز هنوز ورودی ثبت نشده';
+        date.day != now.day) {
+      return 'امروز هنوز ورودی ثبت نشده';
+    }
     final time = toPersianDigits(
         '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}');
     return '${checkin!.logType == 'OUT' ? 'خروج' : 'ورود'} امروز: $time';

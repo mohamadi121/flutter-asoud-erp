@@ -135,9 +135,10 @@ class _PartyFormPageState extends State<PartyFormPage> {
         });
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         setState(() =>
             optionsError = 'فهرست‌های فرم دریافت نشدند؛ برای تلاش مجدد بزنید.');
+      }
     }
   }
 
@@ -383,8 +384,9 @@ class _PartyFormPageState extends State<PartyFormPage> {
       value = toLatinDigits(value);
     }
     if (key == 'card') value = value.replaceAll(RegExp(r'[\\s-]'), '');
-    if (key == 'iban')
+    if (key == 'iban') {
       value = toLatinDigits(value).replaceAll(' ', '').toUpperCase();
+    }
     if (key == 'website' && value.isNotEmpty) {
       value = OfficeInputValidation.website(value) ?? value;
     }
@@ -688,8 +690,9 @@ class _PartyFormPageState extends State<PartyFormPage> {
             !_validCard(text)) {
           return 'شماره کارت ۱۶ رقمی معتبر وارد کنید.';
         }
-        if (money && !_validAmount(text))
+        if (money && !_validAmount(text)) {
           return 'مبلغ معتبر و غیرمنفی وارد کنید.';
+        }
         if (key == 'postal') return OfficeInputValidation.postalCode(text);
         if (key == 'mobile') return IdentityValidators.mobile(text);
         if (key == 'email') return IdentityValidators.email(text);

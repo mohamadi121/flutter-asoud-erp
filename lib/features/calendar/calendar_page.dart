@@ -96,11 +96,12 @@ class _AsoudCalendarState extends State<AsoudCalendar> {
                     now: widget.now,
                     focusReminderId: notice['id'] as String?,
                     onDateSelected: (value) {
-                      if (mounted)
+                      if (mounted) {
                         setState(() {
                           selected = value;
                           month = value;
                         });
+                      }
                     })));
         if (mounted) _load();
       } else {
@@ -454,11 +455,12 @@ class _AsoudCalendarState extends State<AsoudCalendar> {
                         now: widget.now,
                         initialDate: selected,
                         onDateSelected: (value) {
-                          if (mounted)
+                          if (mounted) {
                             setState(() {
                               selected = value;
                               month = value;
                             });
+                          }
                         },
                       ),
                     ),

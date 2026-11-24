@@ -79,8 +79,9 @@ class _SyncStatusIndicatorState extends State<SyncStatusIndicator> {
     final unsent = _unsent;
     if (unsent == null) return const SizedBox.shrink();
     final clear = unsent == 0 && _localOnly == 0;
-    if (clear && !_syncing && widget.hideWhenClear)
+    if (clear && !_syncing && widget.hideWhenClear) {
       return const SizedBox.shrink();
+    }
     final color = _failed
         ? AsoudColors.danger
         : clear
