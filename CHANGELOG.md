@@ -10,6 +10,8 @@
 
 - گردش‌کار: وضعیت «ناموفق» (Failed) در فهرست «ارسال‌شده‌های من» دیگر به‌صورت انگلیسی نمایش داده نمی‌شود و با برچسب فارسی «ناموفق» (هم‌راستا با صفحهٔ جزئیات) نمایش داده می‌شود.
 
+- پیش‌نمایش آفلاین فرایندساز: قوانین اتصال مسیرها با بک‌اند هم‌راستا شد؛ اتصال از مرحلهٔ پایان، اتصال از شرط بدون نتیجهٔ بولی، اتصال به مرحلهٔ شروع و مسیر تکراری با همان عمل از یک مرحله با همان پیام‌های فارسی سرور رد می‌شوند.
+
 - Refine the existing shared party form: separate identity/employment/finance/bank sections, native option pickers, checksum validation, caret-aware amount input and reuse of an existing office party. Remove only the old personnel-form role shortcut; retain other callers. Warn before discarding edits. Keep global floating-detail codes, multiple details per party and shared-login/HR membership unchanged. Opening balances remain read-only here pending an authoritative accounting document/period path. No tests run for this delivery.
 - Consolidate the existing personal home/calendar: office-scoped inbox summary, centered seven-day view, maintained Jalali conversion and device reminder delivery. No production deployment; iOS native project/approved logo asset and real-device notification verification remain outstanding.
 
