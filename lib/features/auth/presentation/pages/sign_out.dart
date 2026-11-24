@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -23,11 +25,7 @@ Future<void> signOutWith({
 }) async {
   final serverUrl = client is FrappeClient ? client.serverIdentity : null;
   String? notice;
-  try {
-    await CalendarDeviceNotifications.instance.clear();
-  } catch (_) {
-    notice = 'لغو اعلان‌های گوشی تأیید نشد؛ تنظیمات اعلان گوشی را بررسی کنید.';
-  }
+  unawaited(CalendarDeviceNotifications.instance.clear().catchError((_) {}));
   try {
     await auth.signOut();
   } catch (_) {
