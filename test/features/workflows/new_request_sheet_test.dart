@@ -123,22 +123,24 @@ void main() {
   });
 
   test('filter applies visibility, module, subgroup, keywords and count', () {
-    expect(filterNewRequestTypes(_types).length, 3);
-    expect(filterNewRequestTypes(_types, module: 'خرید').length, 2);
-    expect(
-        filterNewRequestTypes(_types, module: 'خرید', subgroup: 'تأمین‌کنندگان')
-            .single['workflow_title'],
-        'درخواست معرفی تأمین‌کننده');
-    expect(
-        filterNewRequestTypes(_types, query: 'فروشنده')
-            .single['workflow_title'],
-        'درخواست معرفی تأمین‌کننده');
+    expect(filterNewRequestTypes(_types).length, 1);
+    expect(filterNewRequestTypes(_types, module: 'خرید'), isEmpty);
+    expect(filterNewRequestTypes(_types, query: 'فروشنده'), isEmpty);
     expect(
         filterNewRequestTypes(_types, query: 'سالانه').single['workflow_title'],
         'درخواست مرخصی');
+    expect(
+        filterNewRequestTypes([
+          {
+            'workflow_title': 'نوع دیگر',
+            'template_key': 'supply',
+            'module_key': 'Stock'
+          },
+        ]),
+        isEmpty);
   });
 
-  testWidgets('opens, filters and selects a type at 360 and 320 widths',
+  testWidgets('procurement types from the API are not offered for creation',
       (tester) async {
     await tester.binding.setSurfaceSize(const Size(360, 800));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -147,16 +149,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('انتخاب درخواست جدید'), findsOneWidget);
     expect(find.text('پیش‌نویس'), findsNothing);
-    await tester.tap(find.byKey(const Key('new-request-module-خرید')));
-    await tester.pump();
-    expect(find.text('درخواست‌های خرید'), findsOneWidget);
-    expect(find.text('زیرگروه درخواست'), findsOneWidget);
-    await tester.enterText(find.byType(TextField), 'فروشنده');
-    await tester.pump();
-    expect(find.text('درخواست معرفی تأمین‌کننده'), findsOneWidget);
-    await tester.tap(find.text('درخواست معرفی تأمین‌کننده'));
-    await tester.pumpAndSettle();
-    expect(find.text('انتخاب درخواست جدید'), findsNothing);
+    expect(find.byKey(const Key('new-request-module-خرید')), findsNothing);
+    expect(find.text('درخواست خرید کالا'), findsNothing);
+    expect(find.text('درخواست معرفی تأمین‌کننده'), findsNothing);
+    expect(find.text('درخواست مرخصی'), findsOneWidget);
   });
 
   testWidgets('offline HR row shows a message and keeps the sheet open',
@@ -170,7 +166,11 @@ void main() {
         'short_title': 'اصلاح ورود یا خروج',
         'offline_unavailable': true,
       },
-      {'workflow_title': 'درخواست خرید کالا', 'short_title': 'تهیه کالا'},
+      {
+        'workflow_title': 'درخواست خرید کالا',
+        'short_title': 'تهیه کالا',
+        'template_key': 'purchase',
+      },
     ];
     await tester.pumpWidget(MaterialApp(
         theme: AsoudTheme.light,
@@ -192,10 +192,9 @@ void main() {
         findsOneWidget);
     expect(find.text('انتخاب درخواست جدید'), findsOneWidget);
     expect(picked, isNull);
-    await tester.tap(find.text('درخواست خرید کالا'));
-    await tester.pumpAndSettle();
-    expect(find.text('انتخاب درخواست جدید'), findsNothing);
-    expect((picked as Map)['workflow_title'], 'درخواست خرید کالا');
+    expect(find.text('درخواست خرید کالا'), findsNothing);
+    expect(find.text('انتخاب درخواست جدید'), findsOneWidget);
+    expect(picked, isNull);
   });
 
   test('only purchase-family bank rows open a form offline', () {
@@ -239,22 +238,11 @@ void main() {
     expect(find.text('همه درخواست‌ها'), findsOneWidget);
     expect(tester.widget<Text>(find.descendant(
         of: find.byKey(const Key('new-request-count')),
-        matching: find.byType(Text))).data, '3');
-    await tester.tap(find.byKey(const Key('new-request-module-خرید')));
-    await tester.pump();
-    expect(find.text('درخواست‌های خرید'), findsOneWidget);
-    await tester.tap(find.byType(DropdownButtonFormField<String>));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('تأمین‌کنندگان').last);
-    await tester.pumpAndSettle();
-    expect(find.text('درخواست خرید کالا'), findsNothing);
-    expect(find.text('درخواست معرفی تأمین‌کننده'), findsOneWidget);
+        matching: find.byType(Text))).data, '1');
+    expect(find.byKey(const Key('new-request-module-خرید')), findsNothing);
     await tester.tap(find.byKey(const Key('new-request-module-منابع انسانی')));
     await tester.pump();
     expect(find.text('درخواست مرخصی'), findsOneWidget);
-    await tester.tap(find.byKey(const Key('new-request-module-خرید')));
-    await tester.pump();
-    expect(find.text('درخواست خرید کالا'), findsOneWidget);
   });
 
   testWidgets('empty state and keyboard inset do not overflow',

@@ -235,6 +235,15 @@ bool requestTypeIsVisible(Map<String, dynamic> type) {
       (version == null || version is num && version > 0);
 }
 
+/// Keep historical procurement requests available, but don't offer new ones
+/// through the ASOUD request-creation catalog.
+bool _isHiddenProcurementRequest(Map<String, dynamic> type) {
+  final templateKey = '${type['template_key'] ?? ''}'.trim().toLowerCase();
+  return templateKey == 'purchase' ||
+      templateKey == 'supply' ||
+      requestModule(type) == 'خرید';
+}
+
 List<Map<String, dynamic>> filterNewRequestTypes(
   Iterable<Map<String, dynamic>> types, {
   String module = 'همه',
@@ -245,6 +254,7 @@ List<Map<String, dynamic>> filterNewRequestTypes(
   return [
     for (final type in types)
       if (requestTypeIsVisible(type) &&
+          !_isHiddenProcurementRequest(type) &&
           (module == 'همه' || requestModule(type) == module) &&
           (subgroup == 'همه درخواست‌ها' || requestSubgroup(type) == subgroup) &&
           (needle.isEmpty ||
@@ -267,7 +277,6 @@ const newRequestModules = <({String title, IconData icon, Color color})>[
     icon: Icons.account_balance_wallet_outlined,
     color: Color(0xFFEF8C22)
   ),
-  (title: 'خرید', icon: Icons.shopping_cart_outlined, color: Color(0xFF2697D5)),
   (title: 'انبار', icon: Icons.inventory_2_outlined, color: Color(0xFF7E57C2)),
   (title: 'فروش', icon: Icons.point_of_sale_outlined, color: Color(0xFFD64D86)),
   (

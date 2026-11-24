@@ -21,6 +21,7 @@ class TemplateRequestsListPage extends StatefulWidget {
     this.subtitle,
     this.emptyText = 'هنوز درخواستی ثبت نشده است.',
     this.repository,
+    this.allowCreate = true,
     super.key,
   });
 
@@ -29,6 +30,7 @@ class TemplateRequestsListPage extends StatefulWidget {
   final String emptyText;
   final Widget Function(BuildContext, RequestSummary) cardBuilder;
   final GenericRequestRepository? repository;
+  final bool allowCreate;
 
   @override
   State<TemplateRequestsListPage> createState() =>
@@ -76,7 +78,7 @@ class _TemplateRequestsListPageState extends State<TemplateRequestsListPage> {
         searchHint: widget.searchHint,
         emptyText: widget.emptyText,
         cardBuilder: widget.cardBuilder,
-        onCreate: _create,
+        onCreate: widget.allowCreate ? _create : null,
       );
 }
 
@@ -102,6 +104,7 @@ class PurchaseRequestsListPage extends StatelessWidget {
         searchHint: 'جستجو در درخواست‌های خرید ...',
         emptyText: 'هنوز درخواست خریدی ثبت نشده است.',
         cardBuilder: _procurementCard,
+        allowCreate: false,
       );
 }
 
@@ -121,6 +124,7 @@ class SupplyRequestsListPage extends StatelessWidget {
         searchHint: 'جستجو در درخواست‌های تأمین ...',
         emptyText: 'هنوز درخواست تأمینی ثبت نشده است.',
         cardBuilder: _procurementCard,
+        allowCreate: false,
       );
 }
 

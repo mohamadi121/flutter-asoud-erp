@@ -24,6 +24,7 @@ void main() {
         PurchaseRequestsListPage(
             company: repository.company, repository: repository));
     expect(find.text('درخواست‌های خرید'), findsOneWidget);
+    expect(find.byTooltip('درخواست جدید'), findsNothing);
     expect(find.byType(TextField), findsOneWidget);
     expect(find.text('جستجو در درخواست‌های خرید ...'), findsOneWidget);
     // Tabs and the server's counts: 4 purchase rows, 2 pending, 1 and 1.
@@ -95,6 +96,7 @@ void main() {
         SupplyRequestsListPage(
             company: repository.company, repository: repository));
     expect(find.text('درخواست‌های تأمین کالا / خدمات'), findsOneWidget);
+    expect(find.byTooltip('درخواست جدید'), findsNothing);
     expect(find.text('SP-1404-0007'), findsOneWidget);
     expect(find.text('SP-1404-0006'), findsOneWidget);
     expect(find.text('از انبار'), findsOneWidget);
