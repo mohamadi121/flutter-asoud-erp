@@ -35,7 +35,7 @@ class WorkflowTasksCubit extends Cubit<WorkflowTasksState> {
       final tasks = await _repository.getMyTasks(status: selected);
       emit(WorkflowTasksState(
         status: WorkflowTasksStatus.ready,
-        tasks: tasks,
+        tasks: await _withSubjects(tasks),
         offline: _repository.isOfflinePreview,
         filter: selected,
       ));
@@ -44,6 +44,33 @@ class WorkflowTasksCubit extends Cubit<WorkflowTasksState> {
           status: WorkflowTasksStatus.failure,
           filter: selected,
           message: failureMessage(error)));
+    }
+  }
+
+  /// The task list does not carry the instance subject, so resolve it in one
+  /// batch call for the cards. A failure here must not hide the tasks: the
+  /// list is shown and the cards fall back to the instance id.
+  Future<List<WorkflowTask>> _withSubjects(List<WorkflowTask> tasks) async {
+    final repository = _repository;
+    if (repository is! WorkflowInstanceSummariesRepository) return tasks;
+    final summariesRepository = repository as WorkflowInstanceSummariesRepository;
+    final names = tasks
+        .map((task) => task.instance)
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .toList();
+    if (names.isEmpty) return tasks;
+    try {
+      final summaries = await summariesRepository.getInstanceSummaries(names);
+      final subjects = {for (final item in summaries) item.id: item.subject};
+      return [
+        for (final task in tasks)
+          subjects.containsKey(task.instance)
+              ? task.copyWith(subject: subjects[task.instance]!)
+              : task,
+      ];
+    } catch (_) {
+      return tasks;
     }
   }
 

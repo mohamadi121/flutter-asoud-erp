@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- گردش‌کار: در کارت تسکِ «دریافتی من»، به‌جای شناسهٔ فنی گردش (مثل `WFI-...`)، موضوع گردش نمایش داده می‌شود و شناسهٔ فنی در tooltip باقی می‌ماند تا در صورت نبود موضوع، همان شناسه نمایش داده شود.
+
 - گردش‌کار: وضعیت «ناموفق» (Failed) در فهرست «ارسال‌شده‌های من» دیگر به‌صورت انگلیسی نمایش داده نمی‌شود و با برچسب فارسی «ناموفق» (هم‌راستا با صفحهٔ جزئیات) نمایش داده می‌شود.
 
 - Refine the existing shared party form: separate identity/employment/finance/bank sections, native option pickers, checksum validation, caret-aware amount input and reuse of an existing office party. Remove only the old personnel-form role shortcut; retain other callers. Warn before discarding edits. Keep global floating-detail codes, multiple details per party and shared-login/HR membership unchanged. Opening balances remain read-only here pending an authoritative accounting document/period path. No tests run for this delivery.
