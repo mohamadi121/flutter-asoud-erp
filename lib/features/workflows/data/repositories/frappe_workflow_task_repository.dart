@@ -1,6 +1,7 @@
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/network/frappe_client.dart';
 import 'dart:convert';
+import 'dart:math';
 import '../../domain/entities/workflow_task.dart';
 import '../../domain/entities/workflow_definition.dart';
 import '../../domain/repositories/workflow_task_repository.dart';
@@ -15,6 +16,22 @@ class FrappeWorkflowTaskRepository
   FrappeWorkflowTaskRepository(this._client);
   final FrappeClient _client;
   bool _complete = true;
+
+  /// The `request_id` of the last completion whose outcome is still unknown
+  /// (a network/timeout failure means the server may have applied the
+  /// decision). Kept per task so a retry of the same decision re-sends the
+  /// same id and the server replays the stored result instead of erroring.
+  final Map<String, String> _pendingRequestIds = {};
+
+  static String _newRequestId() =>
+      'task-${List.generate(16, (_) => Random.secure().nextInt(16)).map((n) => n.toRadixString(16)).join()}';
+
+  /// A failure whose outcome is unknown: the request may have reached the
+  /// server, so the same `request_id` must be reused on retry.
+  static bool _outcomeUnknown(Object error) =>
+      error is ApiException &&
+      (error.kind == ApiFailureKind.network ||
+          error.kind == ApiFailureKind.timeout);
 
   @override
   bool get isOfflinePreview => false;
@@ -180,6 +197,7 @@ class FrappeWorkflowTaskRepository
     String? comment,
     Map<String, dynamic> response = const {},
     Map<String, dynamic>? supplementaryValues,
+    required String requestId,
   }) =>
       {
         'task': task,
@@ -189,7 +207,41 @@ class FrappeWorkflowTaskRepository
         // The supplementary form travels separately from the decision response.
         if (supplementaryValues != null && supplementaryValues.isNotEmpty)
           'supplementary_values': supplementaryValues,
+        'request_id': requestId,
       };
+
+  /// Sends a completion with an idempotent `request_id`. The id is reused when
+  /// the previous attempt failed with an unknown outcome (network/timeout) so
+  /// the server replays the stored result; a definitive answer (success or a
+  /// server refusal) clears it so the next attempt starts fresh.
+  Future<void> _sendCompletion({
+    required String task,
+    required String action,
+    String? comment,
+    Map<String, dynamic> response = const {},
+    Map<String, dynamic>? supplementaryValues,
+  }) async {
+    final requestId = _pendingRequestIds[task] ?? _newRequestId();
+    // Remember the id before sending so a network/timeout failure (unknown
+    // outcome) reuses it on the retry; a definitive answer clears it.
+    _pendingRequestIds[task] = requestId;
+    try {
+      await _client.callAsoudMethod(
+        'asoud_erp.api.v1.workflow_runtime.complete_workflow_task',
+        data: _completeData(
+            task: task,
+            action: action,
+            comment: comment,
+            response: response,
+            supplementaryValues: supplementaryValues,
+            requestId: requestId),
+      );
+      _pendingRequestIds.remove(task);
+    } catch (error) {
+      if (!_outcomeUnknown(error)) _pendingRequestIds.remove(task);
+      rethrow;
+    }
+  }
 
   @override
   Future<void> completeTask({
@@ -197,13 +249,9 @@ class FrappeWorkflowTaskRepository
     required String action,
     String? comment,
     Map<String, dynamic> response = const {},
-  }) async {
-    await _client.callAsoudMethod(
-      'asoud_erp.api.v1.workflow_runtime.complete_workflow_task',
-      data: _completeData(
-          task: task, action: action, comment: comment, response: response),
-    );
-  }
+  }) =>
+      _sendCompletion(
+          task: task, action: action, comment: comment, response: response);
 
   @override
   Future<void> completeTaskWithSupplementary({
@@ -212,17 +260,13 @@ class FrappeWorkflowTaskRepository
     String? comment,
     Map<String, dynamic> response = const {},
     required Map<String, dynamic> supplementaryValues,
-  }) async {
-    await _client.callAsoudMethod(
-      'asoud_erp.api.v1.workflow_runtime.complete_workflow_task',
-      data: _completeData(
+  }) =>
+      _sendCompletion(
           task: task,
           action: action,
           comment: comment,
           response: response,
-          supplementaryValues: supplementaryValues),
-    );
-  }
+          supplementaryValues: supplementaryValues);
 
   @override
   Future<WorkflowTaskDetail> getTask(String task) async {

@@ -118,4 +118,136 @@ void main() {
         repository.getFormOptions(), throwsA(isA<ApiException>()));
     expect(repository.isOfflinePreview, isFalse);
   });
+
+  group('قوانین اتصال مسیرها در پیش‌نمایش آفلاین', () {
+    late PreviewFallbackWorkflowRepository repository;
+    late String definition;
+    late String startId;
+    late String taskId;
+    late String conditionId;
+    late String endId;
+
+    setUp(() async {
+      repository = PreviewFallbackWorkflowRepository(_UnavailableRepository());
+      final draft = await repository.createDraft(
+          title: 'فرایند آزمایشی',
+          moduleKey: 'Purchase',
+          targetDoctype: 'Material Request',
+          creationMode: 'Custom');
+      definition = draft.id;
+      var design = await repository.getDesign(definition);
+      startId = design.stages.first.id;
+      design = await repository.addStage(
+          definition: definition,
+          afterStage: startId,
+          type: WorkflowStageType.userTask);
+      taskId = design.stages.last.id;
+      design = await repository.addStage(
+          definition: definition,
+          afterStage: taskId,
+          type: WorkflowStageType.condition);
+      conditionId = design.stages.last.id;
+      design = await repository.addStage(
+          definition: definition,
+          afterStage: conditionId,
+          type: WorkflowStageType.end);
+      endId = design.stages.last.id;
+    });
+
+    test('اتصال از مرحلهٔ پایان رد می‌شود', () async {
+      await expectLater(
+          repository.connectStages(
+              definition: definition,
+              fromStage: endId,
+              toStage: taskId,
+              action: 'ادامه'),
+          throwsA(isA<StateError>().having(
+              (error) => error.message, 'message', contains('مرحلهٔ پایان'))));
+    });
+
+    test('اتصال از شرط بدون نتیجهٔ بولی رد می‌شود', () async {
+      await expectLater(
+          repository.connectStages(
+              definition: definition,
+              fromStage: conditionId,
+              toStage: endId,
+              action: 'ادامه',
+              condition: const {}),
+          throwsA(isA<StateError>().having(
+              (error) => error.message,
+              'message',
+              contains('خروجی شرط باید برقرار یا برقرار نیست'))));
+    });
+
+    test('اتصال به مرحلهٔ شروع از هر مرحله‌ای رد می‌شود', () async {
+      await expectLater(
+          repository.connectStages(
+              definition: definition,
+              fromStage: taskId,
+              toStage: startId,
+              action: 'ادامه'),
+          throwsA(isA<StateError>().having(
+              (error) => error.message,
+              'message',
+              contains('مسیر نمی‌تواند به مرحلهٔ شروع برگردد'))));
+      await expectLater(
+          repository.connectStages(
+              definition: definition,
+              fromStage: conditionId,
+              toStage: startId,
+              action: 'ادامه',
+              condition: const {'result': true}),
+          throwsA(isA<StateError>().having(
+              (error) => error.message,
+              'message',
+              contains('مسیر نمی‌تواند به مرحلهٔ شروع برگردد'))));
+    });
+
+    test('مسیر تکراری با همان عمل از یک مرحله رد می‌شود', () async {
+      final first = await repository.connectStages(
+          definition: definition,
+          fromStage: taskId,
+          toStage: conditionId,
+          action: 'تأیید');
+      expect(first.transitions, hasLength(4));
+
+      await expectLater(
+          repository.connectStages(
+              definition: definition,
+              fromStage: taskId,
+              toStage: endId,
+              action: 'تأیید'),
+          throwsA(isA<StateError>().having(
+              (error) => error.message,
+              'message',
+              contains('این عمل از مرحلهٔ انتخاب‌شده از پیش مسیری دارد'))));
+    });
+
+    test('اتصال مرحله به خودش رد می‌شود', () async {
+      await expectLater(
+          repository.connectStages(
+              definition: definition,
+              fromStage: taskId,
+              toStage: taskId,
+              action: 'ادامه'),
+          throwsA(isA<StateError>().having(
+              (error) => error.message,
+              'message',
+              contains('مسیر (ترنزیشن) گردش‌کار نامعتبر است'))));
+    });
+
+    test('اتصال معتبر مسیر جدید می‌سازد', () async {
+      final updated = await repository.connectStages(
+          definition: definition,
+          fromStage: taskId,
+          toStage: endId,
+          action: 'تأیید');
+
+      expect(updated.transitions, hasLength(4));
+      final edge = updated.transitions.last;
+      expect(edge.fromStage, taskId);
+      expect(edge.toStage, endId);
+      expect(edge.label, 'تأیید');
+    });
+  });
 }
