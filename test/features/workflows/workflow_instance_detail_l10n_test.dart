@@ -84,6 +84,66 @@ void main() {
     });
 
     testWidgets(
+        'WorkflowInstanceOverviewCard shows the reference doctype in Persian and keeps the name',
+        (tester) async {
+      const item = WorkflowInstanceSummary(
+        id: 'WFI-003',
+        subject: 'خرید لپ‌تاپ',
+        status: 'Running',
+        currentStageTitle: 'Approval',
+        currentAssignees: [],
+        referenceDoctype: 'Material Request',
+        referenceName: 'MR-00042',
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AsoudTheme.light,
+          home: const Directionality(
+            textDirection: TextDirection.rtl,
+            child: Scaffold(
+              body: WorkflowInstanceOverviewCard(item: item),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // The doctype is translated; the technical name stays visible.
+      expect(find.text('درخواست کالا / خرید • MR-00042'), findsOneWidget);
+      expect(find.textContaining('Material Request'), findsNothing);
+    });
+
+    testWidgets(
+        'WorkflowInstanceOverviewCard keeps an unknown doctype as its raw name',
+        (tester) async {
+      const item = WorkflowInstanceSummary(
+        id: 'WFI-004',
+        subject: 'درخواست',
+        status: 'Running',
+        currentStageTitle: 'Approval',
+        currentAssignees: [],
+        referenceDoctype: 'Some Custom DocType',
+        referenceName: 'DOC-1',
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AsoudTheme.light,
+          home: const Directionality(
+            textDirection: TextDirection.rtl,
+            child: Scaffold(
+              body: WorkflowInstanceOverviewCard(item: item),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Some Custom DocType • DOC-1'), findsOneWidget);
+    });
+
+    testWidgets(
         'WorkflowActivityTimeline translates English stage actions in timeline',
         (tester) async {
       final activities = [
