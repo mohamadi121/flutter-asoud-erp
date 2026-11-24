@@ -40,7 +40,8 @@ class AsoudCalendar extends StatefulWidget {
 class _AsoudCalendarState extends State<AsoudCalendar> {
   late final CalendarRepository repository = widget.repository ??
       CalendarRepository(context.read<FrappeApiClient?>(), widget.company);
-  late DateTime selected = DateUtils.dateOnly(widget.initialDate ?? widget.now ?? DateTime.now());
+  late DateTime selected =
+      DateUtils.dateOnly(widget.initialDate ?? widget.now ?? DateTime.now());
   late DateTime month = selected;
   bool weekly = false, loading = true, busy = false;
   CalendarRow data = {};
@@ -52,14 +53,16 @@ class _AsoudCalendarState extends State<AsoudCalendar> {
   void initState() {
     super.initState();
     editing = widget.createReminder ? 'new' : widget.focusReminderId;
-    CalendarDeviceNotifications.instance.opened.addListener(_notificationOpened);
+    CalendarDeviceNotifications.instance.opened
+        .addListener(_notificationOpened);
     _load();
   }
 
   @override
   void dispose() {
     generation++;
-    CalendarDeviceNotifications.instance.opened.removeListener(_notificationOpened);
+    CalendarDeviceNotifications.instance.opened
+        .removeListener(_notificationOpened);
     super.dispose();
   }
 
@@ -68,8 +71,10 @@ class _AsoudCalendarState extends State<AsoudCalendar> {
     if (notice == null) return;
     try {
       final scope = await repository.notificationScope();
-      if (!mounted || notice['scope'] != scope ||
-          !identical(CalendarDeviceNotifications.instance.opened.value, notice) ||
+      if (!mounted ||
+          notice['scope'] != scope ||
+          !identical(
+              CalendarDeviceNotifications.instance.opened.value, notice) ||
           ModalRoute.of(context)?.isCurrent == false) {
         return;
       }
@@ -77,20 +82,34 @@ class _AsoudCalendarState extends State<AsoudCalendar> {
       final date = DateTime.tryParse('${notice['date']}');
       if (date == null) return;
       if (widget.compact) {
-        setState(() { selected = date; month = date; });
-        await Navigator.push(context, MaterialPageRoute<void>(
-          builder: (_) => AsoudCalendar(company: widget.company,
-            repository: repository, initialDate: date, now: widget.now,
-            focusReminderId: notice['id'] as String?,
-            onDateSelected: (value) {
-              if (mounted) setState(() { selected = value; month = value; });
-            })));
+        setState(() {
+          selected = date;
+          month = date;
+        });
+        await Navigator.push(
+            context,
+            MaterialPageRoute<void>(
+                builder: (_) => AsoudCalendar(
+                    company: widget.company,
+                    repository: repository,
+                    initialDate: date,
+                    now: widget.now,
+                    focusReminderId: notice['id'] as String?,
+                    onDateSelected: (value) {
+                      if (mounted)
+                        setState(() {
+                          selected = value;
+                          month = value;
+                        });
+                    })));
         if (mounted) _load();
       } else {
         _select(date);
         setState(() => editing = notice['id'] as String?);
       }
-    } catch (_) { /* Changed identity: do not open cached personal information. */ }
+    } catch (_) {
+      /* Changed identity: do not open cached personal information. */
+    }
   }
 
   List<CalendarRow> get items => calendarRows(data['items']);
@@ -253,15 +272,24 @@ class _AsoudCalendarState extends State<AsoudCalendar> {
     final holiday = date.weekday == DateTime.friday ||
         rows.any((r) => ['Official', 'Organization'].contains(r['kind']));
     final overdue = rows.any((r) => r['overdue'] == true && r['done'] != true);
-    final deadline = rows.any((r) => r['deadline'] == true && r['done'] != true);
-    final event = rows.any((r) => ['Event', 'Meeting', 'Mission'].contains(r['kind']));
-    final reminder = rows.any((r) => r['kind'] == 'Reminder' && r['done'] != true);
+    final deadline =
+        rows.any((r) => r['deadline'] == true && r['done'] != true);
+    final event =
+        rows.any((r) => ['Event', 'Meeting', 'Mission'].contains(r['kind']));
+    final reminder =
+        rows.any((r) => r['kind'] == 'Reminder' && r['done'] != true);
     final completed = rows.isNotEmpty && rows.every((r) => r['done'] == true);
-    final background = overdue ? const Color(0xFFFCE7EA)
-        : deadline ? const Color(0xFFE3F5EB)
-        : event ? const Color(0xFFEAF3FF)
-        : reminder ? const Color(0xFFF1E9FF)
-        : completed ? const Color(0xFFE3F5EB) : const Color(0xFFF6F8FC);
+    final background = overdue
+        ? const Color(0xFFFCE7EA)
+        : deadline
+            ? const Color(0xFFE3F5EB)
+            : event
+                ? const Color(0xFFEAF3FF)
+                : reminder
+                    ? const Color(0xFFF1E9FF)
+                    : completed
+                        ? const Color(0xFFE3F5EB)
+                        : const Color(0xFFF6F8FC);
     final foreground = chosen ? Colors.white : const Color(0xFF172B50);
     return Semantics(
       label:
@@ -272,8 +300,10 @@ class _AsoudCalendarState extends State<AsoudCalendar> {
         color: chosen ? const Color(0xFF2878DE) : background,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: isToday || chosen
-              ? const Color(0xFF2878DE) : AsoudColors.border,
+          side: BorderSide(
+              color: isToday || chosen
+                  ? const Color(0xFF2878DE)
+                  : AsoudColors.border,
               width: isToday ? 2 : 1),
         ),
         child: InkWell(
@@ -313,14 +343,22 @@ class _AsoudCalendarState extends State<AsoudCalendar> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           for (final row in rows.take(3))
-                            Padding(padding: const EdgeInsets.symmetric(horizontal: 1),
-                              child: Icon(row['done'] == true ? Icons.check : Icons.circle,
-                                size: row['done'] == true ? 8 : 5,
-                                color: chosen ? Colors.white : _itemColor(row))),
+                            Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 1),
+                                child: Icon(
+                                    row['done'] == true
+                                        ? Icons.check
+                                        : Icons.circle,
+                                    size: row['done'] == true ? 8 : 5,
+                                    color: chosen
+                                        ? Colors.white
+                                        : _itemColor(row))),
                           if (rows.length > 3)
                             Text('+${toPersianDigits(rows.length - 3)}',
-                              textDirection: TextDirection.ltr,
-                              style: TextStyle(fontSize: 8, color: foreground)),
+                                textDirection: TextDirection.ltr,
+                                style:
+                                    TextStyle(fontSize: 8, color: foreground)),
                         ],
                       ),
                     ),
@@ -332,33 +370,48 @@ class _AsoudCalendarState extends State<AsoudCalendar> {
     );
   }
 
-  Color _itemColor(CalendarRow row) => row['overdue'] == true && row['done'] != true
-      ? AsoudColors.danger
-      : row['done'] == true || row['deadline'] == true ? const Color(0xFF22966B)
-      : row['kind'] == 'Reminder' ? const Color(0xFF8050BA)
-      : const Color(0xFF2878DE);
+  Color _itemColor(CalendarRow row) =>
+      row['overdue'] == true && row['done'] != true
+          ? AsoudColors.danger
+          : row['done'] == true || row['deadline'] == true
+              ? const Color(0xFF22966B)
+              : row['kind'] == 'Reminder'
+                  ? const Color(0xFF8050BA)
+                  : const Color(0xFF2878DE);
 
   Future<void> _showSource(CalendarRow row) async {
     // This is a read-only view of the original source returned by the existing calendar.
-    await showModalBottomSheet<void>(context: context, isScrollControlled: true,
-      builder: (context) => Directionality(textDirection: TextDirection.rtl,
-        child: SafeArea(child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min, children: [
-              Text('${row['title']}', style: const TextStyle(
-                fontSize: 18, fontWeight: FontWeight.w800)),
-              const SizedBox(height: 12),
-              Text('${formatJalaliIso('${row['date']}')} تا ${formatJalaliIso('${row['end_date'] ?? row['date']}')}'),
-              if (row['all_day'] != true)
-                Text('${toPersianDigits(row['time'] ?? '')} — ${toPersianDigits(row['end_time'] ?? '')}'),
-              if ('${row['detail'] ?? ''}'.isNotEmpty) ...[
-                const SizedBox(height: 12), Text('${row['detail']}')],
-              const SizedBox(height: 12),
-              OutlinedButton(onPressed: () => Navigator.pop(context),
-                child: const Text('بستن')),
-            ]),
-        ))));
+    await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        builder: (context) => Directionality(
+            textDirection: TextDirection.rtl,
+            child: SafeArea(
+                child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('${row['title']}',
+                        style: const TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.w800)),
+                    const SizedBox(height: 12),
+                    Text(
+                        '${formatJalaliIso('${row['date']}')} تا ${formatJalaliIso('${row['end_date'] ?? row['date']}')}'),
+                    if (row['all_day'] != true)
+                      Text(
+                          '${toPersianDigits(row['time'] ?? '')} — ${toPersianDigits(row['end_time'] ?? '')}'),
+                    if ('${row['detail'] ?? ''}'.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Text('${row['detail']}')
+                    ],
+                    const SizedBox(height: 12),
+                    OutlinedButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('بستن')),
+                  ]),
+            ))));
   }
 
   Widget _editor(CalendarRow? row) => CalendarEntryEditor(
@@ -401,7 +454,11 @@ class _AsoudCalendarState extends State<AsoudCalendar> {
                         now: widget.now,
                         initialDate: selected,
                         onDateSelected: (value) {
-                          if (mounted) setState(() { selected = value; month = value; });
+                          if (mounted)
+                            setState(() {
+                              selected = value;
+                              month = value;
+                            });
                         },
                       ),
                     ),
@@ -457,12 +514,14 @@ class _AsoudCalendarState extends State<AsoudCalendar> {
             ),
           ),
         if (widget.compact || weekly)
-          SizedBox(height: 80, child: Row(children: [
-            for (var i = 0; i < 7; i++) ...[
-              if (i > 0) const SizedBox(width: 4),
-              Expanded(child: _day(_add(weekStart, i))),
-            ],
-          ]))
+          SizedBox(
+              height: 80,
+              child: Row(children: [
+                for (var i = 0; i < 7; i++) ...[
+                  if (i > 0) const SizedBox(width: 4),
+                  Expanded(child: _day(_add(weekStart, i))),
+                ],
+              ]))
         else
           GridView.count(
             crossAxisCount: 7,
@@ -482,7 +541,12 @@ class _AsoudCalendarState extends State<AsoudCalendar> {
           formatJalaliLong(selected),
           style: const TextStyle(fontSize: 12, color: AsoudColors.muted),
         ),
-        if (loading) const LinearProgressIndicator(),
+        if (loading)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Text('در حال دریافت اطلاعات تقویم…',
+                style: TextStyle(fontSize: 12, color: AsoudColors.muted)),
+          ),
         if (error != null)
           TextButton(
             onPressed: _load,
@@ -492,10 +556,11 @@ class _AsoudCalendarState extends State<AsoudCalendar> {
             ),
           ),
         for (final warning in (data['source_warnings'] as List? ?? []))
-          Text('$warning', style: const TextStyle(fontSize: 12, color: AsoudColors.danger)),
+          Text('$warning',
+              style: const TextStyle(fontSize: 12, color: AsoudColors.danger)),
         if (notificationWarning != null)
-          Text(notificationWarning!, style: const TextStyle(fontSize: 12,
-            color: AsoudColors.danger)),
+          Text(notificationWarning!,
+              style: const TextStyle(fontSize: 12, color: AsoudColors.danger)),
         if (data['cached'] == true)
           const Text(
             'نمایش اطلاعات ذخیره‌شده روی دستگاه',
@@ -594,18 +659,23 @@ class _AsoudCalendarState extends State<AsoudCalendar> {
                   : Icon(
                       row['kind'] == 'PersonalDay'
                           ? Icons.person_outline
-                          : row['deadline'] == true ? Icons.task_alt : Icons.event_outlined,
+                          : row['deadline'] == true
+                              ? Icons.task_alt
+                              : Icons.event_outlined,
                       color: _itemColor(row),
                     ),
               onTap: row['source_type'] != null && row['source_type'] != 'Task'
                   ? () => _showSource(row)
                   : row['source_type'] == 'Task'
-                  ? () async {
-                      await Navigator.push(context, MaterialPageRoute<void>(
-                        builder: (_) => WorkflowTaskDetailPage(task: '${row['source_id']}')));
-                      if (mounted) _load();
-                    }
-                  : null,
+                      ? () async {
+                          await Navigator.push(
+                              context,
+                              MaterialPageRoute<void>(
+                                  builder: (_) => WorkflowTaskDetailPage(
+                                      task: '${row['source_id']}')));
+                          if (mounted) _load();
+                        }
+                      : null,
               title: Text(
                 '${row['title']}',
                 style: TextStyle(
@@ -622,17 +692,19 @@ class _AsoudCalendarState extends State<AsoudCalendar> {
                         ? 'روز غیرکاری شخصی · بدون ثبت مرخصی'
                         : row['kind'] == 'Official'
                             ? 'تعطیلی رسمی'
-                            : ['Event', 'Meeting', 'Mission'].contains(row['kind'])
+                            : ['Event', 'Meeting', 'Mission']
+                                    .contains(row['kind'])
                                 ? '${row['kind'] == 'Meeting' ? 'جلسه' : row['kind'] == 'Mission' ? 'مأموریت' : 'رویداد'} · ${row['record_status'] ?? (row['done'] == true ? 'تکمیل‌شده' : 'ثبت‌شده')}'
-                            : row['deadline'] == true
-                                ? '${row['overdue'] == true ? 'معوق' : 'مهلت اقدام'} · ${toPersianDigits(row['time'] ?? '')}'
-                                : 'تعطیلی سازمانی',
+                                : row['deadline'] == true
+                                    ? '${row['overdue'] == true ? 'معوق' : 'مهلت اقدام'} · ${toPersianDigits(row['time'] ?? '')}'
+                                    : 'تعطیلی سازمانی',
                 style: const TextStyle(
                   color: _calendarBlue,
                   fontSize: 14,
                 ),
               ),
-              trailing: row['source_type'] != null || row['kind'] == 'Official' ||
+              trailing: row['source_type'] != null ||
+                      row['kind'] == 'Official' ||
                       (row['kind'] == 'Organization' &&
                           data['can_manage'] != true)
                   ? null
@@ -769,7 +841,8 @@ class _CalendarEntryEditorState extends State<CalendarEntryEditor> {
   late final id = widget.row?['id'] ?? calendarId();
   bool timeOpen = false;
   late bool notificationEnabled = widget.row?['notification_enabled'] == true;
-  late int reminderMinutes = (widget.row?['reminder_minutes'] as num? ?? 0).toInt();
+  late int reminderMinutes =
+      (widget.row?['reminder_minutes'] as num? ?? 0).toInt();
   String? permissionWarning;
   @override
   void dispose() {
@@ -933,35 +1006,47 @@ class _CalendarEntryEditorState extends State<CalendarEntryEditor> {
                 ],
                 if (widget.kind == 'Reminder') ...[
                   SwitchListTile.adaptive(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('اعلان روی این گوشی'),
-                    value: notificationEnabled,
-                    onChanged: widget.busy ? null : (value) async {
-                      final allowed = !value ||
-                          await CalendarDeviceNotifications.instance.requestPermission();
-                      if (mounted) {
-                        setState(() {
-                          notificationEnabled = value && allowed;
-                          permissionWarning = value && !allowed
-                            ? 'مجوز اعلان داده نشده یا این بستر پشتیبانی نمی‌شود.' : null;
-                        });
-                      }
-                    }),
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('اعلان روی این گوشی'),
+                      value: notificationEnabled,
+                      onChanged: widget.busy
+                          ? null
+                          : (value) async {
+                              final allowed = !value ||
+                                  await CalendarDeviceNotifications.instance
+                                      .requestPermission();
+                              if (mounted) {
+                                setState(() {
+                                  notificationEnabled = value && allowed;
+                                  permissionWarning = value && !allowed
+                                      ? 'مجوز اعلان داده نشده یا این بستر پشتیبانی نمی‌شود.'
+                                      : null;
+                                });
+                              }
+                            }),
                   if (permissionWarning != null)
-                    Text(permissionWarning!, style: const TextStyle(color: AsoudColors.danger)),
+                    Text(permissionWarning!,
+                        style: const TextStyle(color: AsoudColors.danger)),
                   if (notificationEnabled)
                     DropdownButtonFormField<int>(
-                      initialValue: reminderMinutes,
-                      decoration: const InputDecoration(labelText: 'زمان اعلان'),
-                      items: const [
-                        DropdownMenuItem(value: 0, child: Text('در زمان یادآور')),
-                        DropdownMenuItem(value: 5, child: Text('۵ دقیقه قبل')),
-                        DropdownMenuItem(value: 15, child: Text('۱۵ دقیقه قبل')),
-                        DropdownMenuItem(value: 30, child: Text('۳۰ دقیقه قبل')),
-                        DropdownMenuItem(value: 1440, child: Text('یک روز قبل')),
-                      ],
-                      onChanged: widget.busy ? null :
-                          (v) => setState(() => reminderMinutes = v!)),
+                        initialValue: reminderMinutes,
+                        decoration:
+                            const InputDecoration(labelText: 'زمان اعلان'),
+                        items: const [
+                          DropdownMenuItem(
+                              value: 0, child: Text('در زمان یادآور')),
+                          DropdownMenuItem(
+                              value: 5, child: Text('۵ دقیقه قبل')),
+                          DropdownMenuItem(
+                              value: 15, child: Text('۱۵ دقیقه قبل')),
+                          DropdownMenuItem(
+                              value: 30, child: Text('۳۰ دقیقه قبل')),
+                          DropdownMenuItem(
+                              value: 1440, child: Text('یک روز قبل')),
+                        ],
+                        onChanged: widget.busy
+                            ? null
+                            : (v) => setState(() => reminderMinutes = v!)),
                 ],
                 if (end.isBefore(date))
                   const Text(

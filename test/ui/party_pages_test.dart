@@ -198,9 +198,9 @@ void main() {
     )));
     await tester.pumpAndSettle();
     expect(find.text('ایجاد پرسنل'), findsWidgets);
-    await tester.scrollUntilVisible(find.text('اطلاعات شغلی و بانکی'), 300,
+    await tester.scrollUntilVisible(find.text('اطلاعات شغلی و سازمانی'), 300,
         scrollable: find.byType(Scrollable).first);
-    expect(find.text('اطلاعات شغلی و بانکی'), findsOneWidget);
+    expect(find.text('اطلاعات شغلی و سازمانی'), findsOneWidget);
   });
 }
 

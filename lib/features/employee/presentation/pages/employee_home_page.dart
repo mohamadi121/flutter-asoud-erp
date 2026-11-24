@@ -3,15 +3,21 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/network/frappe_client.dart';
+import '../../../../core/auth/capabilities.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/jalali_date.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../hr/data/personnel_file_repository.dart';
 import '../../../workflows/presentation/widgets/home_inbox_summary.dart';
+import '../../../workflows/presentation/pages/cartable_page.dart';
 import '../../../calendar/calendar_page.dart';
 import '../../../dashboard/presentation/pages/sync_status_indicator.dart';
 import '../../../dashboard/presentation/pages/sync_queue_page.dart';
 import '../../../hr/domain/personnel_file.dart';
+import '../../../hr/presentation/pages/hr_home_page.dart';
+import '../../../reports/presentation/pages/reports_hub_page.dart';
+import '../../../request_templates/presentation/pages/request_list_pages.dart';
+import '../../../workflows/presentation/pages/generic_request_page.dart';
 import 'my_info_page.dart';
 import '../widgets/employee_photo.dart';
 import '../../../workflows/domain/entities/workflow_notification.dart';
@@ -19,6 +25,7 @@ import '../../../workflows/domain/repositories/workflow_notification_repository.
 import '../../../workflows/presentation/pages/workflow_notifications_page.dart';
 import '../../data/demo/employee_demo_data.dart';
 import '../../data/self_service_repository.dart';
+import 'my_attendance_page.dart';
 
 String _errorText(Object error) =>
     error is ApiException ? error.message : 'دریافت اطلاعات ممکن نشد.';
@@ -63,6 +70,9 @@ class _EmployeeHomePageState extends State<EmployeeHomePage> {
   Future<EmployeeHome> _loadHome() async =>
       widget.demoPreview ? demoEmployeeHome() : await files.myHome();
   late Future<EmployeeHome> future = _loadHome();
+  EmployeeHome? homeData;
+  late Future<Capabilities> capabilities =
+      capabilitiesOf(context, offlinePreview: widget.demoPreview);
   late final WorkflowNotificationRepository? notifications =
       widget.notifications ?? context.read<WorkflowNotificationRepository?>();
   late Future<List<WorkflowNotification>> notices =
@@ -73,7 +83,10 @@ class _EmployeeHomePageState extends State<EmployeeHomePage> {
     final next = _loadHome();
     setState(() {
       future = next;
+      homeData = null;
       notices = notifications?.getNotifications() ?? Future.value([]);
+      capabilities =
+          capabilitiesOf(context, offlinePreview: widget.demoPreview);
       refreshVersion++;
     });
     await next.catchError((_) => EmployeeHome.fromJson(const {}));
@@ -87,56 +100,244 @@ class _EmployeeHomePageState extends State<EmployeeHomePage> {
 
   void _profile() => _push(MyInfoPage(repository: files));
 
+  SelfServiceRepository get _selfService =>
+      widget.selfService ??
+      SelfServiceRepository(context.read<FrappeApiClient>());
+
+  void _operations(EmployeeHome? home) {
+    if (widget.onOperations != null) {
+      widget.onOperations!();
+      return;
+    }
+    Navigator.of(context)
+        .push(MaterialPageRoute<void>(
+      builder: (_) => Scaffold(
+        appBar: const AsoudHeader(title: 'عملیات'),
+        body: SafeArea(
+            child: ListView(padding: const EdgeInsets.all(16), children: [
+          if (home != null)
+            _DateCard(home: home, now: widget.now ?? DateTime.now()),
+          const SizedBox(height: 12),
+          _QuickActions(actions: [
+            _Action(
+                'درخواست‌ها', Icons.description_outlined, AsoudColors.primary,
+                badge: home?.counts.openRequests ?? 0, onTap: () {
+              if (widget.onOpenTab != null) {
+                Navigator.pop(context);
+                widget.onOpenTab!(2);
+              } else {
+                _push(GenericRequestsPage(company: widget.company));
+              }
+            }),
+            _Action('حضور و غیاب', Icons.schedule_rounded, AsoudColors.success,
+                onTap: () => _push(MyAttendancePage(repository: _selfService))),
+            _Action('گزارش کار', Icons.fact_check_outlined, AsoudColors.warning,
+                onTap: () => _push(WorkReportsPage(company: widget.company))),
+            _Action('مکاتبات', Icons.mail_outline_rounded, AsoudColors.purple,
+                onTap: () {
+              if (widget.onOpenTab != null) {
+                Navigator.pop(context);
+                widget.onOpenTab!(3);
+              } else {
+                _push(HrCommunicationsPage(company: widget.company));
+              }
+            }),
+            _Action('پرونده من', Icons.badge_outlined, AsoudColors.cyan,
+                onTap: () => _push(MyInfoPage(repository: files))),
+            _Action('مدارک', Icons.folder_outlined, AsoudColors.danger,
+                onTap: () =>
+                    _push(MyInfoPage(repository: files, showDocuments: true))),
+            _Action('مرخصی', Icons.beach_access_outlined, AsoudColors.success,
+                onTap: () =>
+                    _push(LeaveRequestsListPage(company: widget.company))),
+            _Action('درخواست خرید', Icons.shopping_cart_outlined,
+                AsoudColors.primary,
+                onTap: () =>
+                    _push(PurchaseRequestsListPage(company: widget.company))),
+            _Action('تأمین کالا / خدمات', Icons.inventory_2_outlined,
+                AsoudColors.cyan,
+                onTap: () =>
+                    _push(SupplyRequestsListPage(company: widget.company))),
+          ]),
+        ])),
+      ),
+    ))
+        .then((_) {
+      if (mounted) _reload();
+    });
+  }
+
   @override
   Widget build(BuildContext context) => Directionality(
-    textDirection: TextDirection.rtl,
-    child: ColoredBox(color: const Color(0xFFF6F8FC),
-      child: SafeArea(child: Column(children: [
-        Padding(padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
-          child: FutureBuilder<List<WorkflowNotification>>(
-            future: notices,
-            builder: (context, alerts) => _TopBar(
-              company: widget.company, now: widget.now ?? DateTime.now(),
-              unread: alerts.data?.where((n) => !n.isRead).length ?? 0,
-              onProfile: _profile,
-              onNotifications: () => _push(const WorkflowNotificationsPage())))),
-        Expanded(child: RefreshIndicator(onRefresh: _reload,
-          child: ListView(physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24), children: [
-              if (syncServiceOf(context) case final service?)
-                SyncStatusIndicator(service: service, hideWhenClear: true,
-                  onOpen: () => openSyncQueue(context, service)),
-              if (widget.statusBanner != null) ...[
-                widget.statusBanner!, const SizedBox(height: 10)],
-              FutureBuilder<EmployeeHome>(future: future,
-                builder: (context, snapshot) {
-                  if (snapshot.hasData) {
-                    return _Greeting(home: snapshot.data!, onTap: _profile);
-                  }
-                  return Card(margin: EdgeInsets.zero, color: Colors.white,
-                    child: ListTile(leading: const Icon(Icons.person_outline),
-                      title: const Text('پرونده من'), onTap: _profile,
-                      subtitle: Text(snapshot.hasError
-                        ? _errorText(snapshot.error!) : 'دریافت اطلاعات پرونده…'),
-                      trailing: snapshot.hasError
-                        ? IconButton(tooltip: 'تلاش دوباره', onPressed: _reload,
-                            icon: const Icon(Icons.refresh))
-                        : const SizedBox(width: 20, height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2))));
-                }),
-              if (widget.demoPreview)
-                const Text('پیش‌نمایش آفلاین · اطلاعات شخصی نمونه است',
-                  style: TextStyle(fontSize: 12, color: Color(0xFF2878DE))),
-              const SizedBox(height: 10),
-              HomeInboxSummary(
-                key: ValueKey('inbox:${widget.company}:$refreshVersion'),
-                company: widget.company, now: widget.now),
-              const SizedBox(height: 10),
-              AsoudCalendar(key: ValueKey('calendar:${widget.company}:$refreshVersion'),
-                company: widget.company, compact: true, now: widget.now),
+        textDirection: TextDirection.rtl,
+        child: ColoredBox(
+            color: const Color(0xFFF6F8FC),
+            child: SafeArea(
+                child: Column(children: [
+              Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+                  child: FutureBuilder<List<WorkflowNotification>>(
+                      future: notices,
+                      builder: (context, alerts) =>
+                          FutureBuilder<EmployeeHome>(
+                        future: future,
+                        builder: (context, home) => _TopBar(
+                            company: widget.company,
+                            now: widget.now ?? DateTime.now(),
+                            unread: notifications != null
+                                ? alerts.data?.where((n) => !n.isRead).length ??
+                                    0
+                                : home.data?.counts.unreadNotifications ?? 0,
+                            onProfile: _profile,
+                            onNotifications: () =>
+                                _push(const WorkflowNotificationsPage())),
+                      ))),
+              Expanded(
+                  child: RefreshIndicator(
+                      onRefresh: _reload,
+                      child: ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                          children: [
+                            if (syncServiceOf(context) case final service?)
+                              SyncStatusIndicator(
+                                  service: service,
+                                  hideWhenClear: true,
+                                  onOpen: () =>
+                                      openSyncQueue(context, service)),
+                            if (widget.statusBanner != null) ...[
+                              widget.statusBanner!,
+                              const SizedBox(height: 10)
+                            ],
+                            FutureBuilder<EmployeeHome>(
+                                future: future,
+                                builder: (context, snapshot) {
+                                  if (snapshot.hasData) {
+                                    homeData = snapshot.data;
+                                    return _Greeting(
+                                        home: snapshot.data!, onTap: _profile);
+                                  }
+                                  return Card(
+                                      margin: EdgeInsets.zero,
+                                      color: Colors.white,
+                                      child: ListTile(
+                                          leading:
+                                              const Icon(Icons.person_outline),
+                                          title: const Text('پرونده من'),
+                                          onTap: _profile,
+                                          subtitle: Text(snapshot.hasError
+                                              ? _errorText(snapshot.error!)
+                                              : 'دریافت اطلاعات پرونده…'),
+                                          trailing: snapshot.hasError
+                                              ? IconButton(
+                                                  tooltip: 'تلاش دوباره',
+                                                  onPressed: _reload,
+                                                  icon:
+                                                      const Icon(Icons.refresh))
+                                              : const SizedBox(
+                                                  width: 20,
+                                                  height: 20,
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                          strokeWidth: 2))));
+                                }),
+                            if (widget.demoPreview)
+                              const Text(
+                                  'پیش‌نمایش آفلاین · اطلاعات شخصی نمونه است',
+                                  style: TextStyle(
+                                      fontSize: 12, color: Color(0xFF2878DE))),
+                            const SizedBox(height: 10),
+                            HomeInboxSummary(
+                                key: ValueKey(
+                                    'inbox:${widget.company}:$refreshVersion'),
+                                company: widget.company,
+                                now: widget.now),
+                            const SizedBox(height: 10),
+                            AsoudCalendar(
+                                key: ValueKey(
+                                    'calendar:${widget.company}:$refreshVersion'),
+                                company: widget.company,
+                                compact: true,
+                                now: widget.now),
+                            const SizedBox(height: 14),
+                            const Text('دسترسی سریع',
+                                style: TextStyle(
+                                    fontSize: 15, fontWeight: FontWeight.w800)),
+                            const SizedBox(height: 10),
+                            FutureBuilder<Capabilities>(
+                                future: capabilities,
+                                builder: (context, access) {
+                                  final actions =
+                                      <(String, IconData, Color, VoidCallback)>[
+                                    (
+                                      'عملیات',
+                                      Icons.apps_rounded,
+                                      AsoudColors.primary,
+                                      () => _operations(homeData)
+                                    ),
+                                    if (access.data?.canSeeAccounting == true)
+                                      (
+                                        'گزارش‌ها',
+                                        Icons.bar_chart_rounded,
+                                        AsoudColors.purple,
+                                        () => _push(const ReportsHubPage())
+                                      ),
+                                    (
+                                      'کارتابل',
+                                      Icons.assignment_ind_outlined,
+                                      AsoudColors.warning,
+                                      () => _push(
+                                          CartablePage(company: widget.company))
+                                    ),
+                                    (
+                                      'پرونده من',
+                                      Icons.badge_outlined,
+                                      AsoudColors.cyan,
+                                      _profile
+                                    ),
+                                  ];
+                                  return GridView.count(
+                                      crossAxisCount: 4,
+                                      shrinkWrap: true,
+                                      physics:
+                                          const NeverScrollableScrollPhysics(),
+                                      mainAxisExtent: 84,
+                                      mainAxisSpacing: 8,
+                                      crossAxisSpacing: 8,
+                                      children: [
+                                        for (final action in actions)
+                                          Card(
+                                              margin: EdgeInsets.zero,
+                                              color: const Color(0xFFF5F8FD),
+                                              child: InkWell(
+                                                  borderRadius:
+                                                      BorderRadius.circular(14),
+                                                  onTap: action.$4,
+                                                  child: Column(
+                                                      mainAxisAlignment:
+                                                          MainAxisAlignment
+                                                              .center,
+                                                      children: [
+                                                        AsoudIconBox(
+                                                            icon: action.$2,
+                                                            color: action.$3,
+                                                            size: 34),
+                                                        const SizedBox(
+                                                            height: 6),
+                                                        Text(action.$1,
+                                                            textAlign: TextAlign
+                                                                .center,
+                                                            style: const TextStyle(
+                                                                fontSize: 11,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w700))
+                                                      ]))),
+                                      ]);
+                                }),
+                          ]))),
             ]))),
-      ]))),
-  );
+      );
 }
 
 class _TopBar extends StatelessWidget {
@@ -152,36 +353,55 @@ class _TopBar extends StatelessWidget {
   final VoidCallback onNotifications, onProfile;
   @override
   Widget build(BuildContext context) => Column(children: [
-    Row(children: [
-      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('دفتر کار فعال',
-            style: TextStyle(fontSize: 12, color: AsoudColors.muted)),
-          Text(company, style: const TextStyle(fontSize: 13,
-            fontWeight: FontWeight.w700)),
-        ])),
-      const Padding(padding: EdgeInsets.symmetric(horizontal: 8),
-        child: Column(children: [
-          Text('آسود', style: TextStyle(fontSize: 18,
-            color: Color(0xFF2878DE), fontWeight: FontWeight.w800)),
-          Text('ERP', style: TextStyle(fontSize: 10, color: Color(0xFF2878DE))),
-        ])),
-      IconButton(tooltip: 'اعلان‌ها', onPressed: onNotifications,
-        icon: Badge(isLabelVisible: unread > 0,
-          label: Text(toPersianDigits(unread)),
-          child: const Icon(Icons.notifications_none_rounded))),
-      IconButton(tooltip: 'پرونده من', onPressed: onProfile,
-        icon: const Icon(Icons.account_circle_outlined)),
-    ]),
-    const SizedBox(height: 12),
-    Row(children: [
-      const Expanded(child: Text('خانه من',
-        style: TextStyle(fontSize: 22, color: Color(0xFF172B50),
-          fontWeight: FontWeight.w800))),
-      Flexible(child: Text(formatJalaliLong(now), textAlign: TextAlign.end,
-        style: const TextStyle(fontSize: 12, color: AsoudColors.muted))),
-    ]),
-  ]);
+        Row(children: [
+          Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                const Text('دفتر کار فعال',
+                    style: TextStyle(fontSize: 12, color: AsoudColors.muted)),
+                Text(company,
+                    style: const TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.w700)),
+              ])),
+          const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 8),
+              child: Column(children: [
+                Text('آسود',
+                    style: TextStyle(
+                        fontSize: 18,
+                        color: Color(0xFF2878DE),
+                        fontWeight: FontWeight.w800)),
+                Text('ERP',
+                    style: TextStyle(fontSize: 10, color: Color(0xFF2878DE))),
+              ])),
+          IconButton(
+              tooltip: 'اعلان‌ها',
+              onPressed: onNotifications,
+              icon: Badge(
+                  isLabelVisible: unread > 0,
+                  label: Text(toPersianDigits(unread)),
+                  child: const Icon(Icons.notifications_none_rounded))),
+          IconButton(
+              tooltip: 'پرونده من',
+              onPressed: onProfile,
+              icon: const Icon(Icons.account_circle_outlined)),
+        ]),
+        const SizedBox(height: 12),
+        Row(children: [
+          const Expanded(
+              child: Text('خانه من',
+                  style: TextStyle(
+                      fontSize: 22,
+                      color: Color(0xFF172B50),
+                      fontWeight: FontWeight.w800))),
+          Flexible(
+              child: Text(formatJalaliLong(now),
+                  textAlign: TextAlign.end,
+                  style:
+                      const TextStyle(fontSize: 12, color: AsoudColors.muted))),
+        ]),
+      ]);
 }
 
 class _Greeting extends StatelessWidget {
@@ -197,17 +417,124 @@ class _Greeting extends StatelessWidget {
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           leading: EmployeePhoto(name: home.name, recordId: home.photoRecord),
-          title: const Text('پرونده من',
-              style:
-                  TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+          title: Text(home.name,
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
           subtitle: Text(
-              [home.name, home.designation, home.departmentName]
+              [home.designation, home.departmentName]
                   .where((v) => v.isNotEmpty)
                   .join(' · '),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 11, color: AsoudColors.muted)),
           trailing: const Icon(Icons.chevron_left_rounded)));
+}
+
+class _DateCard extends StatelessWidget {
+  const _DateCard({required this.home, required this.now});
+  final EmployeeHome home;
+  final DateTime now;
+
+  String get status {
+    final checkin = home.lastCheckin;
+    final date = DateTime.tryParse(checkin?.time ?? '');
+    if (date == null ||
+        date.year != now.year ||
+        date.month != now.month ||
+        date.day != now.day) return 'امروز هنوز ورودی ثبت نشده';
+    final time = toPersianDigits(
+        '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}');
+    return '${checkin!.logType == 'OUT' ? 'خروج' : 'ورود'} امروز: $time';
+  }
+
+  @override
+  Widget build(BuildContext context) => Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+          color: AsoudColors.primary.withValues(alpha: .07),
+          borderRadius: BorderRadius.circular(16)),
+      child: Row(children: [
+        Expanded(
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(formatJalaliLong(now),
+              style:
+                  const TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 6),
+          Text(status, style: const TextStyle(fontSize: 12)),
+        ])),
+        const AsoudIconBox(
+            icon: Icons.calendar_month_outlined,
+            color: AsoudColors.primary,
+            size: 40)
+      ]));
+}
+
+class _Action {
+  const _Action(this.label, this.icon, this.color,
+      {required this.onTap, this.badge = 0});
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+  final int badge;
+  String get subtitle => const {
+        'درخواست‌ها': 'ثبت و پیگیری درخواست',
+        'مرخصی': 'روزانه و ساعتی',
+        'درخواست خرید': 'خرید کالا',
+        'تأمین کالا / خدمات': 'تأمین از انبار یا خرید',
+        'حضور و غیاب': 'ثبت ورود و خروج',
+        'گزارش کار': 'ثبت گزارش روزانه',
+        'مکاتبات': 'دریافت و ارسال نامه',
+        'پرونده من': 'مشاهده پرونده',
+        'مدارک': 'مشاهده مدارک'
+      }[label]!;
+}
+
+class _QuickActions extends StatelessWidget {
+  const _QuickActions({required this.actions});
+  final List<_Action> actions;
+  @override
+  Widget build(BuildContext context) => GridView.count(
+          crossAxisCount: 3,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 8,
+          crossAxisSpacing: 8,
+          mainAxisExtent: 112,
+          children: [
+            for (final action in actions)
+              Material(
+                  color: action.color.withValues(alpha: .07),
+                  borderRadius: BorderRadius.circular(16),
+                  child: InkWell(
+                      onTap: action.onTap,
+                      borderRadius: BorderRadius.circular(16),
+                      child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Badge(
+                                isLabelVisible: action.badge > 0,
+                                label: Text(toPersianDigits(action.badge)),
+                                child: AsoudIconBox(
+                                    icon: action.icon,
+                                    color: action.color,
+                                    size: 38)),
+                            const SizedBox(height: 6),
+                            Text(action.label,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                    fontSize: 12, fontWeight: FontWeight.w700)),
+                            Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 3),
+                                child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(action.subtitle,
+                                        maxLines: 1,
+                                        style: const TextStyle(fontSize: 10)))),
+                          ]))),
+          ]);
 }
 
 class AnnouncementCard extends StatelessWidget {

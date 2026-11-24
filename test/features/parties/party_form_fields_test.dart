@@ -1,4 +1,5 @@
 import 'package:asoud_erp/core/network/api_exception.dart';
+import 'package:asoud_erp/core/network/frappe_client.dart';
 import 'package:asoud_erp/core/offline/queued_offline_exception.dart';
 import 'package:asoud_erp/core/utils/failure_message.dart';
 import 'package:asoud_erp/features/parties/data/repositories/server_first_party_repository.dart';
@@ -12,6 +13,7 @@ import 'package:asoud_erp/features/parties/presentation/pages/party_form_page.da
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
 
 import '../../helpers/fake_local_record_store.dart';
 
@@ -20,8 +22,7 @@ class _CapturingPartyRepository implements PartyRepository {
   Object? failure;
   @override
   Future<PartyProfile> save(PartyProfile profile,
-      {PartyRole? primaryRole,
-      Set<String> detailGroups = const {}}) async {
+      {PartyRole? primaryRole, Set<String> detailGroups = const {}}) async {
     saved = profile;
     if (failure != null) throw failure!;
     return profile;
@@ -62,6 +63,8 @@ class _CapturingPartyRepository implements PartyRepository {
       '${detailGroup}00001';
 }
 
+class _Client extends Mock implements FrappeApiClient {}
+
 class _Groups implements DetailGroupRepository {
   @override
   Future<void> disableGroup(String id) async {}
@@ -78,19 +81,33 @@ class _Groups implements DetailGroupRepository {
   Future<List<DetailGroup>> seedDefaults() => getGroups();
 }
 
-Future<void> _open(WidgetTester tester, PartyRole role,
-    PartyRepository repository, {double width = 390, PartyProfile? profile}) async {
+Future<void> _open(
+    WidgetTester tester, PartyRole role, PartyRepository repository,
+    {double width = 390, PartyProfile? profile}) async {
   tester.view.physicalSize = Size(width, 1600);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
+  final client = _Client();
+  when(() => client.isAuthenticated).thenReturn(false);
+  when(() => client.callAsoudMethod(any(), data: any(named: 'data')))
+      .thenAnswer((_) async => {
+            'can_edit_financial': true,
+            'gender': ['Male', 'Female'],
+            'employment_type': ['Full-time', 'Part-time'],
+            'department': ['Sales'],
+            'job_title': ['Sales Specialist'],
+            'bank': ['Bank'],
+          });
   await tester.pumpWidget(MultiRepositoryProvider(
     providers: [
+      RepositoryProvider<FrappeApiClient>.value(value: client),
       RepositoryProvider<PartyRepository>.value(value: repository),
       RepositoryProvider<DetailGroupRepository>.value(value: _Groups()),
     ],
     child: MaterialApp(
       theme: AsoudTheme.light,
-      builder: (context, child) => Directionality(textDirection: TextDirection.rtl, child: child!),
+      builder: (context, child) =>
+          Directionality(textDirection: TextDirection.rtl, child: child!),
       home: Directionality(
         textDirection: TextDirection.rtl,
         child: Builder(
@@ -99,7 +116,9 @@ Future<void> _open(WidgetTester tester, PartyRole role,
               child: TextButton(
                 onPressed: () => Navigator.of(context).push(MaterialPageRoute(
                     builder: (_) => PartyFormPage(
-                        company: 'شرکت نمونه', initialRole: role, profile: profile))),
+                        company: 'شرکت نمونه',
+                        initialRole: role,
+                        profile: profile))),
                 child: const Text('باز کردن'),
               ),
             ),
@@ -131,9 +150,10 @@ void main() {
         final repository = queued == 'exception'
             ? remote
             : ServerFirstPartyRepository(remote, local: FakeLocalRecordStore());
-        await _open(tester, PartyRole.employee, repository, width: width,
-            profile: _validProfile(
-                queued == 'pending existing' ? 'PARTY-1' : null));
+        await _open(tester, PartyRole.employee, repository,
+            width: width,
+            profile:
+                _validProfile(queued == 'pending existing' ? 'PARTY-1' : null));
         await tester.tap(find.text('ذخیره'));
         // The saving spinner remains active behind the modal notice.
         await tester.pump();
@@ -147,7 +167,8 @@ void main() {
       });
     }
     for (final kind in [ApiFailureKind.forbidden, ApiFailureKind.validation]) {
-      testWidgets('$kind keeps personnel form and values at $width', (tester) async {
+      testWidgets('$kind keeps personnel form and values at $width',
+          (tester) async {
         final failure = ApiException(
             kind: kind,
             statusCode: kind == ApiFailureKind.forbidden ? 403 : 417,
@@ -169,22 +190,23 @@ void main() {
         (tester) async {
       await _open(tester, PartyRole.employee, _CapturingPartyRepository(),
           width: width);
-      await _expand(tester, 'اطلاعات اصلی');
+      await _expand(tester, 'اطلاعات شغلی و سازمانی');
       final hint = find.text(
           'سمت باید از سمت‌های ثبت‌شده در سرور باشد؛ اگر مطمئن نیستید خالی بگذارید.');
       expect(hint, findsOneWidget);
       expect(
           tester.getTopLeft(hint).dy,
-          greaterThanOrEqualTo(tester.getBottomLeft(
-              find.widgetWithText(AppTextField, 'واحد سازمانی')).dy));
+          greaterThanOrEqualTo(tester
+              .getBottomLeft(find.byType(AppSelectField).last)
+              .dy));
       expect(tester.takeException(), isNull);
     });
     testWidgets('gender selection rebuilds at $width', (tester) async {
       await _open(tester, PartyRole.employee, _CapturingPartyRepository(),
           width: width);
       await tester.pumpAndSettle();
-      await _expand(tester, 'اطلاعات شغلی و بانکی');
-      final field = find.byType(AppSelectField);
+      await _expand(tester, 'اطلاعات اصلی');
+      final field = find.byType(AppSelectField).first;
       await tester.ensureVisible(field);
       await tester.tap(field);
       await tester.pumpAndSettle();
@@ -198,13 +220,11 @@ void main() {
   testWidgets('the employee party form uses AppTextField and AppSelectField',
       (tester) async {
     await _open(tester, PartyRole.employee, _CapturingPartyRepository());
-    await _expand(tester, 'اطلاعات شغلی و بانکی');
+    await _expand(tester, 'اطلاعات شغلی و سازمانی');
 
-    expect(find.text('جنسیت *'), findsOneWidget);
-    expect(find.byType(AppSelectField), findsOneWidget);
-    // The opening balance amount became a shared field with the ریال suffix.
-    expect(find.widgetWithText(AppTextField, 'مبلغ'), findsOneWidget);
-    expect(find.text('ریال'), findsOneWidget);
+    expect(find.text('واحد سازمانی'), findsOneWidget);
+    expect(find.text('سمت شغلی'), findsOneWidget);
+    expect(find.byType(AppSelectField), findsNWidgets(3));
     expect(tester.takeException(), isNull);
   });
 
@@ -213,15 +233,18 @@ void main() {
     final repository = _CapturingPartyRepository();
     await _open(tester, PartyRole.customer, repository);
     await _expand(tester, 'اطلاعات اصلی');
-    await tester.enterText(
-        find.widgetWithText(TextFormField, 'نام *'), 'علی');
+    await tester.enterText(find.widgetWithText(TextFormField, 'نام *'), 'علی');
     await tester.enterText(
         find.widgetWithText(TextFormField, 'نام خانوادگی *'), 'رضایی');
 
-    await _expand(tester, 'اطلاعات مالی و بانکی');
+    await _expand(tester, 'اطلاعات مالی');
     // Persian digits must be parsed, otherwise creditLimit would be null.
+    final creditField = find.byWidgetPredicate((widget) =>
+        widget is AppTextField && widget.label.contains('سقف اعتبار'));
     await tester.enterText(
-        find.widgetWithText(TextFormField, 'سقف اعتبار'), '۲۵۰۰۰۰۰۰');
+        find.descendant(
+            of: creditField, matching: find.byType(TextFormField)),
+        '۲۵۰۰۰۰۰۰');
 
     await tester.tap(find.text('ذخیره'));
     await tester.pumpAndSettle();
@@ -235,7 +258,11 @@ void main() {
 
 const _queuedNotice = 'ذخیره روی گوشی انجام شد و هنوز به سرور ارسال نشده است';
 PartyProfile _validProfile(String? id) => PartyProfile(
-  id: id, kind: PartyKind.individual, displayName: 'علی رضایی',
-  roles: const {PartyRole.employee}, employeeGender: 'Male',
-  birthDate: '1992-05-11', dateOfJoining: '2024-04-21',
-);
+      id: id,
+      kind: PartyKind.individual,
+      displayName: 'علی رضایی',
+      roles: const {PartyRole.employee},
+      employeeGender: 'Male',
+      birthDate: '1992-05-11',
+      dateOfJoining: '2024-04-21',
+    );

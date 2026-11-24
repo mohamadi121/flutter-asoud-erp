@@ -10,7 +10,11 @@ import '../../../../core/utils/jalali_date.dart';
 /// whether the queue is running, and that nothing is left when the count
 /// reaches zero. It is the home entry point to «صف ارسال به سرور».
 class SyncStatusIndicator extends StatefulWidget {
-  const SyncStatusIndicator({required this.service, this.onOpen, this.hideWhenClear = false, super.key});
+  const SyncStatusIndicator(
+      {required this.service,
+      this.onOpen,
+      this.hideWhenClear = false,
+      super.key});
 
   final OfflineSyncService service;
   final bool hideWhenClear;
@@ -75,15 +79,25 @@ class _SyncStatusIndicatorState extends State<SyncStatusIndicator> {
     final unsent = _unsent;
     if (unsent == null) return const SizedBox.shrink();
     final clear = unsent == 0 && _localOnly == 0;
-    if (clear && !_syncing && widget.hideWhenClear) return const SizedBox.shrink();
-    final color = _failed ? AsoudColors.danger : const Color(0xFF2878DE);
-    final surface = _failed ? const Color(0xFFFCE7EA) : const Color(0xFFEAF3FF);
-    final label = _syncing ? 'در حال همگام‌سازی…' : _failed
-        ? 'ارسال برخی تغییرات انجام نشد' : clear
-        ? 'همه داده‌ها ارسال شده'
-        : unsent > 0
-            ? '${toPersianDigits(unsent)} تغییر ارسال نشد — مشاهده'
-            : '${toPersianDigits(_localOnly)} داده روی گوشی';
+    if (clear && !_syncing && widget.hideWhenClear)
+      return const SizedBox.shrink();
+    final color = _failed
+        ? AsoudColors.danger
+        : clear
+            ? AsoudColors.success
+            : AsoudColors.warning;
+    final surface = _failed
+        ? const Color(0xFFFCE7EA)
+        : clear
+            ? AsoudColors.successSurface
+            : AsoudColors.warningSurface;
+    final label = _failed
+        ? 'ارسال برخی تغییرات انجام نشد'
+        : clear
+            ? 'همه داده‌ها ارسال شده'
+            : unsent > 0
+                ? '${toPersianDigits(unsent)} تغییر ارسال نشد — مشاهده'
+                : '${toPersianDigits(_localOnly)} داده روی گوشی';
     final bar = Material(
       color: surface,
       borderRadius: BorderRadius.circular(12),
@@ -120,15 +134,17 @@ class _SyncStatusIndicatorState extends State<SyncStatusIndicator> {
               ),
             ),
             if (_failed && !_syncing)
-              TextButton(onPressed: () async {
-                try {
-                  await widget.service.retryAll();
-                } catch (_) {
-                  if (mounted) setState(() => _failed = true);
-                } finally {
-                  if (mounted) await _refresh();
-                }
-              }, child: const Text('تلاش مجدد')),
+              TextButton(
+                  onPressed: () async {
+                    try {
+                      await widget.service.retryAll();
+                    } catch (_) {
+                      if (mounted) setState(() => _failed = true);
+                    } finally {
+                      if (mounted) await _refresh();
+                    }
+                  },
+                  child: const Text('تلاش مجدد')),
             if (!clear && widget.onOpen != null)
               Icon(Icons.chevron_left_rounded, size: 20, color: color),
           ]),
