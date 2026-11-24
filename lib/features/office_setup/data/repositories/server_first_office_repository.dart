@@ -235,6 +235,7 @@ class ServerFirstOfficeRepository
         'company_type': office.companyType,
         'parent_office': office.parentOffice,
         'phone': office.phone,
+        'landline': office.landline,
         'email': office.email,
         'website': office.website,
         'province': office.province,

@@ -15,10 +15,10 @@ void main() {
     await tester.tap(find.text('مدیریت کاربران'));
     await tester.pumpAndSettle();
 
-    expect(find.text('انتخاب نقش برای مدیریت دسترسی کاربران'), findsOneWidget);
+    expect(find.text('ایجاد حساب کاربری'), findsOneWidget);
     expect(
-        client.calls, contains('asoud_erp.api.v1.role_management.catalog'));
-    expect(find.text('مدیر منابع انسانی'), findsWidgets);
+        client.calls, contains('asoud_erp.api.v1.access_profiles.list_accounts'));
+    expect(find.text('کاربر نمونه'), findsOneWidget);
   });
 
   testWidgets('hr-manager does not see the مدیریت کاربران tile', (tester) async {

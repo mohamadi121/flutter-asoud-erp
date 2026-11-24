@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Refine the existing shared party form: separate identity/employment/finance/bank sections, native option pickers, checksum validation, caret-aware amount input and reuse of an existing office party. Remove only the old personnel-form role shortcut; retain other callers. Warn before discarding edits. Keep global floating-detail codes, multiple details per party and shared-login/HR membership unchanged. Opening balances remain read-only here pending an authoritative accounting document/period path. No tests run for this delivery.
+- Consolidate the existing personal home/calendar: office-scoped inbox summary, centered seven-day view, maintained Jalali conversion and device reminder delivery. No production deployment; iOS native project/approved logo asset and real-device notification verification remain outstanding.
+
+- Replace the settings roles tile with office-bound access profiles; keep user management separate. Account creation uses existing personnel with no profile picker. Account Access tab previews optional template rights and saves explicit copies. Unsupported server permission rows are not invented; legacy companyless profiles stay read-only. This local change is not deployed; see backend access-profile limitations before release.
+
+- ورود پس از لاگین به همان «دفترهای من» هدایت می‌شود؛ فهرست و انتخاب دفتر با دامنهٔ مجاز سرور هماهنگ و ساخت دفتر جدید از همین صفحه بازخوانی می‌شود. محدودیت ورود ارقام هویت و موبایل اضافه و تلفن ثابت از موبایل جدا شده است. نیازمند بکند هم‌قرارداد و مهاجرت فیلد اختیاری تلفن ثابت؛ پروفایل‌های دسترسی تغییر نکرده‌اند.
+
 - ویرایش فرم درخواست: شناسهٔ فرم هنگام دریافت فهرست گردش‌ها ارسال می‌شود تا گردش‌های وابسته به فرم مبدأ دیگر قابل انتخاب نباشند. انتشار و همگام‌سازی نسخه در بکند هم‌قرارداد انجام می‌شود؛ ظاهر و الگوهای آماده تغییر نکرده‌اند.
 
 - فرم درخواست: نحوهٔ اتصال گردش‌کار در مشخصات فرم قابل انتخاب است؛ انتخاب گردش مشخص صریح ذخیره می‌شود و تنظیمات قدیمی بدون تغییر خودکار باقی می‌مانند. برای حالت «فقط ثبت فرم» محدودیت نبود سیاست معتبرِ بی‌نیازی از تأیید توضیح داده می‌شود. نیازمند بکند هم‌قرارداد؛ الگوهای منابع انسانی تغییر نکرده‌اند.

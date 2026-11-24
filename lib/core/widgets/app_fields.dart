@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../theme/asoud_colors.dart';
 
@@ -105,6 +106,7 @@ class AppTextField extends StatelessWidget {
     this.minLines,
     this.maxLength,
     this.keyboardType,
+    this.inputFormatters,
     this.hintLocales,
     this.textInputAction,
     this.counterText,
@@ -128,6 +130,7 @@ class AppTextField extends StatelessWidget {
   final int? maxLength;
   final int? minLines;
   final TextInputType? keyboardType;
+  final List<TextInputFormatter>? inputFormatters;
   final List<Locale>? hintLocales;
   final TextInputAction? textInputAction;
   final String? counterText;
@@ -153,6 +156,7 @@ class AppTextField extends StatelessWidget {
         minLines: minLines,
         maxLength: maxLength,
         keyboardType: keyboardType,
+        inputFormatters: inputFormatters,
         hintLocales: hintLocales,
         textDirection: ltr ? TextDirection.ltr : null,
         textInputAction: textInputAction,

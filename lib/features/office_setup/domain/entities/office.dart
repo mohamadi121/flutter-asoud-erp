@@ -16,6 +16,7 @@ class Office extends Equatable {
     this.companyType,
     this.parentOffice,
     this.phone,
+    this.landline,
     this.email,
     this.website,
     this.province,
@@ -44,6 +45,7 @@ class Office extends Equatable {
   final String? companyType;
   final String? parentOffice;
   final String? phone, email, website, province, city, address, postalCode;
+  final String? landline;
   final String? fiscalYear, chartTemplate, description;
   final DateTime? lastSyncedAt;
   final bool setupComplete;
@@ -74,6 +76,7 @@ class Office extends Equatable {
         companyType,
         parentOffice,
         phone,
+        landline,
         email,
         website,
         province,

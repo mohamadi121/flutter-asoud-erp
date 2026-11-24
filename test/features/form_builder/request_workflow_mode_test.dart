@@ -32,6 +32,34 @@ void main() {
   });
 
   for (final width in [320.0, 390.0, 430.0]) {
+    testWidgets('blocked record-only draft is preserved but not offered at $width', (tester) async {
+      tester.view.physicalSize = Size(width, 1600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final schema = request()..['workflow_mode'] = 'RecordOnly';
+      await tester.pumpWidget(MaterialApp(home: Directionality(
+        textDirection: TextDirection.rtl,
+        child: Scaffold(body: SingleChildScrollView(child: StatefulBuilder(
+          builder: (context, update) => EditorInfoStep(
+            schema: schema, options: const {}, change: update,
+          ),
+        ))),
+      )));
+      await tester.tap(find.text('اتصال به گردش‌کار (اختیاری)'));
+      await tester.pumpAndSettle();
+      expect(schema['workflow_mode'], 'RecordOnly');
+      expect(find.textContaining('سیاست معتبر'), findsOneWidget);
+      await tester.ensureVisible(find.text('روش اتصال مجاز را انتخاب کنید'));
+      await tester.tap(find.text('روش اتصال مجاز را انتخاب کنید'));
+      await tester.pumpAndSettle();
+      expect(find.text('فقط ثبت فرم'), findsNothing);
+      await tester.tap(find.text('انتخاب بر اساس شرط').last);
+      await tester.pumpAndSettle();
+      expect(schema['workflow_mode'], 'Conditional');
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('request workflow intent persists at $width RTL', (tester) async {
       tester.view.physicalSize = Size(width, 1600);
       tester.view.devicePixelRatio = 1;
@@ -65,6 +93,7 @@ void main() {
       await tester.ensureVisible(find.text('گردش مشخص'));
       await tester.tap(find.text('گردش مشخص'));
       await tester.pumpAndSettle();
+      expect(find.text('فقط ثبت فرم'), findsNothing);
       await tester.tap(find.text('انتخاب بر اساس شرط').last);
       await tester.pumpAndSettle();
       expect(schema['workflow_mode'], 'Conditional');

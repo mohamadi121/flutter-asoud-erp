@@ -1,6 +1,5 @@
 import 'package:asoud_erp/core/theme/asoud_theme.dart';
 import 'package:asoud_erp/core/network/frappe_client.dart';
-import 'package:asoud_erp/features/roles/presentation/roles_page.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:asoud_erp/features/dashboard/presentation/pages/dashboard_page.dart';
 import 'package:asoud_erp/features/dashboard/presentation/pages/settings_dashboard_content.dart';
@@ -60,19 +59,18 @@ void main() {
       expect(find.text('Admin'), findsNothing);
       expect(tester.takeException(), isNull);
       for (var i = 0;
-          i < 12 && find.text('مدیریت نقش‌ها').hitTestable().evaluate().isEmpty;
+          i < 12 && find.text('پروفایل‌های دسترسی').hitTestable().evaluate().isEmpty;
           i++) {
         await tester.drag(find.byType(ListView).first, const Offset(0, -180));
         await tester.pumpAndSettle();
       }
-      await tester.tap(find.text('مدیریت نقش‌ها'));
+      await tester.tap(find.text('پروفایل‌های دسترسی'));
       await tester.pumpAndSettle();
-      expect(find.byType(RolesPage), findsOneWidget);
-      expect(find.text('مشاهده و تکمیل نقش‌ها'), findsOneWidget);
-      expect(client.methods, ['asoud_erp.api.v1.role_management.catalog']);
+      // Permission editing is intentionally unavailable in offline preview.
+      expect(find.byType(SettingsDashboardContent), findsOneWidget);
+      expect(find.text('مدیریت نقش‌ها'), findsNothing);
+      expect(client.methods, isEmpty);
       expect(tester.takeException(), isNull);
-      await tester.tap(find.byIcon(Icons.chevron_right_rounded).first);
-      await tester.pumpAndSettle();
       // Base setup remains available through Modules, not the renamed role card.
       await tester.ensureVisible(find.text('ماژول‌ها'));
       await tester.tap(find.text('ماژول‌ها'));
@@ -152,7 +150,7 @@ void main() {
       'مدیریت کاربران',
       'ماژول‌ها',
       'انواع درخواست',
-      'مدیریت نقش‌ها',
+      'پروفایل‌های دسترسی',
       'گردش کار',
     ]) {
       expect(find.text(tile), findsNothing);
@@ -185,7 +183,7 @@ void main() {
       'ساختار سازمانی',
       'ماژول‌ها',
       'انواع درخواست',
-      'مدیریت نقش‌ها',
+      'پروفایل‌های دسترسی',
       'گردش کار',
     ]) {
       expect(find.text(tile), findsOneWidget);

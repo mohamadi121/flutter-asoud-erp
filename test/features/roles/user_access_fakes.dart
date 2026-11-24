@@ -38,6 +38,10 @@ class UserAccessClient extends Fake implements FrappeApiClient {
   Future<Map<String, dynamic>> callMethod(String method,
       {Map<String, dynamic>? data}) async {
     calls.add(method);
+    if (method == 'asoud_erp.api.v1.access_profiles.list_accounts') {
+      return _envelope([{'name': 'EMP-TEST', 'employee_name': 'کاربر نمونه',
+        'designation': 'کارشناس', 'user_id': 'hr-manager@asoud-demo.local'}]);
+    }
     if (method == 'asoud_erp.api.v1.user_access.directory') {
       if (mode == 'network') {
         throw const ApiException(

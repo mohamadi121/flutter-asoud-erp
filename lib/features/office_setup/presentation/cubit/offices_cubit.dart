@@ -50,15 +50,17 @@ class OfficesCubit extends Cubit<OfficesState> {
   void search(String value) => emit(state.copyWith(query: value));
   void dismissCreatedBanner() => emit(state.copyWith(showCreatedBanner: false));
 
-  Future<void> selectDefault(Office office) async {
+  Future<bool> selectDefault(Office office, {bool announce = true}) async {
+    if (state.changingDefault) return false;
     emit(state.copyWith(changingDefault: true, clearMessage: true));
     try {
       final selected = await _repository.setDefaultOffice(office);
       emit(state.copyWith(
         defaultOffice: selected,
         changingDefault: false,
-        message: 'دفتر فعال با موفقیت تغییر کرد.',
+        message: announce ? 'دفتر فعال با موفقیت تغییر کرد.' : null,
       ));
+      return true;
     } catch (error) {
       if (isRetryableOfflineFailure(error)) {
         emit(state.copyWith(
@@ -67,12 +69,13 @@ class OfficesCubit extends Cubit<OfficesState> {
           offlinePreview: true,
           message: 'دفتر فعال روی گوشی تغییر کرد و پس از اتصال همگام می‌شود.',
         ));
-        return;
+        return true;
       }
       emit(state.copyWith(
         changingDefault: false,
         message: failureMessage(error),
       ));
+      return false;
     }
   }
 }

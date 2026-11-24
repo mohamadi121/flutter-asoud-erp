@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/network/frappe_client.dart';
+import '../../../../core/utils/persian_server_values.dart';
 import '../../../../core/utils/failure_message.dart';
 import '../../../../core/offline/queued_offline_exception.dart';
 import '../../../../core/utils/persian_format.dart';
@@ -12,7 +15,8 @@ import '../../../accounting/domain/entities/detail_group.dart';
 import '../../../accounting/domain/repositories/detail_group_repository.dart';
 import '../../domain/entities/party_profile.dart';
 import '../../domain/repositories/party_repository.dart';
-import 'personnel_roles_page.dart';
+import '../../../office_setup/domain/office_input_validation.dart';
+import '../../../auth/domain/identity_validators.dart';
 
 class PartyFormPage extends StatefulWidget {
   const PartyFormPage(
@@ -41,6 +45,10 @@ class _PartyFormPageState extends State<PartyFormPage> {
   List<DetailGroup> groups = const [];
   String? previewCode, error;
   bool saving = false, loadingGroups = true;
+  bool dirty = false, allowLeave = false, confirmingLeave = false;
+  Map<String, dynamic> options = {};
+  String? optionsError, birthError;
+  bool get canEditFinancial => options['can_edit_financial'] == true;
 
   @override
   void initState() {
@@ -101,7 +109,86 @@ class _PartyFormPageState extends State<PartyFormPage> {
     }.entries) {
       fields[entry.key] = TextEditingController(text: entry.value);
     }
+    for (final controller in fields.values) {
+      controller.addListener(() {
+        if (!dirty && mounted) setState(() => dirty = true);
+      });
+    }
+    fields['birth']!.addListener(() {
+      if (mounted && birthError != null) setState(() => birthError = null);
+    });
+    _loadOptions();
     _loadGroups();
+  }
+
+  Future<void> _loadOptions() async {
+    try {
+      final client = context.read<FrappeApiClient>();
+      final result = await client.callAsoudMethod('asoud_erp.api.v1.party.get_form_options',
+          data: {'company': widget.company ?? widget.profile?.company});
+      if (result is! Map) throw StateError('گزینه‌های فرم دریافت نشد.');
+      if (mounted) {
+        setState(() {
+          options = Map<String, dynamic>.from(result);
+          optionsError = null;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => optionsError = 'فهرست‌های فرم دریافت نشدند؛ برای تلاش مجدد بزنید.');
+    }
+  }
+
+  Future<void> _existingPerson() async {
+    if (saving) return;
+    final query = fields['national']!.text.trim();
+    if (query.isEmpty) {
+      setState(() => error = 'برای جست‌وجوی پرونده موجود، کد ملی یا شناسه ملی را وارد کنید.');
+      return;
+    }
+    try {
+      final rows = await context.read<PartyRepository>().list(
+        company: widget.company ?? widget.profile?.company, search: toLatinDigits(query));
+      if (!mounted) return;
+      if (rows.isEmpty) {
+        setState(() => error = 'پرونده‌ای با این مشخصات در دفتر فعال پیدا نشد.');
+        return;
+      }
+      final id = await showAppOptionSheet(context, title: 'استفاده از شخص موجود',
+        options: [for (final person in rows)
+          if (person.id != null) AppOption(person.id!, person.displayName)]);
+      if (!mounted || id == null) return;
+      final person = rows.where((p) => p.id == id).first;
+      final saved = await Navigator.of(context).push<bool>(MaterialPageRoute<bool>(builder: (_) =>
+        PartyFormPage(initialRole: widget.initialRole, company: person.company,
+          profile: person, pageTitle: 'افزودن ارتباط به پرونده موجود')));
+      if (mounted && saved == true) _leave(true);
+    } catch (failure) {
+      if (mounted) setState(() => error = failureMessage(failure));
+    }
+  }
+
+  Future<void> _confirmLeave() async {
+    if (saving || confirmingLeave) return;
+    confirmingLeave = true;
+    final discard = !dirty || await showDialog<bool>(context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('تغییرات ذخیره نشده‌اند'),
+        content: const Text('از فرم خارج می‌شوید و تغییرات را کنار می‌گذارید؟'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false),
+              child: const Text('ادامه ویرایش')),
+          TextButton(onPressed: () => Navigator.pop(context, true),
+              child: const Text('خروج بدون ذخیره')),
+        ])) == true;
+    confirmingLeave = false;
+    if (discard && mounted) _leave(null);
+  }
+
+  void _leave(bool? result) {
+    setState(() => allowLeave = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) Navigator.of(context).pop(result);
+    });
   }
 
   Future<void> _loadGroups() async {
@@ -150,12 +237,20 @@ class _PartyFormPageState extends State<PartyFormPage> {
   Future<void> _changeRoles(Set<PartyRole> value) async {
     setState(() {
       roles = value;
+      dirty = true;
       if (value.contains(PartyRole.employee)) kind = PartyKind.individual;
     });
   }
 
   Future<void> _save() async {
     if (!formKey.currentState!.validate() || saving) return;
+    final birth = DateTime.tryParse(fields['birth']!.text);
+    final today = DateUtils.dateOnly(DateTime.now());
+    if (birth != null && birth.isAfter(today)) {
+      setState(() => birthError = 'تاریخ تولد نباید در آینده باشد.');
+      return;
+    }
+    birthError = null;
     if (loadingGroups || selectedGroups.isEmpty) {
       setState(() => error =
           'ابتدا گروه تفصیلی اشخاص و شرکت‌ها را در حسابداری تعریف کنید.');
@@ -223,7 +318,7 @@ class _PartyFormPageState extends State<PartyFormPage> {
           detailGroups: selectedGroups);
       if (mounted) {
         if (saved.pendingSync) await _queuedNotice();
-        if (mounted) Navigator.of(context).pop(true);
+        if (mounted) _leave(true);
       }
     } on QueuedOfflineException {
       await _queuedNotice();
@@ -253,7 +348,16 @@ class _PartyFormPageState extends State<PartyFormPage> {
   }
 
   String? _value(String key) {
-    final value = fields[key]!.text.trim();
+    var value = fields[key]!.text.trim();
+    if (const {'national', 'postal', 'account', 'card', 'birthCertificate',
+        'registration', 'economic', 'mobile', 'phone', 'secondaryPhone'}.contains(key)) {
+      value = toLatinDigits(value);
+    }
+    if (key == 'card') value = value.replaceAll(RegExp(r'[\\s-]'), '');
+    if (key == 'iban') value = toLatinDigits(value).replaceAll(' ', '').toUpperCase();
+    if (key == 'website' && value.isNotEmpty) {
+      value = OfficeInputValidation.website(value) ?? value;
+    }
     return value.isEmpty ? null : value;
   }
 
@@ -272,12 +376,21 @@ class _PartyFormPageState extends State<PartyFormPage> {
   @override
   Widget build(BuildContext context) {
     final employee = roles.contains(PartyRole.employee);
-    return AsoudFormPage(
+    return PopScope(
+      canPop: allowLeave || (!dirty && !saving),
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) _confirmLeave();
+      },
+      child: AsoudFormPage(
       title: widget.pageTitle ?? (widget.profile == null
         ? 'ایجاد ${_roleLabel(widget.initialRole)}' : 'ویرایش ${_roleLabel(widget.initialRole)}'),
       subtitle: 'فرم مشخصات و گروه تفصیلی', formKey: formKey,
       saving: saving, error: error, onSave: _save,
       children: [
+              if (optionsError != null)
+                TextButton(onPressed: _loadOptions, child: Text(optionsError!)),
+              for (final warning in (options['warnings'] as List? ?? []))
+                Text('$warning', style: const TextStyle(fontSize: 12)),
               _AutomaticDetailCode(
                 code: previewCode,
                 groups: groups,
@@ -300,7 +413,7 @@ class _PartyFormPageState extends State<PartyFormPage> {
                 ],
                 onChanged: (value) {
                   if (employee && value == PartyKind.organization) return;
-                  setState(() => kind = value);
+                  setState(() { kind = value; dirty = true; });
                 },
               ),
               const SizedBox(height: 12),
@@ -309,7 +422,7 @@ class _PartyFormPageState extends State<PartyFormPage> {
               if (employee)
                 _AdditionalRoleSelector(
                   value: employeeRoles,
-                  onChanged: (value) => setState(() => employeeRoles = value),
+                  onChanged: (value) => setState(() { employeeRoles = value; dirty = true; }),
                 ),
               const SizedBox(height: 14),
               AsoudFormSection(
@@ -338,6 +451,10 @@ class _PartyFormPageState extends State<PartyFormPage> {
                     const SizedBox(width: 8),
                     Expanded(child: _input('mobile', 'شماره موبایل')),
                   ]),
+                  if (widget.profile == null)
+                    TextButton.icon(onPressed: saving ? null : _existingPerson,
+                      icon: const Icon(Icons.person_search_outlined),
+                      label: const Text('استفاده از شخص موجود در همین دفتر')),
                   if (kind == PartyKind.organization)
                     Row(children: [
                       Expanded(child: _input('registration', 'شماره ثبت')),
@@ -345,18 +462,14 @@ class _PartyFormPageState extends State<PartyFormPage> {
                       Expanded(child: _input('economic', 'کد اقتصادی')),
                     ]),
                   if (kind == PartyKind.organization)
-                    _input('founding', 'تاریخ تأسیس'),
-                  if (employee)
-                    Row(children: [
-                      Expanded(child: _input('job', 'سمت شغلی')),
-                      const SizedBox(width: 8),
-                      Expanded(child: _input('department', 'واحد سازمانی')),
-                    ]),
-                  if (employee)
-                    const Text(
-                      'سمت باید از سمت‌های ثبت‌شده در سرور باشد؛ اگر مطمئن نیستید خالی بگذارید.',
-                      style: TextStyle(fontSize: 11, color: AsoudColors.muted),
-                    ),
+                    _dateInput('founding', 'تاریخ تأسیس'),
+                  if (kind == PartyKind.individual) ...[
+                    _choice('employeeGender', 'gender', 'جنسیت', required: employee),
+                    _dateInput('birth', 'تاریخ تولد', required: employee),
+                    _input('fatherName', 'نام پدر'),
+                    _input('birthCertificate', 'شماره شناسنامه'),
+                    _input('birthIssuePlace', 'محل صدور'),
+                  ],
                 ],
               ),
               AsoudFormSection(
@@ -398,107 +511,201 @@ class _PartyFormPageState extends State<PartyFormPage> {
                   ]),
                 ],
               ),
-              AsoudFormSection(
-                title:
-                    employee ? 'اطلاعات شغلی و بانکی' : 'اطلاعات مالی و بانکی',
-                children: [
-                  if (employee) ...[
-                    _employeeGenderInput(),
-                    Row(children: [
-                      Expanded(
-                          child: _dateInput('birth', 'تاریخ تولد *',
-                              required: true)),
-                      const SizedBox(width: 8),
-                      Expanded(
-                          child: _dateInput(
-                              'joiningDate', 'تاریخ شروع همکاری *',
-                              required: true)),
-                    ]),
-                    _input('employment', 'نوع همکاری'),
-                    Row(children: [
-                      Expanded(child: _input('fatherName', 'نام پدر')),
-                      const SizedBox(width: 8),
-                      Expanded(
-                          child: _input('birthCertificate', 'شماره شناسنامه')),
-                    ]),
-                    _input('birthIssuePlace', 'محل صدور'),
-                    OutlinedButton.icon(
-                      onPressed: _configurePersonnelRoles,
-                      icon: const Icon(Icons.tune_rounded),
-                      label: const Text('تنظیم ترکیب نقش‌های پرسنلی'),
-                    ),
-                    const SizedBox(height: 10),
-                  ],
-                  _input('credit', 'سقف اعتبار'),
-                  _BalanceSection(
-                    value: fields['balanceType']!.text,
-                    amountController: fields['opening']!,
-                    onChanged: (value) => setState(
-                      () => fields['balanceType']!.text = value,
-                    ),
-                  ),
-                  _input('bank', 'نام بانک'),
+              if (employee && kind == PartyKind.individual)
+                AsoudFormSection(title: 'اطلاعات شغلی و سازمانی', children: [
+                  _choice('employment', 'employment_type', 'نوع همکاری'),
+                  _dateInput('joiningDate', 'تاریخ شروع همکاری', required: true),
+                  _choice('department', 'department', 'واحد سازمانی'),
+                  _choice('job', 'job_title', 'سمت شغلی'),
+                  const Text('انتساب جایگاه سازمانی از بخش ساختار سازمانی انجام می‌شود؛ این فرم دسترسی نرم‌افزاری ایجاد نمی‌کند.',
+                    style: TextStyle(fontSize: 12, color: AsoudColors.muted)),
+                ]),
+              if (canEditFinancial && (roles.contains(PartyRole.customer) ||
+                  roles.contains(PartyRole.supplier) ||
+                  (widget.profile?.openingBalance ?? 0) != 0 || (widget.profile?.creditLimit ?? 0) != 0))
+              AsoudFormSection(title: 'اطلاعات مالی', children: [
+                _input('credit', 'سقف اعتبار (ریال)'),
+                IgnorePointer(child: _BalanceSection(
+                  value: fields['balanceType']!.text,
+                  amountController: fields['opening']!,
+                  onChanged: (_) {},
+                )),
+                const Text('مانده قبلی حفظ می‌شود. ثبت یا اصلاح مانده اول دوره باید با دوره مالی و سند حسابداری از بخش حسابداری انجام شود.',
+                  style: TextStyle(fontSize: 12, color: AsoudColors.muted)),
+              ]),
+              if (canEditFinancial)
+                AsoudFormSection(title: 'اطلاعات بانکی', children: [
+                  _choice('bank', 'bank', 'نام بانک'),
                   _input('accountHolder', 'نام صاحب حساب'),
                   _input('iban', 'شماره شبا'),
                   _input('account', 'شماره حساب'),
                   _input('card', 'شماره کارت'),
-                ],
-              ),
+                ]),
               AsoudFormSection(title: 'توضیحات', children: [
                 _input('description', 'توضیحات تکمیلی', lines: 3)
               ]),
       ],
-    );
+    ));
   }
 
   Widget _input(String key, String label,
-          {bool required = false, int lines = 1}) =>
-      AppTextField(
-          controller: fields[key]!,
-          label: label,
-          required: required,
-          maxLines: lines,
-          validator: required
-              ? (value) => value == null || value.trim().length < 3
-                  ? 'این فیلد الزامی است.'
-                  : null
-              : null);
+      {bool required = false, int lines = 1}) {
+    final identifier = const {
+      'national', 'postal', 'account', 'card', 'birthCertificate', 'registration',
+      'economic', 'plaque', 'unit',
+    }.contains(key);
+    final phone = const {'mobile', 'phone', 'secondaryPhone'}.contains(key);
+    final money = const {'credit', 'opening'}.contains(key);
+    final latin = identifier || phone || money ||
+        const {'iban', 'email', 'website', 'latitude', 'longitude'}.contains(key);
+    final limit = switch (key) {
+      'national' => kind == PartyKind.individual ? 10 : 11,
+      'postal' => 10,
+      'card' => 19,
+      'iban' => 26,
+      _ => null,
+    };
+    return AppTextField(
+      controller: fields[key]!, label: label, required: required,
+      maxLines: lines, enabled: !saving && (!money || canEditFinancial), ltr: latin,
+      maxLength: limit, counterText: limit == null ? null : '',
+      hintLocales: latin ? const [Locale('en')] : const [Locale('fa')],
+      keyboardType: phone ? TextInputType.phone
+          : key == 'email' || key == 'website' ? TextInputType.emailAddress
+          : identifier || money ? TextInputType.number
+          : lines > 1 ? TextInputType.multiline : TextInputType.text,
+      inputFormatters: [
+        if (key == 'iban') TextInputFormatter.withFunction((oldValue, value) {
+          String clean(String text) => toLatinDigits(text).replaceAll(RegExp(r'\\s'), '').toUpperCase();
+          final text = clean(value.text);
+          final offset = value.selection.baseOffset.clamp(0, value.text.length);
+          return value.copyWith(text: text,
+              selection: TextSelection.collapsed(offset: clean(value.text.substring(0, offset)).length),
+              composing: TextRange.empty);
+        }),
+        if (identifier) TextInputFormatter.withFunction((oldValue, value) =>
+          value.copyWith(text: toLatinDigits(value.text))),
+        if (identifier) FilteringTextInputFormatter.digitsOnly,
+        if (money) _AmountFormatter(),
+        if (key == 'card') _CardFormatter(),
+        if (limit != null) LengthLimitingTextInputFormatter(limit),
+      ],
+      validator: (value) {
+        final text = (value ?? '').trim();
+        if (required && text.isEmpty) return 'این فیلد الزامی است.';
+        if (text.isEmpty) return null;
+        if (key == 'national') {
+          if (kind == widget.profile?.kind &&
+              toLatinDigits(text) == toLatinDigits(widget.profile?.nationalId ?? '')) {
+            return null;
+          }
+          return OfficeInputValidation.nationalId(text,
+            legal: kind == PartyKind.organization);
+        }
+        if (key == 'iban' && text != (widget.profile?.iban ?? '') && !_validIban(text)) {
+          return 'شماره شبا و رقم کنترل آن معتبر نیست.';
+        }
+        if (key == 'card' && text.replaceAll(' ', '') != (widget.profile?.cardNumber ?? '') &&
+            !_validCard(text)) {
+          return 'شماره کارت ۱۶ رقمی معتبر وارد کنید.';
+        }
+        if (money && !_validAmount(text)) return 'مبلغ معتبر و غیرمنفی وارد کنید.';
+        if (key == 'postal') return OfficeInputValidation.postalCode(text);
+        if (key == 'mobile') return IdentityValidators.mobile(text);
+        if (key == 'email') return IdentityValidators.email(text);
+        if (key == 'website' && text != (widget.profile?.website ?? '') &&
+            OfficeInputValidation.website(text) == null) {
+          return 'نشانی وب‌سایت معتبر نیست.';
+        }
+        return null;
+      },
+    );
+  }
 
   Widget _dateInput(String key, String label, {bool required = false}) =>
       AsoudFormDateField(
-          controller: fields[key]!, label: label, required: required);
+          controller: fields[key]!, label: label, required: required,
+          enabled: !saving, errorText: key == 'birth' ? birthError : null);
 
-  Widget _employeeGenderInput() {
-    const options = {'Male': 'مرد', 'Female': 'زن', 'Other': 'سایر'};
-    final controller = fields['employeeGender']!;
-    return AppSelectField(
-        label: 'جنسیت',
-        required: true,
-        value: controller.text,
-        displayValue: options[controller.text],
-        hint: 'انتخاب کنید',
-        onPick: () => showAppOptionSheet(context,
-            title: 'جنسیت',
-            current: controller.text,
-            options: [
-              for (final option in options.entries)
-                AppOption(option.key, option.value)
-            ]),
-        onChanged: (value) => setState(() => controller.text = value),
-        validator: (value) => value == null || value.isEmpty
-            ? 'این فیلد الزامی است.'
-            : null);
+  Widget _choice(String field, String source, String label, {bool required = false}) {
+    final choices = (options[source] as List? ?? []).map((v) => '$v').toList();
+    final value = fields[field]!.text;
+    return AppSelectField(label: label, value: value, required: required,
+      displayValue: source == 'gender' ? persianGenderLabel(value) : value,
+      hint: 'انتخاب کنید',
+      onPick: () => showAppOptionSheet(context, title: label, current: value,
+        options: [for (final id in choices)
+          AppOption(id, source == 'gender' ? persianGenderLabel(id) : id)]),
+      onChanged: (value) => setState(() { fields[field]!.text = value; dirty = true; }),
+      validator: required ? (value) => (value ?? '').isEmpty ? 'این فیلد الزامی است.' : null : null);
   }
 
-  Future<void> _configurePersonnelRoles() async {
-    final result = await Navigator.of(context).push<Set<String>>(
-      MaterialPageRoute<Set<String>>(
-        builder: (_) => PersonnelRolesPage(initialValue: employeeRoles),
-      ),
-    );
-    if (result != null && mounted) {
-      setState(() => employeeRoles = result);
+
+}
+
+bool _validIban(String value) {
+  final code = toLatinDigits(value).replaceAll(RegExp(r'\s'), '').toUpperCase();
+  if (!RegExp(r'^IR[0-9]{24}$').hasMatch(code)) return false;
+  return BigInt.parse('${code.substring(4)}1827${code.substring(2, 4)}') %
+      BigInt.from(97) == BigInt.one;
+}
+
+bool _validCard(String value) {
+  final code = toLatinDigits(value).replaceAll(RegExp(r'[\s-]'), '');
+  if (!RegExp(r'^[0-9]{16}$').hasMatch(code) || code.split('').toSet().length == 1) {
+    return false;
+  }
+  var sum = 0;
+  for (var i = 0; i < code.length; i++) {
+    var digit = int.parse(code[i]) * (i.isEven ? 2 : 1);
+    if (digit > 9) digit -= 9;
+    sum += digit;
+  }
+  return sum % 10 == 0;
+}
+
+bool _validAmount(String value) {
+  final text = toLatinDigits(value).replaceAll(',', '').replaceAll('٬', '').replaceAll('٫', '.');
+  if (!RegExp(r'^\d+(?:\.\d{1,2})?$').hasMatch(text)) return false;
+  final parts = text.split('.');
+  final cents = BigInt.parse(parts.first) * BigInt.from(100) +
+      BigInt.parse((parts.length > 1 ? parts.last : '').padRight(2, '0'));
+  return cents <= BigInt.from(1000000000000000) * BigInt.from(100);
+}
+
+/// Formatting only; no floating-point financial calculations are performed here.
+class _AmountFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue value) {
+    String clean(String text) => toLatinDigits(text).replaceAll(RegExp(r'[,٬]'), '').replaceAll('٫', '.');
+    final raw = clean(value.text);
+    if (!RegExp(r'^\d*(?:\.\d{0,2})?$').hasMatch(raw)) return oldValue;
+    final parts = raw.split('.');
+    final grouped = parts.first.replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+$)'), (m) => '${m[1]},');
+    final formatted = grouped + (parts.length > 1 ? '.${parts.last}' : '');
+    final before = clean(value.text.substring(0, value.selection.baseOffset.clamp(0, value.text.length))).length;
+    var seen = 0, offset = 0;
+    while (offset < formatted.length && seen < before) {
+      if (formatted[offset] != ',') seen++;
+      offset++;
     }
+    return value.copyWith(text: formatted,
+      selection: TextSelection.collapsed(offset: offset), composing: TextRange.empty);
+  }
+}
+
+class _CardFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue value) {
+    final digits = toLatinDigits(value.text).replaceAll(RegExp(r'\D'), '');
+    if (digits.length > 16) return oldValue;
+    final grouped = [for (var i = 0; i < digits.length; i += 4)
+      digits.substring(i, (i + 4).clamp(0, digits.length))].join(' ');
+    final before = toLatinDigits(value.text.substring(0,
+      value.selection.baseOffset.clamp(0, value.text.length))).replaceAll(RegExp(r'\D'), '').length;
+    return value.copyWith(text: grouped,
+      selection: TextSelection.collapsed(offset: (before + (before == 0 ? 0 : (before - 1) ~/ 4)).clamp(0, grouped.length)),
+      composing: TextRange.empty);
   }
 }
 
@@ -582,7 +789,7 @@ class _AdditionalRoleSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const roles = [
-      ('بازاریاب', Icons.campaign_outlined, AsoudColors.warning),
+      ('بازاریاب', Icons.campaign_outlined, AsoudColors.primary),
       ('تنخواه‌گردان', Icons.payments_outlined, AsoudColors.success),
       ('فروشنده', Icons.storefront_outlined, AsoudColors.purple),
       ('صندوق', Icons.account_balance_wallet_outlined, AsoudColors.primary),
@@ -662,7 +869,7 @@ class _PrimaryRoleGrid extends StatelessWidget {
         Icons.handshake_outlined,
         AsoudColors.success
       ),
-      (PartyRole.employee, 'پرسنل', Icons.badge_outlined, AsoudColors.warning),
+      (PartyRole.employee, 'پرسنل', Icons.badge_outlined, AsoudColors.primary),
     ];
     return GridView.count(
       crossAxisCount: 3,
@@ -731,7 +938,7 @@ class _BalanceSection extends StatelessWidget {
     final color = type == 'Debit'
         ? AsoudColors.success
         : type == 'Credit'
-            ? AsoudColors.warning
+            ? AsoudColors.primary
             : AsoudColors.primary;
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -766,13 +973,14 @@ class _BalanceSection extends StatelessWidget {
               label: 'مانده بستانکار',
               value: 'Credit',
               selected: type == 'Credit',
-              color: AsoudColors.warning,
+              color: AsoudColors.primary,
               onTap: onChanged),
         ]),
         const SizedBox(height: 8),
         AppTextField(
           controller: amountController,
           label: 'مبلغ',
+          readOnly: true,
           enabled: type != 'None',
           ltr: true,
           keyboardType: TextInputType.number,

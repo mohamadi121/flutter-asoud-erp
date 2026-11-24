@@ -790,20 +790,20 @@ class _SetupProgress extends StatelessWidget {
           return Container(
             padding: const EdgeInsets.all(13),
             decoration: BoxDecoration(
-                color: const Color(0xFFFFFAF0),
-                border: Border.all(color: const Color(0xFFF4B43C)),
+                color: Colors.white,
+                border: Border.all(color: const Color(0xFFD9E7FC)),
                 borderRadius: BorderRadius.circular(14)),
             child: Column(children: [
               Row(children: [
                 const AsoudIconBox(
                     icon: Icons.rocket_launch_outlined,
-                    color: AsoudColors.warning,
+                    color: Color(0xFF22966B),
                     size: 32),
                 const SizedBox(width: 9),
                 const Expanded(
                     child: Text('راه‌اندازی دفتر کار',
                         style: TextStyle(
-                            color: Color(0xFFC26A00),
+                            color: Color(0xFF172B50),
                             fontSize: 13,
                             fontWeight: FontWeight.w900))),
               ]),
@@ -814,6 +814,12 @@ class _SetupProgress extends StatelessWidget {
                     style: TextStyle(fontSize: 11, color: AsoudColors.muted)),
               ),
               const Divider(height: 18),
+              if (done != null && !offline) ...[
+                LinearProgressIndicator(value: done / 3,
+                    color: const Color(0xFF22966B),
+                    backgroundColor: const Color(0xFFE3F5EB)),
+                const SizedBox(height: 10),
+              ],
               Row(children: [
                 Expanded(
                     child: Text(

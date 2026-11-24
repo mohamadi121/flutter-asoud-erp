@@ -44,6 +44,12 @@ abstract final class OfficeInputValidation {
         : 'کد پستی باید ۱۰ رقم باشد.';
   }
 
+  static String? landline(String value) {
+    final text = digits(value);
+    return text.isEmpty || RegExp(r'^0[0-9]{10}$').hasMatch(text)
+        ? null : 'تلفن ثابت باید ۱۱ رقم باشد و با ۰ شروع شود.';
+  }
+
   static String? website(String value) {
     final text = value.trim();
     if (text.isEmpty) return '';

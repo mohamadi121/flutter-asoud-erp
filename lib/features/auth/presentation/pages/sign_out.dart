@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/network/frappe_client.dart';
 import '../../domain/repositories/auth_repository.dart';
 import 'login_page.dart';
+import '../../../calendar/calendar_device_notifications.dart';
 
 /// Explicit sign-out: revokes the server session, then opens the login screen
 /// with the last server (and the username it remembers). A password the user
@@ -22,6 +23,11 @@ Future<void> signOutWith({
 }) async {
   final serverUrl = client is FrappeClient ? client.serverIdentity : null;
   String? notice;
+  try {
+    await CalendarDeviceNotifications.instance.clear();
+  } catch (_) {
+    notice = 'لغو اعلان‌های گوشی تأیید نشد؛ تنظیمات اعلان گوشی را بررسی کنید.';
+  }
   try {
     await auth.signOut();
   } catch (_) {

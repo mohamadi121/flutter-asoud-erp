@@ -20,10 +20,12 @@ class OfficesPage extends StatelessWidget {
       {this.initialState,
       this.showCreatedBanner = false,
       this.fallbackOffice,
+      this.onSignOut,
       super.key});
   final OfficesState? initialState;
   final bool showCreatedBanner;
   final Office? fallbackOffice;
+  final VoidCallback? onSignOut;
 
   @override
   Widget build(BuildContext context) => BlocProvider(
@@ -40,12 +42,13 @@ class OfficesPage extends StatelessWidget {
           }
           return cubit;
         },
-        child: const _OfficesView(),
+        child: _OfficesView(onSignOut: onSignOut),
       );
 }
 
 class _OfficesView extends StatefulWidget {
-  const _OfficesView();
+  const _OfficesView({this.onSignOut});
+  final VoidCallback? onSignOut;
 
   @override
   State<_OfficesView> createState() => _OfficesViewState();
@@ -53,7 +56,7 @@ class _OfficesView extends StatefulWidget {
 
 class _OfficesViewState extends State<_OfficesView> {
   /// «ایجاد دفتر کار» is its own permission; hidden unless the server grants it.
-  bool _canCreate = true;
+  bool _canCreate = false;
 
   @override
   void initState() {
@@ -85,6 +88,8 @@ class _OfficesViewState extends State<_OfficesView> {
                   _create(context);
                 } else if (action == 'refresh') {
                   context.read<OfficesCubit>().retry();
+                } else if (action == 'sign-out') {
+                  widget.onSignOut?.call();
                 }
               },
               itemBuilder: (_) => [
@@ -97,6 +102,8 @@ class _OfficesViewState extends State<_OfficesView> {
                   value: 'refresh',
                   child: Text('به‌روزرسانی فهرست'),
                 ),
+                if (widget.onSignOut != null)
+                  const PopupMenuItem(value: 'sign-out', child: Text('خروج از حساب')),
               ],
             ),
           ),
@@ -164,14 +171,7 @@ class _OfficesViewState extends State<_OfficesView> {
           SizedBox(
             height: 52,
             child: FilledButton.icon(
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => DashboardPage(
-                    officeName: office.name,
-                    offlinePreview: state.offlinePreview,
-                  ),
-                ),
-              ),
+              onPressed: state.changingDefault ? null : () => _enter(context, office),
               icon: const Icon(Icons.arrow_back_rounded),
               label: const Text('ورود به دفتر کار'),
             ),
@@ -235,8 +235,27 @@ class _OfficesViewState extends State<_OfficesView> {
     );
   }
 
-  void _create(BuildContext context) => Navigator.of(context)
-      .push(MaterialPageRoute<void>(builder: (_) => const OfficeTypePage()));
+  Future<void> _enter(BuildContext context, Office office) async {
+    final cubit = context.read<OfficesCubit>();
+    if (!await cubit.selectDefault(office, announce: false) || !context.mounted) return;
+    await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => DashboardPage(
+      officeName: office.name, offlinePreview: cubit.state.offlinePreview,
+    )));
+  }
+
+  Future<void> _create(BuildContext context) async {
+    await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => OfficeTypePage(
+      allowOfflinePreview: false,
+      onCreated: (ctx, office) {
+        Navigator.of(ctx).pop();
+        if (context.mounted) {
+          context.read<OfficesCubit>().load(
+            fallbackOffice: office, showCreatedBanner: true,
+          );
+        }
+      },
+    )));
+  }
 
   void _unavailable(BuildContext context) =>
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(

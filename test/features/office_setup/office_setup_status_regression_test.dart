@@ -95,9 +95,8 @@ void main() {
         'FrappeOfficeRepository listOffices queries saved flags and marks complete',
         () async {
       final client = _MockClient();
-      when(() => client.getResourceList('ASOUD Company Setup',
-          queryParameters: any(named: 'queryParameters'))).thenAnswer(
-        (_) async => [realLiveResourceListRow],
+      when(() => client.callAsoudMethod('asoud_erp.api.v1.setup.list_offices')).thenAnswer(
+        (_) async => {'offices': [realLiveResourceListRow], 'selected_office': realLiveStatus['company']},
       );
 
       final repo = FrappeOfficeRepository(client);
@@ -113,12 +112,11 @@ void main() {
         () async {
       final client = _MockClient();
       when(() => client.callAsoudMethod(
-            'asoud_erp.api.v1.setup.get_setup_status',
+            'asoud_erp.api.v1.setup.list_offices',
             data: any(named: 'data'),
-          )).thenAnswer((_) async => realLiveStatus);
-      when(() => client.getResourceList('ASOUD Company Setup',
-          queryParameters: any(named: 'queryParameters'))).thenAnswer(
-        (_) async => [realLiveResourceListRow],
+          )).thenAnswer((_) async => {'offices': [realLiveStatus], 'selected_office': realLiveStatus['company']});
+      when(() => client.callAsoudMethod('asoud_erp.api.v1.setup.list_offices')).thenAnswer(
+        (_) async => {'offices': [realLiveResourceListRow], 'selected_office': realLiveStatus['company']},
       );
 
       final localStore = FakeLocalRecordStore();
@@ -135,7 +133,7 @@ void main() {
 
       // Verify restoring when remote is offline still returns setupComplete: true
       when(() => client.callAsoudMethod(
-            'asoud_erp.api.v1.setup.get_setup_status',
+            'asoud_erp.api.v1.setup.list_offices',
             data: any(named: 'data'),
           )).thenThrow(const ApiException(
         kind: ApiFailureKind.network,
@@ -176,6 +174,8 @@ void main() {
         'BaseAccountingSetupPage shows 100% progress and completed text with real status',
         (tester) async {
       final client = _MockClient();
+      when(() => client.callAsoudMethod('asoud_erp.api.v1.setup.list_offices'))
+          .thenAnswer((_) async => {'offices': [realLiveStatus], 'selected_office': realLiveStatus['company']});
       when(() => client.callAsoudMethod(
             'asoud_erp.api.v1.setup.get_setup_status',
             data: any(named: 'data'),

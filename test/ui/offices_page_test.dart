@@ -86,14 +86,18 @@ void main() {
         defaultOffice: defaultOffice,
       ),
     )));
+    await tester.pumpAndSettle();
     await tester.enterText(
         find.byKey(const ValueKey('office-search')), 'ناموجود');
-    await tester.pump();
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView).first, const Offset(0, -200));
+    await tester.pumpAndSettle();
     expect(find.text('دفتری با این عبارت پیدا نشد.'), findsOneWidget);
 
     final officeMenu =
         find.byKey(const ValueKey('office-menu-شرکت نمونه توسعه آریا'));
-    await tester.ensureVisible(officeMenu);
+    await Scrollable.ensureVisible(tester.element(officeMenu), alignment: .5);
+    await tester.pumpAndSettle();
     await tester.tap(officeMenu);
     await tester.pumpAndSettle();
     expect(find.text('عملیات دفتر'), findsOneWidget);
@@ -103,6 +107,7 @@ void main() {
     Navigator.of(tester.element(find.text('عملیات دفتر'))).pop();
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.text('ایجاد دفتر کار جدید'));
     await tester.tap(find.text('ایجاد دفتر کار جدید'));
     await tester.pumpAndSettle();
     expect(find.byType(OfficeTypePage), findsOneWidget);

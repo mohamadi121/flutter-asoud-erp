@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/config/app_config.dart';
+import 'calendar_device_notifications.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/network/frappe_client.dart';
 
@@ -82,6 +83,16 @@ class CalendarRepository {
     return calendarMap(envelope['data']);
   }
 
+  Future<CalendarRow> actionCounts(DateTime now) async {
+    if (!onlineSession) throw StateError('برای دریافت آمار واقعی به سرور متصل شوید.');
+    final result = await _call('get_calendar', {
+      'start': calendarDate(now), 'end': calendarDate(now), 'summary_only': 1,
+    });
+    return calendarMap(result['action_counts']);
+  }
+
+  Future<String> notificationScope() => _scope();
+
   Future<CalendarRow> _read() async {
     final key = await _scope();
     return calendarMap(
@@ -120,6 +131,7 @@ class CalendarRepository {
           {bool refreshRemote = true}) =>
       _serial(() async {
         var state = await _read();
+        await CalendarDeviceNotifications.instance.activate(await _scope());
         final range = '${calendarDate(from)}:${calendarDate(to)}';
         var cached = true;
         String? warning;
@@ -130,6 +142,15 @@ class CalendarRepository {
               'end': calendarDate(to),
             });
             final cache = calendarMap(state['ranges']);
+            // A fresh range supersedes overlapping stale cache rows, including deletions.
+            for (final key in cache.keys.toList()) {
+              final previous = calendarMap(cache[key]);
+              previous['items'] = calendarRows(previous['items']).where((row) =>
+                '${row['date']}'.compareTo(calendarDate(to)) > 0 ||
+                '${row['end_date'] ?? row['date']}'.compareTo(calendarDate(from)) < 0).toList();
+              cache[key] = previous;
+            }
+            cache.remove(range);
             cache[range] = result;
             while (cache.length > 24) {
               cache.remove(cache.keys.first);
@@ -162,6 +183,29 @@ class CalendarRepository {
             rows.add({...edit, 'pending': true});
           }
         }
+        final preferences = calendarMap(state['device_preferences']);
+        for (final row in rows) {
+          row.addAll(calendarMap(preferences['${row['id']}']));
+        }
+        final reminders = <String, CalendarRow>{};
+        for (final rangeData in calendarMap(state['ranges']).values) {
+          for (final row in calendarRows(calendarMap(rangeData)['items'])) {
+            if (row['kind'] == 'Reminder') {
+              reminders['${row['id']}'] = {...row,
+                ...calendarMap(preferences['${row['id']}'])};
+            }
+          }
+        }
+        for (final row in pending) {
+          reminders['${row['id']}'] = {...row, ...calendarMap(preferences['${row['id']}'])};
+        }
+        String? notificationWarning;
+        try {
+          await CalendarDeviceNotifications.instance.reconcile(await _scope(),
+            reminders.values.toList(), timezone: data['timezone'] as String?);
+        } catch (_) {
+          notificationWarning = 'زمان‌بندی اعلان گوشی تأیید نشد؛ مجوز اعلان و تنظیمات گوشی را بررسی کنید.';
+        }
         return {
           ...data,
           'items': rows,
@@ -169,6 +213,7 @@ class CalendarRepository {
           'can_manage': !cached && data['can_manage'] == true,
           'pending_count': pending.length,
           'load_warning': warning,
+          'notification_warning': notificationWarning,
         };
       });
 
@@ -183,7 +228,12 @@ class CalendarRepository {
           'version': previous?['version'] ?? item['version'] ?? '',
           'mutation_id': calendarId(),
         });
-        await _write({...state, 'pending': pending});
+        final preferences = calendarMap(state['device_preferences']);
+        preferences['${item['id']}'] = {
+          'notification_enabled': item['notification_enabled'] == true,
+          'reminder_minutes': item['reminder_minutes'] ?? 0,
+        };
+        await _write({...state, 'pending': pending, 'device_preferences': preferences});
       });
 
   /// Explicit retry; business/permission/conflict failures stay visible, not hidden.

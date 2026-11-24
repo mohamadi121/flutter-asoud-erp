@@ -1,6 +1,5 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -320,14 +319,14 @@ class _BaseSection extends StatelessWidget {
                           numeric: true),
                       _field(
                           context, 'nationalId', 'شناسه ملی', state.nationalId,
-                          numeric: true),
+                          numeric: true, maxLength: 11),
                     ]
                   : [
                       _field(context, 'ownerFullName',
                           'نام و نام خانوادگی صاحب دفتر', state.ownerFullName),
                       _field(
                           context, 'nationalId', 'شماره ملی', state.nationalId,
-                          numeric: true),
+                          numeric: true, maxLength: 10),
                     ]),
           const SizedBox(height: 8),
           _select(
@@ -378,10 +377,13 @@ class _ContactSection extends StatelessWidget {
           children: [
             _ResponsivePair(children: [
               _field(context, 'phone', 'شماره موبایل', state.phone,
-                  numeric: true),
+                  numeric: true, maxLength: 11),
               _field(context, 'email', 'ایمیل', state.email,
                   keyboard: TextInputType.emailAddress)
             ]),
+            const SizedBox(height: 8),
+            _field(context, 'landline', 'تلفن ثابت (اختیاری)', state.landline,
+                numeric: true, maxLength: 11),
             const SizedBox(height: 8),
             _field(context, 'website', 'وب‌سایت (اختیاری)', state.website,
                 keyboard: TextInputType.emailAddress),
@@ -552,6 +554,8 @@ Widget _field(BuildContext context, String key, String label, String value,
     maxLines: maxLines,
     maxLength: maxLength,
     keyboardType: type,
+    inputFormatters: numeric ? [FilteringTextInputFormatter.allow(
+      RegExp('[0-9۰-۹٠-٩]'))] : null,
     hintLocales: numeric || keyboard != null
         ? const [Locale('en')] : const [Locale('fa', 'IR')],
     enabled: state.status != OfficeFormStatus.submitting,

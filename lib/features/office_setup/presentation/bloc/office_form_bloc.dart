@@ -34,6 +34,7 @@ class OfficeFormBloc extends Bloc<OfficeFormEvent, OfficeFormState> {
               (officeType == OfficeType.legal ? 'سهامی خاص' : ''),
           parentOffice: office?.parentOffice ?? 'ندارد',
           phone: office?.phone ?? '',
+          landline: office?.landline ?? '',
           email: office?.email ?? '',
           website: office?.website ?? '',
           province: office?.province ?? 'تهران',
@@ -103,6 +104,7 @@ class OfficeFormBloc extends Bloc<OfficeFormEvent, OfficeFormState> {
         state.copyWith(hasIndependentPersonality: event.value as bool),
       'parentOffice' => state.copyWith(parentOffice: event.value as String),
       'phone' => state.copyWith(phone: event.value as String),
+      'landline' => state.copyWith(landline: event.value as String),
       'email' => state.copyWith(email: event.value as String),
       'website' => state.copyWith(website: event.value as String),
       'province' => state.copyWith(province: event.value as String, city: ''),
@@ -160,6 +162,7 @@ class OfficeFormBloc extends Bloc<OfficeFormEvent, OfficeFormState> {
         companyType: state.companyType.trim(),
         parentOffice: state.parentOffice.trim(),
         phone: OfficeInputValidation.digits(state.phone),
+        landline: OfficeInputValidation.digits(state.landline),
         email: state.email.trim(),
         website: OfficeInputValidation.website(state.website) ?? '',
         province: state.province.trim(),
@@ -220,6 +223,7 @@ class OfficeFormBloc extends Bloc<OfficeFormEvent, OfficeFormState> {
         companyType: state.companyType.trim(),
         parentOffice: state.parentOffice.trim(),
         phone: OfficeInputValidation.digits(state.phone),
+        landline: OfficeInputValidation.digits(state.landline),
         email: state.email.trim(),
         website: OfficeInputValidation.website(state.website) ?? '',
         province: state.province.trim(),
@@ -243,6 +247,8 @@ class OfficeFormBloc extends Bloc<OfficeFormEvent, OfficeFormState> {
     if (identityError != null) e['nationalId'] = identityError;
     final phoneError = OfficeInputValidation.mobile(s.phone);
     if (phoneError != null) e['phone'] = phoneError;
+    final landlineError = OfficeInputValidation.landline(s.landline);
+    if (landlineError != null) e['landline'] = landlineError;
     if (s.email.isNotEmpty &&
         !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(s.email)) {
       e['email'] = 'ایمیل معتبر نیست.';

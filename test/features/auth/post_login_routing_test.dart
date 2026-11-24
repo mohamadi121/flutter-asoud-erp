@@ -11,6 +11,8 @@ import 'package:asoud_erp/features/auth/presentation/pages/change_password_page.
 import 'package:asoud_erp/features/auth/presentation/pages/login_page.dart';
 import 'package:asoud_erp/features/auth/presentation/pages/post_login_page.dart';
 import 'package:asoud_erp/features/office_setup/domain/repositories/office_repository.dart';
+import 'package:asoud_erp/features/office_setup/domain/entities/office.dart';
+import 'package:asoud_erp/features/office_setup/presentation/pages/offices_page.dart';
 import 'package:asoud_erp/features/office_setup/presentation/pages/office_form_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -45,6 +47,19 @@ class _Auth implements AuthRepository {
   Future<void> signOut() async => signOuts++;
 }
 
+class _OfficeRepo extends FakeOfficeRepository {
+  _OfficeRepo(this.accounts) : super(offices: [
+    for (final ref in accounts.state.offices) Office(
+      name: ref.name, type: OfficeType.personal, fiscalYearStart: DateTime(2026)),
+  ]);
+  final FakeAccountRepository accounts;
+  @override
+  Future<Office> setDefaultOffice(Office office) async {
+    await accounts.selectOffice(office.name);
+    return office;
+  }
+}
+
 Widget _app(FakeAccountRepository accounts, _Auth auth, Widget home) =>
     MultiRepositoryProvider(
       providers: [
@@ -52,7 +67,7 @@ Widget _app(FakeAccountRepository accounts, _Auth auth, Widget home) =>
         RepositoryProvider<AuthRepository>.value(value: auth),
         RepositoryProvider<AccountRepository>.value(value: accounts),
         RepositoryProvider<OfficeRepository>.value(
-            value: FakeOfficeRepository()),
+            value: _OfficeRepo(accounts)),
       ],
       child: MaterialApp(
         locale: const Locale('fa'),
@@ -151,9 +166,10 @@ void main() {
         FakeAccountRepository(state: _s(offices: ['A', 'B']));
     await tester.pumpWidget(_app(accounts, _Auth(), const PostLoginPage()));
     await tester.pumpAndSettle();
-    expect(find.byType(OfficePickerPage), findsOneWidget);
-    expect(find.text('دفتر A'), findsOneWidget);
-    expect(find.text('دفتر B'), findsOneWidget);
+    expect(find.byType(OfficesPage), findsOneWidget);
+    expect(find.text('انتخاب دفتر کار'), findsNothing);
+    expect(find.text('A'), findsOneWidget);
+    expect(find.text('B'), findsOneWidget);
   });
 
   testWidgets('a refused office pick shows the real reason and stays tappable',
@@ -168,17 +184,16 @@ void main() {
     );
     await tester.pumpWidget(_app(accounts, _Auth(), const PostLoginPage()));
     await tester.pumpAndSettle();
-    expect(find.byType(OfficePickerPage), findsOneWidget);
+    expect(find.byType(OfficesPage), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('office_A')));
+    await tester.tap(find.byKey(const Key('office-card-A')));
     await tester.pumpAndSettle();
 
     // The failure is explained in Persian, not swallowed.
-    expect(find.byKey(const Key('office_picker_error')), findsOneWidget);
     expect(find.text('اجازه دسترسی به این بخش را ندارید'), findsOneWidget);
     // The user is not stranded: the office is still on screen and tappable.
-    expect(find.byType(OfficePickerPage), findsOneWidget);
-    expect(find.byKey(const Key('office_A')), findsOneWidget);
+    expect(find.byType(OfficesPage), findsOneWidget);
+    expect(find.byKey(const Key('office-card-A')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

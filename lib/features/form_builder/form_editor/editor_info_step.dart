@@ -94,12 +94,13 @@ class EditorInfoStep extends StatelessWidget {
               children: [
                 formSelect(
                   'نحوه اتصال',
-                  '${schema['workflow_mode'] ?? ''}',
-                  const {
-                    '': 'حفظ تنظیمات قبلی',
+                  schema['workflow_mode'] == 'RecordOnly'
+                      ? '' : '${schema['workflow_mode'] ?? ''}',
+                  {
+                    '': schema['workflow_mode'] == 'RecordOnly'
+                        ? 'روش اتصال مجاز را انتخاب کنید' : 'حفظ تنظیمات قبلی',
                     'Fixed': 'گردش مشخص',
                     'Conditional': 'انتخاب بر اساس شرط',
-                    'RecordOnly': 'فقط ثبت فرم',
                   },
                   (value) => change(() {
                     if (value.isEmpty) {

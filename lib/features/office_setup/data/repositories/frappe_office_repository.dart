@@ -76,6 +76,7 @@ class FrappeOfficeRepository implements OfficeRepository, FirstOfficeRepository 
         'company_type': office.companyType,
         'parent_office': office.parentOffice,
         'phone': office.phone,
+        'landline': office.landline,
         'email': office.email,
         'website': office.website,
         'province': office.province,
@@ -97,25 +98,26 @@ class FrappeOfficeRepository implements OfficeRepository, FirstOfficeRepository 
 
   @override
   Future<List<Office>> listOffices() async {
-    final rows =
-        await _client.getResourceList('ASOUD Company Setup', queryParameters: {
-      'fields':
-          '["company","office_type","national_id","economic_code","owner_full_name","registration_number","activity_type","company_type","parent_office","phone","email","website","province","city","address","postal_code","fiscal_year","fiscal_year_start_month","chart_template","description","auto_generate_detail_code","modified","office_saved","accounting_saved","roles_saved"]',
-      'limit_page_length': 100,
-      'order_by': 'modified desc',
-    });
-    return rows.map(OfficeModel.fromSetup).toList(growable: false);
+    final data = await _client.callAsoudMethod('asoud_erp.api.v1.setup.list_offices');
+    if (data is! Map || data['offices'] is! List) throw const ApiException.protocol();
+    return (data['offices'] as List).map((row) =>
+        OfficeModel.fromSetup(Map<String, dynamic>.from(row as Map))).toList(growable: false);
   }
 
   @override
   Future<Office?> getDefaultOffice() async {
     final data = await _client.callAsoudMethod(
-      'asoud_erp.api.v1.setup.get_setup_status',
+      'asoud_erp.api.v1.setup.list_offices',
     );
     if (data is! Map) throw const ApiException.protocol();
-    final values = Map<String, dynamic>.from(data);
-    if (values['company'] == null) return null;
-    return OfficeModel.fromSetup(values);
+    final rows = data['offices'];
+    if (rows is! List) throw const ApiException.protocol();
+    for (final row in rows.whereType<Map>()) {
+      if (row['company'] == data['selected_office']) {
+        return OfficeModel.fromSetup(Map<String, dynamic>.from(row));
+      }
+    }
+    return null;
   }
 
   @override

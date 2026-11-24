@@ -13,13 +13,14 @@ import '../../../auth/presentation/pages/account_security_page.dart';
 import '../../../auth/presentation/pages/login_page.dart';
 import '../../../auth/presentation/pages/sign_out.dart';
 import '../../../base_setup/presentation/pages/base_accounting_setup_page.dart';
-import '../../../base_setup/presentation/pages/roles_setup_page.dart';
+import '../../../roles/presentation/access_profiles_page.dart';
+import '../../../roles/presentation/office_users_page.dart';
+import '../../../roles/data/access_management_repository.dart';
 import '../../../hr/presentation/pages/hr_home_page.dart';
 import '../../../hr/presentation/pages/organization_page.dart';
 import '../../../office_setup/presentation/pages/offices_page.dart';
 import '../../../request_types/presentation/pages/request_types_page.dart';
 import '../../../form_builder/forms_page.dart';
-import '../../../roles/presentation/roles_page.dart';
 import '../../../workflows/presentation/pages/generic_request_page.dart';
 import '../../../workflows/presentation/pages/workflow_list_page.dart';
 import '../../../workflows/presentation/pages/workflow_notifications_page.dart';
@@ -287,14 +288,11 @@ class _SettingsDashboardContentState extends State<SettingsDashboardContent> {
                           'مدیریت کاربران',
                           Icons.person_outline,
                           AsoudColors.primary,
-                          onTap: widget.offlinePreview
+                          onTap: !hasOffice || widget.offlinePreview
                               ? null
                               : () => _open(
-                                    UserAccessPage(
-                                      repository: UserAccessRepository(
-                                        context.read<FrappeApiClient>(),
-                                      ),
-                                    ),
+                                    OfficeUsersPage(company: company!, repository:
+                                      AccessManagementRepository(context.read<FrappeApiClient>())),
                                   ),
                         ),
                       if (capabilities.canManageOrganization)
@@ -363,15 +361,13 @@ class _SettingsDashboardContentState extends State<SettingsDashboardContent> {
                       ),
                       if (capabilities.canManageRoles)
                         _ActionCard(
-                          'مدیریت نقش‌ها',
+                          'پروفایل‌های دسترسی',
                           Icons.shield_outlined,
                           AsoudColors.primary,
-                          note: 'الگو و ایجاد دستی',
-                          onTap: () => _open(
-                            RolesSetupPage(
-                              officeName: company,
-                              offlinePreview: widget.offlinePreview,
-                            ),
+                          note: 'الگوهای مجوز دفتر',
+                          onTap: !hasOffice || widget.offlinePreview ? null : () => _open(
+                            AccessProfilesPage(company: company!, repository:
+                              AccessManagementRepository(context.read<FrappeApiClient>())),
                           ),
                         ),
                       if (capabilities.canManageWorkflows)

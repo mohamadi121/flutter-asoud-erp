@@ -243,6 +243,13 @@ void main() {
       message: 'دسترسی ندارید',
       statusCode: 403,
     ));
+    when(() => client.callAsoudMethod(
+          'asoud_erp.api.v1.setup.list_offices',
+        )).thenThrow(const ApiException(
+      kind: ApiFailureKind.forbidden,
+      message: 'دسترسی ندارید',
+      statusCode: 403,
+    ));
     final offices = ServerFirstOfficeRepository(
       FrappeOfficeRepository(client),
       local: FakeLocalRecordStore(),

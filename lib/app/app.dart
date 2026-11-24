@@ -1,4 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+
+import '../features/calendar/calendar_device_notifications.dart';
 import '../features/workflows/data/workflow_card_repository.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -63,6 +67,25 @@ class _AsoudErpAppState extends State<AsoudErpApp> {
       serverAddressStore: const SecureServerAddressStore());
   late final OfflineSyncService syncService = OfflineSyncService(client,
       afterSync: _syncPersonnel, syncRequests: _syncRequests);
+
+  StreamSubscription<bool>? _calendarSession;
+  @override
+  void initState() {
+    super.initState();
+    _calendarSession = client.authenticationChanges.listen((signedIn) {
+      if (!signedIn) {
+        unawaited(CalendarDeviceNotifications.instance.clear().catchError((Object _) {
+          // No notification delivery failure may prevent session revocation.
+        }));
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    unawaited(_calendarSession?.cancel());
+    super.dispose();
+  }
 
   bool get _localPreview =>
       AppConfig.offlineDemoMode && !client.isAuthenticated;

@@ -10,9 +10,10 @@ import '../../../../core/utils/jalali_date.dart';
 /// whether the queue is running, and that nothing is left when the count
 /// reaches zero. It is the home entry point to «صف ارسال به سرور».
 class SyncStatusIndicator extends StatefulWidget {
-  const SyncStatusIndicator({required this.service, this.onOpen, super.key});
+  const SyncStatusIndicator({required this.service, this.onOpen, this.hideWhenClear = false, super.key});
 
   final OfflineSyncService service;
+  final bool hideWhenClear;
 
   /// Opens «صف ارسال به سرور»; the bar is inert without it.
   final VoidCallback? onOpen;
@@ -26,6 +27,8 @@ class _SyncStatusIndicatorState extends State<SyncStatusIndicator> {
   int? _unsent;
   int _localOnly = 0;
   bool _syncing = false;
+  bool _failed = false;
+  int _generation = 0;
 
   @override
   void initState() {
@@ -37,19 +40,24 @@ class _SyncStatusIndicatorState extends State<SyncStatusIndicator> {
   Future<void> _refresh() async {
     // Read the flag before the count: a run that finishes meanwhile is still a
     // run the user is waiting for.
+    final token = ++_generation;
     final syncing = widget.service.isSyncing;
     int? unsent;
     int localOnly;
+    bool failed;
     try {
-      unsent = await widget.service.unsentCount();
+      final rows = await widget.service.unsent();
+      unsent = rows.length;
+      failed = rows.any((r) => r.lastError?.isNotEmpty == true);
       localOnly = await widget.service.localOnlyCount();
     } catch (_) {
       // The queue store is unavailable; the badge stays hidden rather than
       // claiming the phone holds nothing.
       return;
     }
-    if (!mounted) return;
+    if (!mounted || token != _generation) return;
     setState(() {
+      _failed = failed;
       _unsent = unsent;
       _localOnly = localOnly;
       _syncing = syncing || widget.service.isSyncing;
@@ -67,10 +75,11 @@ class _SyncStatusIndicatorState extends State<SyncStatusIndicator> {
     final unsent = _unsent;
     if (unsent == null) return const SizedBox.shrink();
     final clear = unsent == 0 && _localOnly == 0;
-    final color = clear ? AsoudColors.success : AsoudColors.warning;
-    final surface =
-        clear ? AsoudColors.successSurface : AsoudColors.warningSurface;
-    final label = clear
+    if (clear && !_syncing && widget.hideWhenClear) return const SizedBox.shrink();
+    final color = _failed ? AsoudColors.danger : const Color(0xFF2878DE);
+    final surface = _failed ? const Color(0xFFFCE7EA) : const Color(0xFFEAF3FF);
+    final label = _syncing ? 'در حال همگام‌سازی…' : _failed
+        ? 'ارسال برخی تغییرات انجام نشد' : clear
         ? 'همه داده‌ها ارسال شده'
         : unsent > 0
             ? '${toPersianDigits(unsent)} تغییر ارسال نشد — مشاهده'
@@ -110,6 +119,16 @@ class _SyncStatusIndicatorState extends State<SyncStatusIndicator> {
                     fontSize: 13, fontWeight: FontWeight.w800, color: color),
               ),
             ),
+            if (_failed && !_syncing)
+              TextButton(onPressed: () async {
+                try {
+                  await widget.service.retryAll();
+                } catch (_) {
+                  if (mounted) setState(() => _failed = true);
+                } finally {
+                  if (mounted) await _refresh();
+                }
+              }, child: const Text('تلاش مجدد')),
             if (!clear && widget.onOpen != null)
               Icon(Icons.chevron_left_rounded, size: 20, color: color),
           ]),

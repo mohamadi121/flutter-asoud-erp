@@ -1,33 +1,12 @@
+import 'package:shamsi_date/shamsi_date.dart' as solar;
+
 /// Solar Hijri (Jalali) calendar helpers for display in the Persian UI.
 class JalaliDate {
   const JalaliDate(this.year, this.month, this.day);
 
   factory JalaliDate.fromDateTime(DateTime value) {
-    var gy = value.year;
-    final gm = value.month;
-    final gd = value.day;
-    var jy = gy > 1600 ? 979 : 0;
-    gy -= gy > 1600 ? 1600 : 621;
-    final gy2 = gm > 2 ? gy + 1 : gy;
-    const monthDays = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
-    var days = 365 * gy +
-        ((gy2 + 3) ~/ 4) -
-        ((gy2 + 99) ~/ 100) +
-        ((gy2 + 399) ~/ 400) -
-        80 +
-        gd +
-        monthDays[gm - 1];
-    jy += 33 * (days ~/ 12053);
-    days %= 12053;
-    jy += 4 * (days ~/ 1461);
-    days %= 1461;
-    if (days > 365) {
-      jy += (days - 1) ~/ 365;
-      days = (days - 1) % 365;
-    }
-    final jm = days < 186 ? 1 + days ~/ 31 : 7 + (days - 186) ~/ 30;
-    final jd = 1 + (days < 186 ? days % 31 : (days - 186) % 30);
-    return JalaliDate(jy, jm, jd);
+    final date = solar.Jalali.fromDateTime(value);
+    return JalaliDate(date.year, date.month, date.day);
   }
 
   final int year, month, day;
@@ -80,8 +59,7 @@ String toLatinDigits(String value) => value.split('').map((character) {
               : character;
     }).join();
 
-/// Invert the existing calendar conversion, checking the exact date round trip.
-/// UTC day arithmetic avoids daylight-saving gaps at local midnight.
+/// Strict conversion through the shared maintained Jalali calendar library.
 DateTime? parseJalaliDate(String value) {
   final match = RegExp(r'^(\d{4})[/\-](\d{1,2})[/\-](\d{1,2})$')
       .firstMatch(toLatinDigits(value.trim()));
@@ -89,25 +67,11 @@ DateTime? parseJalaliDate(String value) {
   final year = int.parse(match[1]!),
       month = int.parse(match[2]!),
       day = int.parse(match[3]!);
-  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
-  final target = year * 10000 + month * 100 + day;
-  const dayMillis = Duration.millisecondsPerDay;
-  var low = DateTime.utc(1600).millisecondsSinceEpoch ~/ dayMillis;
-  var high = DateTime.utc(2400, 12, 31).millisecondsSinceEpoch ~/ dayMillis;
-  while (low <= high) {
-    final middle = (low + high) >> 1;
-    final date =
-        DateTime.fromMillisecondsSinceEpoch(middle * dayMillis, isUtc: true);
-    final jalali = JalaliDate.fromDateTime(date);
-    final key = jalali.year * 10000 + jalali.month * 100 + jalali.day;
-    if (key == target) return DateTime(date.year, date.month, date.day);
-    if (key < target) {
-      low = middle + 1;
-    } else {
-      high = middle - 1;
-    }
+  try {
+    return solar.Jalali(year, month, day).toDateTime();
+  } on solar.DateException {
+    return null;
   }
-  return null;
 }
 
 /// `پنجشنبه ۲ مهر ۱۴۰۵`

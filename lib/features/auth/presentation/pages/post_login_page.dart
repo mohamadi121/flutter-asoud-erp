@@ -6,6 +6,7 @@ import '../../../../core/utils/failure_message.dart';
 import '../../../dashboard/presentation/pages/dashboard_page.dart';
 import '../../../office_setup/presentation/pages/office_type_page.dart';
 import '../../../office_setup/presentation/pages/first_office_setup_page.dart';
+import '../../../office_setup/presentation/pages/offices_page.dart';
 import '../../../../core/network/frappe_client.dart';
 import '../../data/account_repository.dart';
 import '../../domain/repositories/auth_repository.dart';
@@ -25,7 +26,6 @@ class PostLoginPage extends StatefulWidget {
   @override
   State<PostLoginPage> createState() => _PostLoginPageState();
 }
-
 class _PostLoginPageState extends State<PostLoginPage> {
   AccountRepository? _accounts;
   late final NavigatorState _nav;
@@ -117,25 +117,14 @@ class _PostLoginPageState extends State<PostLoginPage> {
             onBack: () => _signOut(),
             onCompleted: (ctx, next) => _replace(const PostLoginPage())));
       case LoginStep.selectOffice:
-        _replace(OfficePickerPage(
-            offices: state.offices,
-            onPicked: (office) async {
-              await _accounts!.selectOffice(office.name);
-              _openHome();
-            },
-            onSignOut: () => _signOut()));
+        _replace(OfficesPage(onSignOut: _signOut));
       case LoginStep.noOfficeAccess:
         _replace(route.message == null
             ? NoOfficeAccessView(onSignOut: () => _signOut())
             : NoOfficeAccessView(
                 message: route.message!, onSignOut: () => _signOut()));
       case LoginStep.home:
-        if (route.office != state.selectedOffice) {
-          try {
-            await _accounts!.selectOffice(route.office!);
-          } catch (_) {}
-        }
-        _openHome();
+        _replace(OfficesPage(onSignOut: _signOut));
     }
   }
 
@@ -170,7 +159,6 @@ class _PostLoginPageState extends State<PostLoginPage> {
         ),
       );
 }
-
 /// The message for an account that may sign in but has no office. It offers
 /// no way to create an office or to see any data.
 class NoOfficeAccessView extends StatelessWidget {
@@ -208,89 +196,6 @@ class NoOfficeAccessView extends StatelessWidget {
               ]),
             ),
           ),
-        ),
-      );
-}
-
-/// Lets a multi-office account choose among its permitted offices only.
-class OfficePickerPage extends StatefulWidget {
-  const OfficePickerPage(
-      {required this.offices,
-      required this.onPicked,
-      required this.onSignOut,
-      super.key});
-  final List<OfficeRef> offices;
-  final Future<void> Function(OfficeRef office) onPicked;
-  final VoidCallback onSignOut;
-
-  @override
-  State<OfficePickerPage> createState() => _OfficePickerPageState();
-}
-
-class _OfficePickerPageState extends State<OfficePickerPage> {
-  bool _picking = false;
-  String? _error;
-
-  Future<void> _pick(OfficeRef office) async {
-    if (_picking) return;
-    setState(() {
-      _picking = true;
-      _error = null;
-    });
-    try {
-      await widget.onPicked(office);
-    } catch (error) {
-      if (mounted) {
-        setState(() => _error = failureMessage(error));
-      }
-    } finally {
-      if (mounted) setState(() => _picking = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) => Scaffold(
-        body: SafeArea(
-          child: ListView(padding: const EdgeInsets.all(16), children: [
-            const Text('انتخاب دفتر کار',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
-            const SizedBox(height: 4),
-            const Text('دفتری را که می‌خواهید با آن کار کنید انتخاب کنید.',
-                style: TextStyle(color: AsoudColors.muted)),
-            if (_error case final message?) ...[
-              const SizedBox(height: 12),
-              Container(
-                key: const Key('office_picker_error'),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AsoudColors.dangerSurface,
-                  border: Border.all(
-                      color: AsoudColors.danger.withValues(alpha: .3)),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(children: [
-                  const Icon(Icons.error_outline_rounded,
-                      color: AsoudColors.danger),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text(message)),
-                ]),
-              ),
-            ],
-            const SizedBox(height: 12),
-            for (final office in widget.offices)
-              Card(
-                child: ListTile(
-                  key: Key('office_${office.name}'),
-                  leading: const Icon(Icons.business_rounded),
-                  title: Text(office.title),
-                  trailing: const Icon(Icons.chevron_left_rounded),
-                  onTap: _picking ? null : () => _pick(office),
-                ),
-              ),
-            TextButton(
-                onPressed: _picking ? null : widget.onSignOut,
-                child: const Text('خروج از حساب')),
-          ]),
         ),
       );
 }

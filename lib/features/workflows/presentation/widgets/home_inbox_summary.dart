@@ -1,181 +1,92 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/network/frappe_client.dart';
 import '../../../../core/theme/asoud_colors.dart';
-import '../../../../core/utils/jalali_date.dart';
 import '../../../../core/utils/failure_message.dart';
-import '../../../../core/widgets/asoud_ui.dart';
-import '../../domain/entities/workflow_task.dart';
+import '../../../../core/utils/jalali_date.dart';
+import '../../../calendar/calendar_repository.dart';
 import '../../domain/repositories/workflow_task_repository.dart';
-import '../pages/workflow_task_detail_page.dart';
-import '../pages/workflow_tasks_page.dart';
+import '../pages/cartable_page.dart';
 
-/// A read-only window onto the real inbox; no second task store or action engine.
+/// Aggregate of the existing office-scoped inbox, without a second task store.
 class HomeInboxSummary extends StatefulWidget {
-  const HomeInboxSummary({this.repository, this.now, super.key});
+  const HomeInboxSummary({this.repository, this.now, this.company = '', super.key});
   final WorkflowTaskRepository? repository;
   final DateTime? now;
+  final String company;
   @override
   State<HomeInboxSummary> createState() => _HomeInboxSummaryState();
 }
 
 class _HomeInboxSummaryState extends State<HomeInboxSummary> {
-  late final repository =
-      widget.repository ?? context.read<WorkflowTaskRepository?>();
-  late Future<List<WorkflowTask>> future = _load();
-  Future<List<WorkflowTask>> _load() async {
-    if (repository == null) {
-      throw StateError('کارتابل در این محیط در دسترس نیست.');
-    }
-    return repository!.getMyTasks();
+  late Future<CalendarRow> future = _load();
+
+  Future<CalendarRow> _load() async {
+    if (widget.company.isEmpty) throw StateError('دفتر فعال مشخص نیست.');
+    return CalendarRepository(context.read<FrappeApiClient?>(), widget.company)
+        .actionCounts(widget.now ?? DateTime.now());
   }
 
   Future<void> _refresh() async {
     final next = _load();
     setState(() => future = next);
-    await next.catchError((Object _) => <WorkflowTask>[]);
+    await next.catchError((Object _) => <String, dynamic>{});
   }
 
-  Future<void> _open([WorkflowTask? task]) async {
-    if (repository == null) return;
-    await Navigator.push(
-        context,
-        MaterialPageRoute<void>(
-            builder: (_) => RepositoryProvider<WorkflowTaskRepository>.value(
-                value: repository!,
-                child: task == null
-                    ? const WorkflowTasksPage()
-                    : WorkflowTaskDetailPage(task: task.id))));
+  Future<void> _open() async {
+    await Navigator.push(context, MaterialPageRoute<void>(
+        builder: (_) => CartablePage(company: widget.company)));
     if (mounted) await _refresh();
   }
 
   @override
   Widget build(BuildContext context) => Card(
-      margin: EdgeInsets.zero,
-      elevation: 0,
-      child: Padding(
-          padding: const EdgeInsets.all(12),
-          child:
-              Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Row(children: [
-              const Expanded(
-                  child: Text('نیازمند اقدام من',
-                      style: TextStyle(fontWeight: FontWeight.w800))),
-              TextButton(
-                  onPressed: repository == null ? null : () => _open(),
-                  child: const Text('مشاهده همه'))
-            ]),
-            FutureBuilder<List<WorkflowTask>>(
-                future: future,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState != ConnectionState.done) {
-                    return const LinearProgressIndicator();
-                  }
-                  if (snapshot.hasError) {
-                    return TextButton.icon(
-                        onPressed: _refresh,
-                        icon: const Icon(Icons.refresh),
-                        label: Text(repository == null
-                            ? 'کارتابل در این محیط در دسترس نیست.'
-                            : failureMessage(snapshot.error!)));
-                  }
-                  final rows = (snapshot.data ?? [])
-                      .where((t) => t.status == 'Open')
-                      .toList();
-                  final now = widget.now ?? DateTime.now();
-                  final overdue =
-                      rows.where((t) => t.dueOn?.isBefore(now) == true).length;
-                  return Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        if (repository!.isOfflinePreview)
-                          const Text('پیش‌نمایش آفلاین · داده نمونه/محلی',
-                              style: TextStyle(
-                                  fontSize: 11, color: AsoudColors.warning)),
-                        Row(children: [
-                          Expanded(
-                              child: _summaryTile(
-                                  'در انتظار',
-                                  '${toPersianDigits(rows.length)}${rows.length >= 200 ? '+' : ''}',
-                                  AsoudColors.primary,
-                                  const Color(0xFFE8F2FF))),
-                          const SizedBox(width: 8),
-                          Expanded(
-                              child: _summaryTile(
-                                  'معوق',
-                                  toPersianDigits(overdue),
-                                  AsoudColors.danger,
-                                  const Color(0xFFFCEBF1))),
-                          const SizedBox(width: 8),
-                          Expanded(
-                              child: Tooltip(
-                                  message:
-                                      'API فعلی کارتابل اولویت را ارائه نمی‌کند.',
-                                  child: _summaryTile(
-                                      'اولویت بالا',
-                                      '—',
-                                      AsoudColors.warning,
-                                      const Color(0xFFFFF1E1)))),
-                        ]),
-                        if (rows.length >= 200)
-                          const Text('خلاصه بر اساس موارد دریافت‌شده است.',
-                              style: TextStyle(fontSize: 11)),
-                        if (rows.isEmpty)
-                          const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 12),
-                              child: Text(
-                                  'در حال حاضر اقدام بازی در کارتابل شما نیست.')),
-                        // Preserve the inbox's server order instead of inventing a ranking.
-                        for (final task in rows.take(3))
-                          ListTile(
-                              contentPadding: EdgeInsets.zero,
-                              onTap: () => _open(task),
-                              leading: AsoudIconBox(
-                                  icon: task.dueOn?.isBefore(now) == true
-                                      ? Icons.warning_amber_rounded
-                                      : Icons.task_alt,
-                                  color: task.dueOn?.isBefore(now) == true
-                                      ? AsoudColors.danger
-                                      : AsoudColors.primary,
-                                  size: 34),
-                              title: Text(task.title,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w700)),
-                              subtitle: Text(
-                                  task.dueOn == null
-                                      ? 'باز · بدون مهلت'
-                                      : '${task.dueOn!.isBefore(now) ? 'معوق' : 'مهلت'}: ${formatJalaliDateTimeIso(task.dueOn!.toIso8601String())}',
-                                  style: TextStyle(
-                                      fontSize: 11,
-                                      color: task.dueOn?.isBefore(now) == true
-                                          ? AsoudColors.danger
-                                          : AsoudColors.muted)),
-                              trailing:
-                                  const Icon(Icons.chevron_left, size: 18)),
-                      ]);
-                }),
-          ])));
-
-  Widget _summaryTile(
-          String label, String value, Color foreground, Color background) =>
-      Container(
-        constraints: const BoxConstraints(minHeight: 64),
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
-        decoration: BoxDecoration(
-            color: background, borderRadius: BorderRadius.circular(10)),
-        child: Column(children: [
-          Text(value,
-              style: TextStyle(
-                  color: foreground,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800)),
-          const SizedBox(height: 4),
-          Text(label,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 11, color: AsoudColors.muted)),
+    margin: EdgeInsets.zero, color: Colors.white, elevation: 0,
+    child: Padding(padding: const EdgeInsets.all(12),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          const Expanded(child: Text('نیازمند اقدام من',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800))),
+          TextButton(onPressed: _open, child: const Text('کارتابل')),
         ]),
-      );
+        FutureBuilder<CalendarRow>(future: future, builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const LinearProgressIndicator();
+          }
+          if (snapshot.hasError) {
+            return TextButton.icon(onPressed: _refresh, icon: const Icon(Icons.refresh),
+              label: Text(snapshot.error is StateError
+                ? (snapshot.error as StateError).message.toString()
+                : failureMessage(snapshot.error!)));
+          }
+          final counts = snapshot.data!;
+          if (!['waiting', 'overdue', 'high_priority']
+              .every((key) => counts[key] is num)) {
+            return TextButton(onPressed: _refresh,
+              child: const Text('آمار کامل دریافت نشد؛ تلاش مجدد'));
+          }
+          return Row(children: [
+            for (final metric in const [
+              ('در انتظار', 'waiting', Color(0xFF2878DE), Color(0xFFEAF3FF)),
+              ('معوق', 'overdue', AsoudColors.danger, Color(0xFFFCE7EA)),
+              ('اولویت بالا', 'high_priority', Color(0xFF22966B), Color(0xFFE3F5EB)),
+            ]) ...[
+              if (metric.$2 != 'waiting') const SizedBox(width: 6),
+              Expanded(child: Material(color: metric.$4,
+                borderRadius: BorderRadius.circular(10),
+                child: InkWell(onTap: _open, borderRadius: BorderRadius.circular(10),
+                  child: Padding(padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 2),
+                    child: Column(children: [
+                      Text(toPersianDigits(counts[metric.$2]), style: TextStyle(
+                        color: metric.$3, fontSize: 18, fontWeight: FontWeight.w800)),
+                      const SizedBox(height: 4),
+                      Text(metric.$1, textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 12, color: AsoudColors.muted)),
+                    ]))))),
+            ],
+          ]);
+        }),
+      ])),
+  );
 }

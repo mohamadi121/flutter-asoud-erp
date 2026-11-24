@@ -21,6 +21,7 @@ class OfficeFormState extends Equatable {
     this.hasIndependentPersonality = true,
     this.parentOffice = '',
     this.phone = '',
+    this.landline = '',
     this.email = '',
     this.website = '',
     this.province = '',
@@ -43,6 +44,7 @@ class OfficeFormState extends Equatable {
   final int suggestionRevision;
   final String officeName, ownerFullName, registrationNumber, nationalId;
   final String activityType, companyType, parentOffice, phone, email, website;
+  final String landline;
   final String province, city, address, postalCode, fiscalYear, chartTemplate;
   final bool hasIndependentPersonality;
   final String? logoName;
@@ -56,7 +58,7 @@ class OfficeFormState extends Equatable {
   List<Object?> get inputValues => [
     officeType, officeName, ownerFullName, registrationNumber, nationalId,
     activityType, companyType, hasIndependentPersonality, parentOffice,
-    phone, email, website, province, city, address, postalCode,
+    phone, landline, email, website, province, city, address, postalCode,
     fiscalYear, chartTemplate, description, logoName, logoBytes,
   ];
 
@@ -70,6 +72,7 @@ class OfficeFormState extends Equatable {
         companyType,
         parentOffice,
         phone,
+        landline,
         email,
         website,
         province,
@@ -94,6 +97,7 @@ class OfficeFormState extends Equatable {
     bool? hasIndependentPersonality,
     String? parentOffice,
     String? phone,
+    String? landline,
     String? email,
     String? website,
     String? province,
@@ -125,6 +129,7 @@ class OfficeFormState extends Equatable {
             hasIndependentPersonality ?? this.hasIndependentPersonality,
         parentOffice: parentOffice ?? this.parentOffice,
         phone: phone ?? this.phone,
+        landline: landline ?? this.landline,
         email: email ?? this.email,
         website: website ?? this.website,
         province: province ?? this.province,
@@ -155,6 +160,7 @@ class OfficeFormState extends Equatable {
         hasIndependentPersonality,
         parentOffice,
         phone,
+        landline,
         email,
         website,
         province,
