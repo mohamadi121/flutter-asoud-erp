@@ -74,6 +74,9 @@ void main() {
       expect(client.methods, isEmpty);
       expect(tester.takeException(), isNull);
       // Base setup remains available through Modules, not the renamed role card.
+      await tester.tap(find.byIcon(Icons.chevron_right_rounded).first);
+      await tester.pumpAndSettle();
+      expect(find.byType(SettingsDashboardContent), findsOneWidget);
       await tester.ensureVisible(find.text('ماژول‌ها'));
       await tester.tap(find.text('ماژول‌ها'));
       await tester.pumpAndSettle();
