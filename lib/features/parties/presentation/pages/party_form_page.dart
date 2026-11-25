@@ -8,6 +8,7 @@ import '../../../../core/utils/persian_server_values.dart';
 import '../../../../core/utils/failure_message.dart';
 import '../../../../core/offline/queued_offline_exception.dart';
 import '../../../../core/utils/persian_format.dart';
+import '../../../../core/utils/organization_labels.dart';
 import '../../../../core/widgets/app_fields.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../../core/widgets/asoud_form.dart';
@@ -49,6 +50,9 @@ class _PartyFormPageState extends State<PartyFormPage> {
   Map<String, dynamic> options = {};
   String? optionsError, birthError;
   bool get canEditFinancial => options['can_edit_financial'] == true;
+  bool get _newPersonnel => widget.profile == null &&
+      widget.initialRole == PartyRole.employee &&
+      roles.contains(PartyRole.employee);
 
   @override
   void initState() {
@@ -78,8 +82,8 @@ class _PartyFormPageState extends State<PartyFormPage> {
       'secondaryPhone': p?.secondaryPhone,
       'email': p?.email,
       'website': p?.website,
-      'province': p?.province ?? 'تهران',
-      'city': p?.city ?? 'تهران',
+      'province': p?.province ?? (p == null && !_newPersonnel ? 'تهران' : null),
+      'city': p?.city ?? (p == null && !_newPersonnel ? 'تهران' : null),
       'address': p?.address,
       'postal': p?.postalCode,
       'region': p?.region,
@@ -271,7 +275,8 @@ class _PartyFormPageState extends State<PartyFormPage> {
       return;
     }
     birthError = null;
-    if (loadingGroups || selectedGroups.isEmpty) {
+    if ((loadingGroups || selectedGroups.isEmpty) &&
+        !(roles.length == 1 && roles.contains(PartyRole.employee))) {
       setState(() => error =
           'ابتدا گروه تفصیلی اشخاص و شرکت‌ها را در حسابداری تعریف کنید.');
       return;
@@ -408,6 +413,7 @@ class _PartyFormPageState extends State<PartyFormPage> {
   @override
   Widget build(BuildContext context) {
     final employee = roles.contains(PartyRole.employee);
+    final personnelLayout = _newPersonnel;
     return PopScope(
         canPop: allowLeave || (!dirty && !saving),
         onPopInvokedWithResult: (didPop, result) {
@@ -469,109 +475,98 @@ class _PartyFormPageState extends State<PartyFormPage> {
               ),
             const SizedBox(height: 14),
             AsoudFormSection(
-              title: 'اطلاعات اصلی',
+              title: personnelLayout ? 'اطلاعات اصلی و هویتی' : 'اطلاعات اصلی',
+              fieldGap: 14,
               children: [
-                if (kind == PartyKind.individual)
-                  Row(children: [
-                    Expanded(
-                        child: _input('firstName', 'نام *', required: true)),
-                    const SizedBox(width: 8),
-                    Expanded(
-                        child: _input('lastName', 'نام خانوادگی *',
-                            required: true)),
-                  ])
+                if (personnelLayout)
+                  _pair(_input('lastName', 'نام خانوادگی', required: true),
+                    _input('firstName', 'نام', required: true))
+                else if (kind == PartyKind.individual)
+                  _pair(_input('firstName', 'نام', required: true),
+                    _input('lastName', 'نام خانوادگی', required: true))
                 else ...[
                   _input('name', 'نام شرکت *', required: true),
                   _input('manager', 'نام مدیر شرکت'),
                 ],
                 _input('alias',
                     kind == PartyKind.individual ? 'نام مستعار' : 'نام تجاری'),
-                Row(children: [
-                  Expanded(child: _input('national', 'کد ملی / شناسه ملی')),
-                  const SizedBox(width: 8),
-                  Expanded(child: _input('mobile', 'شماره موبایل')),
-                ]),
+                if (personnelLayout)
+                  _input('national', 'کد ملی', hint: '۱۰ رقم')
+                else _pair(_input('national',
+                    kind == PartyKind.individual ? 'کد ملی' : 'شناسه ملی'),
+                  _input('mobile', 'شماره موبایل')),
                 if (widget.profile == null)
-                  TextButton.icon(
-                      onPressed: saving ? null : _existingPerson,
-                      icon: const Icon(Icons.person_search_outlined),
-                      label: const Text('استفاده از شخص موجود در همین دفتر')),
+                  ValueListenableBuilder<TextEditingValue>(
+                    valueListenable: fields['national']!,
+                    builder: (_, entry, child) => employee && entry.text.trim().isEmpty
+                      ? const SizedBox.shrink()
+                      : TextButton.icon(
+                          onPressed: saving ? null : _existingPerson,
+                          icon: const Icon(Icons.person_search_outlined),
+                          label: Text(employee
+                              ? 'جست‌وجوی پروندهٔ ثبت‌شده با کد ملی'
+                              : 'استفاده از شخص موجود در همین دفتر')),
+                  ),
                 if (kind == PartyKind.organization)
-                  Row(children: [
-                    Expanded(child: _input('registration', 'شماره ثبت')),
-                    const SizedBox(width: 8),
-                    Expanded(child: _input('economic', 'کد اقتصادی')),
-                  ]),
+                  _pair(_input('registration', 'شماره ثبت'),
+                    _input('economic', 'کد اقتصادی')),
                 if (kind == PartyKind.organization)
                   _dateInput('founding', 'تاریخ تأسیس'),
                 if (kind == PartyKind.individual) ...[
-                  _choice('employeeGender', 'gender', 'جنسیت',
-                      required: employee),
-                  _dateInput('birth', 'تاریخ تولد', required: employee),
-                  _input('fatherName', 'نام پدر'),
-                  _input('birthCertificate', 'شماره شناسنامه'),
+                  _choice('employeeGender', 'gender', 'جنسیت'),
+                  _dateInput('birth', 'تاریخ تولد'),
+                  if (personnelLayout)
+                    _pair(_input('birthCertificate', 'شماره شناسنامه'),
+                      _input('fatherName', 'نام پدر'))
+                  else ...[
+                    _input('fatherName', 'نام پدر'),
+                    _input('birthCertificate', 'شماره شناسنامه'),
+                  ],
                   _input('birthIssuePlace', 'محل صدور'),
                 ],
               ],
             ),
             AsoudFormSection(
               title: 'راه‌های ارتباطی',
+              fieldGap: 14,
               children: [
-                Row(children: [
-                  Expanded(child: _input('phone', 'تلفن ثابت')),
-                  const SizedBox(width: 8),
-                  Expanded(child: _input('secondaryPhone', 'تلفن دوم')),
-                ]),
+                _pair(_input('phone', 'تلفن ثابت'), _input('secondaryPhone', 'تلفن دوم')),
                 _input('email', 'ایمیل اصلی'),
                 _input('website', 'وب‌سایت'),
               ],
             ),
             AsoudFormSection(
               title: 'آدرس و موقعیت',
+              fieldGap: 14,
               children: [
-                Row(children: [
-                  Expanded(child: _input('province', 'استان')),
-                  const SizedBox(width: 8),
-                  Expanded(child: _input('city', 'شهر')),
-                ]),
+                _pair(_input('province', 'استان'), _input('city', 'شهر')),
                 _input('address', 'نشانی کامل', lines: 2),
-                Row(children: [
-                  Expanded(child: _input('region', 'منطقه')),
-                  const SizedBox(width: 8),
-                  Expanded(child: _input('neighborhood', 'محله')),
-                ]),
-                Row(children: [
-                  Expanded(child: _input('plaque', 'پلاک')),
-                  const SizedBox(width: 8),
-                  Expanded(child: _input('unit', 'واحد')),
-                ]),
+                _pair(_input('region', 'منطقه'), _input('neighborhood', 'محله')),
+                _pair(_input('plaque', 'پلاک'), _input('unit', 'واحد')),
                 _input('postal', 'کد پستی'),
-                Row(children: [
-                  Expanded(child: _input('latitude', 'عرض جغرافیایی')),
-                  const SizedBox(width: 8),
-                  Expanded(child: _input('longitude', 'طول جغرافیایی')),
-                ]),
+                _pair(_input('latitude', 'عرض جغرافیایی'),
+                  _input('longitude', 'طول جغرافیایی')),
               ],
             ),
             if (employee && kind == PartyKind.individual)
-              AsoudFormSection(title: 'اطلاعات شغلی و سازمانی', children: [
+              AsoudFormSection(title: 'اطلاعات شغلی و سازمانی', fieldGap: 14, children: [
                 _choice('employment', 'employment_type', 'نوع همکاری'),
-                _dateInput('joiningDate', 'تاریخ شروع همکاری', required: true),
+                _dateInput('joiningDate', 'تاریخ شروع همکاری'),
                 _choice('department', 'department', 'واحد سازمانی'),
                 _choice('job', 'job_title', 'سمت شغلی'),
                 const Text(
-                    'سمت باید از سمت‌های ثبت‌شده در سرور باشد؛ اگر مطمئن نیستید خالی بگذارید.',
+                    'سمت‌ها از ساختار سازمانی همین دفتر خوانده می‌شوند. پس از انتخاب واحد، فقط سمت‌های همان واحد دیده می‌شوند.',
                     style: TextStyle(fontSize: 12, color: AsoudColors.muted)),
                 const Text(
-                    'انتساب جایگاه سازمانی از بخش ساختار سازمانی انجام می‌شود؛ این فرم دسترسی نرم‌افزاری ایجاد نمی‌کند.',
+                    'با نام و نام خانوادگی می‌توانید پرونده را ثبت کنید. برای فعال‌شدن در عملیات منابع انسانی، جنسیت، تاریخ تولد و تاریخ شروع همکاری را تکمیل کنید. انتخاب سمت، انتساب به جایگاه یا دسترسی نرم‌افزاری ایجاد نمی‌کند.',
                     style: TextStyle(fontSize: 12, color: AsoudColors.muted)),
               ]),
             if (canEditFinancial &&
-                (roles.contains(PartyRole.customer) ||
+                (personnelLayout || roles.contains(PartyRole.customer) ||
                     roles.contains(PartyRole.supplier) ||
                     (widget.profile?.openingBalance ?? 0) != 0 ||
                     (widget.profile?.creditLimit ?? 0) != 0))
-              AsoudFormSection(title: 'اطلاعات مالی', children: [
+              AsoudFormSection(title: 'اطلاعات مالی', fieldGap: 14, children: [
                 _input('credit', 'سقف اعتبار (ریال)'),
                 IgnorePointer(
                     child: _BalanceSection(
@@ -584,22 +579,38 @@ class _PartyFormPageState extends State<PartyFormPage> {
                     style: TextStyle(fontSize: 12, color: AsoudColors.muted)),
               ]),
             if (canEditFinancial)
-              AsoudFormSection(title: 'اطلاعات بانکی', children: [
+              AsoudFormSection(title: 'اطلاعات بانکی', fieldGap: 14, children: [
                 _choice('bank', 'bank', 'نام بانک'),
                 _input('accountHolder', 'نام صاحب حساب'),
-                _input('iban', 'شماره شبا'),
+                _input('iban', 'شماره شبا', hint: personnelLayout ? 'IR و ۲۴ رقم' : null),
                 _input('account', 'شماره حساب'),
-                _input('card', 'شماره کارت'),
+                _input('card', 'شماره کارت', hint: personnelLayout ? '۱۶ رقم' : null),
               ]),
             AsoudFormSection(
                 title: 'توضیحات',
-                children: [_input('description', 'توضیحات تکمیلی', lines: 3)]),
+                children: [_input('description',
+                  personnelLayout ? 'توضیحات تکمیلی (اختیاری)' : 'توضیحات تکمیلی',
+                  lines: 3)]),
           ],
         ));
   }
 
+  Widget _pair(Widget first, Widget second) => LayoutBuilder(
+    builder: (context, constraints) {
+      final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
+      if (constraints.maxWidth < 248 * scale) {
+        return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          first, const SizedBox(height: 14), second,
+        ]);
+      }
+      return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Expanded(child: first), const SizedBox(width: 12), Expanded(child: second),
+      ]);
+    },
+  );
+
   Widget _input(String key, String label,
-      {bool required = false, int lines = 1}) {
+      {bool required = false, int lines = 1, String? hint}) {
     final identifier = const {
       'national',
       'postal',
@@ -628,6 +639,9 @@ class _PartyFormPageState extends State<PartyFormPage> {
     return AppTextField(
       controller: fields[key]!,
       label: label,
+      hint: hint,
+      labelOutside: true,
+      inputMinHeight: AsoudFormStyle.uniformInputHeight,
       required: required,
       maxLines: lines,
       enabled: !saving && (!money || canEditFinancial),
@@ -710,27 +724,54 @@ class _PartyFormPageState extends State<PartyFormPage> {
       AsoudFormDateField(
           controller: fields[key]!,
           label: label,
+          labelOutside: true,
+          clearable: !required,
           required: required,
           enabled: !saving,
           errorText: key == 'birth' ? birthError : null);
 
   Widget _choice(String field, String source, String label,
       {bool required = false}) {
-    final choices = (options[source] as List? ?? []).map((v) => '$v').toList();
+    final department = fields['department']!.text;
+    final chart = (options['chart_jobs'] as List? ?? []).whereType<Map>();
+    final choices = source == 'job_title'
+        ? {
+            for (final row in chart)
+              if (row['title'] is String &&
+                  (department.isEmpty || row['department'] == department))
+                row['title'] as String,
+          }.toList()
+        : (options[source] as List? ?? []).map((v) => '$v').toList();
     final value = fields[field]!.text;
+    String title(String id) {
+      if (source == 'gender') return persianGenderLabel(id);
+      if (source == 'department') {
+        final labels = options['department_labels'];
+        return organizationLabel(labels is Map ? '${labels[id] ?? id}' : id);
+      }
+      return source == 'job_title' ? organizationLabel(id) : id;
+    }
     return AppSelectField(
         label: label,
+        labelOutside: true,
+        inputMinHeight: AsoudFormStyle.uniformInputHeight,
+        enabled: !saving && (choices.isNotEmpty || value.isNotEmpty),
         value: value,
         required: required,
-        displayValue: source == 'gender' ? persianGenderLabel(value) : value,
-        hint: 'انتخاب کنید',
+        displayValue: title(value),
+        hint: choices.isEmpty ? 'گزینه‌ای در دسترس نیست' : 'انتخاب کنید',
         onPick: () =>
             showAppOptionSheet(context, title: label, current: value, options: [
-              for (final id in choices)
-                AppOption(id, source == 'gender' ? persianGenderLabel(id) : id)
+              if (value.isNotEmpty) const AppOption('', 'پاک‌کردن انتخاب'),
+              for (final id in choices) AppOption(id, title(id)),
             ]),
         onChanged: (value) => setState(() {
               fields[field]!.text = value;
+              if (field == 'department' && value.isNotEmpty &&
+                  !chart.any((row) => row['department'] == value &&
+                      row['title'] == fields['job']!.text)) {
+                fields['job']!.clear();
+              }
               dirty = true;
             }),
         validator: required

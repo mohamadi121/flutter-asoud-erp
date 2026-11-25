@@ -1,8 +1,11 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../../core/auth/capabilities.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/network/frappe_client.dart';
@@ -11,18 +14,15 @@ import '../../../../core/utils/failure_message.dart';
 import '../../../../core/utils/persian_format.dart';
 import '../../../../core/widgets/app_fields.dart';
 import '../../../../core/widgets/asoud_form.dart';
-import '../../../../core/widgets/states.dart';
 import '../../domain/personnel_file.dart';
 import '../../domain/personnel_record.dart';
 import '../../data/personnel_file_repository.dart';
 import '../../data/personnel_repository.dart';
-import '../../data/hr_onboarding_repository.dart';
 import '../cubit/personnel_cubit.dart';
 
 import '../../../parties/domain/entities/party_profile.dart';
 import '../../../parties/presentation/pages/party_form_page.dart';
-import '../../../parties/presentation/pages/party_management_page.dart';
-import '../../../parties/presentation/pages/personnel_roles_page.dart';
+import '../../../parties/domain/repositories/party_repository.dart';
 import 'hr_home_page.dart';
 part 'personnel_design.dart';
 part 'personnel_forms.dart';
@@ -30,6 +30,7 @@ part 'personnel_file_capabilities.dart';
 part 'personnel_cap_contracts.dart';
 part 'personnel_cap_documents.dart';
 part 'personnel_cap_activity.dart';
+part 'personnel_photo_editor.dart';
 
 class PersonnelPage extends StatelessWidget {
   const PersonnelPage({required this.company, this.repository, super.key});
@@ -108,10 +109,12 @@ const _benefits = {
 
 class _PersonnelPhoto extends StatefulWidget {
   const _PersonnelPhoto(
-      {required this.recordId, required this.repository, this.size = 52});
+      {required this.recordId, required this.repository, this.size = 52,
+      this.portrait = false, super.key});
   final double size;
   final String? recordId;
   final PersonnelRepository repository;
+  final bool portrait;
   @override
   State<_PersonnelPhoto> createState() => _PersonnelPhotoState();
 }
@@ -127,7 +130,10 @@ class _PersonnelPhotoState extends State<_PersonnelPhoto> {
   @override
   void didUpdateWidget(_PersonnelPhoto oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.recordId != widget.recordId) load();
+    if (oldWidget.recordId != widget.recordId ||
+        oldWidget.repository != widget.repository) {
+      load();
+    }
   }
 
   void load() {
@@ -147,22 +153,50 @@ class _PersonnelPhotoState extends State<_PersonnelPhoto> {
               return const CircleAvatar(
                   child: Icon(Icons.broken_image_outlined));
             }
-            final file = snapshot.data?['file'];
-            if (file is! String) {
+            final file = snapshot.connectionState == ConnectionState.done
+                ? (snapshot.data?['file'])
+                : null;
+            if (file is! String || file.isEmpty) {
               return Container(
                   decoration: BoxDecoration(
-                      color: const Color(0xFFE5F0FA),
+                      color: widget.portrait ? Colors.white : const Color(0xFFE5F0FA),
                       borderRadius: BorderRadius.circular(12)),
                   child: Icon(Icons.person_outline_rounded,
-                      color: const Color(0xFF8BAAC1), size: widget.size * .65));
+                      color: widget.portrait ? _blue : const Color(0xFF8BAAC1),
+                      size: widget.size * (widget.portrait ? .34 : .65)));
             }
-            return ClipRRect(
+            Uint8List bytes;
+            try {
+              bytes = base64Decode(file);
+            } on FormatException {
+              return const Icon(Icons.broken_image_outlined);
+            }
+            final image = ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: Image.memory(base64Decode(file),
+                child: Image.memory(bytes,
+                    width: widget.size,
+                    height: widget.size,
                     fit: BoxFit.cover,
                     cacheWidth: (widget.size * 2).round(),
                     errorBuilder: (_, error, trace) =>
                         const Icon(Icons.broken_image_outlined)));
+            if (!widget.portrait) return image;
+            return InkWell(
+              onTap: () => showDialog<void>(
+                context: context,
+                builder: (context) => Dialog(
+                  clipBehavior: Clip.antiAlias,
+                  child: Stack(alignment: Alignment.topLeft, children: [
+                    AspectRatio(aspectRatio: 1, child: Image.memory(bytes,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, error, trace) =>
+                            const Icon(Icons.broken_image_outlined))),
+                    CloseButton(onPressed: () => Navigator.pop(context)),
+                  ]),
+                ),
+              ),
+              child: Semantics(label: 'مشاهده عکس پرسنل', child: image),
+            );
           }));
 }
 
@@ -171,16 +205,19 @@ class PersonnelDetailPage extends StatefulWidget {
       {required this.id,
       required this.repository,
       this.fileRepository,
+      this.imagePicker,
       super.key});
   final String id;
   final PersonnelRepository repository;
   final PersonnelFileRepository? fileRepository;
+  final ImagePicker? imagePicker;
   @override
   State<PersonnelDetailPage> createState() => _PersonnelDetailState();
 }
 
 class _PersonnelDetailState extends State<PersonnelDetailPage> {
-  final _overviewKey = GlobalKey<_PersonnelOverviewState>();
+  int _selectedTab = 0;
+  void _selectTab(int value) => setState(() => _selectedTab = value);
   bool _importing = false;
   String? _operationMessage;
   PersonnelFileRepository? _fileRepository;
@@ -207,6 +244,8 @@ class _PersonnelDetailState extends State<PersonnelDetailPage> {
   }
 
   Future<_PersonnelBundle> _load() async {
+    final photoSession =
+        context.read<FrappeApiClient?>()?.isAuthenticated ?? false;
     final data = await widget.repository.detail(widget.id);
     final file = await loadPersonnelFile(
       id: widget.id,
@@ -220,6 +259,11 @@ class _PersonnelDetailState extends State<PersonnelDetailPage> {
       file: file,
       allowedEdit:
           capabilities.canWritePersonnel && data['can_edit'] == true,
+      allowedPhotoEdit: capabilities.canManageOrganization &&
+          data['can_edit'] == true && data['offline'] != true &&
+          !isLocalPersonnelId(widget.id) &&
+          data['profile']['needs_employee_details'] != true &&
+          photoSession,
     );
   }
 
@@ -310,7 +354,7 @@ class _PersonnelDetailState extends State<PersonnelDetailPage> {
         appBar: _personnelHeader(context, 'پرونده پرسنلی',
             action: IconButton(
                 tooltip: 'مدارک پرسنلی',
-                onPressed: () => _overviewKey.currentState?.selectTab(3),
+                onPressed: () => _selectTab(3),
                 icon: const Icon(Icons.description_outlined, size: 20))),
         body: FutureBuilder<_PersonnelBundle>(
             future: future,
@@ -348,25 +392,35 @@ class _PersonnelDetailState extends State<PersonnelDetailPage> {
                       onPressed: _importing ? null : _retrySync,
                       child: const Text('تلاش مجدد برای همگام‌سازی')),
                 _PersonnelOverview(
-                    key: _overviewKey,
+                    tab: _selectedTab,
+                    onTab: _selectTab,
+                    imagePicker: widget.imagePicker,
                     profile: profile,
                     records: records,
                     repository: widget.repository,
                     file: bundle.file,
                     fileRepository: _fileRepository,
                     canEdit: canEdit,
+                    canEditPhoto: bundle.allowedPhotoEdit,
+                    onPhotoSaved: reload,
+                    onCategory: (category) async {
+                      await Navigator.push<void>(
+                        context,
+                        MaterialPageRoute(builder: (_) => _PersonnelCategoryPage(
+                          category: category,
+                          profile: profile,
+                          repository: widget.repository,
+                          fileRepository: _fileRepository,
+                          canEdit: canEdit,
+                        )),
+                      );
+                      if (mounted) reload();
+                    },
                     onProfile: (title, labels) async {
                       await Navigator.push<bool>(
                           context,
                           MaterialPageRoute<bool>(
-                              builder: (_) => title == 'اطلاعات پرسنلی'
-                                  ? _PersonnelInfoPage(
-                                      profile: profile,
-                                      revision: '${data['revision']}',
-                                      canEdit: canEdit,
-                                      repository: widget.repository,
-                                      fileRepository: _fileRepository)
-                                  : title.startsWith('ویرایش')
+                              builder: (_) => title.startsWith('ویرایش')
                                       ? _ProfileEditor(
                                           title: title,
                                           labels: labels,
@@ -423,11 +477,13 @@ class _PersonnelDetailState extends State<PersonnelDetailPage> {
 
 class _PersonnelBundle {
   const _PersonnelBundle(
-      {required this.data, required this.file, required this.allowedEdit});
+      {required this.data, required this.file, required this.allowedEdit,
+      required this.allowedPhotoEdit});
   final Map<String, dynamic> data;
   final PersonnelFile? file;
 
   /// Server edit flag combined with the presentation capability policy, so an
   /// HR Manager keeps read access without edit or transfer controls.
   final bool allowedEdit;
+  final bool allowedPhotoEdit;
 }

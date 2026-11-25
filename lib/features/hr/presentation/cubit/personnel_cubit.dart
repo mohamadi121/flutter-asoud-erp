@@ -18,14 +18,17 @@ class PersonnelState {
   final bool offline, pendingSync, syncFailed;
   final String? error;
   final String query, department, status;
+  static bool matchesStatus(Map<String, dynamic> row, String status) =>
+      status == 'all' ||
+      (row['needs_employee_details'] != true &&
+          (row['disabled'] == true) == (status == 'inactive'));
   List<Map<String, dynamic>> get visible => rows.where((r) {
         final haystack =
             '${r['display_name']} ${r['id']} ${r['employee_code']} ${r['national_id']} ${r['job_title']} ${r['department']}'
                 .toLowerCase();
         return haystack.contains(query.toLowerCase().trim()) &&
             (department.isEmpty || r['department'] == department) &&
-            (status == 'all' ||
-                (r['disabled'] == true) == (status == 'inactive'));
+            matchesStatus(r, status);
       }).toList();
 }
 

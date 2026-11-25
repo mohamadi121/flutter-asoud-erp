@@ -104,7 +104,7 @@ void main() {
 
     expect(find.text('سارا کریمی'), findsOneWidget);
     expect(find.byTooltip('افزودن پرسنل'), findsOneWidget);
-    expect(find.byTooltip('مدیریت دسترسی'), findsOneWidget);
+    expect(find.byTooltip('مدیریت دسترسی'), findsNothing);
   });
 
   testWidgets('پرونده: مدیر منابع انسانی بدون ویرایش و انتقال', (tester) async {

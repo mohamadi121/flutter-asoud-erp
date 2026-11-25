@@ -83,7 +83,7 @@ class _Groups implements DetailGroupRepository {
 
 Future<void> _open(
     WidgetTester tester, PartyRole role, PartyRepository repository,
-    {double width = 390, PartyProfile? profile}) async {
+    {double width = 390, PartyProfile? profile, bool canEditFinancial = true}) async {
   tester.view.physicalSize = Size(width, 1600);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
@@ -91,11 +91,14 @@ Future<void> _open(
   when(() => client.isAuthenticated).thenReturn(false);
   when(() => client.callAsoudMethod(any(), data: any(named: 'data')))
       .thenAnswer((_) async => {
-            'can_edit_financial': true,
+            'can_edit_financial': canEditFinancial,
             'gender': ['Male', 'Female'],
             'employment_type': ['Full-time', 'Part-time'],
             'department': ['Sales'],
             'job_title': ['Sales Specialist'],
+            'chart_jobs': [
+              {'title': 'کارشناس فروش', 'department': 'Sales'},
+            ],
             'bank': ['Bank'],
           });
   await tester.pumpWidget(MultiRepositoryProvider(
@@ -138,6 +141,83 @@ Future<void> _expand(WidgetTester tester, String title) async {
 }
 
 void main() {
+  testWidgets('personnel creation includes every reference field without opening-balance edits',
+      (tester) async {
+    await _open(tester, PartyRole.employee, _CapturingPartyRepository(), width: 320);
+    for (final label in ['کد تفصیلی', 'پرسنل', 'مشتری', 'تأمین‌کننده',
+      'بازاریاب', 'تنخواه‌گردان', 'فروشنده', 'صندوق']) {
+      expect(find.text(label), findsWidgets, reason: label);
+    }
+    const sections = <String, List<String>>{
+      'اطلاعات اصلی و هویتی': [
+        'نام *', 'نام خانوادگی *', 'نام مستعار', 'کد ملی', 'جنسیت',
+        'تاریخ تولد', 'شماره شناسنامه', 'نام پدر', 'محل صدور',
+      ],
+      'اطلاعات شغلی و سازمانی': [
+        'نوع همکاری', 'تاریخ شروع همکاری', 'واحد سازمانی', 'سمت شغلی',
+      ],
+      'راه‌های ارتباطی': ['تلفن ثابت', 'تلفن دوم', 'ایمیل اصلی', 'وب‌سایت'],
+      'آدرس و موقعیت': [
+        'استان', 'شهر', 'نشانی کامل', 'منطقه', 'محله', 'پلاک', 'واحد',
+        'کد پستی', 'عرض جغرافیایی', 'طول جغرافیایی',
+      ],
+      'اطلاعات مالی': [
+        'سقف اعتبار (ریال)', 'مانده اول دوره هنگام استقرار', 'ندارد',
+        'مانده بدهکار', 'مانده بستانکار', 'مبلغ',
+      ],
+      'اطلاعات بانکی': [
+        'نام بانک', 'نام صاحب حساب', 'شماره شبا', 'شماره حساب', 'شماره کارت',
+      ],
+      'توضیحات': ['توضیحات تکمیلی (اختیاری)'],
+    };
+    for (final section in sections.entries) {
+      await _expand(tester, section.key);
+      for (final label in section.value) {
+        expect(find.text(label), findsOneWidget, reason: '${section.key}: $label');
+      }
+      if (section.key == 'اطلاعات مالی') {
+        expect(find.text('مانده بدهکار').hitTestable(), findsNothing);
+        final amount = find.byWidgetPredicate(
+          (widget) => widget is AppTextField && widget.label == 'مبلغ',
+        );
+        expect(tester.widget<AppTextField>(amount).readOnly, isTrue);
+      }
+      await _expand(tester, section.key);
+    }
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('personnel financial and bank fields remain hidden without permission',
+      (tester) async {
+    await _open(tester, PartyRole.employee, _CapturingPartyRepository(),
+      canEditFinancial: false);
+    expect(find.text('اطلاعات مالی'), findsNothing);
+    expect(find.text('اطلاعات بانکی'), findsNothing);
+  });
+
+  testWidgets('new personnel can save with only first and last names', (tester) async {
+    final repository = _CapturingPartyRepository();
+    await _open(tester, PartyRole.employee, repository, width: 320);
+    expect(find.text('راه‌های ارتباطی'), findsOneWidget);
+    expect(find.text('آدرس و موقعیت'), findsOneWidget);
+    expect(find.text('اطلاعات مالی'), findsOneWidget);
+    await _expand(tester, 'اطلاعات اصلی و هویتی');
+    Finder input(String label) => find.descendant(
+      of: find.byWidgetPredicate((widget) => widget is AppTextField && widget.label == label),
+      matching: find.byType(TextFormField),
+    );
+    expect(input('شماره موبایل'), findsNothing);
+    await tester.enterText(input('نام'), 'سارا');
+    await tester.enterText(input('نام خانوادگی'), 'احمدی');
+    await tester.tap(find.text('ذخیره'));
+    await tester.pumpAndSettle();
+    expect(repository.saved?.displayName, 'سارا احمدی');
+    expect(repository.saved?.employeeGender, isNull);
+    expect(repository.saved?.birthDate, isNull);
+    expect(repository.saved?.dateOfJoining, isNull);
+    expect(repository.saved?.province, isNull);
+    expect(repository.saved?.city, isNull);
+  });
   for (final width in [320.0, 390.0, 430.0]) {
     for (final queued in ['exception', 'pending new', 'pending existing']) {
       testWidgets('$queued save waits for notice then closes at $width',
@@ -192,7 +272,7 @@ void main() {
           width: width);
       await _expand(tester, 'اطلاعات شغلی و سازمانی');
       final hint = find.text(
-          'سمت باید از سمت‌های ثبت‌شده در سرور باشد؛ اگر مطمئن نیستید خالی بگذارید.');
+          'سمت‌ها از ساختار سازمانی همین دفتر خوانده می‌شوند. پس از انتخاب واحد، فقط سمت‌های همان واحد دیده می‌شوند.');
       expect(hint, findsOneWidget);
       expect(
           tester.getTopLeft(hint).dy,
@@ -205,7 +285,7 @@ void main() {
       await _open(tester, PartyRole.employee, _CapturingPartyRepository(),
           width: width);
       await tester.pumpAndSettle();
-      await _expand(tester, 'اطلاعات اصلی');
+      await _expand(tester, 'اطلاعات اصلی و هویتی');
       final field = find.byType(AppSelectField).first;
       await tester.ensureVisible(field);
       await tester.tap(field);
@@ -233,10 +313,14 @@ void main() {
     final repository = _CapturingPartyRepository();
     await _open(tester, PartyRole.customer, repository);
     await _expand(tester, 'اطلاعات اصلی');
-    await tester.enterText(find.widgetWithText(TextFormField, 'نام *'), 'علی');
-    await tester.enterText(
-        find.widgetWithText(TextFormField, 'نام خانوادگی *'), 'رضایی');
+    Finder input(String label) => find.descendant(
+      of: find.byWidgetPredicate((widget) => widget is AppTextField && widget.label == label),
+      matching: find.byType(TextFormField),
+    );
+    await tester.enterText(input('نام'), 'علی');
+    await tester.enterText(input('نام خانوادگی'), 'رضایی');
 
+    await _expand(tester, 'اطلاعات اصلی');
     await _expand(tester, 'اطلاعات مالی');
     // Persian digits must be parsed, otherwise creditLimit would be null.
     final creditField = find.byWidgetPredicate((widget) =>

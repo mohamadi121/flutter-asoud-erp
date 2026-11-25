@@ -37,9 +37,11 @@ abstract final class AppFieldStyle {
     Widget? suffixIcon,
     String? counterText,
     double borderRadius = 12,
+    double? minHeight,
   }) {
     final mark = required && !label.endsWith(' *') ? ' *' : '';
     return InputDecoration(
+      constraints: minHeight == null ? null : BoxConstraints(minHeight: minHeight),
       labelText: '$label$mark',
       labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
       floatingLabelBehavior: FloatingLabelBehavior.always,
@@ -102,6 +104,7 @@ class AppTextField extends StatelessWidget {
     this.obscureText = false,
     this.rounded = false,
     this.labelOutside = false,
+    this.inputMinHeight,
     this.maxLines = 1,
     this.minLines,
     this.maxLength,
@@ -126,6 +129,7 @@ class AppTextField extends StatelessWidget {
   final bool required, ltr, readOnly, enabled, obscureText;
   final bool rounded;
   final bool labelOutside;
+  final double? inputMinHeight;
   final int maxLines;
   final int? maxLength;
   final int? minLines;
@@ -175,6 +179,7 @@ class AppTextField extends StatelessWidget {
           prefixIcon: prefixIcon,
           suffixIcon: suffixIcon,
           counterText: counterText,
+          minHeight: inputMinHeight,
         ),
       );
     if (!rounded && !labelOutside) return input;
@@ -197,6 +202,8 @@ class AppSelectField extends StatelessWidget {
     required this.label,
     this.value,
     this.rounded = false,
+    this.labelOutside = false,
+    this.inputMinHeight,
     this.displayValue,
     this.hint,
     this.helperText,
@@ -214,7 +221,8 @@ class AppSelectField extends StatelessWidget {
   final String label;
   final String? value, displayValue, hint, helperText, errorText;
   final bool required, enabled;
-  final bool rounded;
+  final bool rounded, labelOutside;
+  final double? inputMinHeight;
 
   /// Opens the existing picker and resolves to the chosen value (null = kept).
   final Future<String?> Function()? onPick;
@@ -236,13 +244,14 @@ class AppSelectField extends StatelessWidget {
             child: InputDecorator(
               isEmpty: empty,
               decoration: AppFieldStyle.decoration(
-                label: rounded ? '' : label,
-                required: !rounded && required,
+                label: rounded || labelOutside ? '' : label,
+                required: !rounded && !labelOutside && required,
                 borderRadius: rounded ? 28 : 12,
                 hint: hint,
                 helperText: helperText,
                 errorText: field.errorText ?? errorText,
                 enabled: enabled,
+                minHeight: inputMinHeight,
                 prefixIcon: prefixIcon,
                 suffixIcon: suffixIcon ??
                     const Icon(
@@ -261,7 +270,7 @@ class AppSelectField extends StatelessWidget {
               ),
             ),
           );
-          if (!rounded) return input;
+          if (!rounded && !labelOutside) return input;
           return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Text('$label${required ? ' *' : ''}', style: const TextStyle(fontSize: 14, color: AsoudColors.muted)),
             const SizedBox(height: 8),

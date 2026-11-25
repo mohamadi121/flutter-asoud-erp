@@ -3,12 +3,14 @@ import '../theme/asoud_colors.dart';
 import 'asoud_ui.dart';
 import '../utils/jalali_date.dart';
 import 'asoud_jalali_picker.dart';
+import 'app_fields.dart';
 
 /// Canonical form contract, extracted unchanged from PartyFormPage.
 /// Keep all create/edit forms on these components; see docs/form-style.md.
 abstract final class AsoudFormStyle {
   static const pagePadding = EdgeInsets.fromLTRB(16, 10, 16, 28);
   static const fieldPadding = EdgeInsets.only(bottom: 9);
+  static const uniformInputHeight = 56.0;
   static const sectionMargin = EdgeInsets.only(bottom: 12);
   static const sectionPadding = EdgeInsets.fromLTRB(12, 0, 12, 12);
   static const sectionTitle =
@@ -29,9 +31,10 @@ abstract final class AsoudFormStyle {
 
 class AsoudFormSection extends StatelessWidget {
   const AsoudFormSection(
-      {required this.title, required this.children, super.key});
+      {required this.title, required this.children, this.fieldGap = 0, super.key});
   final String title;
   final List<Widget> children;
+  final double fieldGap;
   @override
   Widget build(BuildContext context) => Card(
         margin: AsoudFormStyle.sectionMargin,
@@ -41,7 +44,12 @@ class AsoudFormSection extends StatelessWidget {
           tilePadding: const EdgeInsets.symmetric(horizontal: 12),
           childrenPadding: AsoudFormStyle.sectionPadding,
           title: Text(title, style: AsoudFormStyle.sectionTitle),
-          children: children,
+          children: [
+            for (var index = 0; index < children.length; index++) ...[
+              if (index > 0 && fieldGap > 0) SizedBox(height: fieldGap),
+              children[index],
+            ],
+          ],
         ),
       );
 }
@@ -147,11 +155,13 @@ class AsoudFormDateField extends StatefulWidget {
       this.required = false,
       this.enabled = true,
       this.clearable = false,
+      this.labelOutside = false,
       this.errorText,
       super.key});
   final TextEditingController controller;
   final String label;
   final bool required, enabled;
+  final bool labelOutside;
 
   /// Shows a clear button while a date is set.
   final bool clearable;
@@ -222,23 +232,39 @@ class _AsoudFormDateFieldState extends State<AsoudFormDateField> {
   }
 
   @override
-  Widget build(BuildContext context) => AsoudFormField(
+  Widget build(BuildContext context) => widget.labelOutside
+    ? AppTextField(
+        controller: _display,
+        label: widget.label,
+        labelOutside: true,
+        inputMinHeight: AsoudFormStyle.uniformInputHeight,
+        required: widget.required,
+        enabled: widget.enabled,
+        keyboardType: TextInputType.number,
+        hint: '۱۴۰۵/۰۷/۱۱',
+        errorText: widget.errorText,
+        validator: _validate,
+        suffixIcon: _suffix(),
+      )
+    : AsoudFormField(
     controller: _display,
     label: widget.label,
     enabled: widget.enabled,
     keyboardType: TextInputType.number,
     hint: '۱۴۰۵/۰۷/۱۱',
     errorText: widget.errorText,
-    validator: (value) {
+    validator: _validate,
+    suffixIcon: _suffix(),
+  );
+
+  String? _validate(String? value) {
       if ((value ?? '').trim().isEmpty) {
         return widget.required ? 'این فیلد الزامی است.' : null;
       }
       return parseJalaliDate(value!) == null
           ? 'تاریخ شمسی معتبر به شکل سال/ماه/روز وارد کنید.'
           : null;
-    },
-    suffixIcon: _suffix(),
-  );
+  }
 
   Widget _suffix() {
     final picker = IconButton(

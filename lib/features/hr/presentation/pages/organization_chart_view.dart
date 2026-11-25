@@ -20,11 +20,30 @@ List<OrgPosition> _sortedPositions(Iterable<OrgPosition> rows) => rows.toList()
     return order == 0 ? a.code.compareTo(b.code) : order;
   });
 
+class _OrgViewSwitch extends StatelessWidget {
+  const _OrgViewSwitch({required this.value, required this.onChanged});
+  final int value;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) => AsoudSegmentedControl<int>(
+        value: value,
+        options: const [
+          AsoudSegmentedOption(value: 0, icon: Icons.account_tree_outlined,
+              label: 'نمای درختی'),
+          AsoudSegmentedOption(value: 1, icon: Icons.view_list_outlined,
+              label: 'نمای مرحله‌ای'),
+        ],
+        onChanged: onChanged,
+      );
+}
+
 class _OrganizationChart extends StatefulWidget {
-  const _OrganizationChart({this.canManage = true});
+  const _OrganizationChart({this.canManage = true, this.management = false});
 
   /// Read-only managers keep browsing positions without edit actions.
   final bool canManage;
+  final bool management;
 
   @override
   State<_OrganizationChart> createState() => _OrganizationChartState();
@@ -66,25 +85,18 @@ class _OrganizationChartState extends State<_OrganizationChart> {
                   padding: const EdgeInsets.fromLTRB(16, 10, 16, 30),
                   children: [
                     const _OrganizationStatus(),
-                    OutlinedButton.icon(
-                        onPressed: () => _openOrganizationPage<void>(
-                            context,
-                            _OrganizationVisualReport(
-                                canManage: widget.canManage)),
-                        icon: const Icon(Icons.account_tree_outlined),
-                        label: const Text('گزارش تصویری چارت')),
-                    AsoudSegmentedControl<int>(
+                    if (widget.management) ...[
+                      _OrgTabHeading(
+                        title: 'جایگاه‌های سازمانی',
+                        action: 'جایگاه جدید',
+                        canManage: widget.canManage,
+                        onCreate: state.busy ? null : () => _openOrganizationPage<bool>(
+                          context, const _OrganizationCreateForm(position: true)),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    _OrgViewSwitch(
                       value: _view,
-                      options: const [
-                        AsoudSegmentedOption(
-                            value: 0,
-                            icon: Icons.account_tree_outlined,
-                            label: 'نمای درختی'),
-                        AsoudSegmentedOption(
-                            value: 1,
-                            icon: Icons.view_list_outlined,
-                            label: 'نمای مرحله‌ای'),
-                      ],
                       onChanged: (value) => setState(() {
                         _view = value;
                         _query = '';
@@ -114,6 +126,13 @@ class _OrganizationChartState extends State<_OrganizationChart> {
                                     : 'زیرمجموعه‌های ${parent.displayTitle}',
                                 style: const TextStyle(
                                     fontWeight: FontWeight.w800))),
+                        if (widget.management && parent != null)
+                          IconButton(
+                            tooltip: 'جزئیات جایگاه',
+                            icon: const Icon(Icons.info_outline),
+                            onPressed: () => _orgSheet<void>(context,
+                              _PositionDetails(code: parent.code, canManage: widget.canManage)),
+                          ),
                       ]),
                       if (parent != null && widget.canManage)
                         Padding(
@@ -163,15 +182,23 @@ class _OrganizationChartState extends State<_OrganizationChart> {
                                 if (widget.canManage)
                                   _OrganizationMenu(position: row),
                               ])),
-                          onTap: () => setState(() {
-                            _path.add(row.code);
-                            _query = '';
-                          }),
+                          onTap: () {
+                            if (widget.management && !rows.any((p) => p.parent == row.code)) {
+                              _orgSheet<void>(context,
+                                _PositionDetails(code: row.code, canManage: widget.canManage));
+                              return;
+                            }
+                            setState(() {
+                              _path.add(row.code);
+                              _query = '';
+                            });
+                          },
                         )),
                     ] else
                       _OrganizationTree(
                           rows: rows,
                           query: _query,
+                          cardStyle: widget.management,
                           canManage: widget.canManage,
                           onClearSearch: () => setState(() => _query = '')),
                   ]);

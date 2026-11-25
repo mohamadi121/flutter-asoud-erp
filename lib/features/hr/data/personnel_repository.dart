@@ -6,6 +6,7 @@ import '../../../core/offline/offline_failure.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/offline/local_database_store.dart';
 import '../../../core/offline/local_record.dart';
+import '../domain/personnel_file.dart' show isLocalPersonnelId;
 import '../domain/personnel_record.dart';
 import 'demo/hr_demo_data.dart';
 
@@ -568,6 +569,25 @@ class PersonnelRepository {
       throw const FormatException('شناسه درخواست نامعتبر است');
     }
     await call('add_record',
+        {'name': id, 'payload': payload, 'request_id': requestId});
+  }
+
+  /// Keep the previous portrait until the same personnel-record API confirms
+  /// the write. A photo replacement is not an offline queued mutation.
+  Future<void> savePortrait(String id, String file, String requestId) async {
+    if (!client.isAuthenticated || isLocalPersonnelId(id)) {
+      throw StateError('برای ذخیره عکس به حساب سازمانی متصل شوید.');
+    }
+    final payload = <String, dynamic>{
+      'kind': 'photo',
+      'title': 'تصویر پرسنل',
+      'date': DateTime.now().toIso8601String().substring(0, 10),
+      'file': file,
+      'filename': 'personnel-portrait.png',
+    };
+    validatePersonnelRecord(payload);
+    await _identify();
+    await _remote('add_record',
         {'name': id, 'payload': payload, 'request_id': requestId});
   }
 

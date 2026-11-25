@@ -16,6 +16,8 @@ class _Client extends Fake implements FrappeApiClient {
   ApiException? saveUnitThrows;
   bool emptyChart = false;
   bool previewBreaks = false;
+  bool withChildUnit = false;
+  Map<String, dynamic>? previewData;
   final calls = <String>[];
   Object? failChartAfterDelete;
 
@@ -45,7 +47,7 @@ class _Client extends Fake implements FrappeApiClient {
     switch (name) {
       case 'preview_import':
         if (previewBreaks) throw StateError('boom');
-        return _ok({'units': <dynamic>[], 'additions': <dynamic>[]});
+        return _ok(previewData ?? {'units': <dynamic>[], 'additions': <dynamic>[]});
       case 'get_chart':
         if (emptyChart) {
           return _ok({'rows': <dynamic>[], 'revision': 1, 'warnings': <dynamic>[]});
@@ -93,7 +95,15 @@ class _Client extends Fake implements FrappeApiClient {
               'is_group': 0,
               'disabled': 0,
               'modified': '2026-10-22 10:00:00'
-            }
+            },
+            if (withChildUnit)
+              {
+                'name': 'CHILD',
+                'department_name': 'آموزش',
+                'parent_department': 'HR-CO',
+                'is_group': 0,
+                'disabled': 0,
+              },
           ],
           'can_manage': true
         });
@@ -149,6 +159,26 @@ Future<void> _openStructureTool(WidgetTester tester, String label) async {
 }
 
 void main() {
+  testWidgets('unit menu supports tree collapse and step-by-step navigation',
+      (tester) async {
+    await _open(tester, _Client()..withChildUnit = true);
+    await _openStructureTool(tester, 'واحدها');
+    final child = find.byKey(const ValueKey('org-unit-tree-CHILD'));
+    expect(child, findsOneWidget);
+    await tester.tap(find.byTooltip('بستن زیرواحدها'));
+    await tester.pumpAndSettle();
+    expect(child, findsNothing);
+    await tester.tap(find.text('نمای مرحله‌ای'));
+    await tester.pumpAndSettle();
+    expect(child, findsNothing);
+    await tester.tap(find.byKey(const ValueKey('org-unit-tree-HR-CO')));
+    await tester.pumpAndSettle();
+    expect(child, findsOneWidget);
+    await tester.tap(find.byTooltip('بازگشت به سطح قبل'));
+    await tester.pumpAndSettle();
+    expect(child, findsNothing);
+  });
+
   testWidgets('units tab tells a network failure from a forbidden one',
       (tester) async {
     final client = _Client()
@@ -233,6 +263,59 @@ void main() {
     final fresh = templateOrganizationPayload(template);
     expect((fresh['units'] as List).any((u) => (u as Map).containsKey('name')),
         isFalse);
+  });
+
+  testWidgets('template preview opens real chart branches without applying import',
+      (tester) async {
+    final client = _Client()
+      ..emptyChart = true
+      ..previewData = {
+        'revision': 1,
+        'units': [
+          {'name': 'ACC', 'title': 'حسابداری', 'parent': ''},
+          {'name': 'CASH', 'title': 'خزانه', 'parent': 'ACC'},
+        ],
+        'rows': [
+          {'code': 'CEO', 'title': 'مدیرعامل', 'parent': ''},
+          {'code': 'ACCOUNTANT', 'title': 'کارشناس حسابداری', 'parent': 'CEO',
+            'department_id': 'ACC'},
+        ],
+      };
+    await _open(tester, client);
+    await tester.tap(find.text('استفاده از قالب آماده'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(organizationTemplates.first.title));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('focus-root-CEO')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('focus-unit-ACC')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('focus-unit-CASH')), findsOneWidget);
+    expect(find.byKey(const ValueKey('focus-position-ACCOUNTANT')), findsOneWidget);
+    expect(find.byKey(const ValueKey('focus-add-unit')), findsNothing);
+    await tester.tap(find.text('بازگشت بدون انتخاب'));
+    await tester.pumpAndSettle();
+    expect(client.calls, contains('preview_import'));
+    expect(client.calls, isNot(contains('apply_import')));
+  });
+
+  testWidgets('a leaf unit opens child acceptance settings before creating a child',
+      (tester) async {
+    final client = _Client();
+    await _open(tester, client);
+    final unit = find.byKey(const ValueKey('focus-unit-HR-CO'));
+    await tester.ensureVisible(unit);
+    await tester.tap(unit);
+    await tester.pumpAndSettle();
+    final action = find.byKey(const ValueKey('focus-add-unit'));
+    await tester.ensureVisible(action);
+    await tester.tap(action);
+    await tester.pumpAndSettle();
+    final option = find.widgetWithText(SwitchListTile, 'پذیرش زیرواحد');
+    expect(tester.widget<SwitchListTile>(option).value, isFalse);
+    tester.state<ScrollableState>(find.byType(Scrollable).first).position.jumpTo(0);
+    await tester.pumpAndSettle();
+    expect(tester.widget<OutlinedButton>(action).onPressed, isNull);
+    expect(client.calls, isNot(contains('save_unit')));
   });
 
   testWidgets('creating unit with ApiException boom displays Persian error, not raw server message',

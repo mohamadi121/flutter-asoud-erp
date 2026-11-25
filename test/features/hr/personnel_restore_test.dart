@@ -133,26 +133,21 @@ void main() {
   });
 
   testWidgets(
-      'list account menu keeps its shared actions and unavailable notice',
+      'personnel list does not offer legacy account and access actions',
       (tester) async {
     await tester.pumpWidget(MaterialApp(
         home: PersonnelPage(company: 'office', repository: _People())));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('مدیریت دسترسی'));
-    await tester.pumpAndSettle();
+    expect(find.byTooltip('مدیریت دسترسی'), findsNothing);
     for (final label in [
       'مدیریت دسترسی',
       'ایجاد/تغییر حساب کاربری',
       'ارسال مجدد دعوت',
       'مشاهده سوابق ورود'
     ]) {
-      expect(find.widgetWithText(PopupMenuItem<String>, label), findsOneWidget);
+      expect(find.text(label), findsNothing);
     }
     expect(find.text('حذف حساب کاربری'), findsNothing);
-    await tester.tap(find.text('مشاهده سوابق ورود'));
-    await tester.pumpAndSettle();
-    expect(
-        find.text('این قابلیت هنوز به سرویس متصل نشده است.'), findsOneWidget);
   });
 
   test('only the historical personnel detail page exists', () {
@@ -200,13 +195,15 @@ void main() {
       for (final label in ['سوابق', 'مدارک', 'نمای کلی']) {
         await _tap(tester, label);
         expect(observer.routes, hasLength(1));
+        final portrait = find.byKey(const ValueKey('personnel-file-portrait'));
+        expect(tester.getSize(portrait), const Size(130, 130));
         expect(tester.takeException(), isNull);
       }
       await _tap(tester, 'اطلاعات پرسنلی');
       expect(find.text('اطلاعات استخدامی'), findsOneWidget);
+      expect(observer.routes, hasLength(1));
+      expect(find.byKey(const ValueKey('personnel-file-portrait')), findsOneWidget);
       expect(tester.takeException(), isNull);
-      tester.state<NavigatorState>(find.byType(Navigator)).pop();
-      await tester.pumpAndSettle();
       tester.state<NavigatorState>(find.byType(Navigator)).pop();
       await tester.pumpAndSettle();
       expect(find.byType(PersonnelDetailPage), findsNothing);

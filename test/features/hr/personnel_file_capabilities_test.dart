@@ -1,4 +1,8 @@
+import 'dart:convert';
+import 'dart:ui' as ui;
+
 import 'package:asoud_erp/core/network/api_exception.dart';
+import 'package:asoud_erp/core/network/frappe_client.dart';
 import 'package:asoud_erp/core/theme/asoud_colors.dart';
 import 'package:asoud_erp/core/theme/asoud_theme.dart';
 import 'package:asoud_erp/features/hr/data/personnel_file_repository.dart';
@@ -7,7 +11,41 @@ import 'package:asoud_erp/features/hr/domain/personnel_file.dart';
 import 'package:asoud_erp/core/widgets/asoud_form.dart';
 import 'package:asoud_erp/features/hr/presentation/pages/personnel_page.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image_picker/image_picker.dart';
+
+const _portraitPng =
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+
+class _PortraitClient extends Fake implements FrappeApiClient {
+  _PortraitClient(this.roles);
+  final List<String> roles;
+
+  @override
+  bool get isAuthenticated => true;
+
+  @override
+  Future<FrappeUserContext> getCurrentUser() async =>
+      FrappeUserContext(userId: 'account', fullName: 'پرسنل', roles: roles);
+}
+
+class _PortraitPicker extends ImagePicker {
+  ImageSource? selectedSource;
+
+  @override
+  Future<XFile?> pickImage({
+    required ImageSource source,
+    double? maxWidth,
+    double? maxHeight,
+    int? imageQuality,
+    CameraDevice preferredCameraDevice = CameraDevice.rear,
+    bool requestFullMetadata = true,
+  }) async {
+    selectedSource = source;
+    return XFile.fromData(base64Decode(_portraitPng), mimeType: 'image/png');
+  }
+}
 
 class _FakeFileRepo extends Fake implements PersonnelFileRepository {
   PersonnelFile? fileResult;
@@ -86,6 +124,10 @@ class _FakePeopleRepo extends Fake implements PersonnelRepository {
   bool canEdit = true;
   bool isLocalDemo = false;
   String? recordFetched;
+  String? portraitRecord;
+  String? uploadedPortrait;
+  int portraitWrites = 0;
+  bool failUpload = false;
 
   @override
   bool get localDemo => isLocalDemo;
@@ -101,6 +143,7 @@ class _FakePeopleRepo extends Fake implements PersonnelRepository {
         'department': 'فروش',
         'employee_code': 'HR-EMP-0042',
         'date_of_joining': '2024-01-01',
+        'photo_record': portraitRecord,
       },
       'records': <Map<String, dynamic>>[],
       'revision': 'rev-1',
@@ -118,10 +161,21 @@ class _FakePeopleRepo extends Fake implements PersonnelRepository {
   @override
   Future<Map<String, dynamic>> record(String id) async {
     recordFetched = id;
+    if (id.startsWith('portrait-')) {
+      return {'file': _portraitPng};
+    }
     return {
       'filename': 'doc_file.pdf',
       'file': 'dGVzdA==',
     };
+  }
+
+  @override
+  Future<void> savePortrait(String id, String file, String requestId) async {
+    portraitWrites++;
+    if (failUpload) throw StateError('upload failed');
+    uploadedPortrait = file;
+    portraitRecord = 'portrait-new';
   }
 }
 
@@ -372,6 +426,91 @@ Future<void> _tapText(WidgetTester tester, String text,
 }
 
 void main() {
+  Future<void> waitFor(WidgetTester tester, bool Function() done) async {
+    for (var i = 0; i < 20 && !done(); i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 15)));
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(done(), isTrue);
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('employee can preview the portrait but cannot change it', (tester) async {
+    final people = _FakePeopleRepo()..portraitRecord = 'portrait-original';
+    await tester.pumpWidget(RepositoryProvider<FrappeApiClient>.value(
+      value: _PortraitClient(['Employee']),
+      child: MaterialApp(home: PersonnelDetailPage(
+        id: 'PARTY-42', repository: people, fileRepository: _FakeFileRepo(),
+      )),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('تعویض عکس'), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('personnel-file-portrait')));
+    await tester.pumpAndSettle();
+    expect(find.byType(Dialog), findsOneWidget);
+    expect(people.portraitWrites, 0);
+  });
+
+  testWidgets('HR can cancel or confirm square portrait; failed upload preserves old photo',
+      (tester) async {
+    final people = _FakePeopleRepo();
+    final picker = _PortraitPicker();
+    await tester.pumpWidget(RepositoryProvider<FrappeApiClient>.value(
+      value: _PortraitClient(['HR Manager']),
+      child: MaterialApp(home: PersonnelDetailPage(
+        id: 'PARTY-42', repository: people, fileRepository: _FakeFileRepo(),
+        imagePicker: picker,
+      )),
+    ));
+    await tester.pumpAndSettle();
+    final editor = find.text('ویرایش و برش عکس');
+    Future<void> open(String action, String source) async {
+      await tester.tap(find.text(action));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(source));
+      await tester.pumpAndSettle();
+      await waitFor(tester, () => editor.evaluate().isNotEmpty);
+    }
+
+    await open('افزودن عکس', 'انتخاب از گالری');
+    expect(picker.selectedSource, ImageSource.gallery);
+    await tester.tapAt(tester.getCenter(find.byType(Slider)) + const Offset(20, 0));
+    await tester.pumpAndSettle();
+    expect(tester.widget<Slider>(find.byType(Slider)).value, greaterThan(1));
+    await tester.tap(find.byTooltip('چرخش ۹۰ درجه به راست'));
+    await tester.tap(find.byTooltip('بازنشانی برش'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<Slider>(find.byType(Slider)).value, 1);
+    await tester.tap(find.byTooltip('انصراف از ویرایش عکس'));
+    await tester.pumpAndSettle();
+    expect(people.portraitWrites, 0);
+    expect(people.portraitRecord, isNull);
+
+    await open('افزودن عکس', 'گرفتن عکس');
+    expect(picker.selectedSource, ImageSource.camera);
+    await tester.tap(find.text('تأیید و ذخیره عکس'));
+    await waitFor(tester, () => people.portraitRecord == 'portrait-new');
+    expect(people.portraitWrites, 1);
+    expect(find.text('تعویض عکس'), findsOneWidget);
+    await tester.runAsync(() async {
+      final codec = await ui.instantiateImageCodec(base64Decode(people.uploadedPortrait!));
+      final frame = await codec.getNextFrame();
+      expect(frame.image.width, 512);
+      expect(frame.image.height, 512);
+      frame.image.dispose();
+      codec.dispose();
+    });
+
+    people.failUpload = true;
+    await open('تعویض عکس', 'انتخاب از گالری');
+    await tester.tap(find.text('تأیید و ذخیره عکس'));
+    await waitFor(tester, () => find.textContaining('ذخیره عکس تأیید نشد').evaluate().isNotEmpty);
+    expect(people.portraitRecord, 'portrait-new');
+    await tester.tap(find.byTooltip('انصراف از ویرایش عکس'));
+    await tester.pumpAndSettle();
+    expect(find.text('تعویض عکس'), findsOneWidget);
+  });
+
   group('Capability 4: Direct Manager & Service Length', () {
     testWidgets('full fixture shows manager name and service length',
         (tester) async {
@@ -382,6 +521,8 @@ void main() {
       await _pumpDetail(tester,
           people: people, fileRepo: fileRepo, observer: observer);
 
+      expect(find.text('سابقه همکاری'), findsOneWidget);
+      await _tapText(tester, 'اطلاعات پرسنلی');
       expect(find.text('مدیر مستقیم'), findsOneWidget);
       expect(find.text('سهراب سپهری'), findsOneWidget);
 
@@ -411,6 +552,7 @@ void main() {
       await _pumpDetail(tester,
           people: people, fileRepo: fileRepo, observer: observer);
 
+      await _tapText(tester, 'اطلاعات پرسنلی');
       expect(find.text('مدیر مستقیم'), findsOneWidget);
       expect(find.text('سابقه خدمت'), findsOneWidget);
       // Both tiles show «ثبت نشده»
@@ -446,6 +588,7 @@ void main() {
 
       await _pumpDetail(tester, people: people, fileRepo: fileRepo);
 
+      await _tapText(tester, 'اطلاعات پرسنلی');
       expect(find.text('LOCAL-مدیر موقت'), findsNothing);
       expect(find.text('ثبت نشده'), findsAtLeast(1));
     });
@@ -528,33 +671,42 @@ void main() {
   });
 
   group('Capability 5: Activity Feed', () {
-    testWidgets('full fixture renders max 5 activities and opens full feed',
+    testWidgets('overview shows three important records and preserves full history',
         (tester) async {
       final people = _FakePeopleRepo();
+      people.customDetail = {
+        ...await people.detail('PARTY-42'),
+        'records': [
+          for (final (title, kind, day) in [
+            ('تردد روزانه', 'attendance', '06'),
+            ('بارگذاری مدرک', 'document', '05'),
+            ('ارزیابی دوره', 'evaluation', '04'),
+            ('تغییر سمت', 'history', '03'),
+            ('مدرک قدیمی', 'document', '02'),
+          ])
+            {'name': 'REC-$day', 'title': title, 'kind': kind,
+             'record_date': '2026-09-$day'},
+        ],
+      };
       final fileRepo = _FakeFileRepo();
       final observer = _Observer();
 
       await _pumpDetail(tester,
           people: people, fileRepo: fileRepo, observer: observer);
 
-      expect(find.text('آخرین فعالیت‌ها'), findsOneWidget);
-      expect(find.text('مشاهده همه'), findsOneWidget);
-
-      // 5 top items are shown on overview
-      expect(find.text('تمدید قرارداد سالانه'), findsOneWidget);
-      expect(find.textContaining('توسط سارا حسینی'), findsOneWidget);
-      expect(find.text('ارتقای سمت به کارشناس ارشد'), findsOneWidget);
-      expect(find.text('بارگذاری مدرک تحصیلی'), findsOneWidget);
-      expect(find.text('انتقال به شعبه مرکزی'), findsOneWidget);
-      expect(find.text('شروع همکاری در شرکت'), findsOneWidget);
-
-      // 6th activity is NOT shown on overview (take 5)
-      expect(find.text('ثبت کارکرد ماهانه'), findsNothing);
-
-      // Tapping «مشاهده همه» opens full feed page where all 6 are listed
-      observer.routes.clear();
-      await tester.tap(find.text('مشاهده همه'));
+      expect(find.text('آخرین فعالیت‌های مهم'), findsOneWidget);
+      expect(find.text('بارگذاری مدرک'), findsOneWidget);
+      expect(find.text('ارزیابی دوره'), findsOneWidget);
+      expect(find.text('تغییر سمت'), findsOneWidget);
+      expect(find.text('مدرک قدیمی'), findsNothing);
+      expect(find.text('تردد روزانه'), findsNothing);
+      await _tapText(tester, 'بارگذاری مدرک');
+      expect(people.recordFetched, 'REC-05');
+      tester.state<NavigatorState>(find.byType(Navigator)).pop();
       await tester.pumpAndSettle();
+      await _tapText(tester, 'سوابق');
+      observer.routes.clear();
+      await _tapText(tester, 'مشاهده همه فعالیت‌ها');
 
       expect(observer.routes, hasLength(1));
       expect(find.text('ثبت کارکرد ماهانه'), findsOneWidget);
@@ -567,7 +719,7 @@ void main() {
 
       await _pumpDetail(tester, people: people, fileRepo: fileRepo);
 
-      expect(find.text('هنوز فعالیتی ثبت نشده است.'), findsOneWidget);
+      expect(find.text('فعالیتی ثبت نشده است'), findsOneWidget);
     });
 
     testWidgets('offline legacy fallback converts legacy records to activity',
@@ -855,9 +1007,13 @@ void main() {
             people: people, fileRepo: fileRepo, width: width);
 
         expect(tester.takeException(), isNull);
-        expect(find.text('مدیر مستقیم'), findsOneWidget);
-        expect(find.text('سابقه خدمت'), findsOneWidget);
-        expect(find.text('آخرین فعالیت‌ها'), findsOneWidget);
+        for (final metric in [
+          'سابقه همکاری', 'پایان قرارداد', 'مانده مرخصی', 'غیبت و تأخیر',
+          'درخواست‌های باز', 'مدارک نیازمند پیگیری',
+        ]) {
+          expect(find.text(metric), findsOneWidget);
+        }
+        expect(find.text('آخرین فعالیت‌های مهم'), findsOneWidget);
 
         // Switch to documents tab
         await _tapText(tester, 'مدارک');

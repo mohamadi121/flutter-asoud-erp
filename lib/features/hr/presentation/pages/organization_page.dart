@@ -27,7 +27,6 @@ import '../cubit/organization_cubit.dart';
 part 'organization_chart_view.dart';
 part 'organization_position_form.dart';
 part 'organization_workspace.dart';
-part 'organization_visual_report.dart';
 part 'organization_style.dart';
 part 'organization_create.dart';
 part 'organization_assignments.dart';
@@ -556,6 +555,7 @@ class _OrganizationTemplatesState extends State<_OrganizationTemplates> {
                   final saved = await _openOrganizationPage<bool>(
                       context,
                       _OrganizationImportReview(
+                          existingUnits: existing,
                           payload: templateOrganizationPayload(template,
                               existingUnits: existing)));
                   if (saved == true && context.mounted) {

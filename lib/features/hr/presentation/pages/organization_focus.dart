@@ -15,9 +15,11 @@ class _OrganizationFocus extends StatefulWidget {
   const _OrganizationFocus(
       {required this.units,
       required this.canManage,
+      this.previewRows,
       this.initialError});
   final List<Map<String, dynamic>> units;
   final bool canManage;
+  final List<OrgPosition>? previewRows;
   final String? initialError;
   @override
   State<_OrganizationFocus> createState() => _OrganizationFocusState();
@@ -47,6 +49,8 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
   OrganizationUnitNavigation get nav => OrganizationUnitNavigation(units);
   Map<String, dynamic>? get unit => nav.byId(selected);
   OrganizationCubit get cubit => context.read<OrganizationCubit>();
+  bool get isPreview => widget.previewRows != null;
+  List<OrgPosition> get rows => widget.previewRows ?? cubit.state.snapshot.rows;
 
   Future<List<OrganizationEmployee>> loadPeople() {
     final future = Future<List<OrganizationEmployee>>.sync(() => cubit.repository.employees(cubit.company));
@@ -59,7 +63,7 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
   @override
   void initState() {
     super.initState();
-    people = loadPeople();
+    people = isPreview ? Future.value(const <OrganizationEmployee>[]) : loadPeople();
   }
 
   @override
@@ -77,8 +81,12 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
     super.dispose();
   }
 
-  void remember() => PageStorage.maybeOf(context)
-      ?.writeState(context, selected, identifier: 'focus:${cubit.company}');
+  void remember() {
+    if (!isPreview) {
+      PageStorage.maybeOf(context)
+          ?.writeState(context, selected, identifier: 'focus:${cubit.company}');
+    }
+  }
 
   Future<bool> leaveEditor() async {
     if (busy || editor.currentState?.saving == true) return false;
@@ -125,7 +133,10 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
   }
 
   Future<void> open(_OrgEdit next, [OrgPosition? row]) async {
-    if (!canManage || !await leaveEditor() || !mounted) return;
+    if (!canManage || (action == next && editingPosition?.code == row?.code) ||
+        !await leaveEditor() || !mounted) {
+      return;
+    }
     setState(() {
       action = null;
       assigningPosition = null;
@@ -241,12 +252,13 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
           builder: (context, state) {
         final children = nav.children(selected);
         final path = nav.path(selected);
-        final positions = state.snapshot.rows
+        final positions = rows
             .where((r) => selected == null ? r.parent.isEmpty : r.departmentId == selected)
             .toList();
         final selectedPosition =
             positions.where((p) => p.code == position).firstOrNull;
-        final roots = state.snapshot.rows.where((p) => p.parent.isEmpty).toList();
+        final roots = rows.where((p) => p.parent.isEmpty).toList();
+        final acceptsChildren = unit == null || unit!['is_group'] == 1;
         final visiblePositionPage = math.min(positionPage, math.max(0, (positions.length - 1) ~/ 10));
         final locked = busy || state.busy;
         final operations = <Widget>[
@@ -308,16 +320,16 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
             remember();
           },
           child: ListView(
-              key: const PageStorageKey('organization-focused-scroll'),
+              key: PageStorageKey(isPreview ? 'organization-preview-scroll' : 'organization-focused-scroll'),
               padding: const EdgeInsets.all(14),
               children: [
                 _OrgPanel(children: [
                   Row(children: [
-                    const Expanded(child: Text('ساختار فعلی سازمان',
-                        style: TextStyle(fontWeight: FontWeight.bold))),
+                    Expanded(child: Text(isPreview ? 'ساختار پیشنهادی سازمان' : 'ساختار فعلی سازمان',
+                        style: const TextStyle(fontWeight: FontWeight.bold))),
                     Text(formatCount(units.length, 'واحد'),
                         style: const TextStyle(fontSize: 10, color: AsoudColors.muted)),
-                    PopupMenuButton<String>(
+                    if (!isPreview) PopupMenuButton<String>(
                       tooltip: 'ابزارهای ساختار',
                       enabled: !locked,
                       icon: const Icon(Icons.more_horiz, size: 20),
@@ -327,13 +339,12 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
                         if (value == 'reset') { await resetStructure(); return; }
                         await _openOrganizationPage<void>(context,
                           value == 'units'
-                            ? _OrgDetailPage(title: 'واحدهای سازمانی', children: [
-                                SizedBox(height: MediaQuery.sizeOf(context).height * .7,
-                                  child: _OrganizationUnits(canManage: canManage))])
+                            ? Scaffold(
+                                backgroundColor: _orgCanvas,
+                                appBar: const AsoudHeader(title: 'واحدهای سازمانی'),
+                                body: _OrganizationUnits(canManage: canManage))
                             : value == 'positions'
-                              ? _OrgDetailPage(title: 'جایگاه‌های سازمانی', children: [
-                                  SizedBox(height: MediaQuery.sizeOf(context).height * .7,
-                                    child: _PositionList(canManage: canManage))])
+                              ? _OrganizationChart(canManage: canManage, management: true)
                               : const _OrganizationSetup(returnToWorkspace: true));
                         if (mounted) await reload();
                       },
@@ -435,19 +446,17 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
                     Row(children: [
                       Expanded(child: OutlinedButton.icon(
                         key: const ValueKey('focus-add-unit'),
-                        onPressed: locked ? null : () async {
-                          if (unit != null) { await open(_OrgEdit.addUnit); return; }
-                          await open(_OrgEdit.addUnit);
-                        },
+                        onPressed: locked || action == _OrgEdit.addUnit ||
+                            (!acceptsChildren && action == _OrgEdit.editUnit)
+                            ? null : () => open(acceptsChildren ? _OrgEdit.addUnit : _OrgEdit.editUnit),
                         style: _slimButton().copyWith(backgroundColor: const WidgetStatePropertyAll(Color(0xff111111)), foregroundColor: const WidgetStatePropertyAll(Colors.white)),
-                        icon: const Icon(Icons.add, size: 15), label: const Text('زیرواحد جدید'))),
+                        icon: Icon(acceptsChildren ? Icons.add : Icons.settings_outlined, size: 15),
+                        label: Text(acceptsChildren ? 'زیرواحد جدید' : 'تنظیم پذیرش زیرواحد'))),
                       const SizedBox(width: 8),
                       Expanded(child: OutlinedButton.icon(
                         key: const ValueKey('focus-add-position'),
-                        onPressed: locked ? null : () async {
-                          if (unit != null) { await open(_OrgEdit.addPosition); return; }
-                          await open(_OrgEdit.addPosition);
-                        },
+                        onPressed: locked || action == _OrgEdit.addPosition
+                            ? null : () => open(_OrgEdit.addPosition),
                         style: _slimButton(),
                         icon: const Icon(Icons.add, size: 15), label: const Text('جایگاه جدید'))),
                     ]),
@@ -538,7 +547,7 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
                         if (unit != null && '${unit!['description'] ?? ''}'.trim().isNotEmpty)
                           _detail('توضیحات', '${unit!['description']}'),
                       ])),
-                    if (unit != null || roots.length == 1) ...[
+                    if (!isPreview && (unit != null || roots.length == 1)) ...[
                       const SizedBox(height: 10),
                       FilledButton(
                         key: const ValueKey('organization-full-unit-details'),
@@ -555,7 +564,7 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
                       _detail('واحد سازمانی', unit == null ? (selectedPosition.department.isEmpty ? 'ریشه سازمان' : selectedPosition.department) : organizationUnitLabel(unit!)),
                       _detail(
                           'جایگاه بالادستی',
-                          state.snapshot.rows
+                          rows
                                   .where(
                                       (r) => r.code == selectedPosition.parent)
                                   .firstOrNull
@@ -571,19 +580,19 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
                           selectedPosition.duties.isEmpty
                               ? 'ثبت نشده'
                               : selectedPosition.duties),
-                      TextButton(
+                      if (!isPreview) TextButton(
                           onPressed:
                               locked ? null : () => assign(selectedPosition),
                           child: const Text('مشاهده پرسنل و سوابق انتصاب')),
                     ]),
                   ],
                 ],
-                if (state.snapshot.pending)
+                if (!isPreview && state.snapshot.pending)
                   const Padding(
                       padding: EdgeInsets.all(12),
                       child: Text(
                           'تغییرات محلی است؛ هنوز ثبت سرور تأیید نشده است.')),
-                TextButton(
+                if (!isPreview) TextButton(
                     onPressed: locked
                         ? null
                         : () async {
@@ -594,20 +603,7 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
                                 _OrganizationChart(canManage: canManage));
                           },
                     child: const Text('نمای روابط جایگاه‌ها')),
-                TextButton(
-                    onPressed: locked
-                        ? null
-                        : () async {
-                            if (!await leaveEditor() || !context.mounted) {
-                              return;
-                            }
-                            await _openOrganizationPage<void>(
-                                context,
-                                _OrganizationVisualReport(
-                                    canManage: canManage));
-                          },
-                    child: const Text('گزارش تصویری چارت')),
-                const _OrgTabFooter(),
+                if (!isPreview) const _OrgTabFooter(),
               ]),
         );
       });
@@ -638,7 +634,7 @@ class _OrganizationFocusState extends State<_OrganizationFocus> with AutomaticKe
     if (parent != null) return organizationUnitLabel(parent);
     // The same presentation root used above the top-level Department cards;
     // it is a real position, not a new/renamed native Department relationship.
-    final roots = cubit.state.snapshot.rows.where((r) => r.parent.isEmpty).toList();
+    final roots = rows.where((r) => r.parent.isEmpty).toList();
     if (roots.length == 1 && nav.children(null).any((u) => u['name'] == row['name'])) {
       return roots.single.displayTitle;
     }

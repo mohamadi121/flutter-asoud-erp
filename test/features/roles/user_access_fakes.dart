@@ -16,8 +16,13 @@ const userAccessRole = ManagedRole(
 /// Replays the exact `asoud_erp.api.v1.user_access` / `role_management`
 /// response shapes read from the backend code, never a guessed shape.
 class UserAccessClient extends Fake implements FrappeApiClient {
-  UserAccessClient({this.roles = const ['Administrator'], this.mode = 'ok'});
+  UserAccessClient({
+    this.roles = const ['Administrator'],
+    this.mode = 'ok',
+    this.officePeople,
+  });
   final List<String> roles;
+  final List<Map<String, dynamic>>? officePeople;
 
   /// `ok`, `network` or `forbidden`: how `directory` fails.
   final String mode;
@@ -39,8 +44,16 @@ class UserAccessClient extends Fake implements FrappeApiClient {
       {Map<String, dynamic>? data}) async {
     calls.add(method);
     if (method == 'asoud_erp.api.v1.access_profiles.list_accounts') {
-      return _envelope([{'name': 'EMP-TEST', 'employee_name': 'کاربر نمونه',
-        'designation': 'کارشناس', 'user_id': 'hr-manager@asoud-demo.local'}]);
+      return _envelope(officePeople ?? [
+        {
+          'name': 'EMP-TEST',
+          'employee_name': 'کاربر نمونه',
+          'designation': 'کارشناس',
+          'department': 'منابع انسانی',
+          'user_id': 'hr-manager@asoud-demo.local',
+          'account_status': 'active',
+        }
+      ]);
     }
     if (method == 'asoud_erp.api.v1.user_access.directory') {
       if (mode == 'network') {

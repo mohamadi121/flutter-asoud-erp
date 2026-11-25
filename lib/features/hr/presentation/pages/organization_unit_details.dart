@@ -52,7 +52,10 @@ class _UnitDetailsState extends State<_UnitDetails> {
     return editor.currentState?.dirty != true || await _confirmOrgDiscard(context);
   }
   Future<void> open(_OrgEdit next, [OrgPosition? row]) async {
-    if (!canManage || !await leaveEditor() || !mounted) return;
+    if (!canManage || (action == next && editingPosition?.code == row?.code) ||
+        !await leaveEditor() || !mounted) {
+      return;
+    }
     setState(() { action = null; assignment = null; });
     await WidgetsBinding.instance.endOfFrame;
     if (!mounted) return;
@@ -155,8 +158,12 @@ class _UnitDetailsState extends State<_UnitDetails> {
     final children = nav.children(id);
     final positions = state.snapshot.rows.where((r) => root ? r.code == widget.rootPosition?.code : r.departmentId == id).toList();
     final parent = nav.byId(current?['parent_department']?.toString());
-    final parentLabel = parent == null ? ((current?['parent_department'] ?? '').toString().isEmpty
-        ? 'ریشه ساختار سازمان' : 'نام بالادستی در دسترس نیست') : organizationUnitLabel(parent);
+    final roots = state.snapshot.rows.where((r) => r.parent.isEmpty).toList();
+    final parentLabel = parent != null ? organizationUnitLabel(parent)
+        : (current?['parent_department'] ?? '').toString().isEmpty ||
+                nav.children(null).any((row) => row['name'] == id)
+            ? (roots.length == 1 ? roots.single.displayTitle : 'ریشه ساختار سازمان')
+            : 'نام بالادستی در دسترس نیست';
     return PopScope(canPop: !locked && action == null && assignment == null,
       onPopInvokedWithResult: (didPop, result) async { if (!didPop && !locked) await closeEditor(); },
       child: Scaffold(key: ValueKey(root ? 'unit-details-root-${widget.rootPosition!.code}' : 'unit-details-$id'), backgroundColor: _orgCanvas,
@@ -189,8 +196,14 @@ class _UnitDetailsState extends State<_UnitDetails> {
             ])],
             const SizedBox(height: 10), _OrgPanel(children: [
               heading('زیرواحدها', Icons.account_tree_outlined, 1, addKey: const ValueKey('organization-subunit-add'),
-                add: canManage && (root || current?['is_group'] == 1) ? () => open(_OrgEdit.addUnit) : null),
-              if (canManage && !root && current?['is_group'] != 1) const Text('این واحد امکان پذیرش زیرواحد ندارد.', style: TextStyle(fontSize: 11)),
+                add: canManage && action != _OrgEdit.addUnit &&
+                    (root || current?['is_group'] == 1) ? () => open(_OrgEdit.addUnit) : null),
+              if (canManage && !root && current?['is_group'] != 1) ...[
+                const Text('برای افزودن زیرواحد، «پذیرش زیرواحد» را در مشخصات این واحد فعال کنید.', style: TextStyle(fontSize: 11)),
+                if (action != _OrgEdit.editUnit)
+                  TextButton(onPressed: locked ? null : () => open(_OrgEdit.editUnit),
+                    child: const Text('تنظیم پذیرش زیرواحد')),
+              ],
               const SizedBox(height: 8),
               if (children.isEmpty) const _OrgNotice(icon: Icons.account_tree_outlined, color: Color(0xff8965af), text: 'هنوز زیرواحدی تعریف نشده است.'),
               for (final (index, child) in children.indexed) Padding(padding: const EdgeInsets.only(bottom: 8),
@@ -203,7 +216,7 @@ class _UnitDetailsState extends State<_UnitDetails> {
             ]),
             const SizedBox(height: 10), _OrgPanel(children: [
               heading('جایگاه‌های شغلی', Icons.work_outline, 2, addKey: const ValueKey('organization-inline-position-open'),
-                add: canManage ? () => open(_OrgEdit.addPosition) : null), operation(_OrgEdit.addPosition),
+                add: canManage && action != _OrgEdit.addPosition ? () => open(_OrgEdit.addPosition) : null), operation(_OrgEdit.addPosition),
               if (positions.isEmpty) const _OrgNotice(icon: Icons.work_outline, color: AsoudColors.success, text: 'جایگاهی ثبت نشده است.'),
               for (final (index, row) in positions.indexed) positionCard(row, state.snapshot.rows, index),
               if (state.snapshot.pending) const Text('تغییرات محلی در انتظار تأیید سرور است.'),

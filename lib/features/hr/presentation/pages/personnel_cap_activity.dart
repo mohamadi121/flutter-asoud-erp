@@ -1,68 +1,55 @@
 part of 'personnel_page.dart';
 
-/// Capability (C): Latest activities feed.
 class PersonnelActivityFeedSlot extends StatelessWidget {
   const PersonnelActivityFeedSlot({
-    required this.file,
     required this.records,
     required this.onRecord,
-    required this.onRecords,
     super.key,
   });
 
-  final PersonnelFile? file;
   final List<Map> records;
   final ValueChanged<Map> onRecord;
-  final ValueChanged<String> onRecords;
 
   @override
   Widget build(BuildContext context) {
-    if (file != null) {
-      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Row(children: [
-          const Expanded(
-              child: Text('آخرین فعالیت‌ها',
-                  style: TextStyle(
-                      color: _ink, fontSize: 14, fontWeight: FontWeight.w900))),
-          TextButton(
-              onPressed: () => Navigator.push<void>(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => _ActivityFeedPage(file: file!))),
-              child: const Text('مشاهده همه', style: TextStyle(fontSize: 10)))
-        ]),
-        if (file!.activity.isEmpty)
-          const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text('هنوز فعالیتی ثبت نشده است.',
-                  style: TextStyle(fontSize: 11, color: Color(0xFF8193BA))))
-        else
-          for (final activity in file!.activity.take(5))
-            _CapActivity(activity: activity),
-      ]);
-    }
-
-    // Fallback to legacy records if no file object exists
-    final recent = [...records]
+    // Only include authorized events that have an actual detail route.
+    final recent = records.where((row) =>
+        const {'document', 'history', 'evaluation'}.contains(row['kind']) &&
+        '${row['name'] ?? ''}'.isNotEmpty &&
+        '${row['title'] ?? ''}'.trim().isNotEmpty &&
+        DateTime.tryParse('${row['record_date'] ?? ''}') != null).toList()
       ..sort((a, b) => '${b['record_date']}'.compareTo('${a['record_date']}'));
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Row(children: [
-        const Expanded(
-            child: Text('آخرین فعالیت‌ها',
-                style: TextStyle(
-                    color: _ink, fontSize: 14, fontWeight: FontWeight.w900))),
-        TextButton(
-            onPressed: () => onRecords('all'),
-            child: const Text('مشاهده همه', style: TextStyle(fontSize: 10)))
-      ]),
-      if (recent.isEmpty)
-        const Padding(
-            padding: EdgeInsets.all(16),
-            child: Text('هنوز فعالیتی ثبت نشده است.',
-                style: TextStyle(fontSize: 11, color: Color(0xFF8193BA)))),
-      for (final record in recent.take(4))
-        _ActivityRow(record: record, onTap: () => onRecord(record)),
-    ]);
+    final shown = recent.take(3);
+    return Card(
+      margin: EdgeInsets.zero,
+      elevation: 0,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(13),
+        side: const BorderSide(color: _line),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Row(children: [
+            const Icon(Icons.history_rounded, color: _blue, size: 17),
+            const SizedBox(width: 6),
+            const Expanded(child: Text('آخرین فعالیت‌های مهم',
+                style: TextStyle(color: _ink, fontSize: 13, fontWeight: FontWeight.w800))),
+            if (shown.isNotEmpty)
+              Text('${toPersianDigits(shown.length)} مورد اخیر',
+                  style: const TextStyle(color: AsoudColors.muted, fontSize: 10)),
+          ]),
+          if (shown.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Text('فعالیتی ثبت نشده است', style: TextStyle(fontSize: 11)),
+            ),
+          for (final record in shown)
+            _ActivityRow(record: record, onTap: () => onRecord(record)),
+        ]),
+      ),
+    );
   }
 }
 

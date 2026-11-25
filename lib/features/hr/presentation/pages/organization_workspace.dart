@@ -38,9 +38,14 @@ Map<String, dynamic> templateOrganizationPayload(OrganizationTemplate template,
 }
 
 class _OrganizationImportReview extends StatefulWidget {
-  const _OrganizationImportReview({required this.payload, this.unitLabels = const {}});
+  const _OrganizationImportReview({
+    required this.payload,
+    this.unitLabels = const {},
+    this.existingUnits = const [],
+  });
   final Map<String, dynamic> payload;
   final Map<String, String> unitLabels;
+  final List<Map<String, dynamic>> existingUnits;
   @override
   State<_OrganizationImportReview> createState() =>
       _OrganizationImportReviewState();
@@ -50,7 +55,7 @@ class _OrganizationImportReviewState extends State<_OrganizationImportReview> {
   Map<String, dynamic>? preview;
   String? error;
   bool busy = false;
-  bool expandedUnits = false;
+  bool get isTemplate => widget.payload['template'] == true;
   @override
   void initState() {
     super.initState();
@@ -116,55 +121,35 @@ class _OrganizationImportReviewState extends State<_OrganizationImportReview> {
   Widget build(BuildContext context) => PopScope(
       canPop: !busy,
       child: Scaffold(
+          backgroundColor: _orgCanvas,
           appBar: const AsoudHeader(title: 'پیش‌نمایش ساختار سازمانی'),
-          body: ListView(padding: const EdgeInsets.all(16), children: [
+          bottomNavigationBar: isTemplate ? SafeArea(
+            minimum: const EdgeInsets.fromLTRB(14, 4, 14, 8),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              if (error != null && preview != null)
+                Text(error!, style: const TextStyle(color: AsoudColors.danger)),
+              if (busy) const LinearProgressIndicator(),
+              Row(children: [
+                Expanded(child: FilledButton(
+                  onPressed: busy || preview == null || error != null ? null : _apply,
+                  child: const Text('تأیید و ایجاد ساختار'),
+                )),
+                const SizedBox(width: 8),
+                TextButton(onPressed: busy ? null : () => Navigator.pop(context),
+                  child: const Text('بازگشت بدون انتخاب')),
+              ]),
+              if (error != null)
+                TextButton(onPressed: busy ? null : _preview,
+                  child: const Text('بازخوانی پیش‌نمایش')),
+            ]),
+          ) : null,
+          body: isTemplate ? _templateBody() : ListView(padding: const EdgeInsets.all(16), children: [
             if (busy) const LinearProgressIndicator(),
             if (error != null)
               Text(error!, style: const TextStyle(color: AsoudColors.danger)),
             const Text(
                 'واحد موجود فقط با شناسه صریح تطبیق می‌یابد؛ اطلاعات قبلی بازنویسی نمی‌شود. ثبت همه ردیف‌ها یک تراکنش است.'),
             if (preview != null) ...[
-              if (widget.payload['template'] == true) ...[
-                Text('${widget.payload['template_title']}',
-                    style: const TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.bold)),
-                Text(formatCount(
-                    (preview!['additions'] as List).length, 'جایگاه پیشنهادی')),
-                const SizedBox(height: 16),
-                const Center(
-                    child: AsoudIconBox(
-                        icon: Icons.person_outline,
-                        color: AsoudColors.primary,
-                        size: 52)),
-                const Center(child: Text('مدیرعامل')),
-                const Center(
-                    child: Text('│\nواحدهای سازمانی\n│',
-                        textAlign: TextAlign.center)),
-                GridView.count(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisCount: 2,
-                    childAspectRatio: 1.8,
-                    children: [
-                      for (final unit in (preview!['units'] as List)
-                          .take(expandedUnits ? 500 : 4))
-                        Card(
-                            color: _unitColor('${unit['name']}')
-                                .withValues(alpha: .1),
-                            child: Center(
-                                child: Padding(
-                                    padding: const EdgeInsets.all(8),
-                                    child: Text(organizationLabel('${unit['title']}'),
-                                        textAlign: TextAlign.center)))),
-                    ]),
-                TextButton(
-                    onPressed: () =>
-                        setState(() => expandedUnits = !expandedUnits),
-                    child: Text(
-                        expandedUnits ? 'نمایش کمتر' : 'نمایش همه واحدها')),
-                const Text(
-                    'این نمایش خلاصه واحدهاست؛ فهرست کامل جایگاه‌ها در پایین آمده است.'),
-              ],
               Text('${formatCount((preview!["units"] as List).length, "واحد بررسی‌شده")} · ${formatCount((preview!["additions"] as List).length, "جایگاه جدید")}'),
               for (final unit in preview!['units'] as List)
                 ListTile(
@@ -187,6 +172,42 @@ class _OrganizationImportReviewState extends State<_OrganizationImportReview> {
                 onPressed: busy ? null : () => Navigator.pop(context),
                 child: const Text('بازگشت و ویرایش')),
           ])));
+
+  Widget _templateBody() {
+    final data = preview;
+    if (data == null) {
+      return Center(child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: error == null ? const CircularProgressIndicator() : Text(error!),
+      ));
+    }
+    final units = <String, Map<String, dynamic>>{
+      for (final unit in widget.existingUnits)
+        if (unit['disabled'] != 1) '${unit['name']}': unit,
+    };
+    for (final item in data['units'] as List) {
+      final id = '${item['name']}';
+      units.putIfAbsent(id, () => {
+        'name': id,
+        'department_name': item['title'],
+        'parent_department': item['parent'],
+      });
+    }
+    return Column(children: [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(14, 6, 14, 0),
+        child: Text('${widget.payload['template_title']} · تا تأیید نکنید چیزی ثبت نمی‌شود.'),
+      ),
+      Expanded(child: _OrganizationFocus(
+        canManage: false,
+        units: units.values.toList(),
+        previewRows: [
+          for (final row in (data['rows'] ?? data['additions']) as List)
+            OrgPosition.fromJson(Map<String, dynamic>.from(row as Map)),
+        ],
+      )),
+    ]);
+  }
 
   String _unitLabel(String id) => id.isEmpty
       ? 'بدون بالادستی / واحد اصلی'
@@ -290,17 +311,6 @@ Future<bool> _confirmOrgDiscard(BuildContext context) async =>
                 ])) ==
     true;
 
-Color _unitColor(String key) {
-  const colors = [
-    AsoudColors.primary,
-    AsoudColors.success,
-    AsoudColors.warning,
-    Color(0xff805ad5),
-    Color(0xffd97770)
-  ];
-  return colors[key.codeUnits.fold<int>(0, (a, b) => a + b) % colors.length];
-}
-
 class _OrganizationWorkspace extends StatelessWidget {
   const _OrganizationWorkspace({required this.canManage});
   final bool canManage;
@@ -310,55 +320,6 @@ class _OrganizationWorkspace extends StatelessWidget {
       appBar: const _OrganizationReferenceHeader(
           title: 'مدیریت ساختار سازمانی', compact: true, form: true),
       body: _OrganizationUnits(canManage: canManage, hierarchy: true));
-}
-
-class _PositionList extends StatefulWidget {
-  const _PositionList({required this.canManage});
-  final bool canManage;
-  @override
-  State<_PositionList> createState() => _PositionListState();
-}
-
-class _PositionListState extends State<_PositionList> {
-  String query = '';
-  @override
-  Widget build(BuildContext context) =>
-      BlocBuilder<OrganizationCubit, OrganizationState>(
-          builder: (context, state) {
-        return ListView(padding: const EdgeInsets.all(16), children: [
-          _OrgTabHeading(
-              title: 'جایگاه‌های سازمانی',
-              action: 'جایگاه جدید',
-              canManage: widget.canManage,
-              onCreate: state.busy
-                  ? null
-                  : () => _openOrganizationPage<bool>(
-                      context, const _OrganizationCreateForm(position: true))),
-          OutlinedButton.icon(
-              onPressed: () => _openOrganizationPage<void>(
-                  context,
-                  _OrganizationVisualReport(canManage: widget.canManage)),
-              icon: const Icon(Icons.account_tree_outlined),
-              label: const Text('گزارش تصویری چارت')),
-          const SizedBox(height: 16),
-          Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                  color: _orgTints[0], borderRadius: BorderRadius.circular(18)),
-              child: const Text(
-                  'جایگاه شغلی مستقل از حساب کاربری و نقش دسترسی است. انتساب پرسنل در مراحل مربوط به منابع انسانی انجام می‌شود.',
-                  style: TextStyle(
-                      fontSize: 12, height: 1.9, color: Color(0xff697587)))),
-          const SizedBox(height: 16),
-          _OrganizationTree(
-              rows: state.snapshot.rows,
-              query: query,
-              cardStyle: true,
-              canManage: widget.canManage,
-              onClearSearch: () => setState(() => query = '')),
-          const _OrgTabFooter(),
-        ]);
-      });
 }
 
 class _PositionDetails extends StatelessWidget {
@@ -499,6 +460,51 @@ class _OccupantsState extends State<_Occupants> {
                           'پرسنل منتسب'),
                       subtitle: Text(id.replaceFirst('employee:', ''))),
               ]));
+}
+
+
+class _OrganizationAvatar extends StatefulWidget {
+  const _OrganizationAvatar({this.employee});
+  final String? employee;
+  @override
+  State<_OrganizationAvatar> createState() => _OrganizationAvatarState();
+}
+
+class _OrganizationAvatarState extends State<_OrganizationAvatar> {
+  Future<Uint8List?>? photo;
+  void _load() {
+    final c = context.read<OrganizationCubit>();
+    photo = widget.employee == null
+        ? null
+        : c.repository.employeePhoto(c.company, widget.employee!);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant _OrganizationAvatar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.employee != widget.employee) _load();
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<Uint8List?>(
+      future: photo,
+      builder: (context, snapshot) => CircleAvatar(
+          radius: 18,
+          child: snapshot.hasData
+              ? ClipOval(
+                  child: Image.memory(snapshot.data!,
+                      width: 36,
+                      height: 36,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stack) =>
+                          const Icon(Icons.person_outline)))
+              : const Icon(Icons.person_outline, size: 20)));
 }
 
 class _OrganizationUnits extends StatefulWidget {

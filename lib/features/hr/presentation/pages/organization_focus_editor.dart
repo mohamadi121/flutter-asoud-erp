@@ -59,6 +59,8 @@ class _OrganizationInlineEditorState extends State<_OrganizationInlineEditor> {
   String? error;
   Future<Map<String, dynamic>>? review;
   bool get isPosition => widget.action.index >= _OrgEdit.addPosition.index;
+  bool get editingRootPosition =>
+      widget.root && widget.position?.parent.isEmpty == true;
   bool get deleting =>
       widget.action == _OrgEdit.deleteUnit ||
       widget.action == _OrgEdit.deletePosition;
@@ -110,6 +112,10 @@ class _OrganizationInlineEditorState extends State<_OrganizationInlineEditor> {
 
   Future<bool> submit() async {
     if (saving || cubit.state.busy) return false;
+    if (widget.action == _OrgEdit.addUnit && !widget.root && sourceUnit['is_group'] != 1) {
+      setState(() => error = 'ابتدا پذیرش زیرواحد را در مشخصات واحد بالادستی فعال کنید.');
+      return false;
+    }
     if (!deleting && !(form.currentState?.validate() ?? false)) return false;
     setState(() {
       saving = true;
@@ -199,7 +205,9 @@ class _OrganizationInlineEditorState extends State<_OrganizationInlineEditor> {
           if (!adding) 'name': sourceUnit['name'],
           if (!adding) 'modified': sourceUnit['modified'],
           'title': organizationEditedTitle(title.text, adding ? '' : '${sourceUnit['department_name']}'),
-          if (!moving) 'description': description.text.trim(),
+          if (!moving && description.text.trim() !=
+              (adding ? '' : '${sourceUnit['description'] ?? ''}'.trim()))
+            'description': description.text.trim(),
           'parent': adding
               ? (widget.root ? '' : sourceUnit['name'])
               : moving
@@ -325,23 +333,24 @@ class _OrganizationInlineEditorState extends State<_OrganizationInlineEditor> {
                             rounded: true,
                             value: destination,
                             label: moving ? 'واحد مقصد' : 'واحد سازمانی مربوط',
+                            hint: !adding && widget.position?.parent.isEmpty == true
+                                ? 'ریشه ساختار سازمانی (بدون واحد مستقل)'
+                                : 'انتخاب واحد سازمانی',
                             displayValue: _nullableOrgUnitLabel(nav.byId(destination)) ??
                                 (destination.isEmpty ? 'ریشه ساختار سازمانی (بدون ارتباط با واحد)' : 'واحد در دسترس نیست'),
                             enabled: !saving,
-                            onPick: () => showAppOptionSheet(context,
-                                title: 'واحد مقصد',
+                            onPick: () => _pickOrganizationBranch(context,
+                                title: moving ? 'واحد مقصد' : 'واحد سازمانی مربوط',
                                 current: destination,
-                                options: [
-                                  if (!moving && widget.position?.parent.isEmpty == true)
-                                    const AppOption('', 'ریشه ساختار سازمانی (بدون ارتباط با واحد)'),
+                                emptyLabel: !moving && widget.position?.parent.isEmpty == true
+                                    ? 'ریشه ساختار سازمانی (بدون واحد مستقل)' : null,
+                                nodes: [
                                   ...widget.units
                                     .where((u) => u['disabled'] != 1)
-                                    .map((u) => AppOption(
+                                    .map((u) => _OrgBranchOption(
                                         '${u['name']}',
-                                        nav
-                                            .path('${u['name']}')
-                                            .map((v) => organizationUnitLabel(v))
-                                            .join(' / ')))
+                                        '${u['parent_department'] ?? ''}',
+                                        organizationUnitLabel(u)))
                                     ]),
                             validator: (value) => adding && nav.byId(value) == null ? 'واحد سازمانی مربوط را انتخاب کنید.' : null,
                             onChanged: (v) => setState(() => destination = v))
@@ -354,7 +363,8 @@ class _OrganizationInlineEditorState extends State<_OrganizationInlineEditor> {
                           rounded: true,
                           value: parent,
                           label: 'جایگاه بالادستی',
-                          enabled: !saving,
+                          hint: 'جایگاه اصلی / بدون بالادست',
+                          enabled: !saving && !editingRootPosition,
                           displayValue: cubit.state.snapshot.rows
                                   .where((r) => r.code == parent)
                                   .firstOrNull
@@ -362,16 +372,16 @@ class _OrganizationInlineEditorState extends State<_OrganizationInlineEditor> {
                               (parent.isEmpty
                                   ? 'جایگاه اصلی / بدون بالادست'
                                   : 'جایگاه در دسترس نیست'),
-                          onPick: () => showAppOptionSheet(context,
+                          onPick: () => _pickOrganizationBranch(context,
                                   title: 'جایگاه بالادستی',
                                   current: parent,
-                                  options: [
-                                    const AppOption('', 'جایگاه اصلی / بدون بالادست'),
+                                  emptyLabel: 'جایگاه اصلی / بدون بالادست',
+                                  nodes: [
                                     ...cubit.state.snapshot.rows
                                         .where((r) =>
                                             !excludedPositions.contains(r.code))
-                                        .map((r) => AppOption(r.code,
-                                            '${r.displayTitle} — ${r.department.isEmpty ? 'واحد تعیین نشده' : r.displayDepartment}')),
+                                        .map((r) => _OrgBranchOption(r.code,
+                                            r.parent, r.displayTitle, r.displayDepartment)),
                                   ]),
                           onChanged: (v) => setState(() => parent = v)),
                       if (moving)
@@ -461,8 +471,8 @@ class _OrganizationInlineEditorState extends State<_OrganizationInlineEditor> {
                               ? sourceTitle
                               : _nullableOrgUnitLabel(nav.byId(parent)) ??
                                   'ریشه بالادستی'),
-                      if (!adding && !widget.detailsMode)
-                        SwitchListTile(
+                      if (!adding && (!widget.detailsMode || sourceUnit['is_group'] != 1))
+                        Material(type: MaterialType.transparency, child: SwitchListTile(
                             contentPadding: EdgeInsets.zero,
                             value: group,
                             title: const Text('پذیرش زیرواحد'),
@@ -471,8 +481,8 @@ class _OrganizationInlineEditorState extends State<_OrganizationInlineEditor> {
                                         .children('${sourceUnit['name']}')
                                         .isNotEmpty
                                 ? null
-                                : (v) => setState(() => group = v)),
-                      if (adding && sourceUnit['is_group'] != 1)
+                                : (v) => setState(() => group = v))),
+                      if (adding && !widget.root && sourceUnit['is_group'] != 1)
                         const Text(
                             'برای افزودن زیرواحد، ابتدا پذیرش زیرواحد را در مشخصات واحد بالادستی فعال کنید.'),
                       const SizedBox(height: 14),
@@ -521,4 +531,86 @@ class _OrganizationInlineEditorState extends State<_OrganizationInlineEditor> {
           child: Row(children: [Expanded(child: Text(value, style: const TextStyle(fontSize: 12))),
             const Icon(Icons.lock_outline, size: 14, color: Color(0xff9facbf))])),
       ]);
+}
+
+class _OrgBranchOption {
+  const _OrgBranchOption(this.id, this.parent, this.title, [this.subtitle = '']);
+  final String id, parent, title, subtitle;
+}
+
+Future<String?> _pickOrganizationBranch(BuildContext context, {
+  required String title,
+  required String current,
+  required List<_OrgBranchOption> nodes,
+  String? emptyLabel,
+}) {
+  final ids = nodes.map((node) => node.id).toSet();
+  final path = <_OrgBranchOption>[];
+  return showModalBottomSheet<String>(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    builder: (sheet) => StatefulBuilder(builder: (context, update) {
+      final branch = path.lastOrNull;
+      final children = nodes.where((node) => branch == null
+          ? node.parent.isEmpty || !ids.contains(node.parent)
+          : node.parent == branch.id && !path.any((step) => step.id == node.id));
+      return Directionality(
+        textDirection: TextDirection.rtl,
+        child: SafeArea(child: SizedBox(
+          height: MediaQuery.sizeOf(context).height * .58,
+          child: Column(children: [
+            ListTile(
+              leading: const AsoudIconBox(icon: Icons.account_tree_outlined, color: AsoudColors.primary, size: 36),
+              title: Text(branch?.title ?? title, style: const TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: branch == null ? null : Text([title, ...path.map((step) => step.title)].join(' / ')),
+              trailing: IconButton(
+                tooltip: branch == null ? 'بستن' : 'بازگشت به شاخهٔ بالادست',
+                icon: Icon(branch == null ? Icons.close : Icons.arrow_back),
+                onPressed: () {
+                  if (branch == null) {
+                    Navigator.pop(sheet);
+                  } else {
+                    update(() { path.removeLast(); });
+                  }
+                },
+              ),
+            ),
+            if (branch != null)
+              FilledButton(onPressed: () => Navigator.pop(sheet, branch.id),
+                child: const Text('انتخاب همین مورد')),
+            Expanded(child: ListView(
+              key: ValueKey(branch?.id),
+              padding: const EdgeInsets.all(12),
+              children: [
+                if (branch == null && emptyLabel != null)
+                  ListTile(title: Text(emptyLabel), key: const ValueKey('option-'),
+                    selected: current.isEmpty,
+                    onTap: () => Navigator.pop(sheet, '')),
+                if (children.isEmpty)
+                  const ListTile(title: Text('گزینه‌ای در این شاخه وجود ندارد.')),
+                for (final node in children)
+                  Card(child: ListTile(
+                    key: ValueKey('option-${node.id}'),
+                    leading: const Icon(Icons.account_tree_outlined, color: AsoudColors.primary),
+                    title: Text(node.title),
+                    subtitle: node.subtitle.isEmpty ? null : Text(node.subtitle),
+                    selected: node.id == current,
+                    trailing: Icon(nodes.any((child) => child.parent == node.id)
+                        ? Icons.chevron_left : node.id == current ? Icons.check : Icons.circle_outlined),
+                    onTap: () {
+                      if (nodes.any((child) => child.parent == node.id)) {
+                        update(() => path.add(node));
+                      } else {
+                        Navigator.pop(sheet, node.id);
+                      }
+                    },
+                  )),
+              ],
+            )),
+          ]),
+        )),
+      );
+    }),
+  );
 }

@@ -98,7 +98,6 @@ class _PersonnelList extends StatelessWidget {
               // refresh. The repository/server still authorizes persistence;
               // offline saves remain drafts in the existing local outbox.
               final canWritePersonnel = caps.canWritePersonnel;
-              final canManageAccess = caps.canManageUserAccess && state.canEdit;
               return Scaffold(
           backgroundColor: _canvas,
           appBar: _personnelHeader(context, 'پرسنل',
@@ -126,32 +125,12 @@ class _PersonnelList extends StatelessWidget {
                             }
                           }))
                   : null),
-          bottomNavigationBar: _PersonnelNavigation(company: cubit.company),
           body: RefreshIndicator(
               onRefresh: cubit.load,
               child: ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
                   children: [
-                    if (canWritePersonnel)
-                      Align(
-                          alignment: AlignmentDirectional.centerEnd,
-                          child: TextButton.icon(
-                              icon: const Icon(Icons.auto_awesome_outlined),
-                              label: const Text('مدیریت و پیشنهاد پرسنل نمونه'),
-                              onPressed: state.loading
-                                  ? null
-                                  : () async {
-                                      await Navigator.push<void>(
-                                          context,
-                                          MaterialPageRoute(
-                                              builder: (_) =>
-                                                  PartyManagementPage(
-                                                      company: cubit.company,
-                                                      initialRole:
-                                                          PartyRole.employee)));
-                                      if (context.mounted) await cubit.load();
-                                    })),
                     Row(children: [
                       IconButton(
                           tooltip: 'فیلتر واحد',
@@ -199,7 +178,7 @@ class _PersonnelList extends StatelessWidget {
                                 padding: const EdgeInsets.only(left: 6),
                                 child: ChoiceChip(
                                     label: Text(
-                                        '${entry.value} (${toPersianDigits(state.rows.where((r) => entry.key == 'all' || (r['disabled'] == true) == (entry.key == 'inactive')).length)})'),
+                                        '${entry.value} (${toPersianDigits(state.rows.where((r) => PersonnelState.matchesStatus(r, entry.key)).length)})'),
                                     selected: state.status == entry.key,
                                     showCheckmark: false,
                                     selectedColor: entry.key == 'active'
@@ -251,9 +230,37 @@ class _PersonnelList extends StatelessWidget {
                     for (final person in state.visible)
                       _PersonnelRow(
                           profile: person,
-                          canManage: canManageAccess,
                           repository: cubit.repository,
                           onTap: () async {
+                            if (person['needs_employee_details'] == true &&
+                                canWritePersonnel) {
+                              try {
+                                final profiles = await context.read<PartyRepository>().list(
+                                  company: cubit.company,
+                                  role: PartyRole.employee,
+                                  search: '${person['display_name'] ?? ''}',
+                                );
+                                if (!context.mounted) return;
+                                final profile = profiles.where((p) => p.id == person['id']).firstOrNull;
+                                if (profile == null) {
+                                  throw const FormatException('پرونده برای تکمیل در دسترس نیست.');
+                                }
+                                final saved = await Navigator.push<bool>(context,
+                                  MaterialPageRoute(builder: (_) => PartyFormPage(
+                                    initialRole: PartyRole.employee,
+                                    company: cubit.company,
+                                    profile: profile,
+                                    pageTitle: 'تکمیل پرونده پرسنلی')));
+                                if (saved == true && context.mounted) await cubit.load();
+                              } catch (failure) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                    content: Text(failure is FormatException
+                                      ? failure.message : failureMessage(failure))));
+                                }
+                              }
+                              return;
+                            }
                             await Navigator.push(
                                 context,
                                 MaterialPageRoute<void>(
@@ -272,9 +279,7 @@ class _PersonnelRow extends StatelessWidget {
   const _PersonnelRow(
       {required this.profile,
       required this.repository,
-      required this.onTap,
-      required this.canManage});
-  final bool canManage;
+      required this.onTap});
   final Map<String, dynamic> profile;
   final PersonnelRepository repository;
   final VoidCallback onTap;
@@ -327,10 +332,11 @@ class _PersonnelRow extends StatelessWidget {
                                     color: Color(0xFF7A8DBB), fontSize: 10)),
                           ])),
                       const SizedBox(width: 5),
-                      _EmploymentStatus(disabled: profile['disabled'] == true),
-                      if (canManage)
-                        _PersonnelAccountMenu(
-                            profile: profile, repository: repository),
+                      if (profile['needs_employee_details'] == true)
+                        const Text('نیازمند تکمیل',
+                            style: TextStyle(color: AsoudColors.warning, fontSize: 10))
+                      else
+                        _EmploymentStatus(disabled: profile['disabled'] == true),
                     ])),
           )));
 }
@@ -352,705 +358,6 @@ class _EmploymentStatus extends StatelessWidget {
               fontSize: 10, color: color, fontWeight: FontWeight.w800)),
     ]);
   }
-}
-
-class _EmployeeUserDetailsPage extends StatefulWidget {
-  const _EmployeeUserDetailsPage(
-      {required this.profile, required this.repository});
-  final Map<String, dynamic> profile;
-  final PersonnelRepository repository;
-  @override
-  State<_EmployeeUserDetailsPage> createState() =>
-      _EmployeeUserDetailsPageState();
-}
-
-class _EmployeeUserDetailsPageState extends State<_EmployeeUserDetailsPage> {
-  late Future<Map<String, dynamic>> future = _load();
-  Future<Map<String, dynamic>> _load() async {
-    final value = await context.read<FrappeApiClient>().callAsoudMethod(
-        'asoud_erp.api.v1.auth.get_employee_access',
-        data: {'party_profile': '${widget.profile['id']}'});
-    return Map<String, dynamic>.from(value as Map);
-  }
-
-  Future<void> remove() async {
-    final confirm = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-                title: const Text('حذف دسترسی کاربر'),
-                content: const Text(
-                    'اتصال و نقش‌های واگذارشدهٔ این پرونده حذف شود؟ حساب ورود سراسری حذف نمی‌شود.'),
-                actions: [
-                  TextButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      child: const Text('انصراف')),
-                  FilledButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      child: const Text('حذف دسترسی')),
-                ]));
-    if (confirm != true || !mounted) return;
-    try {
-      await context.read<FrappeApiClient>().callAsoudMethod(
-          'asoud_erp.api.v1.auth.delete_employee_access',
-          data: {'party_profile': '${widget.profile['id']}'});
-      if (mounted) {
-        setState(() {
-          future = _load();
-        });
-      }
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text(
-                'حذف دسترسی انجام نشد؛ اتصال و مجوز مدیر را بررسی کنید.')));
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) => Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-          backgroundColor: _canvas,
-          appBar: _personnelHeader(context, 'جزئیات کاربر'),
-          body: FutureBuilder<Map<String, dynamic>>(
-              future: future,
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return ErrorState(
-                      failure:
-                          snapshot.error ?? 'دریافت جزئیات کاربر ممکن نشد.',
-                      onRetry: () => setState(() {
-                            future = _load();
-                          }));
-                }
-                if (!snapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                final data = snapshot.data!;
-                final matrix = Map<String, dynamic>.from(
-                    data['access_matrix'] as Map? ?? {});
-                return ListView(padding: const EdgeInsets.all(16), children: [
-                  _AccessHeaderCard(
-                      profile: widget.profile,
-                      enabled: data['enabled'] == true),
-                  const SizedBox(height: 14),
-                  _AccessInfoCard(
-                      title: 'دسترسی‌ها',
-                      icon: Icons.admin_panel_settings_outlined,
-                      rows: {
-                        'نقش‌ها':
-                            (data['roles'] as List? ?? const []).join('، '),
-                        'وضعیت': data['enabled'] == true ? 'فعال' : 'غیرفعال',
-                        'شماره موبایل': toPersianDigits(
-                            _valueOf(widget.profile, 'mobile'),
-                          ),
-                        'ایمیل': '${data['email'] ?? 'ثبت نشده'}',
-                        'روش ورود': 'ایمیل (دعوت)',
-                      }),
-                  const SizedBox(height: 10),
-                  _AccessInfoCard(
-                      title: 'مجوزهای ماژول',
-                      icon: Icons.grid_view_rounded,
-                      rows: {
-                        for (final entry in matrix.entries)
-                          entry.key:
-                              formatCount((entry.value as List? ?? const []).length, 'مجوز'),
-                      }),
-                  const SizedBox(height: 14),
-                  FilledButton.icon(
-                      onPressed: () => Navigator.push<void>(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => PersonnelRolesPage(
-                                  employeeName:
-                                      _valueOf(widget.profile, 'display_name'),
-                                  employeeCode: capEmployeeCode(
-                                      widget.profile['employee_code']),
-                                  mobile: _valueOf(widget.profile, 'mobile'),
-                                  initialValue:
-                                      (data['roles'] as List? ?? const [])
-                                          .map((item) => '$item')
-                                          .toSet(),
-                                  initialStep: 2,
-                                  onConfirm: (roles, matrix) async {
-                                    await context
-                                        .read<FrappeApiClient>()
-                                        .callAsoudMethod(
-                                            'asoud_erp.api.v1.auth.sync_employee_access',
-                                            data: {
-                                          'party_profile':
-                                              '${widget.profile['id']}',
-                                          'email': data['email'],
-                                          'personnel_roles': roles.toList(),
-                                          'access_matrix': matrix
-                                        });
-                                    if (mounted) {
-                                      setState(() {
-                                        future = _load();
-                                      });
-                                    }
-                                  }))),
-                      icon: const Icon(Icons.edit_outlined),
-                      label: const Text('ویرایش دسترسی‌ها')),
-                  const SizedBox(height: 8),
-                  OutlinedButton.icon(
-                      onPressed: remove,
-                      icon: const Icon(Icons.delete_outline, color: Colors.red),
-                      label: const Text('حذف دسترسی از دفتر',
-                          style: TextStyle(color: Colors.red))),
-                ]);
-              })));
-}
-
-class _EmployeeInvitationsPage extends StatefulWidget {
-  const _EmployeeInvitationsPage(
-      {required this.profile, required this.repository});
-  final Map<String, dynamic> profile;
-  final PersonnelRepository repository;
-  @override
-  State<_EmployeeInvitationsPage> createState() =>
-      _EmployeeInvitationsPageState();
-}
-
-class _EmployeeInvitationsPageState extends State<_EmployeeInvitationsPage> {
-  late Future<List<Map<String, dynamic>>> future = _load();
-  Future<List<Map<String, dynamic>>> _load() async {
-    final value = await context.read<FrappeApiClient>().callAsoudMethod(
-        'asoud_erp.api.v1.auth.list_employee_invitations',
-        data: {'company': '${widget.profile['company']}'});
-    return (Map<String, dynamic>.from(value as Map)['rows'] as List? ??
-            const [])
-        .whereType<Map>()
-        .map((row) => Map<String, dynamic>.from(row))
-        .toList();
-  }
-
-  @override
-  Widget build(BuildContext context) => Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-          backgroundColor: _canvas,
-          appBar: _personnelHeader(context, 'دعوت‌های ارسال‌شده'),
-          body: FutureBuilder<List<Map<String, dynamic>>>(
-              future: future,
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return ErrorState(
-                      failure: snapshot.error ??
-                          'دریافت دعوت‌ها ممکن نشد.',
-                      onRetry: () => setState(() {
-                            future = _load();
-                          }));
-                }
-                if (!snapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                final rows = snapshot.data!;
-                return ListView(padding: const EdgeInsets.all(16), children: [
-                  _PersonnelAccessSteps(active: 2),
-                  const SizedBox(height: 12),
-                  const Text('وضعیت دعوت‌ها از صف ارسال سرور دریافت می‌شود.'),
-                  const SizedBox(height: 10),
-                  for (final row in rows) _InvitationCard(row: row),
-                  if (rows.isEmpty)
-                    const Padding(
-                        padding: EdgeInsets.all(24),
-                        child: Text('دعوتی ارسال نشده است.',
-                            textAlign: TextAlign.center)),
-                ]);
-              }),
-          bottomNavigationBar: _HrActionBar(
-              label: 'ارسال دعوت',
-              icon: Icons.send_outlined,
-              onPressed: () async {
-                await Navigator.push<void>(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => _InviteReviewPage(
-                            profile: widget.profile,
-                            repository: widget.repository)));
-                if (mounted) {
-                  setState(() {
-                    future = _load();
-                  });
-                }
-              })));
-}
-
-class _InviteReviewPage extends StatefulWidget {
-  const _InviteReviewPage({required this.profile, required this.repository});
-  final Map<String, dynamic> profile;
-  final PersonnelRepository repository;
-  @override
-  State<_InviteReviewPage> createState() => _InviteReviewPageState();
-}
-
-class _InviteReviewPageState extends State<_InviteReviewPage> {
-  late final email =
-      TextEditingController(text: _valueOf(widget.profile, 'email', ''));
-  String method = 'ایمیل';
-  Set<String> roles = {};
-  Map<String, List<String>> matrix = {};
-  bool saving = false;
-  String? error;
-  final requestId = 'invite-${DateTime.now().microsecondsSinceEpoch}';
-  @override
-  void dispose() {
-    email.dispose();
-    super.dispose();
-  }
-
-  Future<void> pickAccess() async {
-    await Navigator.push<void>(
-        context,
-        MaterialPageRoute(
-            builder: (_) => PersonnelRolesPage(
-                employeeName: _valueOf(widget.profile, 'display_name'),
-                employeeCode: capEmployeeCode(widget.profile['employee_code']),
-                mobile: _valueOf(widget.profile, 'mobile'),
-                onConfirm: (value, selected) async {
-                  roles = value;
-                  matrix = selected;
-                })));
-    if (mounted) setState(() {});
-  }
-
-  Future<void> send() async {
-    if (email.text.trim().isEmpty || roles.isEmpty) return;
-    setState(() => saving = true);
-    try {
-      await context.read<FrappeApiClient>().callAsoudMethod(
-          'asoud_erp.api.v1.auth.send_employee_invitation',
-          data: {
-            'party_profile': '${widget.profile['id']}',
-            'email': email.text.trim(),
-            'personnel_roles': roles.toList(),
-            'access_matrix': matrix,
-            'method': method,
-            'request_id': requestId,
-          });
-      if (mounted) Navigator.pop(context);
-    } catch (_) {
-      if (mounted) {
-        setState(() => error =
-            'دعوت ثبت نشد؛ تنظیم ایمیل خروجی، نقش و اتصال را بررسی کنید.');
-      }
-    } finally {
-      if (mounted) setState(() => saving = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) => Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-          backgroundColor: _canvas,
-          appBar: _personnelHeader(context, 'بررسی و ارسال دعوت'),
-          bottomNavigationBar: _HrActionBar(
-              label: 'ارسال دعوت',
-              icon: Icons.send_outlined,
-              onPressed: saving ? null : send),
-          body: ListView(padding: const EdgeInsets.all(16), children: [
-            if (error != null)
-              Text(error!, style: const TextStyle(color: Colors.red)),
-            _PersonnelAccessSteps(active: 3),
-            const SizedBox(height: 12),
-            _AccessHeaderCard(profile: widget.profile, enabled: false),
-            const SizedBox(height: 10),
-            _AccessInfoCard(
-                title: 'خلاصه دسترسی‌ها',
-                icon: Icons.admin_panel_settings_outlined,
-                rows: {
-                  'نقش‌ها': roles.isEmpty ? 'انتخاب نشده' : roles.join('، '),
-                  'مجوزها': formatCount(matrix.length, 'ماژول انتخاب شده'),
-                }),
-            const SizedBox(height: 10),
-            _AccessField(
-                label: 'ایمیل گیرنده دعوت',
-                icon: Icons.email_outlined,
-                child: TextField(
-                    controller: email,
-                    keyboardType: TextInputType.emailAddress)),
-            const SizedBox(height: 8),
-            _AccessField(
-                label: 'روش ارسال',
-                icon: Icons.send_outlined,
-                child: DropdownButton<String>(
-                    value: method,
-                    isExpanded: true,
-                    underline: const SizedBox(),
-                    items: const [
-                      DropdownMenuItem(value: 'ایمیل', child: Text('ایمیل'))
-                    ],
-                    onChanged: (value) => setState(() => method = value!))),
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-                onPressed: pickAccess,
-                icon: const Icon(Icons.tune_outlined),
-                label: const Text('انتخاب نقش و دسترسی')),
-          ])));
-}
-
-class _PersonnelAccessSteps extends StatelessWidget {
-  const _PersonnelAccessSteps({required this.active});
-  final int active;
-  @override
-  Widget build(BuildContext context) => Row(children: [
-        for (final entry in const [
-          (1, 'انتخاب شخص'),
-          (2, 'نقش و دسترسی'),
-          (3, 'بررسی و ارسال')
-        ])
-          Expanded(
-              child: Column(children: [
-            CircleAvatar(
-                radius: 12,
-                backgroundColor: entry.$1 == active ? _blue : _line,
-                child: Text('${entry.$1}',
-                    style: TextStyle(
-                        color: entry.$1 == active ? Colors.white : _ink,
-                        fontSize: 10))),
-            const SizedBox(height: 4),
-            Text(entry.$2,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                    fontSize: 9,
-                    color:
-                        entry.$1 == active ? _blue : const Color(0xFF8392B8))),
-          ])),
-      ]);
-}
-
-class _AccessHeaderCard extends StatelessWidget {
-  const _AccessHeaderCard({required this.profile, required this.enabled});
-  final Map<String, dynamic> profile;
-  final bool enabled;
-  @override
-  Widget build(BuildContext context) => Card(
-      child: ListTile(
-          leading: const CircleAvatar(child: Icon(Icons.person)),
-          title: Text(_valueOf(profile, 'display_name'),
-              style: const TextStyle(fontWeight: FontWeight.w900)),
-          subtitle: Text(toPersianDigits(_valueOf(profile, 'mobile'))),
-          trailing: Chip(
-              label: Text(enabled ? 'فعال' : 'دعوت نشده',
-                  style: const TextStyle(fontSize: 9)))));
-}
-
-class _AccessInfoCard extends StatelessWidget {
-  const _AccessInfoCard(
-      {required this.title, required this.icon, required this.rows});
-  final String title;
-  final IconData icon;
-  final Map<String, String> rows;
-  @override
-  Widget build(BuildContext context) => Card(
-      child: Padding(
-          padding: const EdgeInsets.all(12),
-          child:
-              Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Row(children: [
-              Icon(icon, color: _blue),
-              const SizedBox(width: 8),
-              Text(title, style: const TextStyle(fontWeight: FontWeight.w900))
-            ]),
-            const SizedBox(height: 6),
-            for (final row in rows.entries)
-              ListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(row.key,
-                      style: const TextStyle(
-                          fontSize: 10, color: Color(0xFF8392B8))),
-                  trailing: Text(row.value,
-                      style: const TextStyle(
-                          fontSize: 10, fontWeight: FontWeight.w700)))
-          ])));
-}
-
-class _InvitationCard extends StatelessWidget {
-  const _InvitationCard({required this.row});
-  final Map<String, dynamic> row;
-  @override
-  Widget build(BuildContext context) => Card(
-      child: ListTile(
-          leading: const CircleAvatar(child: Icon(Icons.person)),
-          title: Text('${row['personnel']}',
-              style: const TextStyle(fontWeight: FontWeight.w800)),
-          subtitle: Text(
-              '${row['email']}\nزمان ارسال تأییدشده: ${row['sent_at'] ?? 'ثبت نشده'}'),
-          isThreeLine: true,
-          trailing: Chip(
-              label: Text('${row['status']}',
-                  style: const TextStyle(fontSize: 9)))));
-}
-
-class _PersonnelAccessPage extends StatefulWidget {
-  const _PersonnelAccessPage({required this.profile, required this.repository});
-  final Map<String, dynamic> profile;
-  final PersonnelRepository repository;
-  @override
-  State<_PersonnelAccessPage> createState() => _PersonnelAccessPageState();
-}
-
-class _PersonnelAccessPageState extends State<_PersonnelAccessPage> {
-  late final TextEditingController email =
-      TextEditingController(text: '${widget.profile['email'] ?? ''}');
-  Set<String> roles = {};
-  Map<String, List<String>> accessMatrix = {};
-  bool loading = true;
-  bool loaded = false;
-  bool saving = false;
-  String? error;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadAccess();
-  }
-
-  Future<void> _loadAccess() async {
-    try {
-      final data = await context.read<FrappeApiClient>().callAsoudMethod(
-          'asoud_erp.api.v1.auth.get_employee_access',
-          data: {'party_profile': '${widget.profile['id']}'});
-      email.text = '${data['email'] ?? ''}';
-      roles = (data['roles'] as List? ?? []).map((value) => '$value').toSet();
-      accessMatrix = {};
-      loaded = true;
-    } catch (_) {
-      if (mounted) {
-        setState(() =>
-            error = 'دریافت دسترسی فعلی ناموفق بود؛ فرم را دوباره باز کنید.');
-      }
-    } finally {
-      if (mounted) setState(() => loading = false);
-    }
-  }
-
-  @override
-  void dispose() {
-    email.dispose();
-    super.dispose();
-  }
-
-  Future<void> save() async {
-    if (email.text.trim().isEmpty || roles.isEmpty) {
-      setState(() => error = 'ایمیل و حداقل یک نقش را انتخاب کنید.');
-      return;
-    }
-    setState(() {
-      saving = true;
-      error = null;
-    });
-    try {
-      await context
-          .read<FrappeApiClient>()
-          .callAsoudMethod('asoud_erp.api.v1.auth.sync_employee_access', data: {
-        'party_profile': '${widget.profile['id']}',
-        'email': email.text.trim().toLowerCase(),
-        'personnel_roles': roles.toList(),
-        'access_matrix': accessMatrix,
-      });
-      if (mounted) Navigator.pop(context, true);
-    } catch (_) {
-      if (mounted) {
-        setState(() => error =
-            'ذخیره دسترسی انجام نشد؛ نقش، ایمیل و دسترسی مدیر سیستم را بررسی کنید.');
-      }
-    } finally {
-      if (mounted) setState(() => saving = false);
-    }
-  }
-
-  /// `hr_onboarding.issue_temporary_password`: shown once; the person must
-  /// replace it at the first sign-in.
-  Future<void> issueTemporaryPassword() async {
-    final client = context.read<FrappeApiClient>();
-    final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-              title: const Text('صدور رمز موقت'),
-              content: const Text(
-                  'رمز موقت جدید ساخته می‌شود و فقط یک‌بار نمایش داده می‌شود. فرد باید هنگام اولین ورود آن را تغییر دهد.'),
-              actions: [
-                TextButton(
-                    onPressed: () => Navigator.pop(ctx, false),
-                    child: const Text('انصراف')),
-                FilledButton(
-                    onPressed: () => Navigator.pop(ctx, true),
-                    child: const Text('صدور رمز')),
-              ],
-            ));
-    if (confirmed != true || !mounted) return;
-    setState(() {
-      saving = true;
-      error = null;
-    });
-    try {
-      final activation = await HrOnboardingRepository(client)
-          .issueTemporaryPassword('${widget.profile['id']}');
-      if (!mounted) return;
-      await showDialog<void>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-                title: const Text('رمز موقت'),
-                content: Column(mainAxisSize: MainAxisSize.min, children: [
-                  SelectableText(activation.temporaryPassword ?? '—',
-                      key: const Key('temporary_password_value'),
-                      textDirection: TextDirection.ltr,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w900, fontSize: 18)),
-                  const SizedBox(height: 8),
-                  Text(
-                      'اعتبار ${activation.expiresInHours ?? 72} ساعت؛ این رمز دیگر نمایش داده نمی‌شود و باید در اولین ورود تغییر کند.',
-                      style: const TextStyle(fontSize: 12)),
-                ]),
-                actions: [
-                  TextButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      child: const Text('بستن'))
-                ],
-              ));
-    } catch (e) {
-      if (mounted) setState(() => error = failureDetail(e));
-    } finally {
-      if (mounted) setState(() => saving = false);
-    }
-  }
-
-  Future<void> selectRoles() async {
-    final result = await Navigator.push<Set<String>>(
-        context,
-        MaterialPageRoute(
-            builder: (_) => PersonnelRolesPage(
-                initialValue: roles,
-                employeeName: _valueOf(widget.profile, 'display_name'),
-                employeeCode: capEmployeeCode(widget.profile['employee_code']),
-                mobile: _valueOf(widget.profile, 'mobile'),
-                onConfirm: (value, matrix) async {
-                  roles = value;
-                  accessMatrix = matrix;
-                })));
-    if (result != null && mounted) setState(() => roles = result);
-  }
-
-  @override
-  Widget build(BuildContext context) => Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-          backgroundColor: _canvas,
-          appBar: _personnelHeader(context, 'مدیریت دسترسی'),
-          bottomNavigationBar: _HrActionBar(
-              label: 'ذخیره دسترسی',
-              icon: Icons.save_outlined,
-              onPressed: saving || loading || !loaded ? null : save),
-          body: ListView(padding: const EdgeInsets.all(16), children: [
-            _PersonnelAccessHeader(profile: widget.profile),
-            const SizedBox(height: 12),
-            _AccessField(
-                label: 'ایمیل حساب کاربری',
-                icon: Icons.email_outlined,
-                child: TextField(
-                    controller: email,
-                    enabled: !saving,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(
-                        hintText: 'employee@example.com'))),
-            const SizedBox(height: 10),
-            _AccessField(
-                label: 'نقش‌ها و دسترسی‌های عملیاتی',
-                icon: Icons.admin_panel_settings_outlined,
-                child: InkWell(
-                    onTap: saving ? null : selectRoles,
-                    child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        child: Row(children: [
-                          Expanded(
-                              child: Text(roles.isEmpty
-                                  ? 'انتخاب نقش‌ها'
-                                  : roles.join('، '))),
-                          const Icon(Icons.chevron_left_rounded, color: _blue),
-                        ])))),
-            if (error != null)
-              Padding(
-                  padding: const EdgeInsets.only(top: 12),
-                  child: Text(error!,
-                      style: const TextStyle(color: Color(0xFFD83B55)))),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-                key: const Key('issue_temporary_password'),
-                onPressed: saving || loading ? null : issueTemporaryPassword,
-                icon: const Icon(Icons.password_rounded),
-                label: const Text('صدور رمز موقت')),
-            const SizedBox(height: 12),
-            const _AccessNotice(),
-          ])));
-}
-
-class _PersonnelAccessHeader extends StatelessWidget {
-  const _PersonnelAccessHeader({required this.profile});
-  final Map<String, dynamic> profile;
-  @override
-  Widget build(BuildContext context) => Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: _line)),
-      child: Row(children: [
-        const Icon(Icons.person_outline_rounded, color: _blue, size: 28),
-        const SizedBox(width: 10),
-        Expanded(
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(_valueOf(profile, 'display_name'),
-              style: const TextStyle(
-                  color: _ink, fontSize: 14, fontWeight: FontWeight.w900)),
-          Text(_valueOf(profile, 'job_title'),
-              style: const TextStyle(color: Color(0xFF8392B8), fontSize: 10)),
-        ])),
-      ]));
-}
-
-class _AccessField extends StatelessWidget {
-  const _AccessField(
-      {required this.label, required this.icon, required this.child});
-  final String label;
-  final IconData icon;
-  final Widget child;
-  @override
-  Widget build(BuildContext context) => Container(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
-      decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: _line)),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Row(children: [
-          Icon(icon, color: _blue, size: 20),
-          const SizedBox(width: 7),
-          Text(label,
-              style: const TextStyle(
-                  color: _ink, fontSize: 12, fontWeight: FontWeight.w800)),
-        ]),
-        child,
-      ]));
-}
-
-class _AccessNotice extends StatelessWidget {
-  const _AccessNotice();
-  @override
-  Widget build(BuildContext context) => Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-          color: const Color(0xFFE7F2FF),
-          borderRadius: BorderRadius.circular(13)),
-      child: const Text(
-          'این عملیات فقط برای مدیر منابع انسانی مجاز است. ایجاد حساب، اتصال کارمند و نقش‌ها در سرور بررسی می‌شود.',
-          style:
-              TextStyle(color: Color(0xFF6680A8), fontSize: 10, height: 1.7)));
 }
 
 class _PersonnelNavigation extends StatelessWidget {
@@ -1094,22 +401,33 @@ class _PersonnelNavigation extends StatelessWidget {
 
 class _PersonnelOverview extends StatefulWidget {
   const _PersonnelOverview(
-      {super.key,
+      {required this.tab,
+      required this.onTab,
+      this.imagePicker,
       required this.profile,
       required this.records,
       required this.repository,
       required this.canEdit,
       required this.onProfile,
+      required this.onCategory,
+      required this.onPhotoSaved,
+      required this.canEditPhoto,
       required this.onRecords,
       required this.onRecord,
       this.file,
       this.fileRepository});
   final Map<String, dynamic> profile;
+  final int tab;
+  final ValueChanged<int> onTab;
+  final ImagePicker? imagePicker;
   final List<Map> records;
   final PersonnelRepository repository;
   final PersonnelFile? file;
   final PersonnelFileRepository? fileRepository;
   final bool canEdit;
+  final bool canEditPhoto;
+  final VoidCallback onPhotoSaved;
+  final ValueChanged<String> onCategory;
   final void Function(String, Map<String, String>) onProfile;
   final ValueChanged<String> onRecords;
   final ValueChanged<Map> onRecord;
@@ -1118,82 +436,154 @@ class _PersonnelOverview extends StatefulWidget {
 }
 
 class _PersonnelOverviewState extends State<_PersonnelOverview> {
-  int tab = 0;
-  void selectTab(int value) => setState(() => tab = value);
+  int get tab => widget.tab;
+  bool showTenure = false;
+  void selectTab(int value) => widget.onTab(value);
+
+  Widget _header(Map<String, dynamic> profile) {
+    final header = widget.file?.header;
+    final photo = header?.photoRecord ?? profile['photo_record'] as String?;
+    String field(String? value, String key) =>
+        value == null || value.trim().isEmpty ? _valueOf(profile, key) : capText(value);
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE8F2FD),
+        border: Border.all(color: const Color(0xFFBDD9FC)),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(children: [
+        DecoratedBox(
+          position: DecorationPosition.foreground,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFBDD9FC)),
+          ),
+          child: _PersonnelPhoto(
+            key: const ValueKey('personnel-file-portrait'),
+            recordId: photo,
+            repository: widget.repository,
+            size: 130,
+            portrait: true,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: const Color(0xFFD6F3E8),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: _EmploymentStatus(disabled: profile['disabled'] == true ||
+                (header != null && header.status.isNotEmpty && !header.isActive)),
+          ),
+          const SizedBox(height: 5),
+          Text(field(header?.name, 'display_name'),
+              maxLines: 2, overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: _ink, fontSize: 17, fontWeight: FontWeight.w800)),
+          Text(field(header?.designation, 'job_title'),
+              style: const TextStyle(color: _ink, fontSize: 12)),
+          Text(field(header?.departmentName, 'department'),
+              style: const TextStyle(color: Color(0xFF536B8D), fontSize: 11)),
+          capValueText(capEmployeeCode(isLocalPersonnelId('${profile['id'] ?? ''}')
+              ? null
+              : (header?.employeeCode ?? profile['employee_code']?.toString())),
+              maxLines: 1,
+              style: const TextStyle(color: Color(0xFF536B8D), fontSize: 10)),
+          if (widget.canEditPhoto)
+            SizedBox(width: double.infinity, child: OutlinedButton(
+              onPressed: () async {
+                final saved = await _pickPersonnelPhoto(
+                  context, widget.repository, '${profile['id']}',
+                  widget.imagePicker,
+                );
+                if (saved && mounted) widget.onPhotoSaved();
+              },
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                side: const BorderSide(color: Color(0xFFBFD1E7)),
+              ),
+              child: Text(photo == null ? 'افزودن عکس' : 'تعویض عکس',
+                  textAlign: TextAlign.center),
+            )),
+        ])),
+      ]),
+    );
+  }
+
+  Widget _summary() {
+    final file = widget.file;
+    final valid = (file?.contracts ?? const <ContractSummary>[])
+        .where((row) => row.state == 'active' || row.state == 'expired')
+        .toList()..sort((a, b) => b.startDate.compareTo(a.startDate));
+    final contract = valid.firstOrNull;
+    final leave = file?.leave;
+    final attendance = file?.attendance;
+    final hasAttendance = attendance != null &&
+        (attendance.present + attendance.absent + attendance.onLeave +
+            attendance.halfDay + attendance.lateEntries + attendance.earlyExits > 0);
+    final documents = file?.documents;
+    final followUp = documents?.where((row) =>
+        ['pending', 'expired', 'expiring'].contains(row.status)).length;
+    final leaveValue = leave == null || leave.isEmpty ? '—' :
+        '${toPersianDigits(leave.fold<double>(0, (total, balance) => total + balance.remainingLeaves).toStringAsFixed(2).replaceFirst(RegExp(r'\.?0+$'), ''))} روز';
+    final items = <(String, String, IconData, Color, VoidCallback?)>[
+      ('سابقه همکاری', file == null ? '—' : serviceLengthLabel(file),
+        Icons.calendar_month_outlined, const Color(0xFF176CC4),
+        () => setState(() => showTenure = !showTenure)),
+      ('پایان قرارداد', contract?.state == 'expired'
+            ? '${capDate(contract!.endDate)} · منقضی'
+            : capDate(contract?.endDate ?? ''),
+        Icons.description_outlined, const Color(0xFF7752BC),
+        () => widget.onCategory('contracts')),
+      ('مانده مرخصی', leaveValue, Icons.event_available_outlined,
+        const Color(0xFF157950), null),
+      ('غیبت و تأخیر', !hasAttendance ? '—' :
+        '${toPersianDigits(attendance.absent)} غیبت · ${toPersianDigits(attendance.lateEntries)} تأخیر',
+        Icons.schedule, const Color(0xFFA45910), () => widget.onRecords('attendance')),
+      ('درخواست‌های باز', '—', Icons.assignment_outlined, const Color(0xFF197C8E), null),
+      ('مدارک نیازمند پیگیری', followUp == null ? '—' : toPersianDigits(followUp),
+        Icons.folder_open_outlined, const Color(0xFFAA4168), () => selectTab(3)),
+    ];
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      capSectionTitle('وضعیت در یک نگاه'),
+      for (var i = 0; i < items.length; i += 2)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: IntrinsicHeight(child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            for (var j = i; j <= i + 1; j++) ...[
+              if (j > i) const SizedBox(width: 8),
+              Expanded(child: _PersonnelOverviewMetric(
+                title: items[j].$1, value: items[j].$2, icon: items[j].$3,
+                color: items[j].$4, onTap: items[j].$5,
+                selected: j == 0 && showTenure,
+              )),
+            ],
+          ])),
+        ),
+      if (showTenure)
+        Card(
+          color: Colors.white,
+          child: ListTile(
+            title: const Text('سابقه همکاری'),
+            subtitle: const Text('سابقه از تاریخ شروع همکاری محاسبه می‌شود.'),
+            trailing: IconButton(
+              tooltip: 'بستن توضیح سابقه',
+              onPressed: () => setState(() => showTenure = false),
+              icon: const Icon(Icons.close),
+            ),
+          ),
+        ),
+    ]);
+  }
 
   @override
   Widget build(BuildContext context) {
     final p = widget.profile;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Container(
-          height: 168,
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-              color: const Color(0xFFEAF5FF),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: const Color(0xFFD5E9FF))),
-          child: Stack(children: [
-            Positioned(
-                left: 14,
-                bottom: 12,
-                child: _PersonnelPhoto(
-                    recordId: p['photo_record'] as String?,
-                    repository: widget.repository,
-                    size: 124)),
-            Positioned(
-                right: 16,
-                top: 15,
-                bottom: 15,
-                width: 160,
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 9, vertical: 4),
-                          decoration: BoxDecoration(
-                              color: const Color(0xFFD9F8EE),
-                              borderRadius: BorderRadius.circular(20)),
-                          child: _EmploymentStatus(
-                              disabled: p['disabled'] == true)),
-                      const Spacer(),
-                      Text(_valueOf(p, 'display_name'),
-                          maxLines: 2,
-                          style: const TextStyle(
-                              color: _ink,
-                              fontSize: 21,
-                              fontWeight: FontWeight.w900)),
-                      const SizedBox(height: 3),
-                      Text(_valueOf(p, 'job_title'),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: _ink, fontSize: 12)),
-                      Text(_valueOf(p, 'department'),
-                          style: const TextStyle(
-                              color: Color(0xFF6481A8), fontSize: 10)),
-                    ])),
-          ])),
-      Container(
-          margin: const EdgeInsets.symmetric(vertical: 10),
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: _line)),
-          child: Row(children: [
-            _ProfileMetric(
-                icon: Icons.verified_outlined,
-                title: _valueOf(p, 'employment_type'),
-                subtitle: 'نوع همکاری'),
-            _ProfileMetric(
-                icon: Icons.apartment_rounded,
-                title: _valueOf(p, 'department'),
-                subtitle: 'واحد سازمانی'),
-            _ProfileMetric(
-                icon: Icons.badge_outlined,
-                title: capEmployeeCode(p['employee_code']),
-                subtitle: 'کد پرسنلی'),
-          ])),
+      _header(p),
+      const SizedBox(height: 10),
       Container(
           padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
@@ -1204,13 +594,7 @@ class _PersonnelOverviewState extends State<_PersonnelOverview> {
                 in ['نمای کلی', 'اطلاعات پرسنلی', 'سوابق', 'مدارک'].indexed)
               Expanded(
                   child: InkWell(
-                      onTap: () {
-                        if (i == 1) {
-                          widget.onProfile('اطلاعات پرسنلی', _personal);
-                        } else {
-                          setState(() => tab = i);
-                        }
-                      },
+                      onTap: () => selectTab(i),
                       borderRadius: BorderRadius.circular(8),
                       child: Container(
                           padding: const EdgeInsets.symmetric(vertical: 10),
@@ -1228,73 +612,39 @@ class _PersonnelOverviewState extends State<_PersonnelOverview> {
           ])),
       const SizedBox(height: 10),
       if (tab == 0) ...[
-        const Text('خلاصه اطلاعات',
-            style: TextStyle(
-                color: _ink, fontSize: 14, fontWeight: FontWeight.w900)),
+        _summary(),
         const SizedBox(height: 10),
-        Row(children: [
-          Expanded(
-              child: _SummaryTile(
-                  title: 'واحد سازمانی',
-                  value: _valueOf(p, 'department'),
-                  icon: Icons.apartment_outlined,
-                  color: _blue,
-                  onTap: () =>
-                      widget.onProfile('اطلاعات سازمانی', _organization))),
-          const SizedBox(width: 10),
-          Expanded(
-              child: _SummaryTile(
-                  title: 'سمت شغلی',
-                  value: _valueOf(p, 'job_title'),
-                  icon: Icons.work_outline_rounded,
-                  color: const Color(0xFF00BCCD),
-                  onTap: () =>
-                      widget.onProfile('اطلاعات سازمانی', _organization))),
-        ]),
-        const SizedBox(height: 10),
-        Row(children: [
-          Expanded(
-              child: _SummaryTile(
-                  title: 'تاریخ استخدام',
-                  value: _valueOf(p, 'date_of_joining'),
-                  icon: Icons.calendar_month_outlined,
-                  color: const Color(0xFFFF9B2D),
-                  onTap: () =>
-                      widget.onProfile('اطلاعات سازمانی', _organization))),
-          const SizedBox(width: 10),
-          Expanded(
-              child: _SummaryTile(
-                  title: 'اطلاعات فردی',
-                  value: _valueOf(p, 'display_name'),
-                  icon: Icons.person_outline_rounded,
-                  color: const Color(0xFF8A52FA),
-                  onTap: () => widget.onProfile('اطلاعات پرسنلی', _personal))),
-        ]),
-        const SizedBox(height: 10),
-        PersonnelManagerAndTenureSlot(
-            file: widget.file,
-            repository: widget.repository,
-            fileRepository: widget.fileRepository),
         PersonnelActivityFeedSlot(
-            file: widget.file,
             records: widget.records,
-            onRecord: widget.onRecord,
-            onRecords: widget.onRecords),
+            onRecord: widget.onRecord),
       ],
       if (tab == 1) ...[
-        _SummaryTile(
-            title: 'اطلاعات فردی',
-            value: 'مشخصات و راه‌های ارتباطی',
-            icon: Icons.person_outline,
-            color: _blue,
-            onTap: () => widget.onProfile('اطلاعات پرسنلی', _personal)),
-        const SizedBox(height: 10),
-        _SummaryTile(
-            title: 'اطلاعات سازمانی',
-            value: 'سمت، واحد و نوع همکاری',
-            icon: Icons.apartment,
-            color: const Color(0xFF8A52FA),
-            onTap: () => widget.onProfile('اطلاعات سازمانی', _organization)),
+        for (final item in [
+          ('اطلاعات فردی', Icons.badge_outlined, const Color(0xFF7855C2)),
+          ('اطلاعات سازمانی', Icons.apartment_rounded, _blue),
+          ('اطلاعات استخدامی', Icons.work_outline, const Color(0xFF087B5A)),
+          ('قراردادها', Icons.edit_document, const Color(0xFFA65D17)),
+          ('حقوق و مزایا', Icons.account_balance_wallet_outlined, const Color(0xFF217D93)),
+          ('حضور و غیاب', Icons.event_available_outlined, const Color(0xFF7855C2)),
+        ])
+          _PersonnelInfoSection(
+            title: item.$1,
+            icon: item.$2,
+            color: item.$3,
+            onTap: () => switch (item.$1) {
+              'اطلاعات فردی' => widget.onProfile(item.$1, _personal),
+              'اطلاعات سازمانی' => widget.onProfile(item.$1, _organization),
+              'اطلاعات استخدامی' => widget.onCategory('employment'),
+              'قراردادها' => widget.onCategory('contracts'),
+              'حقوق و مزایا' => widget.onCategory('benefits'),
+              _ => widget.onRecords('attendance'),
+            },
+          ),
+        PersonnelManagerAndTenureSlot(
+          file: widget.file,
+          repository: widget.repository,
+          fileRepository: widget.fileRepository,
+        ),
       ],
       if (tab == 2 || tab == 3)
         for (final kind in (tab == 2
@@ -1313,6 +663,13 @@ class _PersonnelOverviewState extends State<_PersonnelOverview> {
                   onTap: () => widget.onRecords(kind))),
       if (tab == 3)
         PersonnelDocumentsSlot(file: widget.file, personnel: widget.repository),
+      if (tab == 2 && widget.file != null)
+        TextButton(
+          onPressed: () => Navigator.push<void>(context, MaterialPageRoute(
+            builder: (_) => _ActivityFeedPage(file: widget.file!),
+          )),
+          child: const Text('مشاهده همه فعالیت‌ها'),
+        ),
       const SizedBox(height: 10),
       Row(children: [
         if (widget.canEdit)
@@ -1343,6 +700,40 @@ class _PersonnelOverviewState extends State<_PersonnelOverview> {
       ]),
     ]);
   }
+}
+
+class _PersonnelOverviewMetric extends StatelessWidget {
+  const _PersonnelOverviewMetric({
+    required this.title, required this.value, required this.icon,
+    required this.color, required this.onTap, required this.selected,
+  });
+  final String title, value;
+  final IconData icon;
+  final Color color;
+  final VoidCallback? onTap;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: Color.alphaBlend(color.withValues(alpha: .10), Colors.white),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(13),
+      side: selected ? BorderSide(color: color) : BorderSide.none,
+    ),
+    clipBehavior: Clip.antiAlias,
+    child: InkWell(onTap: onTap, child: Padding(
+      padding: const EdgeInsets.all(10),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Icon(icon, color: color, size: 17),
+          const SizedBox(width: 5),
+          Expanded(child: Text(title, style: const TextStyle(color: _ink, fontSize: 11))),
+        ]),
+        const SizedBox(height: 8),
+        Text(value, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w800)),
+      ]),
+    )),
+  );
 }
 
 class _ProfileMetric extends StatelessWidget {
@@ -1447,82 +838,14 @@ class _ActivityRow extends StatelessWidget {
           decoration: const BoxDecoration(
               border: Border(bottom: BorderSide(color: _line))),
           child: Row(children: [
-            Icon(
-                record['kind'] == 'evaluation'
-                    ? Icons.star_border_rounded
-                    : Icons.event_available_outlined,
-                size: 21,
-                color: record['kind'] == 'evaluation'
-                    ? const Color(0xFFFFA42A)
-                    : const Color(0xFF0CBD91)),
+            Icon(capEventIcon('${record['kind']}', '${record['title']}'),
+                size: 17, color: capEventColor('${record['kind']}')),
             const SizedBox(width: 9),
             Expanded(
                 child: Text('${record['title']}',
                     style: const TextStyle(fontSize: 11, color: _ink))),
-            Text('${record['record_date'] ?? ''}',
+            capValueText(capDate('${record['record_date'] ?? ''}'),
                 style: const TextStyle(fontSize: 10, color: Color(0xFF8392B8))),
+            const Icon(Icons.chevron_left_rounded, size: 15, color: AsoudColors.muted),
           ])));
-}
-
-class _PersonnelAccountMenu extends StatelessWidget {
-  const _PersonnelAccountMenu(
-      {required this.profile, required this.repository});
-  final Map<String, dynamic> profile;
-  final PersonnelRepository repository;
-  @override
-  Widget build(BuildContext context) => buildPersonnelAccountMenu(
-      context: context, profile: profile, repository: repository);
-}
-
-/// Account actions available from each personnel list row.
-const personnelAccountMenuEntries =
-    <({String value, String title, IconData icon})>[
-  (
-    value: 'access',
-    title: 'مدیریت دسترسی',
-    icon: Icons.admin_panel_settings_outlined
-  ),
-  (
-    value: 'account',
-    title: 'ایجاد/تغییر حساب کاربری',
-    icon: Icons.person_outline
-  ),
-  (value: 'invite', title: 'ارسال مجدد دعوت', icon: Icons.mail_outline),
-  (value: 'logs', title: 'مشاهده سوابق ورود', icon: Icons.description_outlined),
-];
-
-Widget buildPersonnelAccountMenu({
-  required BuildContext context,
-  required Map<String, dynamic> profile,
-  required PersonnelRepository repository,
-}) {
-  return PopupMenuButton<String>(
-    tooltip: 'مدیریت دسترسی',
-    icon: const Icon(Icons.more_vert_rounded, color: _ink, size: 20),
-    onSelected: (value) {
-      if (value == 'access' || value == 'account') {
-        Navigator.push<void>(
-            context,
-            MaterialPageRoute(
-                builder: (_) => _EmployeeUserDetailsPage(
-                    profile: profile, repository: repository)));
-      } else if (value == 'invite') {
-        Navigator.push<void>(
-            context,
-            MaterialPageRoute(
-                builder: (_) => _EmployeeInvitationsPage(
-                    profile: profile, repository: repository)));
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('این قابلیت هنوز به سرویس متصل نشده است.')));
-      }
-    },
-    itemBuilder: (_) => [
-      for (final entry in personnelAccountMenuEntries)
-        PopupMenuItem(
-            value: entry.value,
-            child:
-                ListTile(leading: Icon(entry.icon), title: Text(entry.title))),
-    ],
-  );
 }

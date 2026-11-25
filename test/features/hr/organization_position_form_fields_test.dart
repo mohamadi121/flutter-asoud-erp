@@ -235,6 +235,7 @@ void main() {
       expect(unit.displayValue, 'ریشه ساختار سازمانی (بدون ارتباط با واحد)');
       final parent = tester.widget<AppSelectField>(find.byKey(const ValueKey('focus-editor-parent')));
       expect(parent.displayValue, 'جایگاه اصلی / بدون بالادست');
+      expect(parent.enabled, isFalse);
       expect(find.byTooltip('عملیات واحد'), findsNothing);
       expect(find.byTooltip('عملیات مدیرعامل'), findsNothing);
       await tap(find.byKey(const ValueKey('focus-editor-save')));
@@ -992,62 +993,41 @@ void main() {
   });
 
   for (final width in [320.0, 390.0]) {
-    testWidgets('organization management and visual report fit at $width',
+    testWidgets('organization unit and position modes fit at $width',
         (tester) async {
       final client = _OrgClient();
-      await _openCreateForm(tester, client);
-      await tester.tap(find.text('انصراف'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('بازگشت').first);
-      await tester.pumpAndSettle();
+      await _openCreateForm(tester, client, openForm: false);
       tester.view.physicalSize = Size(width, 800);
       await tester.pumpAndSettle();
       expect(find.byType(TabBar), findsNothing);
       await _openStructureTool(tester, 'واحدها');
       expect(find.text('هنوز واحدی تعریف نشده است.'), findsOneWidget);
-      await tester.tap(find.byTooltip('بازگشت').first);
+      expect(find.text('نمای درختی'), findsOneWidget);
+      await tester.tap(find.text('نمای مرحله‌ای'));
+      await tester.pumpAndSettle();
+      expect(find.text('واحدهای اصلی'), findsOneWidget);
+      await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
       await _openStructureTool(tester, 'جایگاه‌ها');
       expect(find.text('جایگاه‌های سازمانی'), findsWidgets);
-      await tester.tap(find.byTooltip('بازگشت').first);
+      expect(find.text('نمای درختی'), findsOneWidget);
+      await tester.tap(find.text('نمای مرحله‌ای'));
       await tester.pumpAndSettle();
-      final report = find.text('گزارش تصویری چارت');
-      // A cached child can exist below the viewport in NestedScrollView.
-      // Real gestures scroll both coordinated viewports; wait for a hit target,
-      // not merely for the lazy child to have been built.
-      for (var attempt = 0;
-          attempt < 20 && report.hitTestable().evaluate().isEmpty;
-          attempt++) {
-        await tester.drag(find.byKey(const PageStorageKey('organization-focused-scroll')), const Offset(0, -200));
-        await tester.pumpAndSettle();
-      }
-      expect(report.hitTestable(), findsOneWidget);
-      await tester.tap(report.hitTestable());
-      await tester.pumpAndSettle();
-      expect(find.text('نمای فهرستی'), findsOneWidget);
-      expect(find.text('ورود از اکسل'), findsOneWidget);
-      expect(find.text('ایجاد دستی'), findsOneWidget);
+      expect(find.text('جایگاه‌های اصلی'), findsOneWidget);
+      expect(find.text('گزارش تصویری چارت', skipOffstage: false), findsNothing);
       expect(tester.takeException(), isNull);
     });
   }
 
-  testWidgets('the visual report still renders when the units list fails',
+  testWidgets('position modes still render when the units list fails',
       (tester) async {
     final client = _OrgClient()..failUnits = true;
     await _openCreateForm(tester, client, openForm: false, focusFirst: false);
     tester.view.physicalSize = const Size(390, 800);
     await tester.pumpAndSettle();
-    final report = find.text('گزارش تصویری چارت');
-    for (var attempt = 0;
-        attempt < 20 && report.hitTestable().evaluate().isEmpty;
-        attempt++) {
-      await tester.drag(find.byKey(const PageStorageKey('organization-focused-scroll')), const Offset(0, -200));
-      await tester.pumpAndSettle();
-    }
-    await tester.tap(report.hitTestable());
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('visual-units-unavailable')),
-        findsOneWidget);
+    await _openStructureTool(tester, 'جایگاه‌ها');
+    expect(find.text('نمای درختی'), findsOneWidget);
+    expect(find.text('نمای مرحله‌ای'), findsOneWidget);
     expect(find.text('مدیرعامل'), findsWidgets);
     expect(find.text('دریافت اطلاعات ناموفق بود؛ تلاش دوباره'), findsNothing);
   });

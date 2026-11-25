@@ -272,6 +272,7 @@ void main() {
         (tester) async {
       final repo = _Repository();
       await _start(tester, repo);
+      await _tap(tester, 'اطلاعات پرسنلی');
       await _tap(tester, 'اطلاعات فردی');
       expect(find.byType(TextFormField), findsNothing);
       if (golden) {
@@ -309,7 +310,8 @@ void main() {
     expect(find.text('ویرایش سابقه'), findsNothing);
     await tester.tap(find.byTooltip('بازگشت').last);
     await tester.pumpAndSettle();
-    await _tap(tester, 'مشاهده همه');
+    await _tap(tester, 'سوابق');
+    await _tap(tester, 'مشاهده سوابق');
     expect(find.text('سوابق و فعالیت‌ها'), findsNWidgets(2));
     expect(tester.takeException(), isNull);
   });

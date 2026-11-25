@@ -256,260 +256,13 @@ class _HrActionBar extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12))))));
 }
 
-class _PersonnelInfoPage extends StatefulWidget {
-  const _PersonnelInfoPage(
-      {required this.profile,
-      required this.revision,
-      required this.canEdit,
-      required this.repository,
-      this.fileRepository});
-  final Map<String, dynamic> profile;
-  final String revision;
-  final bool canEdit;
-  final PersonnelRepository repository;
-  final PersonnelFileRepository? fileRepository;
-  @override
-  State<_PersonnelInfoPage> createState() => _PersonnelInfoPageState();
-}
-
-class _PersonnelInfoPageState extends State<_PersonnelInfoPage> {
-  late Map<String, dynamic> profile = widget.profile;
-  late String revision = widget.revision;
-  late bool canEdit = widget.canEdit;
-  bool loading = false;
-
-  Future<void> edit() async {
-    final saved = await Navigator.push<bool>(
-        context,
-        MaterialPageRoute(
-            builder: (_) => _ProfileEditor(
-                title: 'اطلاعات فردی',
-                labels: {..._personal, ..._organization},
-                profile: profile,
-                revision: revision,
-                repository: widget.repository)));
-    if (saved != true || !mounted) return;
-    setState(() => loading = true);
-    try {
-      final data = await widget.repository.detail('${profile['id']}');
-      if (!mounted) return;
-      setState(() {
-        profile = Map<String, dynamic>.from(data['profile'] as Map);
-        revision = '${data['revision']}';
-        canEdit = data['can_edit'] == true;
-      });
-    } finally {
-      if (mounted) setState(() => loading = false);
-    }
-  }
-
-  void openProfile(String title, Map<String, String> labels) {
-    Navigator.push<void>(
-        context,
-        MaterialPageRoute(
-            builder: (_) => _ProfileFields(
-                title: title,
-                labels: labels,
-                profile: profile,
-                canEdit: canEdit,
-                revision: revision,
-                repository: widget.repository)));
-  }
-
-  Future<void> openRecords(String kind) async {
-    final data = await widget.repository.detail('${profile['id']}');
-    if (!mounted) return;
-    await Navigator.push<void>(
-        context,
-        MaterialPageRoute(
-            builder: (_) => _RecordsPage(
-                personId: '${profile['id']}',
-                kind: kind,
-                canEdit: data['can_edit'] == true,
-                repository: widget.repository,
-                records: (data['records'] as List)
-                    .where((record) => record['kind'] == kind)
-                    .cast<Map>()
-                    .toList())));
-  }
-
-  void openCategory(String category) {
-    Navigator.push<void>(
-        context,
-        MaterialPageRoute(
-            builder: (_) => _PersonnelCategoryPage(
-                category: category,
-                profile: profile,
-                repository: widget.repository,
-                fileRepository: widget.fileRepository,
-                canEdit: canEdit)));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final p = profile;
-    return Directionality(
-        textDirection: TextDirection.rtl,
-        child: Scaffold(
-            backgroundColor: _canvas,
-            appBar: _personnelHeader(context, 'اطلاعات پرسنلی',
-                action: IconButton(
-                    tooltip: 'سوابق پرسنلی',
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.description_outlined, size: 20))),
-            bottomNavigationBar:
-                _PersonnelNavigation(company: '${p['company'] ?? ''}'),
-            body: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 10, 16, 18),
-                children: [
-                  _PersonnelInfoHero(profile: p, repository: widget.repository),
-                  const SizedBox(height: 10),
-                  _PersonnelInfoMetrics(profile: p),
-                  const SizedBox(height: 12),
-                  _PersonnelInfoSection(
-                      title: 'اطلاعات فردی',
-                      subtitle: 'نام و نام خانوادگی',
-                      icon: Icons.person_outline_rounded,
-                      color: const Color(0xFF8A52FA),
-                      onTap: () => openProfile('اطلاعات فردی', _personal)),
-                  _PersonnelInfoSection(
-                      title: 'اطلاعات سازمانی',
-                      subtitle: 'واحد، سمت و نوع همکاری',
-                      icon: Icons.apartment_rounded,
-                      color: _blue,
-                      onTap: () =>
-                          openProfile('اطلاعات سازمانی', _organization)),
-                  _PersonnelInfoSection(
-                      title: 'اطلاعات استخدامی',
-                      subtitle: 'نوع همکاری، تاریخ شروع و وضعیت',
-                      icon: Icons.work_outline_rounded,
-                      color: const Color(0xFF04B985),
-                      onTap: () => openCategory('employment')),
-                  _PersonnelInfoSection(
-                      title: 'قراردادها',
-                      subtitle: 'قرارداد جاری و مستندات همکاری',
-                      icon: Icons.description_outlined,
-                      color: const Color(0xFFFF8B1F),
-                      onTap: () => openCategory('contracts')),
-                  _PersonnelInfoSection(
-                      title: 'حقوق و مزایا',
-                      subtitle: 'اطلاعات مالی در API فعلی ارائه نشده است',
-                      icon: Icons.account_balance_wallet_outlined,
-                      color: const Color(0xFFF2485B),
-                      onTap: () => openCategory('benefits')),
-                  _PersonnelInfoSection(
-                      title: 'حضور و غیاب',
-                      subtitle: 'شیفت‌ها، تردد و ساعات کاری',
-                      icon: Icons.access_time_rounded,
-                      color: const Color(0xFF8A52FA),
-                      onTap: () => Navigator.pop(context)),
-                  Container(
-                      margin: const EdgeInsets.only(top: 4),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                          color: const Color(0xFFE7F2FF),
-                          borderRadius: BorderRadius.circular(13),
-                          border: Border.all(color: const Color(0xFFD4E8FF))),
-                      child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Icon(Icons.info_outline_rounded,
-                                color: _blue, size: 22),
-                            const SizedBox(width: 8),
-                            Expanded(
-                                child: Text(
-                                    'اطلاعات حقوق و مزایا فقط برای کاربران مجاز نمایش داده می‌شود.',
-                                    style: const TextStyle(
-                                        color: Color(0xFF6680A8),
-                                        fontSize: 10,
-                                        height: 1.7))),
-                          ])),
-                  const SizedBox(height: 10),
-                  if (loading) const LinearProgressIndicator(),
-                  if (canEdit)
-                    FilledButton.icon(
-                        onPressed: loading ? null : edit,
-                        icon: const Icon(Icons.edit_outlined, size: 17),
-                        label: const Text('ویرایش اطلاعات')),
-                ])));
-  }
-}
-
-class _PersonnelInfoHero extends StatelessWidget {
-  const _PersonnelInfoHero({required this.profile, required this.repository});
-  final Map<String, dynamic> profile;
-  final PersonnelRepository repository;
-  @override
-  Widget build(BuildContext context) => Container(
-      height: 137,
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-          color: const Color(0xFFE5F3FF),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFD5E9FF))),
-      child: Row(children: [
-        _PersonnelPhoto(
-            recordId: profile['photo_record'] as String?,
-            repository: repository,
-            size: 116),
-        const SizedBox(width: 12),
-        Expanded(
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-              _EmploymentStatus(disabled: profile['disabled'] == true),
-              const SizedBox(height: 15),
-              Text(_valueOf(profile, 'display_name'),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                      color: _ink, fontSize: 20, fontWeight: FontWeight.w900)),
-              Text(_valueOf(profile, 'job_title'),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: _ink, fontSize: 11)),
-              Text(_valueOf(profile, 'department'),
-                  style:
-                      const TextStyle(color: Color(0xFF6680A8), fontSize: 10)),
-            ]))
-      ]));
-}
-
-class _PersonnelInfoMetrics extends StatelessWidget {
-  const _PersonnelInfoMetrics({required this.profile});
-  final Map<String, dynamic> profile;
-  @override
-  Widget build(BuildContext context) => Container(
-      padding: const EdgeInsets.symmetric(vertical: 11),
-      decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(13),
-          border: Border.all(color: _line)),
-      child: Row(children: [
-        _ProfileMetric(
-            icon: Icons.verified_outlined,
-            title: _valueOf(profile, 'employment_type'),
-            subtitle: 'نوع همکاری'),
-        _ProfileMetric(
-            icon: Icons.apartment_rounded,
-            title: _valueOf(profile, 'department'),
-            subtitle: 'واحد سازمانی'),
-        _ProfileMetric(
-            icon: Icons.badge_outlined,
-            title: capEmployeeCode(profile['employee_code']),
-            subtitle: 'کد پرسنلی'),
-      ]));
-}
-
 class _PersonnelInfoSection extends StatelessWidget {
   const _PersonnelInfoSection(
       {required this.title,
-      required this.subtitle,
       required this.icon,
       required this.color,
       required this.onTap});
-  final String title, subtitle;
+  final String title;
   final IconData icon;
   final Color color;
   final VoidCallback onTap;
@@ -517,7 +270,7 @@ class _PersonnelInfoSection extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
       padding: const EdgeInsets.only(bottom: 7),
       child: Material(
-          color: color.withValues(alpha: .055),
+          color: Colors.white,
           borderRadius: BorderRadius.circular(13),
           child: InkWell(
               onTap: onTap,
@@ -527,7 +280,7 @@ class _PersonnelInfoSection extends StatelessWidget {
                       const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
                   decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(13),
-                      border: Border.all(color: color.withValues(alpha: .12))),
+                      border: Border.all(color: _line)),
                   child: Row(children: [
                     Container(
                         padding: const EdgeInsets.all(9),
@@ -537,21 +290,11 @@ class _PersonnelInfoSection extends StatelessWidget {
                         child: Icon(icon, color: color, size: 22)),
                     const SizedBox(width: 10),
                     Expanded(
-                        child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                          Text(title,
-                              style: const TextStyle(
-                                  color: _ink,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w900)),
-                          const SizedBox(height: 2),
-                          Text(subtitle,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                  color: Color(0xFF8294BA), fontSize: 9)),
-                        ])),
+                        child: Text(title,
+                            style: const TextStyle(
+                                color: _ink,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800))),
                     const Icon(Icons.chevron_left_rounded,
                         color: Color(0xFF6680A8), size: 22),
                   ])))));

@@ -231,12 +231,54 @@ class _OrganizationUnitList extends StatefulWidget {
 
 class _OrganizationUnitListState extends State<_OrganizationUnitList> {
   String query = '';
+  int view = 0;
+  final path = <String>[];
+  final collapsed = <String>{};
+
+  void back() => setState(() {
+        path.removeLast();
+        query = '';
+      });
+
   @override
   Widget build(BuildContext context) {
-    final matches = widget.units
+    final nav = OrganizationUnitNavigation(widget.units);
+    final current = nav.byId(path.lastOrNull);
+    final direct = <String?, List<Map<String, dynamic>>>{};
+    for (final unit in widget.units) {
+      final parent = nav.byId(unit['parent_department']?.toString());
+      direct.putIfAbsent(parent?['name'] as String?, () => []).add(unit);
+    }
+    final matchedIds = widget.units
         .where((u) => organizationUnitLabel(u).contains(query))
-        .toList();
-    return ListView(padding: const EdgeInsets.all(16), children: [
+        .map((unit) => unit['name'] as String)
+        .toSet();
+    final visibleIds = {
+      for (final id in matchedIds)
+        for (final ancestor in nav.path(id)) ancestor['name'],
+    };
+    final visible = <(Map<String, dynamic>, int)>[];
+    final seen = <String>{};
+    void walk(String? parent, int depth) {
+      for (final unit in direct[parent] ?? const <Map<String, dynamic>>[]) {
+        final id = unit['name'] as String;
+        if (!seen.add(id) || !(view == 0 ? visibleIds : matchedIds).contains(id)) {
+          continue;
+        }
+        visible.add((unit, depth));
+        if (view == 0 && (query.isNotEmpty || !collapsed.contains(id))) {
+          walk(id, depth + 1);
+        }
+      }
+    }
+
+    walk(view == 1 ? (current?['name'] as String?) : null, 0);
+    return PopScope(
+      canPop: view == 0 || path.isEmpty,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && view == 1 && path.isNotEmpty) back();
+      },
+      child: ListView(padding: const EdgeInsets.all(16), children: [
       _OrgTabHeading(
           title: 'واحدهای سازمانی',
           action: 'واحد جدید',
@@ -244,7 +286,13 @@ class _OrganizationUnitListState extends State<_OrganizationUnitList> {
           onCreate: () => _openOrganizationPage<bool>(
               context, const _OrganizationCreateForm(position: false))),
       const SizedBox(height: 16),
+      _OrgViewSwitch(value: view, onChanged: (value) => setState(() {
+        view = value;
+        query = '';
+      })),
+      const SizedBox(height: 12),
       TextField(
+          key: ValueKey('org-unit-search-$view-${path.join('/')}'),
           onChanged: (value) => setState(() => query = value.trim()),
           decoration: InputDecoration(
               hintText: 'جست‌وجو در واحدها...',
@@ -260,22 +308,42 @@ class _OrganizationUnitListState extends State<_OrganizationUnitList> {
                   borderRadius: BorderRadius.circular(28),
                   borderSide: const BorderSide(color: Color(0xffd7d8df))))),
       const SizedBox(height: 14),
-      if (matches.isEmpty)
+      if (view == 1)
+        Row(children: [
+          if (path.isNotEmpty)
+            IconButton(onPressed: back, tooltip: 'بازگشت به سطح قبل',
+              icon: const Icon(Icons.arrow_forward_rounded)),
+          Expanded(child: Text(current == null ? 'واحدهای اصلی'
+              : 'زیرمجموعه‌های ${organizationUnitLabel(current)}',
+            style: const TextStyle(fontWeight: FontWeight.w800))),
+        ]),
+      if (visible.isEmpty)
         Padding(
             padding: const EdgeInsets.all(20),
             child: Text(query.isEmpty
-                ? 'هنوز واحدی تعریف نشده است.'
+                ? (current == null ? 'هنوز واحدی تعریف نشده است.' : 'هنوز زیرواحدی تعریف نشده است.')
                 : 'واحدی مطابق جست‌وجو یافت نشد.')),
-      for (final unit in matches)
+      for (final (unit, depth) in visible)
         Padding(
-            padding: const EdgeInsets.only(bottom: 12),
+            key: ValueKey('org-unit-tree-${unit['name']}'),
+            padding: EdgeInsetsDirectional.only(
+              start: depth.clamp(0, 4) * 8.0, bottom: 12),
             child: Container(
                 decoration: _orgWhiteCard(),
                 child: Material(
                     color: Colors.transparent,
                     child: InkWell(
                         borderRadius: BorderRadius.circular(22),
-                        onTap: () => widget.onOpen(unit),
+                        onTap: () {
+                          if (view == 1 && (direct[unit['name']]?.isNotEmpty ?? false)) {
+                            setState(() {
+                              path.add(unit['name'] as String);
+                              query = '';
+                            });
+                          } else {
+                            widget.onOpen(unit);
+                          }
+                        },
                         child: Padding(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 16, vertical: 22),
@@ -307,11 +375,28 @@ class _OrganizationUnitListState extends State<_OrganizationUnitList> {
                                               fontSize: 11,
                                               color: Color(0xff777d87))),
                                   ])),
-                              const Icon(Icons.chevron_left,
+                              if (view == 0 && (direct[unit['name']]?.isNotEmpty ?? false))
+                                IconButton(
+                                  tooltip: collapsed.contains(unit['name'])
+                                      ? 'نمایش زیرواحدها' : 'بستن زیرواحدها',
+                                  icon: Icon(collapsed.contains(unit['name'])
+                                      ? Icons.chevron_left : Icons.expand_more),
+                                  onPressed: query.isNotEmpty ? null : () => setState(() {
+                                    final id = unit['name'] as String;
+                                    if (!collapsed.add(id)) collapsed.remove(id);
+                                  }),
+                                )
+                              else if (view == 1 && (direct[unit['name']]?.isNotEmpty ?? false))
+                                IconButton(
+                                  tooltip: 'جزئیات واحد',
+                                  icon: const Icon(Icons.info_outline),
+                                  onPressed: () => widget.onOpen(unit),
+                                )
+                              else const Icon(Icons.chevron_left,
                                   color: Color(0xffa0a4ad), size: 22),
                             ])))))),
       const _OrgTabFooter(),
-    ]);
+    ]));
   }
 }
 
