@@ -288,7 +288,7 @@ class _SettingsDashboardContentState extends State<SettingsDashboardContent> {
                           'مدیریت کاربران',
                           Icons.person_outline,
                           AsoudColors.primary,
-                          onTap: !hasOffice || widget.offlinePreview
+                          onTap: !hasOffice
                               ? null
                               : () => _open(
                                     OfficeUsersPage(company: company!, repository:
@@ -365,7 +365,7 @@ class _SettingsDashboardContentState extends State<SettingsDashboardContent> {
                           Icons.shield_outlined,
                           AsoudColors.primary,
                           note: 'الگوهای مجوز دفتر',
-                          onTap: !hasOffice || widget.offlinePreview ? null : () => _open(
+                          onTap: !hasOffice ? null : () => _open(
                             AccessProfilesPage(company: company!, repository:
                               AccessManagementRepository(context.read<FrappeApiClient>())),
                           ),

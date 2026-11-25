@@ -94,7 +94,10 @@ class _PersonnelList extends StatelessWidget {
             future: capabilitiesOf(context),
             builder: (context, capsSnap) {
               final caps = capsSnap.data ?? Capabilities.fromRoles(const []);
-              final canWritePersonnel = caps.canWritePersonnel && state.canEdit;
+              // Keep the create entry point available during a failed list
+              // refresh. The repository/server still authorizes persistence;
+              // offline saves remain drafts in the existing local outbox.
+              final canWritePersonnel = caps.canWritePersonnel;
               final canManageAccess = caps.canManageUserAccess && state.canEdit;
               return Scaffold(
           backgroundColor: _canvas,

@@ -59,6 +59,14 @@ class _OfficeUsersState extends State<OfficeUsersPage> {
               ? const Center(child: CircularProgressIndicator())
               : ListView(padding: const EdgeInsets.all(16), children: [
                   if (error != null) ...[
+                    FilledButton.icon(
+                        onPressed: () => open(OfficeAccountCreate(
+                            company: widget.company,
+                            people: people,
+                            repository: repo)),
+                        icon: const Icon(Icons.person_add_outlined),
+                        label: const Text('ایجاد حساب کاربری')),
+                    const SizedBox(height: 12),
                     Text(error!),
                     TextButton(
                         onPressed: load, child: const Text('تلاش دوباره'))
@@ -151,6 +159,12 @@ class _OfficeAccountCreateState extends State<OfficeAccountCreate> {
           backgroundColor: AsoudColors.background,
           appBar: const AsoudHeader(title: 'ایجاد حساب کاربری'),
           body: ListView(padding: const EdgeInsets.all(16), children: [
+            if (widget.people.isEmpty)
+              const Card(
+                  child: Padding(
+                      padding: EdgeInsets.all(14),
+                      child: Text(
+                          'برای ایجاد حساب، پروندهٔ پرسنلیِ موجود باید از سرور دریافت شود. این فرم پرسنل جدید ایجاد نمی‌کند و تا دریافت فهرست پرسنل، امکان ثبت حساب وجود ندارد.'))),
             Card(
                 child: Padding(
                     padding: const EdgeInsets.all(12),
