@@ -15,6 +15,7 @@ class WorkflowTask extends Equatable {
     this.localOnly = false,
     this.followup = '',
     this.action = '',
+    this.subject = '',
   });
 
   final String id;
@@ -22,6 +23,26 @@ class WorkflowTask extends Equatable {
   final String stage;
   final String title;
   final String status;
+
+  /// The instance subject resolved from the summaries batch; empty when the
+  /// server list does not carry it, so the card falls back to the instance id.
+  final String subject;
+
+  WorkflowTask copyWith({String? subject}) => WorkflowTask(
+        id: id,
+        instance: instance,
+        stage: stage,
+        title: title,
+        status: status,
+        assignedOn: assignedOn,
+        dueOn: dueOn,
+        reminderSentOn: reminderSentOn,
+        escalatedOn: escalatedOn,
+        localOnly: localOnly,
+        followup: followup,
+        action: action,
+        subject: subject ?? this.subject,
+      );
   final DateTime? assignedOn;
   final DateTime? dueOn, reminderSentOn, escalatedOn;
   final bool localOnly;
@@ -45,6 +66,7 @@ class WorkflowTask extends Equatable {
         localOnly,
         followup,
         action,
+        subject,
       ];
 }
 

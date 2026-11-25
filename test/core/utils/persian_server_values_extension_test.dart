@@ -1,8 +1,10 @@
 import 'package:asoud_erp/core/theme/asoud_theme.dart';
 import 'package:asoud_erp/core/utils/persian_server_values.dart';
 import 'package:asoud_erp/features/workflows/domain/entities/workflow_notification.dart';
+import 'package:asoud_erp/features/workflows/domain/entities/workflow_task.dart';
 import 'package:asoud_erp/features/workflows/domain/repositories/workflow_notification_repository.dart';
 import 'package:asoud_erp/features/workflows/presentation/pages/workflow_notifications_page.dart';
+import 'package:asoud_erp/features/workflows/presentation/pages/workflow_tasks_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -99,6 +101,7 @@ void main() {
       expect(persianWorkflowStatus('Open'), 'در انتظار اقدام');
       expect(persianWorkflowStatus('Draft'), 'پیش‌نویس');
       expect(persianWorkflowStatus('Approved'), 'تأییدشده');
+      expect(persianWorkflowStatus('Failed'), 'ناموفق');
     });
 
     test('technical document fields and doctypes translate to Persian', () {
@@ -142,6 +145,32 @@ void main() {
         expect(find.text('کار جدید در گردش‌کار: تأیید'), findsOneWidget);
         expect(find.text('درخواست گردش‌کار تأیید شد'), findsOneWidget);
       }
+    });
+
+    testWidgets('sent-instances card renders the Failed status in Persian',
+        (tester) async {
+      const item = WorkflowInstanceSummary(
+        id: 'WFI-FAILED',
+        subject: 'خرید لپ‌تاپ',
+        status: 'Failed',
+        currentStageTitle: 'Approval',
+        currentAssignees: [],
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AsoudTheme.light,
+          home: const Directionality(
+            textDirection: TextDirection.rtl,
+            child: Scaffold(
+              body: WorkflowInstanceSummaryCard(item: item),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('ناموفق'), findsOneWidget);
+      expect(find.text('Failed'), findsNothing);
     });
   });
 }

@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- گردش‌کار: هنگام ثبت تصمیم روی یک تسک، یک شناسهٔ یکتا (request_id) همراه با درخواست ارسال می‌شود تا در صورت قطع شبکه یا قطع پاسخ و تلاش دوبارهٔ همان تصمیم، سرور نتیجهٔ قبلی را تکرار کند و تصمیم تکراری ثبت نشود. تصمیم جدید روی تسک دیگر یا تلاش تازه پس از پاسخ قطعی سرور، شناسهٔ جدید می‌گیرد.
+
+- گردش‌کار: در صفحهٔ جزئیات گردش، نوع سند مرتبط (doctype) به‌جای نام انگلیسی، با برچسب فارسی مشترک نمایش داده می‌شود و شناسهٔ فنی سند (referenceName) همچنان کنار آن باقی می‌ماند؛ برای نوع سند ناشناخته، نام خام سرور نمایش داده می‌شود.
+
+- گردش‌کار: در کارت تسکِ «دریافتی من»، به‌جای شناسهٔ فنی گردش (مثل `WFI-...`)، موضوع گردش نمایش داده می‌شود و شناسهٔ فنی در tooltip باقی می‌ماند تا در صورت نبود موضوع، همان شناسه نمایش داده شود.
+
+- گردش‌کار: وضعیت «ناموفق» (Failed) در فهرست «ارسال‌شده‌های من» دیگر به‌صورت انگلیسی نمایش داده نمی‌شود و با برچسب فارسی «ناموفق» (هم‌راستا با صفحهٔ جزئیات) نمایش داده می‌شود.
+
+- پیش‌نمایش آفلاین فرایندساز: قوانین اتصال مسیرها با بک‌اند هم‌راستا شد؛ اتصال از مرحلهٔ پایان، اتصال از شرط بدون نتیجهٔ بولی، اتصال به مرحلهٔ شروع و مسیر تکراری با همان عمل از یک مرحله با همان پیام‌های فارسی سرور رد می‌شوند.
+
 - Refine the existing shared party form: separate identity/employment/finance/bank sections, native option pickers, checksum validation, caret-aware amount input and reuse of an existing office party. Remove only the old personnel-form role shortcut; retain other callers. Warn before discarding edits. Keep global floating-detail codes, multiple details per party and shared-login/HR membership unchanged. Opening balances remain read-only here pending an authoritative accounting document/period path. No tests run for this delivery.
 - Consolidate the existing personal home/calendar: office-scoped inbox summary, centered seven-day view, maintained Jalali conversion and device reminder delivery. No production deployment; iOS native project/approved logo asset and real-device notification verification remain outstanding.
 

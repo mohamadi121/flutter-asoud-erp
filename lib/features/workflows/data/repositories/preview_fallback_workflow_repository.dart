@@ -636,8 +636,40 @@ class PreviewFallbackWorkflowRepository
         ),
         () async {
           final design = _designs[definition] ?? _sampleDesign(definition);
-          if (fromStage == toStage) {
-            throw StateError('Self transition is invalid');
+          if (action.trim().isEmpty ||
+              action.length > 140 ||
+              fromStage == toStage) {
+            throw StateError('مسیر (ترنزیشن) گردش‌کار نامعتبر است.');
+          }
+          final source = design.stages.firstWhere(
+              (stage) => stage.id == fromStage,
+              orElse: () =>
+                  throw StateError('این مرحله متعلق به گردش‌کار انتخاب‌شده نیست.'));
+          final destination = design.stages.firstWhere(
+              (stage) => stage.id == toStage,
+              orElse: () =>
+                  throw StateError('این مرحله متعلق به گردش‌کار انتخاب‌شده نیست.'));
+          if (source.type == WorkflowStageType.condition) {
+            final result = condition['result'];
+            if (result is! bool) {
+              throw StateError('خروجی شرط باید برقرار یا برقرار نیست باشد.');
+            }
+            if (destination.type == WorkflowStageType.start) {
+              throw StateError('مسیر نمی‌تواند به مرحلهٔ شروع برگردد.');
+            }
+          } else {
+            if (source.type == WorkflowStageType.end) {
+              throw StateError(
+                  'مرحلهٔ پایان نمی‌تواند مسیر خروجی داشته باشد.');
+            }
+            if (destination.type == WorkflowStageType.start) {
+              throw StateError('مسیر نمی‌تواند به مرحلهٔ شروع برگردد.');
+            }
+            if (design.transitions.any((item) =>
+                item.fromStage == fromStage && item.label == action)) {
+              throw StateError(
+                  'این عمل از مرحلهٔ انتخاب‌شده از پیش مسیری دارد.');
+            }
           }
           final id = '$definition-EDGE-${design.transitions.length + 1}';
           final updated = WorkflowDesign(

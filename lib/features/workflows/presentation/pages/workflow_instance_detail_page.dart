@@ -113,7 +113,7 @@ class WorkflowInstanceOverviewCard extends StatelessWidget {
                       .join('، ')),
           if (item.referenceName.isNotEmpty)
             _row('سند مرتبط',
-                '${item.referenceDoctype} • ${item.referenceName}'),
+                '${persianDoctypeLabel(item.referenceDoctype)} • ${item.referenceName}'),
         ]),
       );
 

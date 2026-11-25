@@ -352,9 +352,17 @@ class _TaskCard extends StatelessWidget {
                 children: [
                   Text(persianWorkflowStageTitle(task.title),
                       style: const TextStyle(fontWeight: FontWeight.w800)),
-                  Text(task.instance,
+                  Tooltip(
+                    message: task.instance,
+                    child: Text(
+                      task.subject.isNotEmpty
+                          ? task.subject
+                          : task.instance,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                           color: AsoudColors.muted, fontSize: 11)),
+                  ),
                 ],
               ),
             ),
