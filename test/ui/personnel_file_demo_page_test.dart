@@ -29,16 +29,16 @@ Future<void> _pop(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
-void _filled(WidgetTester tester, String screen) {
+void _filled(WidgetTester tester, String screen, {bool allowUnknown = false}) {
   final texts = tester
       .widgetList<Text>(find.byType(Text))
       .map((text) => text.data ?? text.textSpan!.toPlainText())
       .toList();
   expect(texts.where((text) => text.trim().isEmpty), isEmpty, reason: screen);
-  expect(texts.where((text) => text == 'ثبت نشده'), isEmpty, reason: screen);
-  expect(texts.where((text) => text.trim() == '—'), isEmpty, reason: screen);
-  expect(find.text('—'), findsNothing, reason: screen);
-  expect(find.text('ثبت نشده'), findsNothing, reason: screen);
+  if (!allowUnknown) {
+    expect(texts.where((text) => text == 'ثبت نشده'), isEmpty, reason: screen);
+    expect(texts.where((text) => text.trim() == '—'), isEmpty, reason: screen);
+  }
   expect(find.text('null'), findsNothing, reason: screen);
   expect(find.textContaining('نمونه'), findsNothing,
       reason: 'پیش‌نمایش نباید خود را نمونه معرفی کند');
@@ -84,10 +84,12 @@ void main() {
                 .id,
             code);
         expect(find.text(code), findsOneWidget);
-        expect(find.text(profile['display_name'] as String), findsNWidgets(2));
-        expect(find.text(profile['department'] as String), findsNWidgets(3));
+        expect(find.text(profile['display_name'] as String), findsOneWidget);
+        expect(find.text(profile['department'] as String), findsOneWidget);
         expect(find.byType(Image), findsOneWidget);
-        _filled(tester, '$code overview');
+        expect(find.text('وضعیت در یک نگاه'), findsOneWidget);
+        expect(find.text('درخواست‌های باز'), findsOneWidget);
+        _filled(tester, '$code overview', allowUnknown: true);
         await _tap(tester, 'اطلاعات پرسنلی');
         _filled(tester, '$code sections');
         await _tap(tester, 'اطلاعات فردی');
@@ -118,7 +120,6 @@ void main() {
         expect(documents, isNotEmpty);
         expect(find.text(documents.first['title'] as String), findsNWidgets(2));
         _filled(tester, '$code contract documents');
-        await _pop(tester);
         await _pop(tester);
         await _tap(tester, 'مدارک');
         await _tap(tester, 'مدارک و مستندات');

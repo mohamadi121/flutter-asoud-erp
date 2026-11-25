@@ -27,7 +27,7 @@ class Repo extends AccessManagementRepository {
       'designation': 'کارشناس اداری', 'company': 'دفتر الف', 'user': 'sara@example.com',
       'legacy': false, 'profile': null, 'token': 'stamp', 'catalog': catalog,
       'grants': {'Account': ['read']}}; }
-    writes.add({'method': method, ...args});
+    writes.add({'endpoint': method, ...args});
     return {};
   }
 }
@@ -36,12 +36,13 @@ Widget app(Widget child) => MaterialApp(theme: AsoudTheme.light,
   builder: (_, c) => Directionality(textDirection: TextDirection.rtl, child: c!), home: child);
 
 Future<void> expandMatrix(WidgetTester tester) async {
-  await tester.ensureVisible(find.text('مالی'));
-  await tester.tap(find.text('مالی'));
-  await tester.pumpAndSettle();
-  await tester.ensureVisible(find.text('ثبت حسابداری'));
-  await tester.tap(find.text('ثبت حسابداری'));
-  await tester.pumpAndSettle();
+  for (final label in ['مالی', 'ثبت حسابداری']) {
+    final entry = find.text(label);
+    await Scrollable.ensureVisible(tester.element(entry), alignment: .5);
+    await tester.pumpAndSettle();
+    await tester.tap(entry.hitTestable());
+    await tester.pumpAndSettle();
+  }
 }
 
 void main() {
@@ -72,7 +73,8 @@ void main() {
       addTearDown(() => tester.binding.setSurfaceSize(null));
       final repo = Repo();
       await tester.pumpWidget(app(OfficeAccountCreate(company: 'دفتر الف', repository: repo, people: const [
-        {'name': 'EMP', 'employee_name': 'سارا احمدی', 'user_id': null},
+        {'name': 'EMP', 'employee_name': 'سارا احمدی', 'user_id': null,
+          'contact_methods': ['mobile']},
       ])));
       expect(find.text('پروفایل دسترسی'), findsNothing);
       expect(find.byType(DropdownButtonFormField<String>), findsOneWidget);
@@ -80,12 +82,15 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('سارا احمدی').last);
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField), '09123456789');
+      expect(find.byType(TextField), findsNothing);
+      expect(find.text('نام کاربری و رمز موقت به موبایل ثبت‌شده پیامک می‌شود.'),
+          findsOneWidget);
       await tester.tap(find.widgetWithText(FilledButton, 'ایجاد حساب کاربری'));
       await tester.pumpAndSettle();
-      expect(repo.writes.single['employee'], 'EMP');
-      expect(repo.writes.single['company'], 'دفتر الف');
-      expect(repo.writes.single.containsKey('profile'), false);
+      expect(repo.writes.single, {
+        'endpoint': 'create_account', 'method': 'mobile', 'employee': 'EMP',
+        'company': 'دفتر الف', 'invite': 1,
+      });
       expect(tester.takeException(), isNull);
     });
   }

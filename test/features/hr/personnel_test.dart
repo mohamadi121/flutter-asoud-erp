@@ -254,6 +254,8 @@ void main() {
     await tester.pumpWidget(
         MaterialApp(home: PersonnelDetailPage(id: 'self', repository: repo)));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('اطلاعات پرسنلی'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('اطلاعات فردی'));
     await tester.pumpAndSettle();
     expect(find.text('ویرایش'), findsNothing);
@@ -439,7 +441,7 @@ void main() {
     await tester.pumpWidget(
         MaterialApp(home: PersonnelPage(company: 'office', repository: repo)));
     await tester.pumpAndSettle();
-    expect(find.text('پرسنل'), findsNWidgets(2));
+    expect(find.text('پرسنل'), findsOneWidget);
     await tester.tap(find.widgetWithText(ChoiceChip, 'غیرفعال (۱)'));
     await tester.pumpAndSettle();
     expect(find.text('علی'), findsNothing);

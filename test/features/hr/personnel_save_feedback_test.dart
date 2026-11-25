@@ -53,6 +53,7 @@ Future<void> _open(
     home: PersonnelDetailPage(id: 'P-1', repository: repository),
   ));
   await tester.pumpAndSettle();
+  await _tap(tester, 'اطلاعات پرسنلی');
   await _tap(tester, 'اطلاعات فردی');
   await _tap(tester, 'ویرایش اطلاعات');
 }
