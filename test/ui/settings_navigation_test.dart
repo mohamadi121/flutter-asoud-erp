@@ -3,6 +3,7 @@ import 'package:asoud_erp/core/network/frappe_client.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:asoud_erp/features/dashboard/presentation/pages/dashboard_page.dart';
 import 'package:asoud_erp/features/dashboard/presentation/pages/settings_dashboard_content.dart';
+import 'package:asoud_erp/features/roles/presentation/access_profiles_page.dart';
 import 'package:asoud_erp/features/base_setup/presentation/pages/base_accounting_setup_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -66,8 +67,9 @@ void main() {
       }
       await tester.tap(find.text('پروفایل‌های دسترسی'));
       await tester.pumpAndSettle();
-      // Permission editing is intentionally unavailable in offline preview.
-      expect(find.byType(SettingsDashboardContent), findsOneWidget);
+      // The destination remains navigable offline; the repository explains
+      // that permission changes require an authenticated session.
+      expect(find.byType(AccessProfilesPage), findsOneWidget);
       expect(find.text('مدیریت نقش‌ها'), findsNothing);
       expect(client.methods, isEmpty);
       expect(tester.takeException(), isNull);

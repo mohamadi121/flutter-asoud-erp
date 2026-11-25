@@ -194,7 +194,8 @@ void main() {
           of: find.byType(BottomSheet), matching: find.byType(ListTile))))
         (tile.title as Text).data
     ];
-    expect(titles.first, 'درخواست خرید کالا');
+    expect(titles.first, 'درخواست مرخصی');
+    expect(titles, isNot(contains('درخواست خرید کالا')));
     await tester.tap(find.text('درخواست مرخصی').last);
     await tester.pumpAndSettle();
     expect(opened!['template_key'], 'leave');
