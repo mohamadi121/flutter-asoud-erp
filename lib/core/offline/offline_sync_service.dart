@@ -85,7 +85,7 @@ class OfflineSyncService {
 
   /// Without a session there is nothing to replay and no owner to scope by.
   bool get isAuthenticated => _client.isAuthenticated &&
-      !(_client is FrappeClient && _client.isRepresentingPersonnel);
+      !isPersonnelRepresentation(_client);
 
   /// True while a run or a manual retry is in flight.
   bool get isSyncing => _activeSync != null;

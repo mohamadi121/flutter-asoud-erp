@@ -68,7 +68,7 @@ class _AsoudCalendarState extends State<AsoudCalendar> {
 
   Future<void> _notificationOpened() async {
     final api = repository.client;
-    if (api is FrappeClient && api.isRepresentingPersonnel) return;
+    if (isPersonnelRepresentation(api)) return;
     final notice = CalendarDeviceNotifications.instance.opened.value;
     if (notice == null) return;
     try {

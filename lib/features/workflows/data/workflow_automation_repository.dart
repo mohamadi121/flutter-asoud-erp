@@ -38,8 +38,7 @@ class WorkflowAutomationRepository {
 
   final FrappeApiClient client;
   final LocalRecordStore? _local;
-  bool get _isRepresenting =>
-      client is FrappeClient && (client as FrappeClient).isRepresentingPersonnel;
+  bool get _isRepresenting => isPersonnelRepresentation(client);
 
   static const _automaticActionOptionsPrefix =
       'asoud_automatic_action_options_v2_';

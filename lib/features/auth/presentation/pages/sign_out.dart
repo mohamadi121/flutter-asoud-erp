@@ -23,7 +23,7 @@ Future<void> signOutWith({
   required AuthRepository auth,
   required NavigatorState navigator,
 }) async {
-  if (client is FrappeClient && client.isRepresentingPersonnel) {
+  if (isPersonnelRepresentation(client)) {
     try {
       await client.logout().timeout(const Duration(seconds: 5));
     } catch (_) {

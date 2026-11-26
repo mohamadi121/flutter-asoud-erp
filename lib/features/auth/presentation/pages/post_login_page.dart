@@ -68,7 +68,7 @@ class _PostLoginPageState extends State<PostLoginPage> {
       if (mounted) {
         final client = _client;
         if (widget.officeToResume != null && e is ApiException && e.isUnauthorized &&
-            client is FrappeClient && !client.isRepresentingPersonnel) {
+            client is FrappeClient && !isPersonnelRepresentation(client)) {
           _replace(LoginPage(initialServerUrl: client.serverIdentity));
           return;
         }

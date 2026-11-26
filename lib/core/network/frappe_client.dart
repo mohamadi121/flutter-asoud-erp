@@ -27,9 +27,16 @@ class FrappeSession {
 /// Server method that revokes the current session (`session.logout`).
 const sessionLogoutMethod = 'asoud_erp.api.v1.session.logout';
 
+// Only transports created by representPersonnel may use isolated storage.
+// Keep this metadata on the client instance without calling implementation
+// members on other FrappeApiClient implementations.
+final _representationStores = Expando<SessionRecordStore>();
+
+bool isPersonnelRepresentation(FrappeApiClient? client) =>
+    client != null && _representationStores[client] != null;
+
 LocalRecordStore localStoreFor(FrappeApiClient client) =>
-    client is FrappeClient && client._representationStore != null
-        ? client._representationStore! : LocalDatabaseStore.instance;
+    _representationStores[client] ?? LocalDatabaseStore.instance;
 
 class FrappeUserContext {
   const FrappeUserContext({
@@ -190,8 +197,7 @@ class FrappeClient implements FrappeApiClient {
   FrappeUserContext? _knownUser;
   String? _lastEnteredOffice;
   String? get lastEnteredOffice => isAuthenticated ? _lastEnteredOffice : null;
-  SessionRecordStore? _representationStore;
-  bool get isRepresentingPersonnel => _representationStore != null;
+  bool get isRepresentingPersonnel => isPersonnelRepresentation(this);
   DateTime? representationExpiration;
 
   Future<({FrappeClient client, String personnelName})> representPersonnel({
@@ -209,7 +215,7 @@ class FrappeClient implements FrappeApiClient {
       throw const ApiException.protocol();
     }
     final isolated = FrappeClient(baseUrl: serverIdentity, apiKey: '', apiSecret: '');
-    isolated._representationStore = SessionRecordStore();
+    _representationStores[isolated] = SessionRecordStore();
     isolated.representationExpiration = DateTime.now().add(Duration(seconds: value['expires_in'] as int));
     isolated._dio.options.headers['Authorization'] = 'Asoud-Delegated ${value['credential']}';
     isolated._dio.options.followRedirects = false;
@@ -962,7 +968,7 @@ class FrappeClient implements FrappeApiClient {
     _lastEnteredOffice = null;
     if (isRepresentingPersonnel) {
       _dio.options.headers.remove('Authorization');
-      _representationStore!.clear();
+      _representationStores[this]!.clear();
     }
     if (notify) _setAuthenticated(false);
     if (!notify) _isAuthenticated = false;

@@ -8,8 +8,7 @@ class SessionPreferences {
 
   final FrappeApiClient? client;
 
-  bool get isolated =>
-      client is FrappeClient && (client as FrappeClient).isRepresentingPersonnel;
+  bool get isolated => isPersonnelRepresentation(client);
 
   Future<String?> read(String key) async => isolated
       ? (await localStoreFor(client!).get('preference:$key'))?.payload['value']
