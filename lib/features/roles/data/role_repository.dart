@@ -83,7 +83,7 @@ class _RemoteRoleRepository {
 class RoleRepository {
   RoleRepository(this.client, {LocalRecordStore? local})
       : local = local ??
-            (client is FrappeClient ? LocalDatabaseStore.instance : null),
+            (client is FrappeClient ? localStoreFor(client) : null),
         _remote = _RemoteRoleRepository(client) {
     if (client is FrappeClient) {
       _session = client.authenticationChanges.listen((_) {

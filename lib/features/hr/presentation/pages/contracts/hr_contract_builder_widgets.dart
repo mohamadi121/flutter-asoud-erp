@@ -7,6 +7,7 @@ import 'package:asoud_erp/features/hr/domain/hr_contract_models.dart';
 class ArticleCard extends StatelessWidget {
   const ArticleCard({
     required this.clause,
+    this.displayBody,
     required this.index,
     required this.isExpanded,
     required this.isEditing,
@@ -31,6 +32,7 @@ class ArticleCard extends StatelessWidget {
   });
 
   final HrContractClause clause;
+  final String? displayBody;
   final int index;
   final bool isExpanded;
   final bool isEditing;
@@ -143,7 +145,7 @@ class ArticleCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Text(
-                          clause.body,
+                          displayBody ?? clause.body,
                           style: const TextStyle(
                             fontSize: 13,
                             height: 1.6,

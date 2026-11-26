@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/auth/capabilities.dart';
+import '../../../../core/network/frappe_client.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
@@ -238,6 +239,15 @@ class _OfficesViewState extends State<_OfficesView> {
   Future<void> _enter(BuildContext context, Office office) async {
     final cubit = context.read<OfficesCubit>();
     if (!await cubit.selectDefault(office, announce: false) || !context.mounted) return;
+    final client = context.read<FrappeApiClient?>();
+    if (!cubit.state.offlinePreview && client is FrappeClient) {
+      try {
+        await client.rememberEnteredOffice(office.name);
+      } catch (_) {
+        // Storage failure must not prevent entry to a validated office.
+      }
+    }
+    if (!context.mounted) return;
     await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => DashboardPage(
       officeName: office.name, offlinePreview: cubit.state.offlinePreview,
     )));

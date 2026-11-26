@@ -1,12 +1,11 @@
 import 'dart:convert';
 import 'dart:math';
 
-import 'package:shared_preferences/shared_preferences.dart';
-
 import '../../core/config/app_config.dart';
 import 'calendar_device_notifications.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/network/frappe_client.dart';
+import '../../core/offline/session_preferences.dart';
 
 typedef CalendarRow = Map<String, dynamic>;
 CalendarRow calendarMap(Object? value) =>
@@ -27,6 +26,7 @@ class CalendarRepository {
   final String company;
   String? _identity;
   static Future<void>? _writes;
+  SessionPreferences get _preferences => SessionPreferences(client);
 
   Future<String> _scope() async {
     final api = client;
@@ -97,14 +97,14 @@ class CalendarRepository {
     final key = await _scope();
     return calendarMap(
       jsonDecode(
-        (await SharedPreferences.getInstance()).getString(key) ?? '{}',
+        await _preferences.read(key) ?? '{}',
       ),
     );
   }
 
   Future<void> _write(CalendarRow state) async {
     final key = await _scope();
-    if (!await (await SharedPreferences.getInstance()).setString(
+    if (!await _preferences.write(
       key,
       jsonEncode(state),
     )) {
@@ -131,7 +131,9 @@ class CalendarRepository {
           {bool refreshRemote = true}) =>
       _serial(() async {
         var state = await _read();
-        await CalendarDeviceNotifications.instance.activate(await _scope());
+        if (!_preferences.isolated) {
+          await CalendarDeviceNotifications.instance.activate(await _scope());
+        }
         final range = '${calendarDate(from)}:${calendarDate(to)}';
         var cached = true;
         String? warning;
@@ -201,8 +203,10 @@ class CalendarRepository {
         }
         String? notificationWarning;
         try {
-          await CalendarDeviceNotifications.instance.reconcile(await _scope(),
-            reminders.values.toList(), timezone: data['timezone'] as String?);
+          if (!_preferences.isolated) {
+            await CalendarDeviceNotifications.instance.reconcile(await _scope(),
+              reminders.values.toList(), timezone: data['timezone'] as String?);
+          }
         } catch (_) {
           notificationWarning = 'زمان‌بندی اعلان گوشی تأیید نشد؛ مجوز اعلان و تنظیمات گوشی را بررسی کنید.';
         }
@@ -219,6 +223,13 @@ class CalendarRepository {
 
   Future<void> save(CalendarRow item) => _serial(() async {
         final state = await _read();
+        if (_preferences.isolated) {
+          await _call('save_personal', {'payload': jsonEncode({
+            ...item, 'mutation_id': calendarId(),
+          })});
+          await _write({...state, 'ranges': <String, dynamic>{}});
+          return;
+        }
         final pending = calendarRows(state['pending']);
         final previous =
             pending.where((r) => r['id'] == item['id']).firstOrNull;

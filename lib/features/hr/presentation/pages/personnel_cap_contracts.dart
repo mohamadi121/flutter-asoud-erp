@@ -8,6 +8,8 @@ class PersonnelContractsSlot extends StatelessWidget {
     required this.canEdit,
     this.repository,
     this.onRefresh,
+    this.profile,
+    this.personnel,
     super.key,
   });
 
@@ -16,6 +18,8 @@ class PersonnelContractsSlot extends StatelessWidget {
   final bool canEdit;
   final PersonnelFileRepository? repository;
   final Future<void> Function()? onRefresh;
+  final Map<String, dynamic>? profile;
+  final PersonnelRepository? personnel;
 
   @override
   Widget build(BuildContext context) {
@@ -46,7 +50,10 @@ class PersonnelContractsSlot extends StatelessWidget {
                   context,
                   MaterialPageRoute(
                       builder: (_) => ContractFormPage(
-                          profileId: profileId, repository: repo)));
+                          profileId: profileId,
+                          repository: repo,
+                          profile: profile,
+                          personnel: personnel)));
               if (saved == true && onRefresh != null) await onRefresh!();
             },
             icon: const Icon(Icons.add, size: 18),
@@ -87,9 +94,15 @@ class _CapContractCard extends StatelessWidget {
 
 class ContractFormPage extends StatefulWidget {
   const ContractFormPage(
-      {required this.profileId, required this.repository, super.key});
+      {required this.profileId,
+      required this.repository,
+      this.profile,
+      this.personnel,
+      super.key});
   final String profileId;
   final PersonnelFileRepository repository;
+  final Map<String, dynamic>? profile;
+  final PersonnelRepository? personnel;
   @override
   State<ContractFormPage> createState() => _ContractFormPageState();
 }
@@ -102,6 +115,15 @@ class _ContractFormPageState extends State<ContractFormPage> {
   bool signed = false, submit = false, saving = false;
   PlatformFile? attachment;
   String? error;
+
+  FrappeApiClient? get _contractClient {
+    try {
+      final client = widget.personnel?.client;
+      return client?.isAuthenticated == true ? client : null;
+    } catch (_) {
+      return null;
+    }
+  }
 
   @override
   void dispose() {
@@ -181,52 +203,104 @@ class _ContractFormPageState extends State<ContractFormPage> {
   @override
   Widget build(BuildContext context) => AsoudFormPage(
           title: 'افزودن قرارداد',
+          header: _personnelHeader(context, 'افزودن قرارداد'),
+          keepSectionsMounted: true,
           subtitle: 'پرونده پرسنلی',
           formKey: formKey,
           saving: saving,
           error: error,
           onSave: save,
           children: [
-            AsoudFormSection(title: 'اطلاعات قرارداد', children: [
-              AsoudFormDateField(
-                  controller: start,
-                  label: 'تاریخ شروع *',
-                  required: true,
-                  enabled: !saving),
-              AsoudFormDateField(
-                  controller: end, label: 'تاریخ پایان', enabled: !saving),
-              AsoudFormField(
-                  controller: terms,
-                  label: 'شرح قرارداد *',
-                  lines: 4,
-                  enabled: !saving,
-                  validator: (value) => value == null || value.trim().isEmpty
-                      ? 'شرح قرارداد الزامی است.'
-                      : null),
-              SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('امضا شده'),
-                  value: signed,
-                  onChanged: saving
-                      ? null
-                      : (value) => setState(() => signed = value)),
-              SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('ثبت نهایی'),
-                  value: submit,
-                  onChanged: saving
-                      ? null
-                      : (value) => setState(() => submit = value)),
-            ]),
-            AsoudFormSection(title: 'پیوست قرارداد', children: [
-              if (attachment != null) Text(attachment!.name),
-              OutlinedButton.icon(
-                  onPressed: saving ? null : pickFile,
-                  icon: const Icon(Icons.attach_file),
-                  label: const Text('انتخاب فایل')),
-              const Text('سند یا تصویر، حداکثر ۵ مگابایت',
-                  style: TextStyle(fontSize: 11)),
-            ]),
+            if (widget.profile != null && widget.personnel != null)
+              _PersonnelEditorHeading(widget.profile!, widget.personnel!),
+            AsoudFormSection(
+                title: 'اطلاعات قرارداد',
+                collapsible: false,
+                fieldGap: 6,
+                children: [
+                  AsoudFormDateField(
+                      controller: start,
+                      label: 'تاریخ شروع',
+                      labelOutside: true,
+                      required: true,
+                      enabled: !saving),
+                  AsoudFormDateField(
+                      controller: end,
+                      label: 'تاریخ پایان',
+                      labelOutside: true,
+                      clearable: true,
+                      enabled: !saving),
+                  const Text(
+                      'برای ثبت قرارداد موجود، شرح کوتاه و فایل امضاشده را در همین پرونده ثبت کنید. برای صدور قرارداد رسمی، از قالب سند قرارداد کار استفاده کنید.'),
+                if (_contractClient != null &&
+                      (widget.profile?['company'] as String?)?.isNotEmpty ==
+                          true &&
+                      widget.profile?['needs_employee_details'] != true)
+                    OutlinedButton.icon(
+                      onPressed: saving
+                          ? null
+                          : () async {
+                            final client = _contractClient;
+                            if (client == null) return;
+                              await Navigator.push<void>(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (_) => HrContractIssuePage(
+                                            company: widget.profile!['company']
+                                                as String,
+                                            initialEmployeeId:
+                                                widget.profile!['employee_code']
+                                                    as String?,
+                                            repository:
+                                                ServerHrContractsRepository(
+                                                    client),
+                                            templateRepository:
+                                                ServerHrContractTemplateRepository(
+                                                    client),
+                                          )));
+                            },
+                      icon: const Icon(Icons.description_outlined),
+                      label: const Text('صدور سند قرارداد کار'),
+                    ),
+                  AppTextField(
+                      controller: terms,
+                      label: 'شرح قرارداد',
+                      labelOutside: true,
+                      required: true,
+                      maxLines: 4,
+                      keyboardType: TextInputType.multiline,
+                      enabled: !saving,
+                      validator: (value) =>
+                          value == null || value.trim().isEmpty
+                              ? 'شرح قرارداد الزامی است.'
+                              : null),
+                  SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('امضا شده'),
+                      value: signed,
+                      onChanged: saving
+                          ? null
+                          : (value) => setState(() => signed = value)),
+                  SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('ثبت نهایی'),
+                      value: submit,
+                      onChanged: saving
+                          ? null
+                          : (value) => setState(() => submit = value)),
+                ]),
+            AsoudFormSection(
+                title: 'پیوست قرارداد',
+                collapsible: false,
+                children: [
+                  if (attachment != null) Text(attachment!.name),
+                  OutlinedButton.icon(
+                      onPressed: saving ? null : pickFile,
+                      icon: const Icon(Icons.attach_file),
+                      label: const Text('انتخاب فایل')),
+                  const Text('سند یا تصویر، حداکثر ۵ مگابایت',
+                      style: TextStyle(fontSize: 11)),
+                ]),
           ]);
 }
 
@@ -237,6 +311,7 @@ class PersonnelPromotionSlot extends StatelessWidget {
     required this.personnel,
     this.repository,
     this.onPromoted,
+    this.profile,
     super.key,
   });
 
@@ -245,6 +320,7 @@ class PersonnelPromotionSlot extends StatelessWidget {
   final PersonnelRepository personnel;
   final PersonnelFileRepository? repository;
   final VoidCallback? onPromoted;
+  final Map<String, dynamic>? profile;
 
   @override
   Widget build(BuildContext context) {
@@ -261,6 +337,7 @@ class PersonnelPromotionSlot extends StatelessWidget {
                     builder: (_) => PromotionFormPage(
                         profileId: profileId,
                         repository: repo,
+                        profile: profile,
                         personnel: personnel)));
             if (saved == true && onPromoted != null) onPromoted!();
           },
@@ -275,10 +352,12 @@ class PromotionFormPage extends StatefulWidget {
       {required this.profileId,
       required this.repository,
       required this.personnel,
+      this.profile,
       super.key});
   final String profileId;
   final PersonnelFileRepository repository;
   final PersonnelRepository personnel;
+  final Map<String, dynamic>? profile;
   @override
   State<PromotionFormPage> createState() => _PromotionFormPageState();
 }
@@ -364,36 +443,71 @@ class _PromotionFormPageState extends State<PromotionFormPage> {
   @override
   Widget build(BuildContext context) => AsoudFormPage(
           title: 'ثبت ارتقا یا تغییر سمت',
+          header: _personnelHeader(context, 'ثبت ارتقا یا تغییر سمت'),
+          keepSectionsMounted: true,
           subtitle: 'پرونده پرسنلی',
           formKey: formKey,
           saving: saving,
           error: error,
           onSave: save,
           children: [
+            if (widget.profile != null)
+              _PersonnelEditorHeading(widget.profile!, widget.personnel),
             if (loading) const LinearProgressIndicator(),
             if (!loaded && !loading)
               TextButton(onPressed: load, child: const Text('تلاش دوباره')),
-            AsoudFormSection(title: 'اطلاعات تغییر سمت', children: [
-              AsoudFormDateField(
-                  controller: date,
-                  label: 'تاریخ *',
-                  required: true,
-                  enabled: !saving),
-              for (final field in [
-                (designation, 'job_title', 'سمت جدید'),
-                (department, 'department', 'واحد جدید'),
-                (branch, 'branch', 'شعبه جدید')
-              ])
-                AsoudFormDropdown(
-                    controller: field.$1,
-                    label: field.$3,
-                    options: _personnelLinkOptions(options, field.$2),
-                    enabled: !saving && !loading && loaded),
-              AsoudFormField(
-                  controller: remarks,
-                  label: 'توضیحات',
-                  lines: 4,
-                  enabled: !saving),
-            ]),
+            AsoudFormSection(
+                title: 'اطلاعات تغییر سمت',
+                collapsible: false,
+                fieldGap: 6,
+                children: [
+                  AsoudFormDateField(
+                      controller: date,
+                      label: 'تاریخ',
+                      labelOutside: true,
+                      required: true,
+                      enabled: !saving),
+                  for (final field in [
+                    (designation, 'job_title', 'سمت جدید'),
+                    (department, 'department', 'واحد جدید'),
+                    (branch, 'branch', 'شعبه جدید')
+                  ])
+                    _promotionSelect(field.$1, field.$2, field.$3),
+                  AppTextField(
+                      controller: remarks,
+                      label: 'توضیحات',
+                      maxLines: 4,
+                      labelOutside: true,
+                      keyboardType: TextInputType.multiline,
+                      enabled: !saving),
+                ]),
           ]);
+
+  Widget _promotionSelect(
+      TextEditingController controller, String key, String label) {
+    final choices = _personnelLinkOptions(options, key);
+    final current = controller.text;
+    final value = choices[current] ?? current;
+    final enabled = !saving && !loading && loaded && choices.isNotEmpty;
+    return AppSelectField(
+      label: label,
+      labelOutside: true,
+      value: current,
+      displayValue: value,
+      hint:
+          choices.isEmpty && loaded ? 'گزینه‌ای تعریف نشده است' : 'انتخاب کنید',
+      enabled: enabled,
+      onPick: enabled
+          ? () => showAppOptionSheet(context,
+                  title: label,
+                  current: value,
+                  options: [
+                    if (current.isNotEmpty) const AppOption('', 'بدون تغییر'),
+                    for (final option in choices.entries)
+                      AppOption(option.key, option.value),
+                  ])
+          : null,
+      onChanged: (selection) => setState(() => controller.text = selection),
+    );
+  }
 }

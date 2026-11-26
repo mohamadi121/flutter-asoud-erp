@@ -38,6 +38,8 @@ class WorkflowAutomationRepository {
 
   final FrappeApiClient client;
   final LocalRecordStore? _local;
+  bool get _isRepresenting =>
+      client is FrappeClient && (client as FrappeClient).isRepresentingPersonnel;
 
   static const _automaticActionOptionsPrefix =
       'asoud_automatic_action_options_v2_';
@@ -53,6 +55,7 @@ class WorkflowAutomationRepository {
   Future<Map<String, dynamic>?> automaticActionDraft(
       String definition, String stage) async {
     final key = await _draftKey(definition, stage);
+    if (_isRepresenting) return (await localStoreFor(client).get(key))?.payload;
     final raw = (await SharedPreferences.getInstance()).getString(key);
     return raw == null ? null : _object(jsonDecode(raw));
   }
@@ -60,6 +63,10 @@ class WorkflowAutomationRepository {
   Future<void> saveAutomaticActionDraft(
       String definition, String stage, Map<String, dynamic> draft) async {
     final key = await _draftKey(definition, stage);
+    if (_isRepresenting) {
+      await localStoreFor(client).save(id: key, entityType: 'action-session-draft', payload: draft);
+      return;
+    }
     final saved = await (await SharedPreferences.getInstance())
         .setString(key, jsonEncode(draft));
     if (!saved) throw StateError('ذخیرهٔ پیش‌نویس روی دستگاه ناموفق بود.');
@@ -68,6 +75,10 @@ class WorkflowAutomationRepository {
   Future<void> clearAutomaticActionDraft(
       String definition, String stage) async {
     final key = await _draftKey(definition, stage);
+    if (_isRepresenting) {
+      await localStoreFor(client).delete(key);
+      return;
+    }
     await (await SharedPreferences.getInstance()).remove(key);
   }
 
@@ -85,6 +96,7 @@ class WorkflowAutomationRepository {
       if (result['schema_version'] != 2) {
         throw StateError('نسخه سرور از این فرم پشتیبانی نمی‌کند.');
       }
+      if (_isRepresenting) return AutomaticActionOptions(data: result, fromCache: false);
       final prefs = await SharedPreferences.getInstance();
       final stored = await prefs.setString(key, jsonEncode(result));
       if (!stored) {
@@ -127,7 +139,7 @@ class WorkflowAutomationRepository {
     required String userId,
   }) async {
     final server = _serverIdentity;
-    final records = await (_local ?? LocalDatabaseStore.instance).list(
+    final records = await (_local ?? localStoreFor(client)).list(
       entityType: _automaticActionSave,
       statuses: const {
         LocalSyncStatus.localOnly,
@@ -193,6 +205,9 @@ class WorkflowAutomationRepository {
   static const _localKey = 'asoud_document_templates_local_v1';
 
   Future<List<Map<String, dynamic>>> userTaskRequests(String company) async {
+    if (_isRepresenting) {
+      return _list(await _call('asoud_erp.api.v1.workflow_request.request_options', {'company': company}));
+    }
     final key = '${await _draftKey(company, 'request-types')}_options';
     final prefs = await SharedPreferences.getInstance();
     try {

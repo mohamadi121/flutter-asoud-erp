@@ -1,8 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:asoud_erp/core/theme/asoud_theme.dart';
+import 'package:asoud_erp/core/widgets/template_text.dart';
 import 'package:asoud_erp/features/hr/data/hr_contract_template_repository.dart';
+import 'package:asoud_erp/features/hr/domain/hr_contract_models.dart';
 import 'package:asoud_erp/features/hr/presentation/pages/contracts/hr_contract_builder_page.dart';
+
+class _LegacyRepository extends FakeHrContractTemplateRepository {
+  _LegacyRepository(HrContractTemplate initial) : super(initial: initial);
+
+  @override
+  String fieldTag(String group, String label) =>
+      group == 'company' && label == 'نام قانونی شرکت'
+          ? '{{company.company_name}}'
+          : super.fieldTag(group, label);
+}
 
 void main() {
   group('HR Contract Builder UI Tests', () {
@@ -137,8 +149,37 @@ void main() {
       await tester.tap(fieldToInsert);
       await tester.pumpAndSettle();
 
-      // Body text now contains [نام پرسنل]
-      expect(find.textContaining('[نام پرسنل]'), findsOneWidget);
+      expect(find.text('نام'), findsOneWidget);
+      final bodyController = tester.widget<TextFormField>(find.byType(TextFormField).last)
+          .controller! as TemplateTextController;
+      expect(bodyController.source, contains('[نام پرسنل]')); // Existing fake repository format.
+    });
+
+    testWidgets('existing contract keeps stored tokens while both previews render them',
+        (tester) async {
+      const original = 'قرارداد با {{company.company_name}} و {{company.old_value}}';
+      final legacy = _LegacyRepository(HrContractTemplate.defaultTemplate().copyWith(
+        clauses: [const HrContractClause(id: 1, title: 'طرفین قرارداد', body: original)],
+      ));
+      await tester.pumpWidget(createWidget(child: HrContractBuilderPage(
+        company: 'شرکت نگین', repository: legacy, canManageTemplate: true,
+      )));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('طرفین قرارداد'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ویرایش'));
+      await tester.pumpAndSettle();
+      expect(find.text('نام قانونی شرکت'), findsOneWidget);
+      expect(find.text('فیلد ناشناخته'), findsOneWidget);
+      await tester.tap(find.text('ذخیره تغییرات'));
+      await tester.pumpAndSettle();
+      expect(legacy.currentTemplate.clauses.single.body, original);
+      for (final tab in ['قرارداد جدید', 'چاپ پیش‌نویس']) {
+        await tester.tap(find.text(tab));
+        await tester.pumpAndSettle();
+        expect(find.text('قرارداد با شرکت نگین و —'), findsOneWidget);
+        expect(find.textContaining('{{company.'), findsNothing);
+      }
     });
 
     testWidgets('article 4 displays repeating payroll table and field picker',

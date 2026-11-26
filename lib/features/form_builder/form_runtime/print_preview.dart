@@ -4,6 +4,7 @@ import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/persian_format.dart';
 import '../form_repository.dart';
 import 'formula_engine.dart';
+import 'request_review_text.dart';
 import 'section_colors.dart';
 import 'rules_engine.dart';
 
@@ -238,6 +239,12 @@ class _FormPrintPreviewPageState extends State<FormPrintPreviewPage> {
 
                   const SizedBox(height: 18),
 
+                  if (RequestReviewText.exists(widget.schema))
+                    RequestReviewText(
+                      schema: widget.schema,
+                      values: computed,
+                      repository: widget.repository,
+                    ),
                   // Signatures and Approvals section
                   Container(
                     decoration: BoxDecoration(

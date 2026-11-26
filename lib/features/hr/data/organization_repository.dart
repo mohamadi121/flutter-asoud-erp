@@ -27,7 +27,7 @@ class OrganizationEmployee {
 
 class OrganizationRepository {
   OrganizationRepository(this.client, {LocalRecordStore? local})
-      : local = local ?? LocalDatabaseStore.instance {
+      : local = local ?? localStoreFor(client) {
     _session = client.authenticationChanges.listen((_) {
       _epoch++;
       _photos.clear();

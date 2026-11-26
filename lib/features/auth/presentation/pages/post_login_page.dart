@@ -8,12 +8,14 @@ import '../../../office_setup/presentation/pages/office_type_page.dart';
 import '../../../office_setup/presentation/pages/first_office_setup_page.dart';
 import '../../../office_setup/presentation/pages/offices_page.dart';
 import '../../../../core/network/frappe_client.dart';
+import '../../../../core/network/api_exception.dart';
 import '../../data/account_repository.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../../domain/entities/login_state.dart';
 import '../../domain/login_router.dart';
 import 'admin_profile_page.dart';
 import 'change_password_page.dart';
+import 'login_page.dart';
 import 'sign_out.dart';
 
 /// Reads the server's login state once and opens the right screen:
@@ -21,7 +23,9 @@ import 'sign_out.dart';
 /// profile → office choice → home. Without an [AccountRepository] (offline
 /// preview and legacy tests) it opens the plain home.
 class PostLoginPage extends StatefulWidget {
-  const PostLoginPage({super.key});
+  const PostLoginPage({super.key, this.officeToResume});
+
+  final String? officeToResume;
 
   @override
   State<PostLoginPage> createState() => _PostLoginPageState();
@@ -62,6 +66,12 @@ class _PostLoginPageState extends State<PostLoginPage> {
       await _go(state);
     } catch (e) {
       if (mounted) {
+        final client = _client;
+        if (widget.officeToResume != null && e is ApiException && e.isUnauthorized &&
+            client is FrappeClient && !client.isRepresentingPersonnel) {
+          _replace(LoginPage(initialServerUrl: client.serverIdentity));
+          return;
+        }
         setState(() {
           _error = failureMessage(e);
           _loading = false;
@@ -117,14 +127,18 @@ class _PostLoginPageState extends State<PostLoginPage> {
             onBack: () => _signOut(),
             onCompleted: (ctx, next) => _replace(const PostLoginPage())));
       case LoginStep.selectOffice:
-        _replace(OfficesPage(onSignOut: _signOut));
+      case LoginStep.home:
+        final office = widget.officeToResume;
+        if (office != null && state.offices.any((entry) => entry.name == office)) {
+          _replace(DashboardPage(officeName: office));
+        } else {
+          _replace(OfficesPage(onSignOut: _signOut));
+        }
       case LoginStep.noOfficeAccess:
         _replace(route.message == null
             ? NoOfficeAccessView(onSignOut: () => _signOut())
             : NoOfficeAccessView(
                 message: route.message!, onSignOut: () => _signOut()));
-      case LoginStep.home:
-        _replace(OfficesPage(onSignOut: _signOut));
     }
   }
 

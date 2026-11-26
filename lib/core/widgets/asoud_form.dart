@@ -31,26 +31,46 @@ abstract final class AsoudFormStyle {
 
 class AsoudFormSection extends StatelessWidget {
   const AsoudFormSection(
-      {required this.title, required this.children, this.fieldGap = 0, super.key});
+      {required this.title,
+      required this.children,
+      this.fieldGap = 0,
+      this.collapsible = true,
+      super.key});
   final String title;
   final List<Widget> children;
   final double fieldGap;
+  final bool collapsible;
   @override
   Widget build(BuildContext context) => Card(
         margin: AsoudFormStyle.sectionMargin,
-        child: ExpansionTile(
-          initiallyExpanded: false,
-          maintainState: true,
-          tilePadding: const EdgeInsets.symmetric(horizontal: 12),
-          childrenPadding: AsoudFormStyle.sectionPadding,
-          title: Text(title, style: AsoudFormStyle.sectionTitle),
-          children: [
-            for (var index = 0; index < children.length; index++) ...[
-              if (index > 0 && fieldGap > 0) SizedBox(height: fieldGap),
-              children[index],
-            ],
-          ],
-        ),
+        child: !collapsible
+            ? Padding(
+                padding: const EdgeInsets.fromLTRB(12, 14, 12, 12),
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(title, style: AsoudFormStyle.sectionTitle),
+                      const SizedBox(height: 12),
+                      for (var index = 0; index < children.length; index++) ...[
+                        if (index > 0 && fieldGap > 0)
+                          SizedBox(height: fieldGap),
+                        children[index],
+                      ],
+                    ]),
+              )
+            : ExpansionTile(
+                initiallyExpanded: false,
+                maintainState: true,
+                tilePadding: const EdgeInsets.symmetric(horizontal: 12),
+                childrenPadding: AsoudFormStyle.sectionPadding,
+                title: Text(title, style: AsoudFormStyle.sectionTitle),
+                children: [
+                  for (var index = 0; index < children.length; index++) ...[
+                    if (index > 0 && fieldGap > 0) SizedBox(height: fieldGap),
+                    children[index],
+                  ],
+                ],
+              ),
       );
 }
 
@@ -233,37 +253,37 @@ class _AsoudFormDateFieldState extends State<AsoudFormDateField> {
 
   @override
   Widget build(BuildContext context) => widget.labelOutside
-    ? AppTextField(
-        controller: _display,
-        label: widget.label,
-        labelOutside: true,
-        inputMinHeight: AsoudFormStyle.uniformInputHeight,
-        required: widget.required,
-        enabled: widget.enabled,
-        keyboardType: TextInputType.number,
-        hint: '۱۴۰۵/۰۷/۱۱',
-        errorText: widget.errorText,
-        validator: _validate,
-        suffixIcon: _suffix(),
-      )
-    : AsoudFormField(
-    controller: _display,
-    label: widget.label,
-    enabled: widget.enabled,
-    keyboardType: TextInputType.number,
-    hint: '۱۴۰۵/۰۷/۱۱',
-    errorText: widget.errorText,
-    validator: _validate,
-    suffixIcon: _suffix(),
-  );
+      ? AppTextField(
+          controller: _display,
+          label: widget.label,
+          labelOutside: true,
+          inputMinHeight: AsoudFormStyle.uniformInputHeight,
+          required: widget.required,
+          enabled: widget.enabled,
+          keyboardType: TextInputType.number,
+          hint: '۱۴۰۵/۰۷/۱۱',
+          errorText: widget.errorText,
+          validator: _validate,
+          suffixIcon: _suffix(),
+        )
+      : AsoudFormField(
+          controller: _display,
+          label: widget.label,
+          enabled: widget.enabled,
+          keyboardType: TextInputType.number,
+          hint: '۱۴۰۵/۰۷/۱۱',
+          errorText: widget.errorText,
+          validator: _validate,
+          suffixIcon: _suffix(),
+        );
 
   String? _validate(String? value) {
-      if ((value ?? '').trim().isEmpty) {
-        return widget.required ? 'این فیلد الزامی است.' : null;
-      }
-      return parseJalaliDate(value!) == null
-          ? 'تاریخ شمسی معتبر به شکل سال/ماه/روز وارد کنید.'
-          : null;
+    if ((value ?? '').trim().isEmpty) {
+      return widget.required ? 'این فیلد الزامی است.' : null;
+    }
+    return parseJalaliDate(value!) == null
+        ? 'تاریخ شمسی معتبر به شکل سال/ماه/روز وارد کنید.'
+        : null;
   }
 
   Widget _suffix() {
@@ -481,8 +501,12 @@ class AsoudFormPage extends StatelessWidget {
       this.error,
       this.subtitle = 'تکمیل اطلاعات',
       this.saveLabel = 'ذخیره',
+      this.header,
+    this.keepSectionsMounted = false,
       super.key});
   final String title, subtitle, saveLabel;
+  final PreferredSizeWidget? header;
+  final bool keepSectionsMounted;
 
   /// False disables the primary button (e.g. while a check reports an error).
   final bool canSave;
@@ -497,11 +521,15 @@ class AsoudFormPage extends StatelessWidget {
       child: PopScope(
           canPop: !saving,
           child: Scaffold(
-            appBar: AsoudHeader(title: title, subtitle: subtitle),
+            appBar: header ?? AsoudHeader(title: title, subtitle: subtitle),
             body: SafeArea(
                 child: Form(
                     key: formKey,
-                    child: ListView(
+                    child: keepSectionsMounted ? SingleChildScrollView(
+                        padding: AsoudFormStyle.pagePadding,
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: children),
+                      ) : ListView(
                         padding: AsoudFormStyle.pagePadding,
                         children: [
                           ...children,
@@ -513,11 +541,20 @@ class AsoudFormPage extends StatelessWidget {
                                         color: AsoudColors.danger,
                                         fontSize: 11))),
                         ]))),
-            bottomNavigationBar: AsoudBottomActions(
+            bottomNavigationBar: Column(mainAxisSize: MainAxisSize.min, children: [
+              if (keepSectionsMounted && error != null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 7, 16, 2),
+                  child: Semantics(liveRegion: true, child: Text(error!,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: AsoudColors.danger, fontSize: 12))),
+                ),
+              AsoudBottomActions(
               primaryLabel: saving ? 'در حال ذخیره...' : saveLabel,
               onPrimary: saving || !canSave ? null : onSave,
               secondaryLabel: 'انصراف',
               onSecondary: saving ? null : () => Navigator.pop(context),
-            ),
+              ),
+            ]),
           )));
 }

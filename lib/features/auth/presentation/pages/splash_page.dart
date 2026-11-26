@@ -46,8 +46,11 @@ class _SplashPageState extends State<SplashPage> {
       final restored = await _restore();
       if (!mounted) return;
       if (restored) {
+        final client = context.read<FrappeApiClient>();
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute<void>(builder: (_) => const PostLoginPage()),
+          MaterialPageRoute<void>(builder: (_) => PostLoginPage(
+            officeToResume: client is FrappeClient ? client.lastEnteredOffice : null,
+          )),
         );
         return;
       }

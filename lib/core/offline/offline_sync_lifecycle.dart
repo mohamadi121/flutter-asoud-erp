@@ -15,6 +15,7 @@ class OfflineSyncLifecycle extends StatefulWidget {
     this.interval = const Duration(seconds: 30),
     this.connectivityDebounce = const Duration(seconds: 2),
     this.onlineChanges,
+    this.enabled = true,
     super.key,
   });
 
@@ -28,6 +29,7 @@ class OfflineSyncLifecycle extends StatefulWidget {
 
   /// Injected for tests; the device connectivity stream is used otherwise.
   final Stream<bool>? onlineChanges;
+  final bool enabled;
 
   @override
   State<OfflineSyncLifecycle> createState() => _OfflineSyncLifecycleState();
@@ -72,7 +74,7 @@ class _OfflineSyncLifecycleState extends State<OfflineSyncLifecycle>
   void _sync() {
     // A timer tick without a session has nothing to replay and no owner to
     // scope the replay by, so it would only spin.
-    if (!widget.service.isAuthenticated) return;
+    if (!widget.enabled || !widget.service.isAuthenticated) return;
     unawaited(_syncSafely());
   }
 

@@ -1,11 +1,10 @@
 import 'dart:convert';
 import 'dart:math';
 
-import 'package:shared_preferences/shared_preferences.dart';
-
 import '../../core/config/app_config.dart';
 import '../../core/network/frappe_client.dart';
 import '../../core/network/api_exception.dart';
+import '../../core/offline/session_preferences.dart';
 import 'form_runtime/schema_migration.dart';
 import 'execution_contract.dart';
 
@@ -34,11 +33,17 @@ class FormRepository {
   FormRepository(this.client, this.company);
   final FrappeApiClient client;
   final String company;
+  SessionPreferences get _preferences => SessionPreferences(client);
   String? _scope;
-  static Future<void> _writes = Future<void>.value();
+  static Future<void>? _writes;
   Future<void> _persist(Future<void> Function() work) {
-    final next = _writes.then((_) => work());
-    _writes = next.catchError((Object _) {});
+    final previous = _writes;
+    final next = previous == null ? Future<void>.sync(work) : previous.then((_) => work());
+    final settled = next.then<void>((_) {}, onError: (Object _) {});
+    _writes = settled;
+    settled.then((_) {
+      if (identical(_writes, settled)) _writes = null;
+    });
     return next;
   }
 
@@ -119,9 +124,7 @@ class FormRepository {
 
   Future<List<FormMap>> drafts() async {
     final key = await scope();
-    final raw = (await SharedPreferences.getInstance()).getString(
-      '$key:drafts',
-    );
+    final raw = await _preferences.read('$key:drafts');
     return raw == null ? [] : formMaps(jsonDecode(raw));
   }
 
@@ -131,7 +134,7 @@ class FormRepository {
             r['client_id'] == record['client_id'] ||
             (record['name'] != null && r['name'] == record['name']));
         rows.insert(0, copyForm(record));
-        final saved = await (await SharedPreferences.getInstance()).setString(
+        final saved = await _preferences.write(
           '$_scope:drafts',
           jsonEncode(rows),
         );
@@ -143,7 +146,7 @@ class FormRepository {
   Future<void> discardDraft(String id) => _persist(() async {
         final rows = await drafts();
         rows.removeWhere((r) => r['client_id'] == id);
-        await (await SharedPreferences.getInstance()).setString(
+        await _preferences.write(
           '$_scope:drafts',
           jsonEncode(rows),
         );
@@ -151,23 +154,20 @@ class FormRepository {
 
   Future<FormMap?> entryDraft(String name) async {
     final key = await scope();
-    final raw =
-        (await SharedPreferences.getInstance()).getString('$key:entry:$name');
+    final raw = await _preferences.read('$key:entry:$name');
     return raw == null ? null : formMap(jsonDecode(raw));
   }
 
   Future<void> saveEntryDraft(String name, FormMap data) => _persist(() async {
         final key = await scope();
-        if (!await (await SharedPreferences.getInstance())
-            .setString('$key:entry:$name', jsonEncode(data))) {
+        if (!await _preferences.write('$key:entry:$name', jsonEncode(data))) {
           throw StateError('ذخیره پیش‌نویس ثبت ناموفق بود.');
         }
       });
 
   Future<void> discardEntryDraft(String name) => _persist(() async {
         final key = await scope();
-        await (await SharedPreferences.getInstance())
-            .remove('$key:entry:$name');
+        await _preferences.remove('$key:entry:$name');
       });
 
   Future<FormMap> save(FormMap record) async {
@@ -208,7 +208,6 @@ class FormRepository {
 
   Future<List<FormMap>> list(String kind, {bool manage = true}) async {
     final key = await scope();
-    final prefs = await SharedPreferences.getInstance();
     final cacheKey = '$key:$kind:$manage';
     List<FormMap> rows;
     try {
@@ -220,13 +219,13 @@ class FormRepository {
         }),
       );
       if (manage) {
-        await prefs.setString(cacheKey, jsonEncode(rows));
+        await _preferences.write(cacheKey, jsonEncode(rows));
       }
     } catch (error) {
       if (!manage || (!unavailable(error) && client.isAuthenticated)) {
         rethrow;
       }
-      rows = formMaps(jsonDecode(prefs.getString(cacheKey) ?? '[]'))
+      rows = formMaps(jsonDecode(await _preferences.read(cacheKey) ?? '[]'))
           .map((r) => {...r, 'cached': true})
           .toList();
     }

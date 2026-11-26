@@ -16,7 +16,7 @@ void main() {
     await tester.tap(find.text('مدیریت کاربران'));
     await tester.pumpAndSettle();
 
-    expect(find.text('ایجاد حساب کاربری'), findsOneWidget);
+    expect(find.text('مدیریت حساب'), findsOneWidget);
     expect(
         client.calls, contains('asoud_erp.api.v1.access_profiles.list_accounts'));
     expect(find.text('کاربر نمونه'), findsOneWidget);

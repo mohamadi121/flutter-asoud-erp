@@ -23,6 +23,14 @@ Future<void> signOutWith({
   required AuthRepository auth,
   required NavigatorState navigator,
 }) async {
+  if (client is FrappeClient && client.isRepresentingPersonnel) {
+    try {
+      await client.logout().timeout(const Duration(seconds: 5));
+    } catch (_) {
+      // The parent view listens for the end of this isolated session.
+    }
+    return;
+  }
   final serverUrl = client is FrappeClient ? client.serverIdentity : null;
   String? notice;
   unawaited(CalendarDeviceNotifications.instance.clear().catchError((_) {}));

@@ -1012,6 +1012,7 @@ class _FormEntryPageState extends State<FormEntryPage> {
                             ? null
                             : '${widget.record['name']}',
                         enabled: !busy,
+                        designerReview: widget.previewOnly,
                         onChanged: (v) => setState(() => values = v),
                       ),
                       if (!widget.previewOnly)

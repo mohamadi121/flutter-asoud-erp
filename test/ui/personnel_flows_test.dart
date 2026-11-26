@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:asoud_erp/core/theme/asoud_theme.dart';
 import 'package:asoud_erp/core/widgets/asoud_form.dart';
+import 'package:asoud_erp/core/widgets/app_fields.dart';
 import 'package:asoud_erp/features/hr/data/personnel_repository.dart';
 import 'package:asoud_erp/features/hr/presentation/pages/personnel_page.dart';
 import 'package:file_picker/file_picker.dart';
@@ -133,15 +134,22 @@ Future<void> _tap(WidgetTester tester, String text) async {
 }
 
 Future<void> _section(WidgetTester tester, String title) async {
-  final header = find.descendant(
-      of: find.byType(ExpansionTile), matching: find.text(title));
+  final header = find.text(title).last;
   await tester.scrollUntilVisible(header, 150,
       scrollable: find.byType(Scrollable).first);
   await tester.ensureVisible(header);
   await tester.pumpAndSettle();
-  await tester.tap(header);
-  await tester.pumpAndSettle();
+  expect(header, findsOneWidget);
+  final accordion = find.ancestor(of: header, matching: find.byType(ExpansionTile));
+  if (accordion.evaluate().isNotEmpty) {
+    await tester.tap(header);
+    await tester.pumpAndSettle();
+  }
 }
+
+Finder _field(String label) => find.descendant(
+    of: find.byWidgetPredicate((w) => w is AppTextField && w.label == label),
+    matching: find.byType(TextFormField));
 
 void main() {
   testWidgets('salary editor renders values and refreshes after save',
@@ -156,11 +164,15 @@ void main() {
     final fields = find.byType(TextFormField);
     expect(fields, findsNWidgets(6));
     expect(
-        tester.widget<TextFormField>(fields.first).controller!.text, '12345');
+        tester.widget<TextFormField>(fields.first).controller!.text, '۱۲٬۳۴۵');
     await tester.enterText(fields.first, '45678');
+    await tester.enterText(fields.at(4), '678');
+    expect(tester.widget<TextFormField>(fields.last).controller!.text, '۴۵٬۰۰۰');
+    await _tap(tester, 'اعداد انگلیسی');
+    expect(tester.widget<TextFormField>(fields.last).controller!.text, '45,000');
     await _tap(tester, 'ذخیره');
     expect(repo.profile['base_salary'].toString(), '45678');
-    expect(find.text('45678'), findsOneWidget);
+    expect(repo.profile['net_salary'].toString(), '45000');
   });
 
   setUpAll(() async {
@@ -194,7 +206,7 @@ void main() {
         }
         await _section(tester, 'اطلاعات اصلی');
         await tester.enterText(
-            find.widgetWithText(TextFormField, 'عنوان *'), 'سابقه نمونه');
+            _field('عنوان'), 'سابقه نمونه');
         tester
             .widget<AsoudFormDateField>(find.byType(AsoudFormDateField).first)
             .controller
@@ -209,10 +221,16 @@ void main() {
         }
         if (e.key == 'evaluation') {
           await _section(tester, 'نتیجه ارزیابی');
-          await _tap(tester, 'دوره ارزیابی *');
+          final cycle = find.descendant(
+              of: find.byWidgetPredicate(
+                  (widget) => widget is AppSelectField && widget.label == 'دوره ارزیابی'),
+              matching: find.byType(InkWell));
+          await tester.ensureVisible(cycle);
+          await tester.tap(cycle);
+          await tester.pumpAndSettle();
           await _tap(tester, 'دوره سالانه');
           await tester.enterText(
-              find.widgetWithText(TextFormField, 'امتیاز هدف از ۱۰۰ *'), '85');
+              _field('امتیاز هدف از ۱۰۰'), '85');
           await tester.pumpAndSettle();
           if (golden) {
             await expectLater(find.byType(Scaffold).last,
@@ -244,7 +262,7 @@ void main() {
         expect(
             find.widgetWithText(TextFormField, 'سابقه نمونه'), findsOneWidget);
         await tester.enterText(
-            find.widgetWithText(TextFormField, 'عنوان *'), 'سابقه ویرایش‌شده');
+            _field('عنوان'), 'سابقه ویرایش‌شده');
         if (e.key == 'evaluation') {
           repo.failSave = true;
           await _tap(tester, 'ذخیره');
@@ -281,11 +299,10 @@ void main() {
       }
       await _tap(tester, 'ویرایش اطلاعات');
       await _section(tester, 'اطلاعات اصلی');
-      await tester.enterText(
-          find.widgetWithText(TextFormField, 'نام و نام خانوادگی'), 'علی جدید');
-      await _section(tester, 'اطلاعات اصلی');
-      await _section(tester, 'اطلاعات اصلی');
-      expect(find.widgetWithText(TextFormField, 'علی جدید'), findsOneWidget);
+      final fields = find.byType(TextFormField);
+      await tester.enterText(fields.first, 'علی');
+      await tester.enterText(fields.at(1), 'جدید');
+      expect(find.widgetWithText(TextFormField, 'جدید'), findsOneWidget);
       await _tap(tester, 'ذخیره');
       expect(repo.profile['display_name'], 'علی جدید');
       expect(repo.profileRevision, 'profile-1');

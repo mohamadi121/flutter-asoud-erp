@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'request_review_text.dart';
 
 import '../../../core/utils/jalali_date.dart';
 
@@ -115,6 +116,7 @@ class FormFieldsView extends StatelessWidget {
     this.formName,
     this.enabled = true,
     this.snapshot = false,
+    this.designerReview = false,
     super.key,
   });
 
@@ -124,11 +126,15 @@ class FormFieldsView extends StatelessWidget {
   final String? formName;
   final bool enabled;
   final bool snapshot;
+  final bool designerReview;
 
   @override
   Widget build(BuildContext context) {
     final computed = snapshot ? values : evaluatedValues(schema, values);
     final sections = formMaps(schema['sections']);
+    Widget review() => RequestReviewText(
+      schema: schema, values: computed, repository: repository, designer: designerReview,
+    );
 
     Widget sectionView(FormMap section) {
       final title = '${section['title'] ?? ''}'.trim();
@@ -204,13 +210,17 @@ class FormFieldsView extends StatelessWidget {
                   builder: (context, child) =>
                       sectionView(sections[tabs.index]),
                 ),
+                if (RequestReviewText.exists(schema)) review(),
               ],
             );
           },
         ),
       );
     }
-    return Column(children: sections.map(sectionView).toList());
+    return Column(children: [
+      ...sections.map(sectionView),
+      if (RequestReviewText.exists(schema)) review(),
+    ]);
   }
 
   Widget _sectionFields(BuildContext context, FormMap section, FormMap computed) => LayoutBuilder(

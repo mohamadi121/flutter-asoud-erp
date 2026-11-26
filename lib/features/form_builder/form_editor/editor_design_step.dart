@@ -71,7 +71,7 @@ class _EditorDesignStepState extends State<EditorDesignStep> {
               const SizedBox(width: 6),
               OutlinedButton.icon(
                 onPressed: () => _addSection(context, sections),
-                icon: const Icon(Icons.create_new_folder_outlined, size: 15),
+                icon: const Icon(Icons.add, size: 15),
                 label: const Text(
                   'افزودن بخش',
                   style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),

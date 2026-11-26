@@ -10,6 +10,7 @@ import 'package:asoud_erp/features/auth/presentation/pages/admin_profile_page.da
 import 'package:asoud_erp/features/auth/presentation/pages/change_password_page.dart';
 import 'package:asoud_erp/features/auth/presentation/pages/login_page.dart';
 import 'package:asoud_erp/features/auth/presentation/pages/post_login_page.dart';
+import 'package:asoud_erp/features/dashboard/presentation/pages/dashboard_page.dart';
 import 'package:asoud_erp/features/office_setup/domain/repositories/office_repository.dart';
 import 'package:asoud_erp/features/office_setup/domain/entities/office.dart';
 import 'package:asoud_erp/features/office_setup/presentation/pages/offices_page.dart';
@@ -104,6 +105,25 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     FlutterSecureStorage.setMockInitialValues({});
   });
+
+  for (final office in ['B', 'removed']) {
+    testWidgets('restored office $office requires current server access', (tester) async {
+      final accounts = FakeAccountRepository(
+        state: _s(offices: ['A', 'B']),
+        profile: const AccountProfile(username: 'owner@acme.ir'),
+      );
+      await tester.pumpWidget(_app(accounts, _Auth(), PostLoginPage(officeToResume: office)));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      if (office == 'B') {
+        expect(tester.widget<DashboardPage>(find.byType(DashboardPage)).officeName, 'B');
+        expect(find.byType(OfficesPage), findsNothing);
+      } else {
+        expect(find.byType(OfficesPage), findsOneWidget);
+        expect(find.byType(DashboardPage), findsNothing);
+      }
+    });
+  }
 
   testWidgets('temporary password forces the change screen without a way back',
       (tester) async {

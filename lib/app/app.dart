@@ -8,6 +8,9 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../core/network/frappe_client.dart';
+import '../core/auth/personnel_representation.dart';
+import '../core/theme/asoud_colors.dart';
+import '../features/auth/presentation/pages/post_login_page.dart';
 import '../core/config/app_config.dart';
 import '../core/network/session_vault.dart';
 import '../core/offline/local_database_store.dart';
@@ -55,23 +58,43 @@ import '../features/hr/data/server_first_hr_repository.dart';
 import '../features/hr/domain/hr_repository.dart';
 
 class AsoudErpApp extends StatefulWidget {
-  const AsoudErpApp({super.key});
+  const AsoudErpApp({super.key}) : representation = null, personnelName = null, onExitRepresentation = null, representationNavigator = null;
+  const AsoudErpApp._representation(this.representation, this.personnelName,
+      this.onExitRepresentation, this.representationNavigator);
+  final FrappeClient? representation;
+  final String? personnelName;
+  final VoidCallback? onExitRepresentation;
+  final GlobalKey<NavigatorState>? representationNavigator;
 
   @override
   State<AsoudErpApp> createState() => _AsoudErpAppState();
 }
 
 class _AsoudErpAppState extends State<AsoudErpApp> {
-  late final FrappeClient client = FrappeClient(
+  late final FrappeClient client = widget.representation ?? FrappeClient(
       sessionVault: const SecureSessionVault(),
       serverAddressStore: const SecureServerAddressStore());
   late final OfflineSyncService syncService = OfflineSyncService(client,
-      afterSync: _syncPersonnel, syncRequests: _syncRequests);
+      local: localStoreFor(client),
+      afterSync: widget.representation == null ? _syncPersonnel : null,
+      syncRequests: widget.representation == null ? _syncRequests : null);
 
   StreamSubscription<bool>? _calendarSession;
+  Timer? _representationExpiry;
+  bool _representationOpen = false, _exiting = false;
   @override
   void initState() {
     super.initState();
+    if (widget.representation != null) {
+      _calendarSession = client.authenticationChanges.listen((signedIn) {
+        if (!signedIn && !_exiting && mounted) unawaited(_exitRepresentation());
+      });
+      final expires = client.representationExpiration;
+      if (expires != null) {
+        _representationExpiry = Timer(expires.difference(DateTime.now()), _exitRepresentation);
+      }
+      return;
+    }
     _calendarSession = client.authenticationChanges.listen((signedIn) {
       if (!signedIn) {
         unawaited(CalendarDeviceNotifications.instance.clear().catchError((Object _) {
@@ -84,11 +107,52 @@ class _AsoudErpAppState extends State<AsoudErpApp> {
   @override
   void dispose() {
     unawaited(_calendarSession?.cancel());
+    _representationExpiry?.cancel();
     super.dispose();
   }
 
   bool get _localPreview =>
-      AppConfig.offlineDemoMode && !client.isAuthenticated;
+      widget.representation == null && AppConfig.offlineDemoMode && !client.isAuthenticated;
+
+  Future<void> _exitRepresentation() async {
+    if (_exiting) return;
+    setState(() => _exiting = true);
+    try {
+      if (client.isAuthenticated) {
+        await client.logout().timeout(const Duration(seconds: 5));
+      }
+    } catch (_) {
+      // The short-lived credential is discarded and never written to disk.
+    } finally {
+      await client.close();
+      if (mounted) widget.onExitRepresentation?.call();
+    }
+  }
+
+  Future<void> _represent(BuildContext context, String company, String employee, String reason) async {
+    if (_representationOpen || widget.representation != null) return;
+    setState(() => _representationOpen = true);
+    try {
+      final target = await client.representPersonnel(company: company, employee: employee, reason: reason);
+      if (!context.mounted) {
+        try { await target.client.logout(); } finally { await target.client.close(); }
+        return;
+      }
+      final navigator = Navigator.of(context);
+      final nested = GlobalKey<NavigatorState>();
+      await navigator.push(MaterialPageRoute<void>(
+        builder: (_) => PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop) nested.currentState?.maybePop();
+          },
+          child: AsoudErpApp._representation(
+            target.client, target.personnelName, () => navigator.pop(), nested)),
+      ));
+    } finally {
+      if (mounted) setState(() => _representationOpen = false);
+    }
+  }
 
   Future<void> _syncPersonnel() async {
     if (!client.isAuthenticated) return;
@@ -128,10 +192,10 @@ class _AsoudErpAppState extends State<AsoudErpApp> {
 
   @override
   Widget build(BuildContext context) {
-    return OfflineSyncLifecycle(
-      service: syncService,
-      child: MultiRepositoryProvider(
+    final providers = MultiRepositoryProvider(
         providers: [
+          if (widget.representation == null)
+            RepositoryProvider.value(value: PersonnelRepresentationLauncher(_represent)),
           RepositoryProvider<FrappeApiClient>.value(value: client),
           RepositoryProvider<OfflineSyncService>.value(value: syncService),
           RepositoryProvider<AuthRepository>.value(
@@ -144,28 +208,32 @@ class _AsoudErpAppState extends State<AsoudErpApp> {
             value: SavedCredentialsStore(),
           ),
           RepositoryProvider<OfficeRepository>.value(
-            value: ServerFirstOfficeRepository(FrappeOfficeRepository(client),
+            value: ServerFirstOfficeRepository(FrappeOfficeRepository(client), local: localStoreFor(client),
                   cacheIdentity: () => [client.serverIdentity, client.localStorageUserId ?? ''],
                 localPreview: () => _localPreview),
           ),
           RepositoryProvider<ChartOfAccountsRepository>.value(
             value: ServerFirstChartOfAccountsRepository(
               FrappeChartOfAccountsRepository(client),
+              local: localStoreFor(client),
             ),
           ),
           RepositoryProvider<DetailGroupRepository>.value(
             value: ServerFirstDetailGroupRepository(
               FrappeDetailGroupRepository(client),
+              local: localStoreFor(client),
               localPreview: () => _localPreview,
             ),
           ),
           RepositoryProvider<BaseSetupRepository>.value(
             value: ServerFirstBaseSetupRepository(
               FrappeBaseSetupRepository(client),
+              local: localStoreFor(client),
             ),
           ),
           RepositoryProvider<PartyRepository>.value(
             value: ServerFirstPartyRepository(FrappePartyRepository(client),
+                local: localStoreFor(client),
                 localPreview: () => _localPreview),
           ),
           RepositoryProvider<WorkflowRepository>.value(
@@ -192,12 +260,13 @@ class _AsoudErpAppState extends State<AsoudErpApp> {
           ),
           RepositoryProvider<HrRepository>.value(
             value: PreviewHrRepository(
-              ServerFirstHrRepository(FrappeHrRepository(client)),
+              ServerFirstHrRepository(FrappeHrRepository(client), local: localStoreFor(client)),
               isPreview: () => _localPreview,
             ),
           ),
         ],
         child: MaterialApp(
+          navigatorKey: widget.representationNavigator,
           debugShowCheckedModeBanner: false,
           locale: const Locale('fa'),
           supportedLocales: const [Locale('fa')],
@@ -207,12 +276,27 @@ class _AsoudErpAppState extends State<AsoudErpApp> {
             GlobalCupertinoLocalizations.delegate,
           ],
           theme: AsoudTheme.light,
-          home: const Directionality(
+          builder: widget.representation == null ? null : (context, child) =>
+            Directionality(textDirection: TextDirection.rtl, child: Column(children: [
+              Material(color: const Color(0xFFE8F0FE), child: SafeArea(bottom: false,
+                child: Padding(padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Row(children: [
+                    Expanded(child: Text('نمایندگی: ${widget.personnelName}', maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: AsoudColors.text, fontSize: 12))),
+                    TextButton(onPressed: _exiting ? null : _exitRepresentation,
+                      child: const Text('خروج و بازگشت به مدیر')),
+                  ])))),
+              Expanded(child: _exiting ? const Material(
+                child: Center(child: CircularProgressIndicator())) : child!),
+            ])),
+          home: Directionality(
             textDirection: TextDirection.rtl,
-            child: SplashPage(),
+            child: widget.representation == null ? const SplashPage() : PostLoginPage(officeToResume: client.lastEnteredOffice),
           ),
         ),
-      ),
-    );
+      );
+    if (widget.representation != null) return providers;
+    return OfflineSyncLifecycle(service: syncService, enabled: !_representationOpen, child: providers);
   }
 }

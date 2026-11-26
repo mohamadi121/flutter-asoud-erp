@@ -54,6 +54,7 @@ class FrappePurchaseRequestRepository implements PurchaseRequestRepository {
 
   @override
   Future<List<PurchaseRequestSummary>> list(String company) async {
+    if (_client.isRepresentingPersonnel) return _fetchServer(company);
     var online = true;
     var server = const <PurchaseRequestSummary>[];
     try {

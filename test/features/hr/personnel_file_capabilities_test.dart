@@ -9,6 +9,7 @@ import 'package:asoud_erp/features/hr/data/personnel_file_repository.dart';
 import 'package:asoud_erp/features/hr/data/personnel_repository.dart';
 import 'package:asoud_erp/features/hr/domain/personnel_file.dart';
 import 'package:asoud_erp/core/widgets/asoud_form.dart';
+import 'package:asoud_erp/core/widgets/app_fields.dart';
 import 'package:asoud_erp/features/hr/presentation/pages/personnel_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -895,8 +896,7 @@ void main() {
       await _tapText(tester, 'افزودن قرارداد');
       expect(find.text('اطلاعات قرارداد'), findsOneWidget);
 
-      // Expand form section
-      await _tapText(tester, 'اطلاعات قرارداد');
+      expect(find.byType(ExpansionTile), findsNothing);
 
       // Fill form fields
       tester
@@ -912,7 +912,9 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.enterText(
-          find.widgetWithText(TextFormField, 'شرح قرارداد *'),
+          find.descendant(
+              of: find.byWidgetPredicate((w) => w is AppTextField && w.label == 'شرح قرارداد'),
+              matching: find.byType(TextFormField)),
           'قرارداد آزمایشی جدید');
 
       // Toggle signed switch
@@ -954,8 +956,7 @@ void main() {
       await _tapText(tester, 'ثبت ارتقا یا تغییر سمت');
       expect(find.text('اطلاعات تغییر سمت'), findsOneWidget);
 
-      // Expand form section
-      await _tapText(tester, 'اطلاعات تغییر سمت');
+      expect(find.byType(ExpansionTile), findsNothing);
 
       // Enter date
       tester
@@ -965,11 +966,18 @@ void main() {
       await tester.pumpAndSettle();
 
       // Select job title dropdown
-      await _tapText(tester, 'سمت جدید');
+      final selector = find.descendant(
+          of: find.byWidgetPredicate((w) => w is AppSelectField && w.label == 'سمت جدید'),
+          matching: find.byType(InkWell));
+      await tester.ensureVisible(selector);
+      await tester.tap(selector);
+      await tester.pumpAndSettle();
       await _tapText(tester, 'سرپرست فروش');
 
       // Enter remarks
-      await tester.enterText(find.widgetWithText(TextFormField, 'توضیحات'),
+      await tester.enterText(find.descendant(
+          of: find.byWidgetPredicate((w) => w is AppTextField && w.label == 'توضیحات'),
+          matching: find.byType(TextFormField)),
           'ارتقا بر اساس ارزیابی عملکرد');
 
       // Save promotion

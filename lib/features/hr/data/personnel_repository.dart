@@ -33,6 +33,11 @@ const financialPersonnelFields = {
 
 const personnelFields = [
   'display_name',
+  'first_name',
+  'last_name',
+  'alias_name',
+  'birth_certificate_number',
+  'birth_certificate_issue_place',
   'national_id',
   'birth_date',
   'employee_gender',
@@ -48,6 +53,16 @@ const personnelFields = [
   'job_title',
   'department',
   'employment_type',
+  'marital_status',
+  'blood_group',
+  'company_email',
+  'emergency_contact_name',
+  'emergency_phone',
+  'emergency_relation',
+  'reports_to',
+  'final_confirmation_date',
+  'contract_end_date',
+  'notice_number_of_days',
   'base_salary',
   'housing_allowance',
   'transport_allowance',
@@ -59,7 +74,7 @@ const personnelFields = [
 class PersonnelRepository {
   PersonnelRepository(this.client,
       {LocalRecordStore? local, HrDemoData? demoData})
-      : local = local ?? LocalDatabaseStore.instance,
+      : local = local ?? localStoreFor(client),
         demoData = demoData ?? HrDemoData.at(DateTime.now());
   final FrappeApiClient client;
   final LocalRecordStore local;

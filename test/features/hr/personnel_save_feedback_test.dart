@@ -64,6 +64,7 @@ void main() {
         (tester) async {
       final repository = _Repository();
       await _open(tester, repository, width);
+      await tester.enterText(find.widgetWithText(TextFormField, 'رضایی'), 'جدید');
       await tester.tap(find.text('ذخیره'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
@@ -83,14 +84,13 @@ void main() {
             message: 'اطلاعات واردشده معتبر نیست.');
         final repository = _Repository()..failure = failure;
         await _open(tester, repository, width);
-        await _tap(tester, 'اطلاعات اصلی');
         await tester.enterText(
-            find.widgetWithText(TextFormField, 'نام و نام خانوادگی'), 'علی جدید');
+            find.widgetWithText(TextFormField, 'رضایی'), 'جدید');
         await _tap(tester, 'ذخیره');
         expect(repository.updates, 1);
         expect(repository.submitted!['display_name'], 'علی جدید');
         expect(find.text('ویرایش اطلاعات فردی'), findsOneWidget);
-        expect(find.widgetWithText(TextFormField, 'علی جدید'), findsOneWidget);
+        expect(find.widgetWithText(TextFormField, 'جدید'), findsOneWidget);
         expect(find.text(failureMessage(failure)), findsOneWidget);
         expect(find.byType(AlertDialog), findsNothing);
         expect(tester.takeException(), isNull);

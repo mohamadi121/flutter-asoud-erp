@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -13,6 +15,7 @@ class _FakeClient extends Fake implements FrappeApiClient {
   _FakeClient();
 
   final String company = 'شرکت نمونه آسود';
+  FormMap? savedSchema;
 
   @override
   bool get isAuthenticated => true;
@@ -43,14 +46,15 @@ class _FakeClient extends Fake implements FrappeApiClient {
       };
     }
     if (method.endsWith('save_form')) {
+      savedSchema = formMap(jsonDecode(data!['schema'] as String));
       return {
         'message': {
           'ok': true,
           'data': {
-            'name': data?['name'] ?? 'FORM-001',
+            'name': data['name'] ?? 'FORM-001',
             'status': 'Draft',
             'draft_version': 1,
-            'schema': data?['schema'],
+            'schema': savedSchema,
           },
         },
       };
@@ -259,6 +263,48 @@ void main() {
       expect(find.text('بخش اسناد ضمیمه'), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('document designer creates a section and saves a moved native field', (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final client = _FakeClient();
+      final repo = FormRepository(client, client.company);
+      final initial = <String, dynamic>{
+        'name': 'DOC-1',
+        'schema': {
+          'kind': 'Document', 'title': 'سند حسابداری', 'module': 'Accounting',
+          'target': 'Journal Entry',
+          'sections': [
+            {'id': 'main', 'title': 'اطلاعات سند', 'fields': [
+              {'key': 'posting_date', 'native_key': 'posting_date', 'type': 'Date', 'label': 'تاریخ سند'},
+            ]},
+          ],
+        },
+      };
+      await tester.pumpWidget(_wrap(FormEditorPage(repository: repo, initial: initial), client));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('افزودن بخش'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextFormField).last, 'تاریخ‌ها');
+      await tester.tap(find.text('ذخیره'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.descendant(
+        of: find.byKey(const ValueKey('field_posting_date')),
+        matching: find.byIcon(Icons.tune),
+      ));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('انتقال به تاریخ‌ها'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ذخیره پیش‌نویس'));
+      await tester.pumpAndSettle();
+      final sections = formMaps(client.savedSchema!['sections']);
+      expect(formMaps(sections.first['fields']), isEmpty);
+      final field = formMaps(sections.last['fields']).single;
+      expect(field['key'], 'posting_date');
+      expect(field['native_key'], 'posting_date');
     });
 
     testWidgets('تغییر نام بخش و حفظ فیلدها و رنگ اختصاصی', (tester) async {

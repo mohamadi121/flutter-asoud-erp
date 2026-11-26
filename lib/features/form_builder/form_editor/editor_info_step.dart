@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/widgets/template_text.dart';
 import '../form_repository.dart';
 import '../execution_settings.dart';
+import '../form_runtime/request_review_text.dart';
 import 'editor_widgets.dart';
 
 class EditorInfoStep extends StatelessWidget {
@@ -89,6 +91,8 @@ class EditorInfoStep extends StatelessWidget {
             ExecutionSettings(repository: repository!, schema: schema,
                 onChanged: () => change(() {})),
           if (schema['kind'] == 'Request')
+            _ReviewTextEditor(schema: schema, change: change),
+          if (schema['kind'] == 'Request')
             ExpansionTile(
               title: const Text('اتصال به گردش‌کار (اختیاری)'),
               children: [
@@ -158,4 +162,80 @@ class EditorInfoStep extends StatelessWidget {
           ),
         ],
       );
+}
+
+class _ReviewTextEditor extends StatefulWidget {
+  const _ReviewTextEditor({required this.schema, required this.change});
+  final FormMap schema;
+  final void Function(VoidCallback fn) change;
+
+  @override
+  State<_ReviewTextEditor> createState() => _ReviewTextEditorState();
+}
+
+class _ReviewTextEditorState extends State<_ReviewTextEditor> {
+  late final _labels = requestReviewLabels(widget.schema);
+  late final _controller = TemplateTextController(_labels,
+      source: '${widget.schema['review_text'] ?? ''}');
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _save() => widget.change(() {
+    final text = _controller.source;
+    if (text.trim().isEmpty) {
+      widget.schema.remove('review_text');
+    } else {
+      widget.schema['review_text'] = text;
+    }
+  });
+
+  Future<void> _insert() async {
+    final token = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheet) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Padding(padding: EdgeInsets.all(12), child: Text('درج فیلد در متن')),
+          Flexible(
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                for (final entry in _labels.entries)
+                  ListTile(
+                    title: Text(entry.value),
+                    onTap: () => Navigator.pop(sheet, entry.key),
+                  ),
+              ],
+            ),
+          ),
+        ]),
+      ),
+    );
+    if (token == null || !mounted) return;
+    _controller.insertToken(token);
+    _save();
+  }
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 12),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      TextField(
+        controller: _controller,
+        decoration: const InputDecoration(labelText: 'متن خلاصهٔ بازبینی (اختیاری)'),
+        minLines: 2,
+        maxLines: 5,
+        onChanged: (_) => _save(),
+      ),
+      TextButton.icon(
+        onPressed: _labels.isEmpty ? null : _insert,
+        icon: const Icon(Icons.add_comment_outlined, size: 17),
+        label: const Text('درج فیلد در متن'),
+      ),
+    ]),
+  );
 }

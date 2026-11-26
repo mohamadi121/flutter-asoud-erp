@@ -1,6 +1,30 @@
 import 'package:asoud_erp/core/network/frappe_client.dart';
 import 'package:asoud_erp/features/hr/domain/hr_contract_models.dart';
 
+/// Uses the same role- and office-checked endpoint as contract issuance.
+Future<Map<String, String>> loadContractTextValues(
+  FrappeApiClient client, String company, String employee,
+) async {
+  final response = await client.callAsoudMethod(
+    'asoud_erp.api.v1.employment_contracts.prepare_contract',
+    data: {'company': company, 'employee': employee},
+  );
+  if (response is! Map) throw const FormatException('پاسخ پیش‌نمایش معتبر نیست.');
+  final payload = response['data'] is Map ? response['data'] as Map : response;
+  if (payload['employee_info'] is! Map || payload['company_info'] is! Map) {
+    throw const FormatException('پاسخ پیش‌نمایش معتبر نیست.');
+  }
+  return {
+    for (final (source, namespace) in const [
+      ('employee_info', 'personnel'),
+      ('company_info', 'company'),
+    ])
+      for (final value in (payload[source] as Map).entries)
+        if (value.value is String || value.value is num)
+          '{{$namespace.${value.key}}}': '${value.value}',
+  };
+}
+
 abstract class HrContractTemplateRepository {
   String fieldTag(String group, String label);
   Future<HrContractTemplate> getTemplate({

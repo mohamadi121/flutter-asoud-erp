@@ -1,9 +1,8 @@
 import 'dart:convert';
 
-import 'package:shared_preferences/shared_preferences.dart';
-
 import '../../../core/network/frappe_client.dart';
 import '../../../core/config/app_config.dart';
+import '../../../core/offline/session_preferences.dart';
 
 /// Wait configuration is an online validated write; drafts never schedule work.
 class WorkflowWaitRepository {
@@ -34,19 +33,19 @@ class WorkflowWaitRepository {
 
   Future<Map<String, dynamic>?> draft(String definition, String stage) async {
     final key = await _key(definition, stage);
-    final raw = (await SharedPreferences.getInstance()).getString(key);
+    final raw = await SessionPreferences(client).read(key);
     return raw == null ? null : Map<String, dynamic>.from(jsonDecode(raw) as Map);
   }
 
   Future<void> saveDraft(String definition, String stage, Map<String, dynamic> config) async {
     final key = await _key(definition, stage);
-    if (!await (await SharedPreferences.getInstance()).setString(key, jsonEncode(config))) {
+    if (!await SessionPreferences(client).write(key, jsonEncode(config))) {
       throw StateError('ذخیرهٔ پیش‌نویس انتظار روی دستگاه انجام نشد.');
     }
   }
 
   Future<void> clearDraft(String definition, String stage) async {
     final key = await _key(definition, stage);
-    await (await SharedPreferences.getInstance()).remove(key);
+    await SessionPreferences(client).remove(key);
   }
 }

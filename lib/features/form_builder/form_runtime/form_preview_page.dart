@@ -286,6 +286,7 @@ class _FormPreviewPageState extends State<FormPreviewPage> {
                   Form(
                     key: _previewKey,
                     child: FormFieldsView(
+                      designerReview: true,
                       schema: widget.schema,
                       values: _values,
                       repository: widget.repository,

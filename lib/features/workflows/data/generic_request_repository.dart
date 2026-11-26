@@ -24,7 +24,7 @@ const _pendingCommentEntity = 'generic_request_comment_pending';
 /// fall back to cache and failed mutations are retained for explicit retry.
 class GenericRequestRepository {
   GenericRequestRepository(this.client, this.company, {LocalRecordStore? store})
-      : store = store ?? LocalDatabaseStore.instance;
+      : store = store ?? localStoreFor(client);
   final FrappeApiClient client;
   final String company;
   final LocalRecordStore store;

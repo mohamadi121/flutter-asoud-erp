@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:asoud_erp/core/theme/asoud_colors.dart';
 import 'package:asoud_erp/core/utils/jalali_date.dart';
 import 'package:asoud_erp/core/widgets/asoud_ui.dart';
+import 'package:asoud_erp/core/widgets/template_text.dart';
+import 'package:asoud_erp/features/hr/data/hr_contracts_repository.dart';
 import 'package:asoud_erp/features/hr/data/hr_contract_template_repository.dart';
 import 'package:asoud_erp/features/hr/domain/hr_contract_models.dart';
 import 'hr_contract_builder_widgets.dart';
@@ -36,12 +38,17 @@ class _HrContractBuilderPageState extends State<HrContractBuilderPage> {
   Object? expandedClauseId;
   Object? editingClauseId;
   final TextEditingController editTitleController = TextEditingController();
-  final TextEditingController editBodyController = TextEditingController();
+  final _labels = <String, String>{};
+  late final editBodyController = TemplateTextController(_labels);
   List<HrPayrollTableRow> draftPayrollRows = [];
 
   bool isNewArticleOpen = false;
   final TextEditingController newTitleController = TextEditingController();
-  final TextEditingController newBodyController = TextEditingController();
+  late final newBodyController = TemplateTextController(_labels);
+  Map<String, String> _previewValues = {};
+  String? _previewEmployee;
+  String? _previewError;
+  bool _loadingPreview = false;
 
   Map<String, List<String>> catalogFields = defaultCatalogGroups;
   List<HrPayrollFieldOption> payrollFields = defaultPayrollFields;
@@ -75,6 +82,11 @@ class _HrContractBuilderPageState extends State<HrContractBuilderPage> {
         setState(() {
           template = t;
           catalogFields = fields;
+          _labels
+            ..clear()
+            ..addEntries(fields.entries.expand((group) => group.value.map(
+              (label) => MapEntry(repository.fieldTag(group.key, label), label),
+            )));
           payrollFields = pFields;
           loading = false;
         });
@@ -95,7 +107,7 @@ class _HrContractBuilderPageState extends State<HrContractBuilderPage> {
       expandedClauseId = clause.id;
       isNewArticleOpen = false;
       editTitleController.text = clause.title;
-      editBodyController.text = clause.body;
+      editBodyController.loadSource(clause.body);
       draftPayrollRows = template.payrollRows.map((r) => r.copyWith()).toList();
     });
   }
@@ -115,7 +127,7 @@ class _HrContractBuilderPageState extends State<HrContractBuilderPage> {
       if (c.id == editingClauseId) {
         return c.copyWith(
           title: editTitleController.text.trim(),
-          body: editBodyController.text.trim(),
+          body: editBodyController.source,
         );
       }
       return c;
@@ -133,8 +145,8 @@ class _HrContractBuilderPageState extends State<HrContractBuilderPage> {
 
   void _saveNewArticle() {
     final title = newTitleController.text.trim();
-    final body = newBodyController.text.trim();
-    if (title.isEmpty || body.isEmpty) return;
+    final body = newBodyController.source;
+    if (title.isEmpty || body.trim().isEmpty) return;
 
     final nextId = 'clause_${DateTime.now().microsecondsSinceEpoch}';
     final newClause = HrContractClause(id: nextId, title: title, body: body);
@@ -173,17 +185,7 @@ class _HrContractBuilderPageState extends State<HrContractBuilderPage> {
         catalog: catalogFields,
         resolveTag: repository.fieldTag,
         onFieldSelected: (tag) {
-          final text = controller.text;
-          final selection = controller.selection;
-          if (selection.start >= 0 && selection.end >= selection.start) {
-            final newText = text.replaceRange(
-                selection.start, selection.end, ' $tag ');
-            controller.text = newText;
-            controller.selection = TextSelection.collapsed(
-                offset: selection.start + tag.length + 2);
-          } else {
-            controller.text = '$text $tag';
-          }
+          if (controller is TemplateTextController) controller.insertToken(tag);
         },
       ),
     );
@@ -378,6 +380,7 @@ class _HrContractBuilderPageState extends State<HrContractBuilderPage> {
         for (int i = 0; i < template.clauses.length; i++) ...[
           ArticleCard(
             clause: template.clauses[i],
+            displayBody: displayTemplateText(template.clauses[i].body, _labels),
             index: i,
             isExpanded: expandedClauseId == template.clauses[i].id,
             isEditing: editingClauseId == template.clauses[i].id,
@@ -427,6 +430,66 @@ class _HrContractBuilderPageState extends State<HrContractBuilderPage> {
     );
   }
 
+  Future<void> _pickPreviewEmployee() async {
+    final repo = repository;
+    if (repo is! ServerHrContractTemplateRepository || _loadingPreview) return;
+    setState(() { _loadingPreview = true; _previewError = null; });
+    try {
+      final staff = await ServerHrContractsRepository(repo.client)
+          .getStaffList(company: widget.company);
+      if (!mounted) return;
+      final selected = await showModalBottomSheet<EmployeeOption>(
+        context: context,
+        showDragHandle: true,
+        builder: (sheet) => SafeArea(
+          child: staff.isEmpty
+            ? const Padding(padding: EdgeInsets.all(20), child: Text('پرسنل مجاز برای پیش‌نمایش یافت نشد.'))
+            : ListView.builder(
+                itemCount: staff.length,
+                itemBuilder: (_, i) => ListTile(
+                  title: Text(staff[i].name),
+                  onTap: () => Navigator.pop(sheet, staff[i]),
+                ),
+              ),
+        ),
+      );
+      if (selected == null || !mounted) return;
+      final values = await loadContractTextValues(repo.client, widget.company, selected.id);
+      if (mounted) setState(() { _previewValues = values; _previewEmployee = selected.name; });
+    } catch (_) {
+      if (mounted) setState(() => _previewError = 'دریافت اطلاعات مجاز پیش‌نمایش انجام نشد.');
+    } finally {
+      if (mounted) setState(() => _loadingPreview = false);
+    }
+  }
+
+  ({String text, Set<String> missing}) _render(HrContractClause clause) =>
+      renderTemplateText(clause.body, _labels, {
+        if (repository is! ServerHrContractTemplateRepository)
+          '{{company.company_name}}': widget.company,
+        ..._previewValues,
+      });
+
+  Widget _previewControls() {
+    final missing = {for (final clause in template.clauses) ..._render(clause).missing};
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (repository is ServerHrContractTemplateRepository)
+          OutlinedButton.icon(
+            onPressed: _loadingPreview ? null : _pickPreviewEmployee,
+            icon: const Icon(Icons.person_search_outlined),
+            label: Text(_loadingPreview ? 'در حال دریافت…' : _previewEmployee ?? 'انتخاب پرسنل برای پیش‌نمایش'),
+          ),
+        if (_previewError != null) Text(_previewError!),
+        if (missing.isNotEmpty)
+          Text('مقدار در دسترس نیست: ${missing.join('، ')}',
+            style: const TextStyle(color: Color(0xFF92400E), fontSize: 12)),
+        const SizedBox(height: 12),
+      ],
+    );
+  }
+
   Widget _buildPreviewContractTab() {
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -452,6 +515,7 @@ class _HrContractBuilderPageState extends State<HrContractBuilderPage> {
           ),
         ),
         const SizedBox(height: 12),
+        _previewControls(),
         for (int i = 0; i < template.clauses.length; i++) ...[
           Container(
             margin: const EdgeInsets.only(bottom: 10),
@@ -471,7 +535,7 @@ class _HrContractBuilderPageState extends State<HrContractBuilderPage> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  template.clauses[i].body,
+                  _render(template.clauses[i]).text,
                   style: const TextStyle(
                       fontSize: 12, height: 1.6, color: Color(0xFF475569)),
                 ),
@@ -489,30 +553,30 @@ class _HrContractBuilderPageState extends State<HrContractBuilderPage> {
 
   Widget _buildPrintPreviewTab() {
     final sampleRecord = HrContractRecord(
-      id: 'CRT-1405-021',
-      staffId: 'p1',
-      employeeName: 'پرسنل نمونه',
-      employeeCode: 'HR-101',
+      id: 'پیش‌نویس',
+      staffId: '',
+      employeeName: _previewEmployee ?? '—',
+      employeeCode: _previewValues['{{personnel.employee_number}}'] ?? '—',
       kind: 'مدت‌معین',
       status: 'پیش‌نویس',
-      startDate: '۱۴۰۵/۰۱/۰۱',
-      endDate: '۱۴۰۵/۱۲/۲۹',
-      workplace: 'دفتر مرکزی',
-      salaries: const {
-        'payroll.base_salary': 235000000,
-        'payroll.housing': 9000000,
-        'payroll.food': 22000000,
-      },
+      startDate: '—',
+      workplace: '',
+      salaries: const {},
       templateVersion: template.version,
-      snapshotClauses: template.clauses,
+      snapshotClauses: [
+        for (final clause in template.clauses) clause.copyWith(body: _render(clause).text),
+      ],
       snapshotPayrollRows: template.payrollRows,
     );
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
-      child: HrContractPrintLayout(
-        contract: sampleRecord,
-        template: template,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _previewControls(),
+          HrContractPrintLayout(contract: sampleRecord, template: template),
+        ],
       ),
     );
   }

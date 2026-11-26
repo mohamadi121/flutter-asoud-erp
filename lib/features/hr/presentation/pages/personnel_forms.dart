@@ -7,7 +7,6 @@ const _extendedProfileFields = {
   'emergency_contact_name',
   'emergency_phone',
   'emergency_relation',
-  'branch',
   'reports_to',
   'final_confirmation_date',
   'contract_end_date',
@@ -17,10 +16,13 @@ const _extendedProfileFields = {
 const _profileGroups = {
   'اطلاعات اصلی': [
     'display_name',
+    'alias_name',
     'national_id',
     'birth_date',
     'employee_gender',
     'father_name',
+    'birth_certificate_number',
+    'birth_certificate_issue_place',
     'marital_status',
     'blood_group'
   ],
@@ -44,7 +46,6 @@ const _profileGroups = {
     'department',
     'date_of_joining',
     'employment_type',
-    'branch',
     'reports_to',
     'final_confirmation_date',
     'contract_end_date',
@@ -438,6 +439,7 @@ class _PersonnelCategoryPageState extends State<_PersonnelCategoryPage> {
                         _EmploymentCategory(profile: profile),
                         PersonnelPromotionSlot(
                             profileId: '${widget.profile['id']}',
+                            profile: profile,
                             canEdit: data['can_edit'] == true,
                             personnel: widget.repository,
                             repository: widget.fileRepository,
@@ -460,6 +462,8 @@ class _PersonnelCategoryPageState extends State<_PersonnelCategoryPage> {
                           PersonnelContractsSlot(
                               file: file,
                               profileId: '${widget.profile['id']}',
+                              profile: profile,
+                              personnel: widget.repository,
                               canEdit: data['can_edit'] == true,
                               repository: widget.fileRepository,
                               onRefresh: () async {
@@ -802,6 +806,68 @@ class _ProfileMetricStrip extends StatelessWidget {
       ]));
 }
 
+class _PersonnelEditorHeading extends StatelessWidget {
+  const _PersonnelEditorHeading(this.profile, this.repository);
+  final Map<String, dynamic> profile;
+  final PersonnelRepository repository;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: 14),
+        child: Column(children: [
+          _ProfileDetailHero(profile: profile, repository: repository),
+          const SizedBox(height: 10),
+          _ProfileMetricStrip(profile: profile),
+        ]),
+      );
+}
+
+const _salaryInputs = [
+  'base_salary',
+  'housing_allowance',
+  'transport_allowance',
+  'other_allowances',
+  'deductions',
+];
+
+String _plainAmount(String input) =>
+    toLatinDigits(input).replaceAll(RegExp(r'[,٬\s]'), '').replaceAll('٫', '.');
+
+String _salaryDisplay(String raw, bool persian) {
+  final display = formatNumber(raw);
+  return persian
+      ? display
+      : toLatinDigits(display).replaceAll('٬', ',').replaceAll('٫', '.');
+}
+
+class _PersonnelAmountFormatter extends TextInputFormatter {
+  const _PersonnelAmountFormatter(this.persian);
+  final bool persian;
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
+    if (newValue.composing.isValid && !newValue.composing.isCollapsed) {
+      return newValue;
+    }
+    final raw = _plainAmount(newValue.text);
+    if (!RegExp(r'^\d{0,16}(\.\d{0,2})?$').hasMatch(raw)) return oldValue;
+    final text = _salaryDisplay(raw, persian);
+    if (newValue.selection.end == newValue.text.length) {
+      return TextEditingValue(
+          text: text, selection: TextSelection.collapsed(offset: text.length));
+    }
+    final end = newValue.selection.end.clamp(0, newValue.text.length);
+    final remaining = _plainAmount(newValue.text.substring(end)).length;
+    var caret = text.length;
+    while (
+        caret > 0 && _plainAmount(text.substring(caret)).length < remaining) {
+      caret--;
+    }
+    return TextEditingValue(
+        text: text, selection: TextSelection.collapsed(offset: caret));
+  }
+}
+
 class _ProfileEditor extends StatefulWidget {
   const _ProfileEditor(
       {required this.title,
@@ -819,10 +885,44 @@ class _ProfileEditor extends StatefulWidget {
 
 class _ProfileEditorState extends State<_ProfileEditor> {
   final formKey = GlobalKey<FormState>();
+  bool get personal => widget.labels.containsKey('display_name');
+  bool get wages => widget.labels.containsKey('net_salary');
+  bool get needsEmployee =>
+      widget.profile['needs_employee_details'] == true &&
+      !widget.repository.localDemo;
+  bool _hasField(String key) =>
+      widget.labels.containsKey(key) &&
+      (!needsEmployee || !_extendedProfileFields.contains(key));
+  bool persianDigits = true;
+  late final nameParts = _valueOf(widget.profile, 'display_name')
+      .trim()
+      .split(RegExp(r'\s+'))
+      .where((part) => part.isNotEmpty && part != '—')
+      .toList();
+  String _initialName(String key) {
+    final first = '${widget.profile['first_name'] ?? ''}'.trim();
+    final last = '${widget.profile['last_name'] ?? ''}'.trim();
+    if (first.isNotEmpty && (last.isNotEmpty || first != nameParts.join(' '))) {
+      return key == 'first_name' ? first : last;
+    }
+    return key == 'first_name'
+        ? (nameParts.firstOrNull ?? '')
+        : nameParts.skip(1).join(' ');
+  }
+
   late final fields = {
     for (final key in widget.labels.keys)
-      key: TextEditingController(text: '${widget.profile[key] ?? ''}')
+      if (key != 'display_name')
+        key: TextEditingController(
+            text: financialPersonnelFields.contains(key)
+                ? _salaryDisplay('${widget.profile[key] ?? ''}', true)
+                : '${widget.profile[key] ?? ''}'),
+    if (personal) ...{
+      'first_name': TextEditingController(text: _initialName('first_name')),
+      'last_name': TextEditingController(text: _initialName('last_name')),
+    },
   };
+  late final initial = fields.map((key, value) => MapEntry(key, value.text));
   bool saving = false;
   Map<String, dynamic> linkOptions = {};
   bool loadingOptions = false;
@@ -830,8 +930,13 @@ class _ProfileEditorState extends State<_ProfileEditor> {
   @override
   void initState() {
     super.initState();
+    // Capture the API values before the first keystroke, not on submit.
+    for (final key in initial.keys) {
+      if (_salaryInputs.contains(key)) fields[key]!.addListener(_refreshNet);
+    }
+    if (wages) _refreshNet();
     if (!widget.repository.localDemo &&
-        ['department', 'job_title', 'employment_type', 'branch', 'reports_to']
+        ['department', 'job_title', 'employment_type', 'reports_to']
             .any(widget.labels.containsKey)) {
       loadOptions();
     }
@@ -854,6 +959,34 @@ class _ProfileEditorState extends State<_ProfileEditor> {
   }
 
   String? error;
+  num get _net => _salaryInputs.indexed.fold<num>(0, (total, item) {
+        final amount = num.tryParse(_plainAmount(fields[item.$2]!.text)) ?? 0;
+        return total + (item.$1 == 4 ? -amount : amount);
+      });
+
+  void _refreshNet() {
+    final whole = _net;
+    fields['net_salary']!.text = _salaryDisplay(
+      _salaryInputs.every((key) => fields[key]!.text.isEmpty)
+          ? ''
+          : whole == whole.roundToDouble()
+              ? whole.toInt().toString()
+              : whole.toStringAsFixed(2),
+      persianDigits,
+    );
+  }
+
+  void _digits(bool persian) {
+    setState(() {
+      persianDigits = persian;
+      for (final key in _salaryInputs) {
+        fields[key]!.text =
+            _salaryDisplay(_plainAmount(fields[key]!.text), persian);
+      }
+      _refreshNet();
+    });
+  }
+
   @override
   void dispose() {
     for (final c in fields.values) {
@@ -868,21 +1001,66 @@ class _ProfileEditorState extends State<_ProfileEditor> {
       setState(() => error = 'فیلدهای مشخص‌شده در بخش‌های فرم را بررسی کنید.');
       return;
     }
+    if (wages && _net < 0) {
+      setState(
+          () => error = 'کسورات نباید از مجموع حقوق پایه و مزایا بیشتر باشد.');
+      return;
+    }
+    final birth = DateTime.tryParse(fields['birth_date']?.text ?? '');
+    if (birth != null &&
+        birth.isAfter(DateTime.now()) &&
+        fields['birth_date']?.text != initial['birth_date']) {
+      setState(() => error = 'تاریخ تولد نمی‌تواند در آینده باشد.');
+      return;
+    }
+    final changes = <String, dynamic>{};
+    for (final entry in fields.entries) {
+      if (financialPersonnelFields.contains(entry.key) ||
+          entry.key == 'first_name' ||
+          entry.key == 'last_name') {
+        continue;
+      }
+      if (entry.value.text.trim() != initial[entry.key]?.trim()) {
+        changes[entry.key] = const {
+          'national_id',
+          'birth_certificate_number',
+          'mobile',
+          'phone',
+          'emergency_phone',
+          'postal_code',
+          'notice_number_of_days',
+        }.contains(entry.key)
+            ? toLatinDigits(entry.value.text.trim())
+            : entry.value.text.trim();
+      }
+    }
+    if (personal &&
+        ['first_name', 'last_name']
+            .any((key) => fields[key]!.text.trim() != initial[key]?.trim())) {
+      for (final key in ['first_name', 'last_name']) {
+        changes[key] = fields[key]!.text.trim();
+      }
+      changes['display_name'] =
+          "${changes['first_name']} ${changes['last_name']}";
+    }
+    if (wages &&
+        _salaryInputs.any((key) =>
+            _plainAmount(fields[key]!.text) != _plainAmount(initial[key]!))) {
+      for (final key in [..._salaryInputs, 'net_salary']) {
+        changes[key] = _plainAmount(fields[key]!.text);
+      }
+    }
+    if (changes.isEmpty) {
+      Navigator.pop(context);
+      return;
+    }
     setState(() {
       saving = true;
       error = null;
     });
     try {
-      final result = await widget.repository.update(
-          '${widget.profile['id']}',
-          {
-            for (final e in fields.entries)
-              if (!_extendedProfileFields.contains(e.key) ||
-                  widget.profile.containsKey(e.key) ||
-                  e.value.text.trim().isNotEmpty)
-                e.key: e.value.text.trim(),
-          },
-          widget.revision);
+      final result = await widget.repository
+          .update('${widget.profile['id']}', changes, widget.revision);
       if (mounted &&
           (result['offline'] == true || result['pending_sync'] == true)) {
         await showDialog<void>(
@@ -909,14 +1087,21 @@ class _ProfileEditorState extends State<_ProfileEditor> {
   }
 
   Widget field(String key) {
-    final label = widget.labels[key]!;
+    final label = key == 'first_name'
+        ? 'نام'
+        : key == 'last_name'
+            ? 'نام خانوادگی'
+            : widget.labels[key]!;
     if (!widget.repository.localDemo &&
-        ['department', 'job_title', 'employment_type', 'branch', 'reports_to']
+        ['department', 'job_title', 'employment_type', 'reports_to']
             .contains(key)) {
       final current = fields[key]!.text;
       return _linkSelect(key, label, {
         if (current.isNotEmpty) current: current,
-        ..._personnelLinkOptions(linkOptions, key),
+        ..._personnelLinkOptions(linkOptions, key,
+            exclude: key == 'reports_to'
+                ? '${widget.profile['employee_code']}'
+                : null),
       });
     }
     if (financialPersonnelFields.contains(key)) {
@@ -925,11 +1110,16 @@ class _ProfileEditorState extends State<_ProfileEditor> {
           child: AppTextField(
               controller: fields[key]!,
               label: label,
+              labelOutside: true,
               enabled: !saving,
-              keyboardType: TextInputType.number,
+              readOnly: key == 'net_salary',
+              ltr: true,
+              inputFormatters: [_PersonnelAmountFormatter(persianDigits)],
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
               validator: (value) {
                 if (value == null || value.isEmpty) return null;
-                final amount = num.tryParse(value);
+                final amount = num.tryParse(_plainAmount(value));
                 return amount == null ||
                         !amount.isFinite ||
                         amount < 0 ||
@@ -942,23 +1132,26 @@ class _ProfileEditorState extends State<_ProfileEditor> {
       return _linkSelect(key, label, _genderOptions);
     }
     if (key == 'marital_status' || key == 'blood_group') {
-      return _linkSelect(key, label, key == 'marital_status'
-          ? _maritalOptions
-          : {
-              for (final group in [
-                'A+',
-                'A-',
-                'B+',
-                'B-',
-                'AB+',
-                'AB-',
-                'O+',
-                'O-'
-              ])
-                group: group,
-            });
+      return _linkSelect(
+          key,
+          label,
+          key == 'marital_status'
+              ? _maritalOptions
+              : {
+                  for (final group in [
+                    'A+',
+                    'A-',
+                    'B+',
+                    'B-',
+                    'AB+',
+                    'AB-',
+                    'O+',
+                    'O-'
+                  ])
+                    group: group,
+                });
     }
-    if (key == 'branch' || key == 'reports_to') {
+    if (key == 'reports_to') {
       return _linkSelect(key, label, _personnelLinkOptions(linkOptions, key));
     }
     if (key == 'notice_number_of_days') {
@@ -967,11 +1160,16 @@ class _ProfileEditorState extends State<_ProfileEditor> {
           child: AppTextField(
               controller: fields[key]!,
               label: label,
+              labelOutside: true,
               enabled: !saving,
               keyboardType: TextInputType.number,
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[0-9۰-۹٠-٩]')),
+                LengthLimitingTextInputFormatter(5)
+              ],
               validator: (value) {
                 if (value == null || value.trim().isEmpty) return null;
-                final days = int.tryParse(value.trim());
+                final days = int.tryParse(toLatinDigits(value.trim()));
                 return days == null || days < 0
                     ? 'تعداد روز معتبر و غیرمنفی وارد کنید.'
                     : null;
@@ -987,25 +1185,88 @@ class _ProfileEditorState extends State<_ProfileEditor> {
     }
     if (key.endsWith('_date') || key == 'date_of_joining') {
       return AsoudFormDateField(
-          controller: fields[key]!, label: label, enabled: !saving);
+          controller: fields[key]!,
+          label: label,
+          enabled: !saving,
+          labelOutside: true,
+          clearable: key != 'date_of_joining',
+          errorText: key == 'birth_date' &&
+                  (DateTime.tryParse(fields[key]!.text)
+                          ?.isAfter(DateTime.now()) ??
+                      false)
+              ? 'تاریخ تولد نمی‌تواند در آینده باشد.'
+              : null);
     }
+    final digitLimit = switch (key) {
+      'mobile' || 'phone' || 'emergency_phone' => 11,
+      'national_id' || 'postal_code' => 10,
+      'birth_certificate_number' => 20,
+      _ => null,
+    };
     return Padding(
         padding: AsoudFormStyle.fieldPadding,
         child: AppTextField(
             controller: fields[key]!,
             label: label,
+            labelOutside: true,
+            required: key == 'first_name' || key == 'last_name',
             enabled: !saving,
+            ltr: digitLimit != null || key == 'email' || key == 'company_email',
+            inputFormatters: digitLimit == null
+                ? null
+                : [
+                    FilteringTextInputFormatter.allow(RegExp(r'[0-9۰-۹٠-٩]')),
+                    LengthLimitingTextInputFormatter(digitLimit),
+                  ],
             maxLines: key == 'address_line' ? 3 : 1,
             keyboardType: ['mobile', 'phone', 'emergency_phone'].contains(key)
                 ? TextInputType.phone
                 : key == 'email' || key == 'company_email'
                     ? TextInputType.emailAddress
-                    : null,
-            validator: key == 'display_name'
-                ? (v) => (v?.trim().isEmpty ?? true)
-                    ? 'نام و نام خانوادگی الزامی است.'
-                    : null
-                : null));
+                    : digitLimit != null
+                        ? TextInputType.number
+                        : key == 'address_line'
+                            ? TextInputType.multiline
+                            : TextInputType.name,
+            validator: (v) {
+              final value = (v ?? '').trim();
+              if (key == 'first_name' || key == 'last_name') {
+                final changed = ['first_name', 'last_name'].any((name) =>
+                    fields[name]!.text.trim() != initial[name]?.trim());
+                if (!changed) return null;
+                if (value.isEmpty) return '$label را وارد کنید.';
+                if (value.length > 140 ||
+                    RegExp(r'[0-9۰-۹٠-٩]').hasMatch(value)) {
+                  return '$label را به‌صورت متن معتبر وارد کنید.';
+                }
+                return null;
+              }
+              if (value.isEmpty || value == initial[key]?.trim()) return null;
+              final digits = toLatinDigits(value);
+              return switch (key) {
+                'national_id' => IdentityValidators.nationalId(value),
+                'mobile' => RegExp(r'^09[0-9]{9}$').hasMatch(digits)
+                    ? null
+                    : 'موبایل باید ۱۱ رقم و با ۰۹ شروع شود.',
+                'phone' => RegExp(r'^0[1-8][0-9]{9}$').hasMatch(digits)
+                    ? null
+                    : 'تلفن ثابت باید ۱۱ رقم و با پیش‌شمارهٔ ۰ وارد شود.',
+                'emergency_phone' =>
+                  RegExp(r'^0[1-9][0-9]{9}$').hasMatch(digits)
+                      ? null
+                      : 'شمارهٔ تماس اضطراری باید ۱۱ رقم و با ۰ شروع شود.',
+                'postal_code' => RegExp(r'^[0-9]{10}$').hasMatch(digits)
+                    ? null
+                    : 'کد پستی باید ۱۰ رقم باشد.',
+                'email' || 'company_email' => IdentityValidators.email(value),
+                'emergency_contact_name' ||
+                'emergency_relation' =>
+                  value.length > 140 || RegExp(r'[0-9۰-۹٠-٩]').hasMatch(value)
+                      ? 'متن معتبر و بدون عدد وارد کنید.'
+                      : null,
+                _ => null,
+              };
+            }));
   }
 
   /// A value box in the shared form language ([AppSelectField]) that keeps its
@@ -1017,6 +1278,7 @@ class _ProfileEditorState extends State<_ProfileEditor> {
         padding: AsoudFormStyle.fieldPadding,
         child: AppSelectField(
           label: label,
+          labelOutside: true,
           value: current,
           displayValue: options[current] ?? current,
           hint: 'انتخاب کنید',
@@ -1024,36 +1286,76 @@ class _ProfileEditorState extends State<_ProfileEditor> {
           onPick: saving || loadingOptions
               ? null
               : () => showAppOptionSheet(context,
-                  title: label,
-                  current: options[current] ?? current,
-                  options: [
-                    for (final entry in options.entries)
-                      AppOption(entry.key, entry.value)
-                  ]),
+                      title: label,
+                      current: options[current] ?? current,
+                      options: [
+                        if (current.isNotEmpty)
+                          const AppOption('', 'بدون مقدار'),
+                        for (final entry in options.entries)
+                          AppOption(entry.key, entry.value)
+                      ]),
           onChanged: (value) => setState(() => fields[key]!.text = value),
         ));
   }
 
   @override
-  Widget build(BuildContext context) => AsoudFormPage(
-          title: widget.title.startsWith('ویرایش')
-              ? widget.title
-              : 'ویرایش ${widget.title}',
-          subtitle: _valueOf(widget.profile, 'display_name'),
-          formKey: formKey,
-          saving: saving,
-          error: error,
-          onSave: save,
-          children: [
-            for (final group in _profileGroups.entries)
-              if (group.value.any(widget.labels.containsKey))
-                AsoudFormSection(
-                    title: group.key,
-                    children: group.value
-                        .where(widget.labels.containsKey)
-                        .map(field)
-                        .toList()),
-          ]);
+  Widget build(BuildContext context) {
+    final title = widget.title.startsWith('ویرایش')
+        ? widget.title
+        : 'ویرایش ${widget.title}';
+    return AsoudFormPage(
+        title: title,
+        header: _personnelHeader(context, title),
+      keepSectionsMounted: true,
+        subtitle: _valueOf(widget.profile, 'display_name'),
+        formKey: formKey,
+        saving: saving,
+        error: error,
+        onSave: save,
+        children: [
+          _PersonnelEditorHeading(widget.profile, widget.repository),
+          if (needsEmployee &&
+              widget.labels.keys.any(_extendedProfileFields.contains))
+            const Padding(
+              padding: EdgeInsets.only(bottom: 12),
+              child: Text(
+                  'برای ثبت فیلدهای تکمیلی، ابتدا اطلاعات استخدامی این پرونده را کامل کنید.'),
+            ),
+          if (wages)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Wrap(spacing: 8, children: [
+                ChoiceChip(
+                    label: const Text('اعداد فارسی'),
+                    selected: persianDigits,
+                    onSelected: saving ? null : (_) => _digits(true)),
+                ChoiceChip(
+                    label: const Text('اعداد انگلیسی'),
+                    selected: !persianDigits,
+                    onSelected: saving ? null : (_) => _digits(false)),
+              ]),
+            ),
+          for (final group in _profileGroups.entries)
+            if (group.value.any(_hasField))
+              AsoudFormSection(
+                  title: group.key,
+                  collapsible: false,
+                  fieldGap: 6,
+                  children: [
+                    for (final key in group.value.where(_hasField))
+                      if (key == 'display_name')
+                        Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(child: field('first_name')),
+                              const SizedBox(width: 8),
+                              Expanded(child: field('last_name')),
+                            ])
+                      else
+                        field(key),
+                  ]),
+        ]);
+  }
 }
 
 class _RecordsPage extends StatefulWidget {
@@ -1431,7 +1733,10 @@ class _RecordForm extends StatefulWidget {
 }
 
 class _RecordFormState extends State<_RecordForm> {
+  bool get editing => widget.recordId != null;
   final formKey = GlobalKey<FormState>();
+  late final Future<Map<String, dynamic>> profile =
+      widget.repository.detail(widget.personId);
   late final fields = {
     for (final key in [
       ..._recordLabels.keys,
@@ -1575,10 +1880,10 @@ class _RecordFormState extends State<_RecordForm> {
           enabled: !saving,
           keyboardType: TextInputType.datetime,
           hint: 'HH:mm',
-          validator: (v) => !RegExp(r'^([01]\d|2[0-3]):[0-5]\d$')
-                  .hasMatch(v ?? '')
-              ? 'ساعت معتبر وارد کنید.'
-              : null,
+          validator: (v) =>
+              !RegExp(r'^([01]\d|2[0-3]):[0-5]\d$').hasMatch(v ?? '')
+                  ? 'ساعت معتبر وارد کنید.'
+                  : null,
           suffixIcon: IconButton(
               tooltip: 'انتخاب ساعت',
               icon: const Icon(Icons.schedule),
@@ -1605,194 +1910,236 @@ class _RecordFormState extends State<_RecordForm> {
           title:
               '${widget.recordId == null ? 'ثبت' : 'ویرایش'} ${_recordTitle(widget.kind)}',
           subtitle: 'پرونده پرسنلی',
+          header: editing ? _personnelHeader(context, 'ویرایش ${_recordTitle(widget.kind)}') : null,
+          keepSectionsMounted: editing,
           formKey: formKey,
           saving: saving,
           error: error,
           onSave: save,
           children: [
-            AsoudFormSection(title: 'اطلاعات اصلی', children: [
-              Padding(
-                  padding: AsoudFormStyle.fieldPadding,
-                  child: AppTextField(
-                      controller: fields['title']!,
-                      label: 'عنوان',
-                      required: true,
-                      enabled: !saving,
-                      validator: (v) =>
-                          v == null || v.trim().isEmpty || v.trim().length > 140
+            if (widget.recordId != null)
+              FutureBuilder<Map<String, dynamic>>(
+                  future: profile,
+                  builder: (context, snapshot) {
+                    final data = snapshot.data?['profile'];
+                    return data is Map
+                        ? _PersonnelEditorHeading(
+                            Map<String, dynamic>.from(data), widget.repository)
+                        : const SizedBox.shrink();
+                  }),
+            AsoudFormSection(
+                title: 'اطلاعات اصلی',
+                collapsible: !editing,
+                fieldGap: editing ? 5 : 0,
+                children: [
+                  Padding(
+                      padding: AsoudFormStyle.fieldPadding,
+                      child: AppTextField(
+                          controller: fields['title']!,
+                          label: 'عنوان',
+                          labelOutside: editing,
+                          required: true,
+                          enabled: !saving,
+                          validator: (v) => v == null ||
+                                  v.trim().isEmpty ||
+                                  v.trim().length > 140
                               ? 'عنوان بین ۱ تا ۱۴۰ نویسه وارد کنید.'
                               : null)),
-              AsoudFormDateField(
-                  controller: fields['date']!,
-                  label: 'تاریخ *',
-                  required: true,
-                  enabled: !saving),
-            ]),
-            if (widget.kind == 'attendance')
-              AsoudFormSection(title: 'ساعات حضور', children: [
-                Row(children: [
-                  Expanded(child: time('start')),
-                  const SizedBox(width: 8),
-                  Expanded(child: time('end'))
+                  AsoudFormDateField(
+                      controller: fields['date']!,
+                      label: editing ? 'تاریخ' : 'تاریخ *',
+                      labelOutside: editing,
+                      required: true,
+                      enabled: !saving),
                 ]),
-              ]),
+            if (widget.kind == 'attendance')
+              AsoudFormSection(
+                  title: 'ساعات حضور',
+                  collapsible: !editing,
+                  children: [
+                    Row(children: [
+                      Expanded(child: time('start')),
+                      const SizedBox(width: 8),
+                      Expanded(child: time('end'))
+                    ]),
+                  ]),
             if (widget.kind == 'document')
-              AsoudFormSection(title: 'اطلاعات مدرک', children: [
-                Builder(builder: (context) {
-                  final current = fields['document_category']!.text;
-                  final options = {
-                    for (final category in personnelDocumentCategories)
-                      category: documentCategoryLabel(category)
-                  };
-                  return Padding(
-                      padding: AsoudFormStyle.fieldPadding,
-                      child: AppSelectField(
-                        label: 'نوع مدرک',
-                        value: current,
-                        displayValue: options[current] ?? current,
-                        hint: 'انتخاب کنید',
-                        enabled: !saving,
-                        onPick: saving
-                            ? null
-                            : () => showAppOptionSheet(context,
-                                title: 'نوع مدرک',
-                                current: options[current] ?? current,
-                                options: [
-                                  for (final e in options.entries)
-                                    AppOption(e.key, e.value)
-                                ]),
-                        onChanged: (value) => setState(
-                            () => fields['document_category']!.text = value),
-                      ));
-                }),
-                Padding(
-                    padding: AsoudFormStyle.fieldPadding,
-                    child: AppTextField(
-                        controller: fields['document_number']!,
-                        label: 'شماره مدرک',
-                        enabled: !saving)),
-                AsoudFormDateField(
-                    controller: fields['expiry_date']!,
-                    label: 'تاریخ انقضا',
-                    enabled: !saving),
-              ]),
-            if (widget.kind == 'evaluation')
-              AsoudFormSection(title: 'نتیجه ارزیابی', children: [
-                if (!widget.repository.localDemo) ...[
-                  if (loadingCycles) const LinearProgressIndicator(),
-                  if (cycleError != null)
-                    TextButton(onPressed: loadCycles, child: Text(cycleError!)),
-                  Builder(builder: (context) {
-                    final current = fields['appraisal_cycle']!.text;
-                    final cyclesEnabled = !saving &&
-                        !loadingCycles &&
-                        widget.recordId == null;
-                    return Padding(
+              AsoudFormSection(
+                  title: 'اطلاعات مدرک',
+                  collapsible: !editing,
+                  fieldGap: editing ? 5 : 0,
+                  children: [
+                    Builder(builder: (context) {
+                      final current = fields['document_category']!.text;
+                      final options = {
+                        for (final category in personnelDocumentCategories)
+                          category: documentCategoryLabel(category)
+                      };
+                      return Padding(
+                          padding: AsoudFormStyle.fieldPadding,
+                          child: AppSelectField(
+                            label: 'نوع مدرک',
+                            labelOutside: editing,
+                            value: current,
+                            displayValue: options[current] ?? current,
+                            hint: 'انتخاب کنید',
+                            enabled: !saving,
+                            onPick: saving
+                                ? null
+                                : () => showAppOptionSheet(context,
+                                        title: 'نوع مدرک',
+                                        current: options[current] ?? current,
+                                        options: [
+                                          for (final e in options.entries)
+                                            AppOption(e.key, e.value)
+                                        ]),
+                            onChanged: (value) => setState(() =>
+                                fields['document_category']!.text = value),
+                          ));
+                    }),
+                    Padding(
                         padding: AsoudFormStyle.fieldPadding,
-                        child: AppSelectField(
-                          label: 'دوره ارزیابی',
-                          required: true,
-                          value: current,
-                          displayValue: appraisalCycles[current] ?? current,
-                          hint: 'انتخاب کنید',
-                          enabled: cyclesEnabled,
-                          validator: (v) => !cyclesEnabled
-                              ? null
-                              : v == null || v.isEmpty
-                                  ? 'این فیلد الزامی است.'
-                                  : null,
-                          onPick: !cyclesEnabled
-                              ? null
-                              : () => showAppOptionSheet(context,
-                                  title: 'دوره ارزیابی',
-                                  current: appraisalCycles[current] ??
-                                      current,
-                                  options: [
-                                    for (final e in appraisalCycles.entries)
-                                      AppOption(e.key, e.value)
-                                  ]),
-                          onChanged: (value) => setState(
-                              () => fields['appraisal_cycle']!.text = value),
-                        ));
-                  }),
-                  const Text(
-                      'این فرم برای دوره‌های دارای یک معیار با وزن ۱۰۰٪ است. دوره و الگو باید در منابع انسانی تعریف و به پرسنل اختصاص داده شوند.',
-                      style: TextStyle(fontSize: 11)),
-                  const SizedBox(height: 12),
-                ],
-                Padding(
-                    padding: AsoudFormStyle.fieldPadding,
-                    child: AppTextField(
-                        controller: fields['score']!,
-                        label: 'امتیاز هدف از ۱۰۰',
-                        required: true,
-                        keyboardType: TextInputType.number,
-                        enabled: !saving,
-                        validator: (v) {
-                          final score = num.tryParse(v ?? '');
-                          return score == null ||
-                                  !score.isFinite ||
-                                  score < 0 ||
-                                  score > 100
-                              ? 'امتیاز بین صفر و صد وارد کنید.'
-                              : null;
-                        })),
-              ]),
+                        child: AppTextField(
+                            controller: fields['document_number']!,
+                            label: 'شماره مدرک',
+                            labelOutside: editing,
+                            enabled: !saving)),
+                    AsoudFormDateField(
+                        controller: fields['expiry_date']!,
+                        label: 'تاریخ انقضا',
+                        labelOutside: editing,
+                        enabled: !saving),
+                  ]),
+            if (widget.kind == 'evaluation')
+              AsoudFormSection(
+                  title: 'نتیجه ارزیابی',
+                  collapsible: !editing,
+                  fieldGap: editing ? 5 : 0,
+                  children: [
+                    if (!widget.repository.localDemo) ...[
+                      if (loadingCycles) const LinearProgressIndicator(),
+                      if (cycleError != null)
+                        TextButton(
+                            onPressed: loadCycles, child: Text(cycleError!)),
+                      Builder(builder: (context) {
+                        final current = fields['appraisal_cycle']!.text;
+                        final cyclesEnabled = !saving &&
+                            !loadingCycles &&
+                            widget.recordId == null;
+                        return Padding(
+                            padding: AsoudFormStyle.fieldPadding,
+                            child: AppSelectField(
+                              label: 'دوره ارزیابی',
+                              labelOutside: editing,
+                              required: true,
+                              value: current,
+                              displayValue: appraisalCycles[current] ?? current,
+                              hint: 'انتخاب کنید',
+                              enabled: cyclesEnabled,
+                              validator: (v) => !cyclesEnabled
+                                  ? null
+                                  : v == null || v.isEmpty
+                                      ? 'این فیلد الزامی است.'
+                                      : null,
+                              onPick: !cyclesEnabled
+                                  ? null
+                                  : () => showAppOptionSheet(context,
+                                          title: 'دوره ارزیابی',
+                                          current: appraisalCycles[current] ??
+                                              current,
+                                          options: [
+                                            for (final e
+                                                in appraisalCycles.entries)
+                                              AppOption(e.key, e.value)
+                                          ]),
+                              onChanged: (value) => setState(() =>
+                                  fields['appraisal_cycle']!.text = value),
+                            ));
+                      }),
+                      const Text(
+                          'این فرم برای دوره‌های دارای یک معیار با وزن ۱۰۰٪ است. دوره و الگو باید در منابع انسانی تعریف و به پرسنل اختصاص داده شوند.',
+                          style: TextStyle(fontSize: 11)),
+                      const SizedBox(height: 12),
+                    ],
+                    Padding(
+                        padding: AsoudFormStyle.fieldPadding,
+                        child: AppTextField(
+                            controller: fields['score']!,
+                            label: 'امتیاز هدف از ۱۰۰',
+                            labelOutside: editing,
+                            required: true,
+                            keyboardType: TextInputType.number,
+                            enabled: !saving,
+                            validator: (v) {
+                              final score = num.tryParse(v ?? '');
+                              return score == null ||
+                                      !score.isFinite ||
+                                      score < 0 ||
+                                      score > 100
+                                  ? 'امتیاز بین صفر و صد وارد کنید.'
+                                  : null;
+                            })),
+                  ]),
             if (widget.kind == 'document' || widget.kind == 'photo')
-              AsoudFormSection(title: 'فایل پیوست', children: [
-                if (widget.initial?['file'] != null && file == null)
-                  Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Text(
-                          'فایل فعلی: ${widget.initial!['filename'] ?? 'پیوست'}',
-                          style: const TextStyle(fontSize: 11))),
-                OutlinedButton.icon(
-                    icon: const Icon(Icons.upload_file_outlined),
-                    label: Text(file?.name ?? 'انتخاب فایل'),
-                    onPressed: saving
-                        ? null
-                        : () async {
-                            try {
-                              final result = await FilePicker.platform
-                                  .pickFiles(
-                                      withData: true,
-                                      type: FileType.custom,
-                                      allowedExtensions: widget.kind == 'photo'
-                                          ? ['jpg', 'jpeg', 'png']
-                                          : ['pdf', 'jpg', 'jpeg', 'png']);
-                              if (result == null || !mounted) return;
-                              final selected = result.files.single;
-                              if (selected.bytes == null ||
-                                  selected.size > 5 * 1024 * 1024) {
-                                setState(() =>
-                                    error = 'فایل تا ۵ مگابایت انتخاب کنید.');
-                                return;
-                              }
-                              setState(() {
-                                file = selected;
-                                error = null;
-                              });
-                            } catch (_) {
-                              if (mounted) {
-                                setState(() => error =
-                                    'انتخاب فایل انجام نشد؛ دوباره تلاش کنید.');
-                              }
-                            }
-                          }),
-                const SizedBox(height: 8),
-                Text(
-                    widget.kind == 'photo'
-                        ? 'JPG یا PNG، حداکثر ۵ مگابایت'
-                        : 'PDF، JPG یا PNG، حداکثر ۵ مگابایت',
-                    style: const TextStyle(
-                        fontSize: 10, color: Color(0xFF8392B8))),
-              ]),
-            AsoudFormSection(title: 'توضیحات', children: [
+              AsoudFormSection(
+                  title: 'فایل پیوست',
+                  collapsible: !editing,
+                  children: [
+                    if (widget.initial?['file'] != null && file == null)
+                      Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Text(
+                              'فایل فعلی: ${widget.initial!['filename'] ?? 'پیوست'}',
+                              style: const TextStyle(fontSize: 11))),
+                    OutlinedButton.icon(
+                        icon: const Icon(Icons.upload_file_outlined),
+                        label: Text(file?.name ?? 'انتخاب فایل'),
+                        onPressed: saving
+                            ? null
+                            : () async {
+                                try {
+                                  final result = await FilePicker.platform
+                                      .pickFiles(
+                                          withData: true,
+                                          type: FileType.custom,
+                                          allowedExtensions: widget.kind ==
+                                                  'photo'
+                                              ? ['jpg', 'jpeg', 'png']
+                                              : ['pdf', 'jpg', 'jpeg', 'png']);
+                                  if (result == null || !mounted) return;
+                                  final selected = result.files.single;
+                                  if (selected.bytes == null ||
+                                      selected.size > 5 * 1024 * 1024) {
+                                    setState(() => error =
+                                        'فایل تا ۵ مگابایت انتخاب کنید.');
+                                    return;
+                                  }
+                                  setState(() {
+                                    file = selected;
+                                    error = null;
+                                  });
+                                } catch (_) {
+                                  if (mounted) {
+                                    setState(() => error =
+                                        'انتخاب فایل انجام نشد؛ دوباره تلاش کنید.');
+                                  }
+                                }
+                              }),
+                    const SizedBox(height: 8),
+                    Text(
+                        widget.kind == 'photo'
+                            ? 'JPG یا PNG، حداکثر ۵ مگابایت'
+                            : 'PDF، JPG یا PNG، حداکثر ۵ مگابایت',
+                        style: const TextStyle(
+                            fontSize: 10, color: Color(0xFF8392B8))),
+                  ]),
+            AsoudFormSection(title: 'توضیحات', collapsible: !editing, children: [
               Padding(
                   padding: AsoudFormStyle.fieldPadding,
                   child: AppTextField(
                       controller: fields['notes']!,
                       label: 'شرح و توضیحات',
+                      labelOutside: editing,
                       maxLines: 4,
                       enabled: !saving,
                       validator: (v) => (v?.length ?? 0) > 5000
@@ -1836,15 +2183,17 @@ String _fileLabel(String value) =>
     _fileValue(value);
 
 Map<String, String> _personnelLinkOptions(
-        Map<String, dynamic> options, String key) =>
+        Map<String, dynamic> options, String key,
+        {String? exclude}) =>
     {
       for (final row in options[key] as List? ?? [])
-        if (row is Map)
-          '${row['name']}': key == 'reports_to'
-              ? [row['employee_name'], row['designation']]
-                  .where((v) => v != null && '$v'.isNotEmpty)
-                  .join(' — ')
-              : '${row['label'] ?? row['department_name'] ?? row['name']}'
-        else
-          '$row': _fileLabel('$row'),
+        if (exclude == null || row is! Map || row['name'] != exclude)
+          if (row is Map)
+            '${row['name']}': key == 'reports_to'
+                ? [row['employee_name'], row['designation']]
+                    .where((v) => v != null && '$v'.isNotEmpty)
+                    .join(' — ')
+                : '${row['label'] ?? row['department_name'] ?? row['name']}'
+          else
+            '$row': _fileLabel('$row'),
     };

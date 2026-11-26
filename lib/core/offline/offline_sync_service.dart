@@ -84,7 +84,8 @@ class OfflineSyncService {
   Future<OfflineSyncReport>? _activeSync;
 
   /// Without a session there is nothing to replay and no owner to scope by.
-  bool get isAuthenticated => _client.isAuthenticated;
+  bool get isAuthenticated => _client.isAuthenticated &&
+      !(_client is FrappeClient && _client.isRepresentingPersonnel);
 
   /// True while a run or a manual retry is in flight.
   bool get isSyncing => _activeSync != null;
@@ -122,7 +123,7 @@ class OfflineSyncService {
   /// The owner and server a queued row must carry to belong to the signed-in
   /// user; null while there is no session to scope by.
   Future<({String owner, String server})?> _scope() async {
-    if (!_client.isAuthenticated) return null;
+    if (!isAuthenticated) return null;
     final owner = (await _client.getCurrentUser()).userId;
     return (owner: owner, server: _server());
   }

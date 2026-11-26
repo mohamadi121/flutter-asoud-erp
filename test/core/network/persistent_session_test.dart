@@ -90,6 +90,23 @@ void main() {
     expect((await client.getCurrentUser()).userId, 'hr@example.test');
   });
 
+  test('remembers the last entered office for this session until sign-out', () async {
+    final vault = _Vault()..values[server] = _session();
+    final first = FrappeClient(baseUrl: server, dio: _offlineDio(), sessionVault: vault);
+    expect(await first.restoreSession(), true);
+    expect(first.lastEnteredOffice, isNull);
+    await first.rememberEnteredOffice('Office A');
+    await first.rememberEnteredOffice('Office B');
+    await first.close();
+    final next = FrappeClient(baseUrl: server, dio: _offlineDio(), sessionVault: vault);
+    addTearDown(next.close);
+    expect(await next.restoreSession(), true);
+    expect(next.lastEnteredOffice, 'Office B');
+    await expectLater(next.logout(), throwsA(isA<ApiException>()));
+    expect(next.lastEnteredOffice, isNull);
+    expect(await next.restoreSession(), false);
+  });
+
   test('expired session and corrupt payload fail closed', () async {
     for (final value in [
       _session(until: DateTime.now().subtract(const Duration(seconds: 1))),

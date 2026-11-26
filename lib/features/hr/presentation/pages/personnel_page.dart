@@ -1,9 +1,9 @@
 import 'dart:convert';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../../core/auth/capabilities.dart';
@@ -18,12 +18,16 @@ import '../../domain/personnel_file.dart';
 import '../../domain/personnel_record.dart';
 import '../../data/personnel_file_repository.dart';
 import '../../data/personnel_repository.dart';
+import '../../data/hr_contracts_repository.dart';
+import '../../data/hr_contract_template_repository.dart';
 import '../cubit/personnel_cubit.dart';
 
 import '../../../parties/domain/entities/party_profile.dart';
+import '../../../auth/domain/identity_validators.dart';
 import '../../../parties/presentation/pages/party_form_page.dart';
 import '../../../parties/domain/repositories/party_repository.dart';
 import 'hr_home_page.dart';
+import 'contracts/hr_contract_issue_page.dart';
 part 'personnel_design.dart';
 part 'personnel_forms.dart';
 part 'personnel_file_capabilities.dart';
@@ -69,10 +73,13 @@ class _SyncNotice extends StatelessWidget {
 
 const _personal = {
   'display_name': 'نام و نام خانوادگی',
+  'alias_name': 'نام مستعار',
   'national_id': 'کد ملی',
   'birth_date': 'تاریخ تولد',
   'employee_gender': 'جنسیت',
   'father_name': 'نام پدر',
+  'birth_certificate_number': 'شماره شناسنامه',
+  'birth_certificate_issue_place': 'محل صدور',
   'marital_status': 'وضعیت تأهل',
   'blood_group': 'گروه خونی',
   'company_email': 'ایمیل سازمانی',
@@ -92,7 +99,6 @@ const _organization = {
   'department': 'واحد سازمانی',
   'date_of_joining': 'تاریخ استخدام',
   'employment_type': 'نوع همکاری',
-  'branch': 'شعبه',
   'reports_to': 'مدیر مستقیم',
   'final_confirmation_date': 'پایان دوره آزمایشی',
   'contract_end_date': 'پایان قرارداد',
@@ -109,8 +115,11 @@ const _benefits = {
 
 class _PersonnelPhoto extends StatefulWidget {
   const _PersonnelPhoto(
-      {required this.recordId, required this.repository, this.size = 52,
-      this.portrait = false, super.key});
+      {required this.recordId,
+      required this.repository,
+      this.size = 52,
+      this.portrait = false,
+      super.key});
   final double size;
   final String? recordId;
   final PersonnelRepository repository;
@@ -159,7 +168,9 @@ class _PersonnelPhotoState extends State<_PersonnelPhoto> {
             if (file is! String || file.isEmpty) {
               return Container(
                   decoration: BoxDecoration(
-                      color: widget.portrait ? Colors.white : const Color(0xFFE5F0FA),
+                      color: widget.portrait
+                          ? Colors.white
+                          : const Color(0xFFE5F0FA),
                       borderRadius: BorderRadius.circular(12)),
                   child: Icon(Icons.person_outline_rounded,
                       color: widget.portrait ? _blue : const Color(0xFF8BAAC1),
@@ -187,10 +198,12 @@ class _PersonnelPhotoState extends State<_PersonnelPhoto> {
                 builder: (context) => Dialog(
                   clipBehavior: Clip.antiAlias,
                   child: Stack(alignment: Alignment.topLeft, children: [
-                    AspectRatio(aspectRatio: 1, child: Image.memory(bytes,
-                        fit: BoxFit.contain,
-                        errorBuilder: (_, error, trace) =>
-                            const Icon(Icons.broken_image_outlined))),
+                    AspectRatio(
+                        aspectRatio: 1,
+                        child: Image.memory(bytes,
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, error, trace) =>
+                                const Icon(Icons.broken_image_outlined))),
                     CloseButton(onPressed: () => Navigator.pop(context)),
                   ]),
                 ),
@@ -257,10 +270,10 @@ class _PersonnelDetailState extends State<PersonnelDetailPage> {
     return _PersonnelBundle(
       data: data,
       file: file,
-      allowedEdit:
-          capabilities.canWritePersonnel && data['can_edit'] == true,
+      allowedEdit: capabilities.canWritePersonnel && data['can_edit'] == true,
       allowedPhotoEdit: capabilities.canManageOrganization &&
-          data['can_edit'] == true && data['offline'] != true &&
+          data['can_edit'] == true &&
+          data['offline'] != true &&
           !isLocalPersonnelId(widget.id) &&
           data['profile']['needs_employee_details'] != true &&
           photoSession,
@@ -378,49 +391,50 @@ class _PersonnelDetailState extends State<PersonnelDetailPage> {
                   padding: EdgeInsets.fromLTRB(16, 16, 16,
                       MediaQuery.viewPaddingOf(context).bottom + 88),
                   children: [
-                if (_importing) const LinearProgressIndicator(),
-                if (_operationMessage != null) Text(_operationMessage!),
-                if (data['offline'] == true ||
-                    data['pending_sync'] == true ||
-                    data['sync_failed'] == true)
-                  _SyncNotice(
-                      offline: data['offline'] == true,
-                      pending: data['pending_sync'] == true,
-                      failed: data['sync_failed'] == true),
-                if (canEdit && data['sync_failed'] == true)
-                  TextButton(
-                      onPressed: _importing ? null : _retrySync,
-                      child: const Text('تلاش مجدد برای همگام‌سازی')),
-                _PersonnelOverview(
-                    tab: _selectedTab,
-                    onTab: _selectTab,
-                    imagePicker: widget.imagePicker,
-                    profile: profile,
-                    records: records,
-                    repository: widget.repository,
-                    file: bundle.file,
-                    fileRepository: _fileRepository,
-                    canEdit: canEdit,
-                    canEditPhoto: bundle.allowedPhotoEdit,
-                    onPhotoSaved: reload,
-                    onCategory: (category) async {
-                      await Navigator.push<void>(
-                        context,
-                        MaterialPageRoute(builder: (_) => _PersonnelCategoryPage(
-                          category: category,
-                          profile: profile,
-                          repository: widget.repository,
-                          fileRepository: _fileRepository,
-                          canEdit: canEdit,
-                        )),
-                      );
-                      if (mounted) reload();
-                    },
-                    onProfile: (title, labels) async {
-                      await Navigator.push<bool>(
-                          context,
-                          MaterialPageRoute<bool>(
-                              builder: (_) => title.startsWith('ویرایش')
+                    if (_importing) const LinearProgressIndicator(),
+                    if (_operationMessage != null) Text(_operationMessage!),
+                    if (data['offline'] == true ||
+                        data['pending_sync'] == true ||
+                        data['sync_failed'] == true)
+                      _SyncNotice(
+                          offline: data['offline'] == true,
+                          pending: data['pending_sync'] == true,
+                          failed: data['sync_failed'] == true),
+                    if (canEdit && data['sync_failed'] == true)
+                      TextButton(
+                          onPressed: _importing ? null : _retrySync,
+                          child: const Text('تلاش مجدد برای همگام‌سازی')),
+                    _PersonnelOverview(
+                        tab: _selectedTab,
+                        onTab: _selectTab,
+                        imagePicker: widget.imagePicker,
+                        profile: profile,
+                        records: records,
+                        repository: widget.repository,
+                        file: bundle.file,
+                        fileRepository: _fileRepository,
+                        canEdit: canEdit,
+                        canEditPhoto: bundle.allowedPhotoEdit,
+                        onPhotoSaved: reload,
+                        onCategory: (category) async {
+                          await Navigator.push<void>(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => _PersonnelCategoryPage(
+                                      category: category,
+                                      profile: profile,
+                                      repository: widget.repository,
+                                      fileRepository: _fileRepository,
+                                      canEdit: canEdit,
+                                    )),
+                          );
+                          if (mounted) reload();
+                        },
+                        onProfile: (title, labels) async {
+                          await Navigator.push<bool>(
+                              context,
+                              MaterialPageRoute<bool>(
+                                  builder: (_) => title.startsWith('ویرایش')
                                       ? _ProfileEditor(
                                           title: title,
                                           labels: labels,
@@ -434,50 +448,54 @@ class _PersonnelDetailState extends State<PersonnelDetailPage> {
                                           canEdit: canEdit,
                                           revision: '${data['revision']}',
                                           repository: widget.repository)));
-                      if (mounted) reload();
-                    },
-                    onRecord: (record) async {
-                      await Navigator.push<bool>(
-                          context,
-                          MaterialPageRoute<bool>(
-                              builder: (_) => _RecordDetailPage(
-                                  personId: widget.id,
-                                  recordId: '${record['name']}',
-                                  canEdit: canEdit,
-                                  repository: widget.repository)));
-                      if (mounted) reload();
-                    },
-                    onRecords: (kind) async {
-                      await Navigator.push(
-                          context,
-                          MaterialPageRoute<void>(
-                              builder: (_) => _RecordsPage(
-                                  personId: widget.id,
-                                  kind: kind,
-                                  canEdit: canEdit,
-                                  repository: widget.repository,
-                                  records: records
-                                      .where((r) =>
-                                          kind == 'all' || r['kind'] == kind)
-                                      .toList())));
-                      if (mounted) reload();
-                    }),
-                if (canEdit && !widget.id.startsWith('LOCAL-'))
-                  Card(
-                      child: ListTile(
-                          leading: const Icon(Icons.cloud_upload_outlined),
-                          title: const Text('انتقال سوابق پرسنل محلی'),
-                          subtitle: const Text(
-                              'انتخاب و تأیید پرونده مبدأ؛ بدون تغییر اطلاعات مالی'),
-                          onTap: _importing ? null : () => _import(profile))),
-              ]);
+                          if (mounted) reload();
+                        },
+                        onRecord: (record) async {
+                          await Navigator.push<bool>(
+                              context,
+                              MaterialPageRoute<bool>(
+                                  builder: (_) => _RecordDetailPage(
+                                      personId: widget.id,
+                                      recordId: '${record['name']}',
+                                      canEdit: canEdit,
+                                      repository: widget.repository)));
+                          if (mounted) reload();
+                        },
+                        onRecords: (kind) async {
+                          await Navigator.push(
+                              context,
+                              MaterialPageRoute<void>(
+                                  builder: (_) => _RecordsPage(
+                                      personId: widget.id,
+                                      kind: kind,
+                                      canEdit: canEdit,
+                                      repository: widget.repository,
+                                      records: records
+                                          .where((r) =>
+                                              kind == 'all' ||
+                                              r['kind'] == kind)
+                                          .toList())));
+                          if (mounted) reload();
+                        }),
+                    if (canEdit && !widget.id.startsWith('LOCAL-'))
+                      Card(
+                          child: ListTile(
+                              leading: const Icon(Icons.cloud_upload_outlined),
+                              title: const Text('انتقال سوابق پرسنل محلی'),
+                              subtitle: const Text(
+                                  'انتخاب و تأیید پرونده مبدأ؛ بدون تغییر اطلاعات مالی'),
+                              onTap:
+                                  _importing ? null : () => _import(profile))),
+                  ]);
             }),
       ));
 }
 
 class _PersonnelBundle {
   const _PersonnelBundle(
-      {required this.data, required this.file, required this.allowedEdit,
+      {required this.data,
+      required this.file,
+      required this.allowedEdit,
       required this.allowedPhotoEdit});
   final Map<String, dynamic> data;
   final PersonnelFile? file;

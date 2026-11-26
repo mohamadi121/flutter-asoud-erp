@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:cookie_jar/cookie_jar.dart';
@@ -8,6 +9,8 @@ import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 
 import '../config/app_config.dart';
 import '../offline/offline_mutation_store.dart';
+import '../offline/local_database_store.dart';
+import '../offline/session_record_store.dart';
 import '../offline/queued_offline_exception.dart';
 import '../utils/failure_message.dart';
 import 'api_exception.dart';
@@ -23,6 +26,10 @@ class FrappeSession {
 
 /// Server method that revokes the current session (`session.logout`).
 const sessionLogoutMethod = 'asoud_erp.api.v1.session.logout';
+
+LocalRecordStore localStoreFor(FrappeApiClient client) =>
+    client is FrappeClient && client._representationStore != null
+        ? client._representationStore! : LocalDatabaseStore.instance;
 
 class FrappeUserContext {
   const FrappeUserContext({
@@ -181,6 +188,45 @@ class FrappeClient implements FrappeApiClient {
   final SessionVault? _vault;
   final ServerAddressStore? _serverStore;
   FrappeUserContext? _knownUser;
+  String? _lastEnteredOffice;
+  String? get lastEnteredOffice => isAuthenticated ? _lastEnteredOffice : null;
+  SessionRecordStore? _representationStore;
+  bool get isRepresentingPersonnel => _representationStore != null;
+  DateTime? representationExpiration;
+
+  Future<({FrappeClient client, String personnelName})> representPersonnel({
+    required String company, required String employee, required String reason,
+  }) async {
+    if (isRepresentingPersonnel || !isAuthenticated || _baseUri.scheme != 'https') {
+      throw const ApiException(kind: ApiFailureKind.forbidden,
+        message: 'نمایندگی پرسنل فقط در نشست امن مدیر اصلی در دسترس است.');
+    }
+    final value = _unwrapAsoudResponse(await callMethod(
+      'asoud_erp.api.v1.session.start_personnel_representation',
+      data: {'company': company, 'employee': employee, 'reason': reason}));
+    if (value is! Map || value['credential'] is! String ||
+        value['expires_in'] is! int || value['employee_name'] is! String) {
+      throw const ApiException.protocol();
+    }
+    final isolated = FrappeClient(baseUrl: serverIdentity, apiKey: '', apiSecret: '');
+    isolated._representationStore = SessionRecordStore();
+    isolated.representationExpiration = DateTime.now().add(Duration(seconds: value['expires_in'] as int));
+    isolated._dio.options.headers['Authorization'] = 'Asoud-Delegated ${value['credential']}';
+    isolated._dio.options.followRedirects = false;
+    isolated._setAuthenticated(true);
+    try {
+      final user = await isolated.getCurrentUser();
+      if (user.employeeId != employee || user.company != company) throw const ApiException.protocol();
+      isolated._lastEnteredOffice = company;
+    } catch (_) {
+      try {
+        await isolated.logout();
+      } catch (_) {}
+      await isolated.close();
+      rethrow;
+    }
+    return (client: isolated, personnelName: value['employee_name'] as String);
+  }
 
   /// Local storage identity only; never use this as authorization.
   String? get localStorageUserId => isAuthenticated ? _knownUser?.userId : null;
@@ -221,6 +267,7 @@ class FrappeClient implements FrappeApiClient {
   }
 
   Future<void> useServer(String baseUrl) async {
+    if (isRepresentingPersonnel) throw const ApiException.protocol();
     final normalized = normalizeBaseUrl(baseUrl);
     if (normalized == _baseUri.toString()) {
       await _serverStore?.write(normalized);
@@ -281,6 +328,8 @@ class FrappeClient implements FrappeApiClient {
       if (generation != _sessionGeneration) return false;
       _knownUser = user;
       _offlineUntil = expires;
+      final office = data['last_entered_office'];
+      _lastEnteredOffice = office is String && office.isNotEmpty ? office : null;
       _setAuthenticated(true);
       return true;
     } on FormatException {
@@ -292,9 +341,18 @@ class FrappeClient implements FrappeApiClient {
     }
   }
 
-  Future<void> _remember(FrappeUserContext user) async {
+  Future<void> rememberEnteredOffice(String office) async {
+    if (isRepresentingPersonnel || !isAuthenticated || office.trim().isEmpty) return;
+    final user = _knownUser ?? await getCurrentUser();
+    final expires = _offlineUntil;
+    if (!isAuthenticated || _knownUser?.userId != user.userId || expires == null) return;
+    _lastEnteredOffice = office.trim();
+    await _remember(user, existingDeadline: expires);
+  }
+
+  Future<void> _remember(FrappeUserContext user, {DateTime? existingDeadline}) async {
     final generation = _sessionGeneration;
-    var until = DateTime.now().add(offlineSessionLifetime);
+    var until = existingDeadline ?? DateTime.now().add(offlineSessionLifetime);
     final cookies = await _cookies.loadForRequest(_baseUri);
     if (generation != _sessionGeneration || !isAuthenticated) return;
     final sessions = cookies.where((c) => c.name == 'sid');
@@ -310,6 +368,7 @@ class FrappeClient implements FrappeApiClient {
       'user': user.toJson(),
       'cookie': cookie.toString(),
       'offline_until': until.toIso8601String(),
+      if (_lastEnteredOffice != null) 'last_entered_office': _lastEnteredOffice,
     });
     await _writeVault(() async {
       if (generation == _sessionGeneration && isAuthenticated) {
@@ -333,6 +392,7 @@ class FrappeClient implements FrappeApiClient {
     required String username,
     required String password,
   }) async {
+    if (isRepresentingPersonnel) throw const ApiException.protocol();
     await _clearSession(notify: false);
 
     try {
@@ -521,6 +581,7 @@ class FrappeClient implements FrappeApiClient {
     required String target,
     required Map<String, dynamic> data,
   }) async {
+    if (isRepresentingPersonnel) throw const ApiException.protocol();
     if (operation == 'asoud_method') {
       final body = await _requestAsoudMutation(
         mutationId: mutationId,
@@ -669,6 +730,11 @@ class FrappeClient implements FrappeApiClient {
     required Map<String, dynamic> data,
     required Future<T> Function(String mutationId) request,
   }) async {
+    if (isRepresentingPersonnel) {
+      final random = Random.secure();
+      return request(List.generate(24, (_) => random.nextInt(256)
+          .toRadixString(16).padLeft(2, '0')).join());
+    }
     final id = await OfflineMutationStore.instance.stage(
       operation: operation,
       target: target,
@@ -722,6 +788,10 @@ class FrappeClient implements FrappeApiClient {
       final exception = _safeException(error, isLoginRequest: isLoginRequest);
       if (exception.kind == ApiFailureKind.unauthenticated) {
         await _clearSession();
+      }
+      if (isRepresentingPersonnel && isRetryableOfflineFailure(exception)) {
+        throw const ApiException(kind: ApiFailureKind.forbidden,
+          message: 'برای ادامهٔ نمایندگی اتصال به سرور لازم است. عملیات آفلاین صف نمی‌شود.');
       }
       throw exception;
     }
@@ -889,6 +959,11 @@ class FrappeClient implements FrappeApiClient {
     _sessionGeneration++;
     _knownUser = null;
     _offlineUntil = null;
+    _lastEnteredOffice = null;
+    if (isRepresentingPersonnel) {
+      _dio.options.headers.remove('Authorization');
+      _representationStore!.clear();
+    }
     if (notify) _setAuthenticated(false);
     if (!notify) _isAuthenticated = false;
     await _cookies.deleteAll();

@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../core/network/frappe_client.dart';
+import '../../../core/auth/personnel_representation.dart';
 import '../../../core/theme/asoud_colors.dart';
 import '../../../core/utils/failure_message.dart';
+import '../../../core/utils/jalali_date.dart' show toPersianDigits;
 import '../../../core/widgets/asoud_ui.dart';
 import '../data/access_management_repository.dart';
 import 'access_profiles_page.dart';
+
+part 'office_access_layout.dart';
 
 class OfficeUsersPage extends StatefulWidget {
   const OfficeUsersPage({required this.company, this.repository, super.key});
@@ -20,7 +25,7 @@ class _OfficeUsersState extends State<OfficeUsersPage> {
       AccessManagementRepository(context.read<FrappeApiClient>());
   List<AccessMap> people = [];
   final search = TextEditingController();
-  String selectedDepartment = 'همه', selectedStatus = 'همه';
+  String selectedDepartment = '', selectedStatus = '', selectedProfile = '';
   bool busy = true;
   String? error;
   @override
@@ -57,280 +62,316 @@ class _OfficeUsersState extends State<OfficeUsersPage> {
     if (mounted) await load();
   }
 
-  List<String> get departments => {
-        'همه',
-        ...people
-            .map((p) => '${p['department'] ?? ''}'.trim())
-            .where((value) => value.isNotEmpty)
-      }.toList();
+  static const _groups = [
+    ('', 'همه پرسنل', AsoudColors.primary),
+    ('finance', 'مالی و حسابداری', AsoudColors.primary),
+    ('hr', 'منابع انسانی', AsoudColors.success),
+    ('sales', 'فروش و بازرگانی', AsoudColors.warning),
+    ('operations', 'عملیات و انبار', AsoudColors.purple),
+    ('it', 'فناوری اطلاعات', AsoudColors.cyan),
+  ];
+  static const _statusLabels = {
+    '': 'همه وضعیت‌ها',
+    'no_account': 'بدون حساب',
+    'active': 'فعال',
+    'pending': 'در انتظار فعال‌سازی',
+    'disabled': 'غیرفعال',
+  };
 
-  List<AccessMap> get filteredPeople {
-    final query = search.text.trim().toLowerCase();
-    return people.where((p) {
-      final department = '${p['department'] ?? ''}'.trim();
-      final status =
-          '${p['account_status'] ?? (('${p['user_id'] ?? ''}'.isEmpty) ? 'no_account' : 'active')}';
-      final matchesDepartment =
-          selectedDepartment == 'همه' || department == selectedDepartment;
-      final matchesStatus = selectedStatus == 'همه' ||
-          (selectedStatus == 'بدون حساب' && status == 'no_account') ||
-          (selectedStatus == 'فعال' && status == 'active') ||
-          (selectedStatus == 'در انتظار فعال‌سازی' && status == 'pending') ||
-          (selectedStatus == 'غیرفعال' && status == 'disabled');
-      final searchable =
-          '${p['employee_name'] ?? ''} ${p['name'] ?? ''} ${p['designation'] ?? ''} $department'
-              .toLowerCase();
-      return matchesDepartment &&
-          matchesStatus &&
-          (query.isEmpty || searchable.contains(query));
-    }).toList();
+  String _department(AccessMap person) =>
+      '${person['department'] ?? ''}'.trim();
+
+  String _group(String department) {
+    final value = department.toLowerCase().replaceAll('‌', ' ');
+    const keywords = {
+      'finance': ['مالی', 'حسابداری', 'finance', 'accounting', 'accounts'],
+      'hr': ['منابع انسانی', 'human resource', 'hr'],
+      'sales': ['فروش', 'بازرگانی', 'بازاریابی', 'sales', 'marketing'],
+      'operations': [
+        'انبار',
+        'عملیات',
+        'تولید',
+        'operations',
+        'warehouse',
+        'production'
+      ],
+      'it': [
+        'فناوری اطلاعات',
+        'تکنولوژی اطلاعات',
+        'information technology',
+        'it'
+      ],
+    };
+    for (final entry in keywords.entries) {
+      if (entry.value.any((word) => word.length == 2
+          ? value.split(RegExp(r'[^a-z]+')).contains(word)
+          : value.contains(word))) {
+        return entry.key;
+      }
+    }
+    return department;
   }
 
   String _status(AccessMap person) =>
       '${person['account_status'] ?? (('${person['user_id'] ?? ''}'.isEmpty) ? 'no_account' : 'active')}';
-  String _statusTitle(AccessMap person) => switch (_status(person)) {
-        'no_account' => 'بدون حساب',
-        'pending' => 'دعوت ارسال‌شده',
-        'disabled' => 'غیرفعال',
-        _ => 'فعال',
-      };
-  Color _statusColor(AccessMap person) => switch (_status(person)) {
-        'no_account' => AsoudColors.warning,
-        'pending' => AsoudColors.primary,
-        'disabled' => AsoudColors.danger,
-        _ => AsoudColors.success,
-      };
 
-  Widget _departmentSummary() {
-    final groups = <String, int>{};
-    for (final person in people) {
-      final name = '${person['department'] ?? ''}'.trim();
-      if (name.isNotEmpty) {
-        groups.update(name, (count) => count + 1, ifAbsent: () => 1);
-      }
-    }
-    final names = groups.keys.toList();
-    return Card(
-      color: AsoudColors.surface,
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(8),
-        child: LayoutBuilder(builder: (context, constraints) {
-          final tileWidth = (constraints.maxWidth - 6) / 2;
-          return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('ساختار سازمانی',
-                    style: TextStyle(fontWeight: FontWeight.w700)),
-                const SizedBox(height: 8),
-                Wrap(spacing: 6, runSpacing: 6, children: [
-                  _departmentChip(
-                      tileWidth,
-                      'همه پرسنل',
-                      people.length,
-                      AsoudColors.primary,
-                      selectedDepartment == 'همه',
-                      () => setState(() => selectedDepartment = 'همه')),
-                  for (var i = 0; i < names.length; i++)
-                    _departmentChip(
-                        tileWidth,
-                        names[i],
-                        groups[names[i]]!,
-                        profileAccent(i + 1),
-                        selectedDepartment == names[i],
-                        () => setState(() => selectedDepartment = names[i])),
-                ]),
-                const SizedBox(height: 12),
-              ]);
-        }),
+  bool _matchesUnit(AccessMap person, String unit) =>
+      unit.isEmpty ||
+      (unit.startsWith('unit:')
+          ? _department(person) == unit.substring(5)
+          : _group(_department(person)) == unit);
+
+  List<AccessMap> get filteredPeople {
+    final query = search.text.trim().toLowerCase();
+    return people
+        .where((p) =>
+            _matchesUnit(p, selectedDepartment) &&
+            (selectedStatus.isEmpty || _status(p) == selectedStatus) &&
+            (selectedProfile.isEmpty || p['profile'] == selectedProfile) &&
+            '${p['employee_name'] ?? ''} ${p['name'] ?? ''} ${p['designation'] ?? ''} ${_department(p)}'
+                .toLowerCase()
+                .contains(query))
+        .toList();
+  }
+
+  Future<void> _openFilters() async {
+    final result = await showModalBottomSheet<(String, String, String)>(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => _OfficePeopleFilters(
+        initial: (selectedDepartment, selectedStatus, selectedProfile),
+        statuses: _statusLabels,
+        units: {
+          '': 'همه واحدها',
+          for (final (key, title, _) in _groups.skip(1))
+            if (selectedDepartment == key) key: 'گروه $title',
+          for (final department
+              in people.map(_department).where((d) => d.isNotEmpty).toSet())
+            'unit:$department': department,
+        },
+        loadProfiles: () async {
+          final data = await repo
+              .call('list_profiles', {'company': widget.company}) as Map;
+          return accessRows(data['profiles'])
+              .where((p) => p['readonly'] != true)
+              .toList();
+        },
+        profileAvailable: people.isEmpty ||
+            people.any((person) => person.containsKey('profile')),
       ),
+    );
+    if (result != null && mounted) {
+      setState(() {
+        selectedDepartment = result.$1;
+        selectedStatus = result.$2;
+        selectedProfile = result.$3;
+      });
+    }
+  }
+
+  Widget _departmentSummary() => _OfficePanel(
+        child:
+            Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          const Text('ساختار سازمانی',
+              style: TextStyle(fontWeight: FontWeight.w800)),
+          const SizedBox(height: 8),
+          LayoutBuilder(builder: (context, constraints) {
+            final tileWidth = (constraints.maxWidth - 6) / 2;
+            return Wrap(spacing: 6, runSpacing: 6, children: [
+              for (final (key, title, color) in _groups)
+                SizedBox(
+                    width: tileWidth,
+                    height: 55,
+                    child: Material(
+                      key: ValueKey('office-group:$key'),
+                      color: color.withValues(alpha: .10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        side: BorderSide(
+                            color: selectedDepartment == key
+                                ? color
+                                : Colors.transparent),
+                      ),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: () => setState(() => selectedDepartment = key),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 9, vertical: 4),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                      color: color,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 12)),
+                              Text(
+                                  '${toPersianDigits(people.where((p) => _matchesUnit(p, key)).length)} نفر',
+                                  style: TextStyle(color: color, fontSize: 10)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    )),
+            ]);
+          }),
+        ]),
+      );
+
+  Widget _personCard(AccessMap person) {
+    final login =
+        '${person['user_id'] ?? ''}'.replaceFirst('@users.asoud.invalid', '');
+    final status = _status(person);
+    final color = _officeStatusColor(status);
+    final name = '${person['employee_name'] ?? 'پرسنل'}';
+    return _OfficePanel(
+      borderColor: color.withValues(alpha: .28),
+      child: Column(children: [
+        _OfficePersonHeading(
+            name: name,
+            designation: '${person['designation'] ?? ''}',
+            department: _department(person),
+            code: '${person['name'] ?? ''}',
+            status: _statusLabels[status] ?? '',
+            color: color),
+        const Divider(height: 16, color: AsoudColors.border),
+        Row(children: [
+          Expanded(
+              child: Text(login.isEmpty ? 'حساب ثبت نشده است' : login,
+                  style:
+                      const TextStyle(fontSize: 11, color: AsoudColors.muted),
+                  overflow: TextOverflow.ellipsis)),
+          const SizedBox(width: 6),
+          FilledButton(
+            onPressed: () => login.isNotEmpty
+                ? open(OfficeAccountDetails(
+                    company: widget.company,
+                    employee: '${person['name']}',
+                    repository: repo))
+                : open(OfficeAccountCreate(
+                    company: widget.company,
+                    people: people,
+                    repository: repo,
+                    initialEmployee: '${person['name']}')),
+            style: FilledButton.styleFrom(
+                backgroundColor: login.isEmpty
+                    ? AsoudColors.primary
+                    : const Color(0xFFE8F1FF),
+                foregroundColor:
+                    login.isEmpty ? Colors.white : AsoudColors.primary,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
+                minimumSize: const Size(0, 36),
+                padding: const EdgeInsets.symmetric(horizontal: 12)),
+            child: Text(login.isEmpty ? 'ایجاد حساب' : 'مدیریت حساب'),
+          ),
+          if (person['can_represent'] == true)
+            PopupMenuButton<String>(
+              tooltip: 'گزینه‌های $name',
+              onSelected: (_) => _represent(person),
+              itemBuilder: (_) => const [
+                PopupMenuItem(value: 'represent',
+                  child: Text('ورود به نمایندگی از پرسنل')),
+              ],
+            ),
+        ]),
+      ]),
     );
   }
 
-  Widget _departmentChip(double width, String title, int count, Color color,
-          bool selected, VoidCallback onTap) =>
-      SizedBox(
-          width: width,
-          child: Material(
-            color: color.withValues(alpha: selected ? .13 : .07),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-              side: BorderSide(color: selected ? color : Colors.transparent),
-            ),
-            child: InkWell(
-                onTap: onTap,
-                borderRadius: BorderRadius.circular(10),
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
-                  child: Row(children: [
-                    Expanded(
-                        child: Text(title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                                color: color,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 12))),
-                    Text('$count',
-                        style: TextStyle(
-                            color: color, fontWeight: FontWeight.bold))
-                  ]),
-                )),
-          ));
-
-  Widget _personCard(AccessMap person) {
-    final hasAccount = '${person['user_id'] ?? ''}'.isNotEmpty;
-    final color = _statusColor(person);
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: color.withValues(alpha: .32))),
-      child: Padding(
-          padding: const EdgeInsets.all(9),
-          child: Column(children: [
-            Row(children: [
-              CircleAvatar(
-                  radius: 16,
-                  backgroundColor: color.withValues(alpha: .12),
-                  child: Icon(Icons.person_outline, size: 18, color: color)),
-              const SizedBox(width: 8),
-              Expanded(
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                    Text('${person['employee_name'] ?? 'پرسنل'}',
-                        style: const TextStyle(fontWeight: FontWeight.w700),
-                        overflow: TextOverflow.ellipsis),
-                    Text(
-                        '${person['designation'] ?? 'بدون عنوان شغلی'} · ${person['department'] ?? 'بدون واحد'}',
-                        style: Theme.of(context).textTheme.bodySmall,
-                        overflow: TextOverflow.ellipsis),
-                    Text('کد پرسنلی: ${person['name']}',
-                        style: Theme.of(context).textTheme.bodySmall,
-                        overflow: TextOverflow.ellipsis),
-                  ])),
-              Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
-                  decoration: BoxDecoration(
-                      color: color.withValues(alpha: .12),
-                      borderRadius: BorderRadius.circular(6)),
-                  child: Text(_statusTitle(person),
-                      style: TextStyle(
-                          color: color,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600))),
-            ]),
-            const SizedBox(height: 7),
-            Align(
-                alignment: Alignment.centerLeft,
-                child: OutlinedButton.icon(
-                  onPressed: () => hasAccount
-                      ? open(OfficeAccountDetails(
-                          company: widget.company,
-                          employee: '${person['name']}',
-                          repository: repo))
-                      : open(OfficeAccountCreate(
-                          company: widget.company,
-                          people: people,
-                          repository: repo,
-                          initialEmployee: '${person['name']}')),
-                  icon: Icon(
-                      hasAccount
-                          ? Icons.manage_accounts_outlined
-                          : Icons.person_add_alt_1,
-                      size: 16),
-                  label: Text(hasAccount ? 'مدیریت حساب' : 'ایجاد حساب'),
-                  style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(0, 34),
-                      padding: const EdgeInsets.symmetric(horizontal: 10)),
-                )),
-          ])),
-    );
+  Future<void> _represent(AccessMap person) async {
+    PersonnelRepresentationLauncher? launcher;
+    try {
+      launcher = context.read<PersonnelRepresentationLauncher>();
+    } catch (_) {}
+    if (launcher == null) return;
+    final reason = await showDialog<String>(context: context,
+      builder: (_) => _RepresentationReason(name: '${person['employee_name']}'));
+    if (!mounted || reason == null) return;
+    try {
+      await launcher.open(context, widget.company, '${person['name']}', reason);
+    } catch (failure) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(failureMessage(failure))));
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) => Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
+        textDirection: TextDirection.rtl,
+        child: Scaffold(
           backgroundColor: AsoudColors.background,
-          appBar: const AsoudHeader(title: 'مدیریت کاربران'),
+          appBar: const _OfficeAccessHeader(
+              title: 'مدیریت کاربران',
+              subtitle: 'حساب‌های کاربری پرسنل سازمان'),
           body: busy
               ? const Center(child: CircularProgressIndicator())
               : RefreshIndicator(
                   onRefresh: load,
-                  child: ListView(padding: const EdgeInsets.all(14), children: [
-                    FilledButton.icon(
-                      onPressed: error != null ||
-                              people
-                                  .where((p) => _status(p) == 'no_account')
-                                  .isEmpty
-                          ? null
-                          : () => open(OfficeAccountCreate(
-                              company: widget.company,
-                              people: people,
-                              repository: repo)),
-                      icon: const Icon(Icons.person_add_alt_1),
-                      label: const Text('ایجاد حساب کاربری'),
-                    ),
-                    const SizedBox(height: 12),
-                    if (error != null) ...[
-                      Text(error!,
-                          style: const TextStyle(color: AsoudColors.danger)),
-                      TextButton(
-                          onPressed: load, child: const Text('تلاش دوباره')),
-                    ] else ...[
+                  child: ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(12),
+                    children: [
                       _departmentSummary(),
-                      Row(children: [
-                        Expanded(
-                            child: TextField(
-                                controller: search,
-                                onChanged: (_) => setState(() {}),
-                                decoration: const InputDecoration(
-                                    prefixIcon: Icon(Icons.search),
-                                    hintText:
-                                        'جست‌وجو در نام، کد پرسنلی یا سمت',
-                                    isDense: true))),
-                        const SizedBox(width: 8),
-                        DropdownButton<String>(
-                            value: selectedStatus,
-                            underline: const SizedBox.shrink(),
-                            items: [
-                              'همه',
-                              'بدون حساب',
-                              'فعال',
-                              'در انتظار فعال‌سازی',
-                              'غیرفعال'
-                            ]
-                                .map((s) =>
-                                    DropdownMenuItem(value: s, child: Text(s)))
-                                .toList(),
-                            onChanged: (v) =>
-                                setState(() => selectedStatus = v ?? 'همه')),
-                      ]),
-                      const SizedBox(height: 8),
-                      Text('فهرست پرسنل · ${filteredPeople.length} نفر',
-                          style: const TextStyle(fontWeight: FontWeight.w700)),
-                      const SizedBox(height: 6),
-                      if (people.isEmpty)
-                        const Card(
-                            child: Padding(
-                                padding: EdgeInsets.all(16),
-                                child: Text(
-                                    'در این دفتر هنوز پروندهٔ پرسنلی فعال ثبت نشده است. برای ایجاد حساب، ابتدا پروندهٔ پرسنلی را در منابع انسانی ثبت کنید.')))
-                      else if (filteredPeople.isEmpty)
-                        const Padding(
-                            padding: EdgeInsets.all(20),
-                            child: Center(
-                                child: Text(
-                                    'پرسنلی با این جست‌وجو یا فیلتر پیدا نشد.')))
-                      else
-                        for (final person in filteredPeople)
-                          _personCard(person),
+                      if (error != null) ...[
+                        Text(error!,
+                            style: const TextStyle(color: AsoudColors.danger)),
+                        TextButton(
+                            onPressed: load, child: const Text('تلاش دوباره')),
+                      ] else ...[
+                        Row(children: [
+                          const Expanded(
+                              child: Text('فهرست پرسنل',
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.w800))),
+                          Text('${toPersianDigits(filteredPeople.length)} نفر',
+                              style: const TextStyle(
+                                  color: AsoudColors.muted, fontSize: 11)),
+                        ]),
+                        const SizedBox(height: 7),
+                        Row(children: [
+                          Expanded(
+                              child: TextField(
+                                  controller: search,
+                                  onChanged: (_) => setState(() {}),
+                                  decoration: const InputDecoration(
+                                      hintText: 'نام یا کد پرسنلی',
+                                      isDense: true,
+                                      prefixIcon: Icon(Icons.search, size: 19),
+                                      filled: true,
+                                      fillColor: Colors.white))),
+                          const SizedBox(width: 6),
+                          OutlinedButton.icon(
+                              onPressed: _openFilters,
+                              icon: const Icon(Icons.tune, size: 17),
+                              label: const Text('فیلتر')),
+                        ]),
+                        const SizedBox(height: 8),
+                        if (people.isEmpty)
+                          const _OfficePanel(
+                              child: Text(
+                                  'در این دفتر هنوز پروندهٔ پرسنلی فعال ثبت نشده است.'))
+                        else if (filteredPeople.isEmpty)
+                          const _OfficePanel(
+                              child: Text(
+                                  'پرسنلی با این جست‌وجو یا فیلتر پیدا نشد.'))
+                        else
+                          for (final person in filteredPeople)
+                            _personCard(person),
+                      ],
                     ],
-                  ]))));
+                  ),
+                ),
+        ),
+      );
 }
 
 class OfficeAccountCreate extends StatefulWidget {
@@ -351,6 +392,7 @@ class OfficeAccountCreate extends StatefulWidget {
 class _OfficeAccountCreateState extends State<OfficeAccountCreate> {
   String? employee, error;
   String method = 'mobile';
+  bool manualCode = false;
   bool busy = false;
   List<String> get methods {
     for (final person in widget.people) {
@@ -388,6 +430,7 @@ class _OfficeAccountCreateState extends State<OfficeAccountCreate> {
         'employee': employee,
         'method': method,
         'invite': 1,
+        if (manualCode) 'delivery': 'manual_code',
       });
       if (!mounted) return;
       await showActivation(
@@ -464,9 +507,21 @@ class _OfficeAccountCreateState extends State<OfficeAccountCreate> {
                               ? 'ابتدا پرسنل را انتخاب کنید.'
                               : methods.isEmpty
                                   ? 'شماره موبایل یا ایمیل معتبر در پرونده ثبت نشده است.'
-                                  : method == 'mobile'
-                                      ? 'نام کاربری و رمز موقت به موبایل ثبت‌شده پیامک می‌شود.'
-                                      : 'نام کاربری و کد فعال‌سازی به ایمیل ثبت‌شده ارسال می‌شود.')),
+                                  : manualCode
+                                      ? 'کد و شناسهٔ ورود بعد از ساخت حساب نمایش داده می‌شوند؛ ارسال خودکار انجام نمی‌شود.'
+                                      : method == 'mobile'
+                                          ? 'نام کاربری و رمز موقت به موبایل ثبت‌شده پیامک می‌شود.'
+                                          : 'نام کاربری و کد فعال‌سازی به ایمیل ثبت‌شده ارسال می‌شود.')),
+                      CheckboxListTile(
+                        title: const Text('دریافت کد دعوت دستی'),
+                        value: manualCode,
+                        controlAffinity: ListTileControlAffinity.leading,
+                        contentPadding: EdgeInsets.zero,
+                        onChanged: busy
+                            ? null
+                            : (value) =>
+                                setState(() => manualCode = value == true),
+                      ),
                     ]))),
             const Card(
                 child: Padding(
@@ -494,6 +549,57 @@ class _OfficeAccountCreateState extends State<OfficeAccountCreate> {
 }
 
 Future<void> showActivation(BuildContext context, dynamic activation) async {
+  if (activation is Map &&
+      activation['method'] == 'manual_code' &&
+      activation['code'] is String) {
+    final code = activation['code'] as String;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialog) => AlertDialog(
+        title: const Text('کد دعوت یک‌بارمصرف'),
+        content: SingleChildScrollView(
+            child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+                'این کد فقط همین بار نمایش داده می‌شود. شناسه و کد را فقط به صاحب حساب بدهید.'),
+            const SizedBox(height: 8),
+            const Text('شناسهٔ ورود'),
+            SelectableText('${activation['login']}',
+                textDirection: TextDirection.ltr),
+            const SizedBox(height: 8),
+            Card(
+                child: ListTile(
+              title: SelectableText(code, textDirection: TextDirection.ltr),
+              trailing: IconButton(
+                tooltip: 'کپی کد',
+                icon: const Icon(Icons.copy_outlined),
+                onPressed: () async {
+                  await Clipboard.setData(ClipboardData(text: code));
+                  if (dialog.mounted) {
+                    ScaffoldMessenger.of(dialog).showSnackBar(
+                      const SnackBar(content: Text('کد دعوت کپی شد.')),
+                    );
+                  }
+                },
+              ),
+            )),
+            Text('اعتبار: ${activation['expires_in_hours']} ساعت'),
+            const Text(
+                'صاحب حساب در صفحهٔ ورود، گزینهٔ «کد دعوت‌نامه دارید؟ فعال‌سازی حساب» را انتخاب کند.'),
+          ],
+        )),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(dialog),
+              child: const Text('بستن')),
+        ],
+      ),
+    );
+    return;
+  }
   if (activation is Map && ['sms', 'invite'].contains(activation['method'])) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('دعوت‌نامه برای صاحب حساب ارسال شد.')),
@@ -533,6 +639,7 @@ class OfficeAccountDetails extends StatefulWidget {
 class _OfficeAccountDetailsState extends State<OfficeAccountDetails> {
   AccessMap? account;
   List<AccessMap> profiles = [], catalog = [];
+  AccessMap? catalogLayout;
   Map<String, List<String>> grants = {};
   String? selected, error;
   bool busy = true;
@@ -558,6 +665,7 @@ class _OfficeAccountDetailsState extends State<OfficeAccountDetails> {
         setState(() {
           account = a;
           catalog = accessRows(a['catalog']);
+          catalogLayout = accessRows([a['catalog_layout']]).firstOrNull;
           grants = accessGrants(a['grants']);
           profiles = accessRows(p['profiles'])
               .where((p) => p['readonly'] != true)
@@ -601,7 +709,8 @@ class _OfficeAccountDetailsState extends State<OfficeAccountDetails> {
     }
   }
 
-  Future<void> invite() async {
+  Future<void> invite({bool manual = false}) async {
+    if (busy) return;
     setState(() {
       busy = true;
       error = null;
@@ -610,6 +719,7 @@ class _OfficeAccountDetailsState extends State<OfficeAccountDetails> {
       final result = await widget.repository.call('invite_account', {
         ...args,
         'registered': account?['registered_delivery'] == true ? 1 : 0,
+        if (manual) 'delivery': 'manual_code',
       });
       if (mounted) await showActivation(context, result);
     } catch (e) {
@@ -626,74 +736,133 @@ class _OfficeAccountDetailsState extends State<OfficeAccountDetails> {
           length: 2,
           child: Scaffold(
               backgroundColor: AsoudColors.background,
-              appBar: const AsoudHeader(title: 'جزئیات حساب کاربری'),
+              appBar: const _OfficeAccessHeader(
+                  title: 'مدیریت حساب',
+                  subtitle: 'حساب کاربری و دسترسی‌های پرسنل'),
               body: account == null
                   ? (busy
                       ? const Center(child: CircularProgressIndicator())
                       : Center(
                           child: Text(error ?? 'اطلاعات حساب دریافت نشد.')))
                   : Column(children: [
-                      ListTile(
-                          title: Text('${account!['title']}'),
-                          subtitle: Text(
-                              '${account!['designation']} · ${widget.company}')),
-                      const TabBar(tabs: [
-                        Tab(text: 'اطلاعات حساب'),
-                        Tab(text: 'دسترسی‌ها')
-                      ]),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+                        child: _OfficePanel(
+                            child: _OfficePersonHeading(
+                          name: '${account!['title'] ?? ''}',
+                          designation: '${account!['designation'] ?? ''}',
+                          department: '${account!['department'] ?? ''}',
+                          code: toPersianDigits(
+                              '${account!['employee'] ?? widget.employee}'),
+                          status: account!['activation_pending'] == true
+                              ? 'در انتظار فعال‌سازی'
+                              : switch (account!['account_status']) {
+                                  'active' => 'فعال',
+                                  'disabled' => 'غیرفعال',
+                                  _ => '',
+                                },
+                          color: account!['activation_pending'] == true
+                              ? AsoudColors.primary
+                              : _officeStatusColor(
+                                  '${account!['account_status'] ?? 'disabled'}'),
+                        )),
+                      ),
+                      Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 12),
+                        padding: const EdgeInsets.all(3),
+                        decoration: BoxDecoration(
+                          color: AsoudColors.primary.withValues(alpha: .06),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: TabBar(
+                          dividerHeight: 0,
+                          indicatorSize: TabBarIndicatorSize.tab,
+                          indicator: BoxDecoration(
+                            color: Colors.white,
+                            border: Border.all(color: AsoudColors.border),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          tabs: const [
+                            Tab(height: 39, text: 'حساب کاربری'),
+                            Tab(height: 39, text: 'دسترسی‌ها'),
+                          ],
+                        ),
+                      ),
                       Expanded(
                           child: TabBarView(children: [
-                        ListView(padding: const EdgeInsets.all(16), children: [
+                        ListView(padding: const EdgeInsets.all(12), children: [
                           SelectableText(
                               '${account!['login'] ?? account!['user']}',
                               textDirection: TextDirection.ltr),
-                          if (account!['token'] != null)
+                          if (account!['activation_pending'] == true) ...[
                             OutlinedButton(
-                                onPressed: busy ? null : invite,
+                                onPressed: busy ? null : () => invite(),
                                 child:
                                     const Text('تحویل دعوت‌نامه و فعال‌سازی')),
+                            OutlinedButton(
+                              onPressed:
+                                  busy ? null : () => invite(manual: true),
+                              child: const Text('صدور مجدد کد دعوت دستی'),
+                            ),
+                          ],
                           if (error != null) Text(error!),
                         ]),
-                        ListView(padding: const EdgeInsets.all(16), children: [
+                        ListView(padding: const EdgeInsets.all(12), children: [
                           if (account!['legacy'] == true)
                             const Text(
                                 'مجوزهای قبلی بدون دفتر هستند؛ تا بررسی و تأیید اتصال دفتر فقط قابل مشاهده‌اند.'),
-                          DropdownButtonFormField<String>(
-                              initialValue: selected,
-                              isExpanded: true,
-                              decoration: const InputDecoration(
-                                  labelText: 'پروفایل دسترسی (اختیاری)'),
-                              items: [
-                                const DropdownMenuItem(
-                                    value: '', child: Text('تنظیم دستی')),
-                                for (final p in profiles)
-                                  DropdownMenuItem(
-                                      value: '${p['name']}',
-                                      child: Text('${p['title']}'))
-                              ],
-                              onChanged: busy || account!['legacy'] == true
-                                  ? null
-                                  : (v) => setState(() {
-                                        selected = v == '' ? null : v;
-                                        if (selected != null) {
-                                          for (final entry in accessGrants(
-                                                  profiles.firstWhere((p) =>
-                                                      p['name'] ==
-                                                      selected)['grants'])
-                                              .entries) {
-                                            grants[entry.key] = <String>{
-                                              ...?grants[entry.key],
-                                              ...entry.value
-                                            }.toList();
-                                          }
-                                        }
-                                      })),
-                          const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 12),
-                              child: Text(
-                                  'انتخاب پروفایل، مجوزها را برای بازبینی اضافه می‌کند؛ تغییرات دستی حذف نمی‌شوند. اعمال فقط با ذخیره انجام می‌شود.')),
+                          _OfficePanel(
+                              child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              const Text('الگوی مجوزهای این حساب',
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.w800)),
+                              const SizedBox(height: 8),
+                              DropdownButtonFormField<String>(
+                                  initialValue: selected ?? '',
+                                  isExpanded: true,
+                                  decoration: const InputDecoration(
+                                      isDense: true,
+                                      labelText: 'پروفایل دسترسی (اختیاری)'),
+                                  items: [
+                                    const DropdownMenuItem(
+                                        value: '',
+                                        child: Text('فقط دسترسی پایه شخصی')),
+                                    for (final p in profiles)
+                                      DropdownMenuItem(
+                                          value: '${p['name']}',
+                                          child: Text('${p['title']}'))
+                                  ],
+                                  onChanged: busy || account!['legacy'] == true
+                                      ? null
+                                      : (v) => setState(() {
+                                            selected = v == '' ? null : v;
+                                            if (selected != null) {
+                                              for (final entry in accessGrants(
+                                                      profiles.firstWhere((p) =>
+                                                          p['name'] ==
+                                                          selected)['grants'])
+                                                  .entries) {
+                                                grants[entry.key] = <String>{
+                                                  ...?grants[entry.key],
+                                                  ...entry.value
+                                                }.toList();
+                                              }
+                                            }
+                                          })),
+                              const Padding(
+                                  padding: EdgeInsets.only(top: 8),
+                                  child: Text(
+                                      style: TextStyle(
+                                          fontSize: 11,
+                                          color: AsoudColors.muted),
+                                      'انتخاب پروفایل، مجوزها را برای بازبینی اضافه می‌کند؛ تغییرات دستی حذف نمی‌شوند. اعمال فقط با ذخیره انجام می‌شود.')),
+                            ],
+                          )),
                           AccessPermissionMatrix(
                               catalog: catalog,
+                              layout: catalogLayout,
                               grants: grants,
                               enabled: !busy && account!['token'] != null,
                               onChanged: () => setState(() {})),

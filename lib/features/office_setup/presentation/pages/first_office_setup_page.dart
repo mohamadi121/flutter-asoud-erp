@@ -145,6 +145,15 @@ class _FirstOfficeSetupPageState extends State<FirstOfficeSetupPage> {
       if (!result.completed) {
         throw const FormatException('تأیید نهایی در سرور ثبت نشد.');
       }
+      final client = context.read<FrappeApiClient>();
+      if (client is FrappeClient) {
+        try {
+          await client.rememberEnteredOffice(widget.company);
+        } catch (_) {
+          // Setup was already saved; a device storage error must not undo it.
+        }
+      }
+      if (!mounted) return;
       await Navigator.of(context).pushAndRemoveUntil<void>(
           MaterialPageRoute(builder: (_) => const DashboardLandingPage()),
           (_) => false);

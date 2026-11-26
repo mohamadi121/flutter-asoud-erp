@@ -11,7 +11,7 @@ import 'demo/hr_demo_data.dart';
 class PersonnelFileRepository {
   PersonnelFileRepository(this.client,
       {LocalRecordStore? store, HrDemoData? demoData})
-      : store = store ?? LocalDatabaseStore.instance,
+      : store = store ?? localStoreFor(client),
         demoData = demoData ?? HrDemoData.at(DateTime.now());
 
   final FrappeApiClient client;

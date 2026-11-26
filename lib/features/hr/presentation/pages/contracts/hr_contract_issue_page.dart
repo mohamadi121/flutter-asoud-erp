@@ -17,6 +17,7 @@ class HrContractIssuePage extends StatefulWidget {
     required this.repository,
     required this.templateRepository,
     this.initialDraft,
+    this.initialEmployeeId,
     super.key,
   });
 
@@ -24,6 +25,7 @@ class HrContractIssuePage extends StatefulWidget {
   final HrContractsRepository repository;
   final HrContractTemplateRepository templateRepository;
   final HrContractRecord? initialDraft;
+  final String? initialEmployeeId;
 
   @override
   State<HrContractIssuePage> createState() => _HrContractIssuePageState();
@@ -108,6 +110,9 @@ class _HrContractIssuePageState extends State<HrContractIssuePage> {
           if (match != null) {
             _onEmployeeSelected(match, initialSalaries: draft.salaries);
           }
+        } else if (widget.initialEmployeeId != null) {
+          final match = staff.where((s) => s.id == widget.initialEmployeeId).firstOrNull;
+          if (match != null) _onEmployeeSelected(match);
         }
       }
     } catch (e) {

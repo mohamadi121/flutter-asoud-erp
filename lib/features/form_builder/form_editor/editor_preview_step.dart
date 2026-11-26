@@ -310,6 +310,7 @@ class EditorPreviewStep extends StatelessWidget {
           Form(
             key: previewKey,
             child: FormFieldsView(
+              designerReview: true,
               schema: schema,
               values: preview,
               repository: repository,
