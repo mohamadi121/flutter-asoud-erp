@@ -55,6 +55,7 @@ class AccountProfile extends Equatable {
     this.roleLabel = '',
     this.mobileVerified = false,
     this.emailVerified = false,
+    this.personalDetails = const {},
   });
 
   /// `session.login_state.user`.
@@ -79,6 +80,10 @@ class AccountProfile extends Equatable {
         roleLabel: '${json['role'] ?? ''}',
         mobileVerified: json['mobile_verified'] == true,
         emailVerified: json['email_verified'] == true,
+        personalDetails: {
+          if (json['personal_details'] case final Map details)
+            for (final entry in details.entries) '${entry.key}': '${entry.value ?? ''}',
+        },
       );
 
   final String username;
@@ -91,6 +96,7 @@ class AccountProfile extends Equatable {
   final String roleLabel;
   final bool mobileVerified;
   final bool emailVerified;
+  final Map<String, String> personalDetails;
 
   @override
   List<Object?> get props => [
@@ -104,6 +110,7 @@ class AccountProfile extends Equatable {
         roleLabel,
         mobileVerified,
         emailVerified,
+        personalDetails,
       ];
 }
 

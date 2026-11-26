@@ -1,5 +1,8 @@
 import 'package:asoud_erp/core/network/frappe_client.dart';
 import 'package:asoud_erp/core/theme/asoud_theme.dart';
+import 'package:asoud_erp/features/auth/data/account_repository.dart';
+import 'package:asoud_erp/features/auth/domain/entities/login_state.dart';
+import 'package:asoud_erp/features/auth/presentation/pages/admin_profile_page.dart';
 import 'package:asoud_erp/features/employee/data/self_service_repository.dart';
 import 'package:asoud_erp/features/employee/presentation/pages/employee_home_page.dart';
 import 'package:asoud_erp/features/employee/presentation/pages/employee_shell.dart';
@@ -12,6 +15,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../helpers/fake_account_repository.dart';
 
 class _Client extends Mock implements FrappeApiClient {}
 
@@ -74,11 +79,34 @@ class _SelfService extends Fake implements SelfServiceRepository {
       ];
 }
 
-Widget _app(Widget page) {
+class _AdminFiles extends _Files {
+  _AdminFiles(this.accounts);
+  final FakeAccountRepository accounts;
+  String get _name => accounts.lastSave.isEmpty ? 'مریم احمدی'
+      : "${accounts.lastSave['first']} ${accounts.lastSave['last']}";
+
+  @override
+  Future<EmployeeHome> myHome() async => EmployeeHome.fromJson({
+    'profile_id': 'PERSON-ADMIN', 'admin_identity': true, 'name': _name,
+    'designation': 'مدیر کل سیستم', 'company': 'Tabaan',
+  });
+
+  @override
+  Future<PersonnelFile> myFile() async => PersonnelFile.fromJson({
+    'profile_id': 'PERSON-ADMIN', 'admin_identity': true, 'can_edit': true,
+    'header': {'name': _name, 'designation': 'مدیر کل سیستم', 'company': 'Tabaan'},
+    'personal': {'father_name': accounts.lastSave['father_name'] ?? ''},
+  });
+}
+
+Widget _app(Widget page, {AccountRepository? accounts}) {
   final client = _Client();
   when(() => client.isAuthenticated).thenReturn(false);
-  return RepositoryProvider<FrappeApiClient>.value(
-    value: client,
+  return MultiRepositoryProvider(
+    providers: [
+      RepositoryProvider<FrappeApiClient>.value(value: client),
+      if (accounts != null) RepositoryProvider<AccountRepository>.value(value: accounts),
+    ],
     child: MaterialApp(
         theme: AsoudTheme.light,
         home: Directionality(textDirection: TextDirection.rtl, child: page)),
@@ -87,6 +115,36 @@ Widget _app(Widget page) {
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  testWidgets('administrator opens and updates their own file from the home card', (tester) async {
+    final accounts = FakeAccountRepository(
+      state: const LoginState(userId: 'Administrator', isSystemAdmin: true),
+      profile: const AccountProfile(username: 'Administrator', firstName: 'مریم',
+          lastName: 'احمدی', mobile: '09123456789'),
+    );
+    await tester.pumpWidget(_app(Scaffold(body: EmployeeHomePage(
+      company: 'Tabaan', files: _AdminFiles(accounts), selfService: _SelfService(),
+    )), accounts: accounts));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('مریم احمدی'));
+    await tester.pumpAndSettle();
+    expect(find.byType(MyInfoPage), findsOneWidget);
+    expect(find.text('کد پرسنلی'), findsNothing);
+    await tester.tap(find.text('ویرایش'));
+    await tester.pumpAndSettle();
+    expect(find.byType(AdminProfilePage), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('last_name')), 'احمدی نیا');
+    final father = find.byKey(const ValueKey('admin_father_name'));
+    await tester.scrollUntilVisible(father, 160, scrollable: find.byType(Scrollable).first);
+    await tester.enterText(father, 'علی');
+    await tester.tap(find.byKey(const Key('profile_submit')));
+    await tester.pumpAndSettle();
+    expect(accounts.lastSave['father_name'], 'علی');
+    expect(find.byType(MyInfoPage), findsOneWidget);
+    expect(find.text('مریم احمدی نیا'), findsWidgets);
+    tester.state<NavigatorState>(find.byType(Navigator)).pop();
+    await tester.pumpAndSettle();
+    expect(find.text('مریم احمدی نیا'), findsOneWidget);
+  });
   for (final width in [320.0, 390.0]) {
     testWidgets('employee home at $width', (tester) async {
       await tester.binding.setSurfaceSize(Size(width, 844));

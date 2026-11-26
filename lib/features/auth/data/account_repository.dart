@@ -50,6 +50,7 @@ abstract interface class AccountRepository {
     required String mobile,
     String nationalId = '',
     String email = '',
+    Map<String, String>? personalDetails,
   });
 
   /// `account_security.change_password`. A wrong current password is an
@@ -123,6 +124,7 @@ class FrappeAccountRepository implements AccountRepository {
     required String mobile,
     String nationalId = '',
     String email = '',
+    Map<String, String>? personalDetails,
   }) async {
     final data = <String, dynamic>{
       'first_name': firstName.trim(),
@@ -131,6 +133,7 @@ class FrappeAccountRepository implements AccountRepository {
     };
     if (nationalId.trim().isNotEmpty) data['national_id'] = nationalId.trim();
     if (email.trim().isNotEmpty) data['email'] = email.trim();
+    if (personalDetails != null) data['personal_details'] = personalDetails;
     return AccountProfile.fromAdminProfile(
         _map(await _call('onboarding.save_admin_profile', data)));
   }

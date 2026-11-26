@@ -3,10 +3,14 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/network/frappe_client.dart';
+import '../../../../core/utils/failure_message.dart';
 import '../../../../core/utils/persian_format.dart';
+import '../../../auth/data/account_repository.dart';
+import '../../../auth/presentation/pages/admin_profile_page.dart';
 import '../../../hr/data/personnel_file_repository.dart';
 import '../../../hr/data/personnel_repository.dart';
 import '../../../hr/domain/personnel_file.dart';
+import '../../../hr/presentation/pages/personnel_page.dart';
 import '../../../workflows/data/generic_request_repository.dart';
 import '../../../workflows/presentation/pages/generic_request_page.dart';
 import '../widgets/employee_photo.dart';
@@ -61,8 +65,50 @@ class _MyInfoPageState extends State<MyInfoPage> {
   late Future<PersonnelFile> future = widget.repository.myFile();
   late bool documents = widget.showDocuments;
   int tab = 0;
+  bool _openingAdminEditor = false;
+
+  Future<void> _editAdmin(PersonnelFile file) async {
+    if (_openingAdminEditor) return;
+    setState(() => _openingAdminEditor = true);
+    try {
+      if (file.header.linked) {
+        final repository = context.read<PersonnelRepository?>() ??
+            PersonnelRepository(context.read<FrappeApiClient>());
+        await Navigator.of(context).push(MaterialPageRoute<void>(
+          builder: (_) => PersonnelDetailPage(
+            id: file.profileId, repository: repository, fileRepository: widget.repository,
+          ),
+        ));
+      } else {
+        final repository = context.read<AccountRepository>();
+        final profile = await repository.adminProfile();
+        if (!mounted) return;
+        final saved = await Navigator.of(context).push<bool>(MaterialPageRoute(
+          builder: (_) => Directionality(
+            textDirection: TextDirection.rtl,
+            child: AdminProfilePage(
+              repository: repository, profile: profile, editingPersonnelFile: true,
+              onCompleted: (editorContext, _) => Navigator.of(editorContext).pop(true),
+            ),
+          ),
+        ));
+        if (saved != true) return;
+      }
+      if (mounted) setState(() => future = widget.repository.myFile());
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(failureDetail(error))));
+      }
+    } finally {
+      if (mounted) setState(() => _openingAdminEditor = false);
+    }
+  }
 
   Future<void> _edit(PersonnelFile file) async {
+    if (file.adminIdentity && file.canEdit) {
+      await _editAdmin(file);
+      return;
+    }
     final proceed = await showModalBottomSheet<bool>(
         context: context,
         isScrollControlled: true,
@@ -177,7 +223,8 @@ class _MyInfoPageState extends State<MyInfoPage> {
             'نام و نام خانوادگی': f.header.name,
             'کد ملی': p.nationalId,
             'تاریخ تولد': formatJalaliIso(p.birthDate),
-            'وضعیت تأهل': _label(p.maritalStatus)
+            if (f.adminIdentity) 'نام پدر': p.fatherName,
+            if (!f.adminIdentity || f.header.linked) 'وضعیت تأهل': _label(p.maritalStatus)
           }),
           if (serviceStatus.isNotEmpty) _section('وضعیت خدمت', serviceStatus)
         ],
@@ -211,7 +258,9 @@ class _MyInfoPageState extends State<MyInfoPage> {
                     ? null
                     : toPersianDigits(p.mobile),
                 'ایمیل': p.email,
-                'نشانی': p.address
+                if (f.adminIdentity) 'تلفن ثابت': toPersianDigits(p.phone),
+                'نشانی': p.address,
+                if (f.adminIdentity) 'کد پستی': toPersianDigits(p.postalCode),
               })
         ],
     };
@@ -245,7 +294,7 @@ class _MyInfoPageState extends State<MyInfoPage> {
                 appBar: AppBar(title: const Text('پرونده من'), actions: [
                   TextButton(
                       onPressed:
-                          snapshot.hasData ? () => _edit(snapshot.data!) : null,
+                          snapshot.hasData && !_openingAdminEditor ? () => _edit(snapshot.data!) : null,
                       child: const Text('ویرایش'))
                 ]),
                 body: snapshot.hasError
@@ -263,6 +312,7 @@ class _MyInfoPageState extends State<MyInfoPage> {
   Widget _body(PersonnelFile f) {
     final h = f.header;
     final code = h.employeeCode;
+    final identityOnly = f.adminIdentity && !h.linked;
     return Column(children: [
       Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -282,7 +332,7 @@ class _MyInfoPageState extends State<MyInfoPage> {
                       visualDensity: VisualDensity.compact)
                 ]))
           ])),
-      Padding(
+      if (!identityOnly) Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: _row(
               'کد پرسنلی',
@@ -290,19 +340,19 @@ class _MyInfoPageState extends State<MyInfoPage> {
                   ? 'در انتظار ثبت'
                   : code)),
       DefaultTabController(
-          length: 4,
+          length: identityOnly ? 2 : 4,
           child: TabBar(
               isScrollable: true,
               tabAlignment: TabAlignment.center,
               onTap: (index) => setState(() {
-                    tab = index;
+                    tab = identityOnly && index == 1 ? 3 : index;
                     documents = false;
                   }),
-              tabs: const [
-                Tab(text: 'اطلاعات کلی'),
-                Tab(text: 'سازمانی'),
-                Tab(text: 'استخدامی'),
-                Tab(text: 'تماس')
+              tabs: [
+                const Tab(text: 'اطلاعات کلی'),
+                if (!identityOnly) const Tab(text: 'سازمانی'),
+                if (!identityOnly) const Tab(text: 'استخدامی'),
+                const Tab(text: 'تماس')
               ])),
       Expanded(
           child: SingleChildScrollView(
@@ -311,8 +361,8 @@ class _MyInfoPageState extends State<MyInfoPage> {
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    if (!documents) ..._content(f),
-                    TextButton.icon(
+                    if (!documents || identityOnly) ..._content(f),
+                    if (!identityOnly) TextButton.icon(
                         onPressed: () => setState(() => documents = !documents),
                         icon: const Icon(Icons.folder_outlined),
                         label: Text(documents ? 'بازگشت به اطلاعات' : 'مدارک')),

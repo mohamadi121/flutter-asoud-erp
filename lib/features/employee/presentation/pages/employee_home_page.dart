@@ -435,6 +435,9 @@ class _DateCard extends StatelessWidget {
   final DateTime now;
 
   String get status {
+    if (home.adminIdentity && home.employee.isEmpty) {
+      return 'حساب مدیر کل سیستم';
+    }
     final checkin = home.lastCheckin;
     final date = DateTime.tryParse(checkin?.time ?? '');
     if (date == null ||

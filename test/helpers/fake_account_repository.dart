@@ -52,6 +52,7 @@ class FakeAccountRepository implements AccountRepository {
     required String mobile,
     String nationalId = '',
     String email = '',
+    Map<String, String>? personalDetails,
   }) async {
     saveCalls++;
     lastSave = {
@@ -60,6 +61,7 @@ class FakeAccountRepository implements AccountRepository {
       'mobile': mobile,
       'national': nationalId,
       'email': email,
+      if (personalDetails != null) ...personalDetails,
     };
     await saveGate?.future;
     if (saveError != null) throw saveError!;

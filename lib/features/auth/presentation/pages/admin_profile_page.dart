@@ -5,6 +5,7 @@ import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/failure_message.dart';
 import '../../../../core/utils/jalali_date.dart';
 import '../../../../core/widgets/asoud_ui.dart';
+import '../../../../core/widgets/asoud_jalali_picker.dart';
 import '../../data/account_repository.dart';
 import '../../domain/entities/login_state.dart';
 import '../../domain/identity_validators.dart';
@@ -19,9 +20,11 @@ class AdminProfilePage extends StatefulWidget {
       required this.profile,
       required this.onCompleted,
       this.onBack,
+      this.editingPersonnelFile = false,
       super.key});
   final AccountRepository repository;
   final AccountProfile profile;
+  final bool editingPersonnelFile;
 
   /// Receives the refreshed server state after the real save succeeded.
   final void Function(BuildContext context, LoginState state) onCompleted;
@@ -40,6 +43,17 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
   late final _national =
       TextEditingController(text: widget.profile.nationalId);
   late final _email = TextEditingController(text: widget.profile.email);
+  late final _extras = {
+    for (final field in _extraLabels.keys)
+      field: TextEditingController(text: widget.profile.personalDetails[field] ?? ''),
+  };
+  static const _extraLabels = {
+    'father_name': 'نام پدر',
+    'birth_date': 'تاریخ تولد',
+    'phone': 'تلفن ثابت',
+    'address_line': 'نشانی',
+    'postal_code': 'کد پستی',
+  };
   bool _optionalOpen = false;
   bool _busy = false;
   bool _touched = false;
@@ -47,7 +61,7 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
 
   @override
   void dispose() {
-    for (final c in [_first, _last, _mobile, _national, _email]) {
+    for (final c in [_first, _last, _mobile, _national, _email, ..._extras.values]) {
       c.dispose();
     }
     super.dispose();
@@ -59,12 +73,26 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
   String? get _mobileError => IdentityValidators.mobile(_mobile.text);
   String? get _nationalError => IdentityValidators.nationalId(_national.text);
   String? get _emailError => IdentityValidators.email(_email.text);
+  String? _extraError(String key) {
+    final value = toLatinDigits(_extras[key]!.text.trim());
+    if (value.isEmpty || value == widget.profile.personalDetails[key]) return null;
+    if (key == 'phone' && !RegExp(r'^0[1-8]\d{9}$').hasMatch(value)) {
+      return 'تلفن ثابت باید ۱۱ رقم و با ۰ شروع شود.';
+    }
+    if (key == 'postal_code' && !RegExp(r'^\d{10}$').hasMatch(value)) {
+      return 'کد پستی باید ۱۰ رقم باشد.';
+    }
+    final date = key == 'birth_date' ? DateTime.tryParse(value) : null;
+    if (date != null && date.isAfter(DateTime.now())) return 'تاریخ تولد نمی‌تواند در آینده باشد.';
+    return null;
+  }
   bool get _valid =>
       _firstError == null &&
       _lastError == null &&
       _mobileError == null &&
       _nationalError == null &&
-      _emailError == null;
+      _emailError == null &&
+      (!widget.editingPersonnelFile || _extraLabels.keys.every((key) => _extraError(key) == null));
 
   Future<void> _submit() async {
     if (_busy) return;
@@ -86,6 +114,9 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
         mobile: IdentityValidators.normalizeMobile(_mobile.text)!,
         nationalId: toLatinDigits(_national.text.trim()),
         email: _email.text,
+        personalDetails: widget.editingPersonnelFile
+            ? _extras.map((key, field) => MapEntry(key, field.text.trim()))
+            : null,
       );
       // The server decides what comes next; read the state it now reports.
       final state = await widget.repository.loginState();
@@ -164,15 +195,15 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
                   color: AsoudColors.primary,
                   size: 40),
               const SizedBox(width: 10),
-              const Expanded(
+              Expanded(
                 child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('آسود ERP',
+                      const Text('آسود ERP',
                           style: TextStyle(
                               fontSize: 17, fontWeight: FontWeight.w800)),
-                      Text('مشخصات اولیه مدیر کل سیستم',
-                          style: TextStyle(
+                      Text(widget.editingPersonnelFile ? 'پروندهٔ من' : 'مشخصات اولیه مدیر کل سیستم',
+                          style: const TextStyle(
                               fontSize: 10.5, color: AsoudColors.muted)),
                     ]),
               ),
@@ -197,13 +228,12 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
               children: [
-                const Text('تکمیل مشخصات مدیر کل سیستم',
-                    style:
-                        TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
+                Text(widget.editingPersonnelFile ? 'ویرایش اطلاعات فردی' : 'تکمیل مشخصات مدیر کل سیستم',
+                    style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
                 const SizedBox(height: 2),
-                const Padding(
+                if (!widget.editingPersonnelFile) const Padding(
                   padding: EdgeInsets.only(bottom: 8),
-                  child: Text('پس از ایجاد دفتر کار، اطلاعات خود را تکمیل کنید.',
+                  child: Text('پیش از ورود، اطلاعات اولیهٔ حساب خود را تکمیل کنید.',
                       style: TextStyle(fontSize: 11, color: AsoudColors.muted)),
                 ),
                 _card(Row(children: [
@@ -228,7 +258,7 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
                                   fontSize: 11, color: AsoudColors.muted)),
                         ]),
                   ),
-                  TextButton(
+                  if (!widget.editingPersonnelFile) TextButton(
                     key: const Key('change_password_button'),
                     onPressed: _busy ? null : _changePassword,
                     style: TextButton.styleFrom(
@@ -282,7 +312,7 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
                     children: [
                       InkWell(
                         key: const Key('optional_toggle'),
-                        onTap: () =>
+                        onTap: widget.editingPersonnelFile ? null : () =>
                             setState(() => _optionalOpen = !_optionalOpen),
                         child: Row(children: [
                           const AsoudIconBox(
@@ -307,14 +337,14 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          Icon(_optionalOpen
+                          if (!widget.editingPersonnelFile) Icon(_optionalOpen
                               ? Icons.expand_less_rounded
                               : Icons.expand_more_rounded),
                         ]),
                       ),
                       // Kept mounted while collapsed, so the typed values stay.
                       Offstage(
-                        offstage: !_optionalOpen,
+                        offstage: !_optionalOpen && !widget.editingPersonnelFile,
                         child: Padding(
                           padding: const EdgeInsets.only(top: 14),
                           child: Column(children: [
@@ -347,6 +377,35 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
                         ),
                       ),
                     ])),
+                if (widget.editingPersonnelFile)
+                  _card(Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                    const Text('اطلاعات فردی و تماس', style: TextStyle(fontWeight: FontWeight.w800)),
+                    for (final entry in _extraLabels.entries) ...[
+                      const SizedBox(height: 12),
+                      if (entry.key == 'birth_date')
+                        OutlinedButton.icon(
+                          onPressed: _busy ? null : () async {
+                            final controller = _extras[entry.key]!;
+                            final date = await showAsoudJalaliPicker(context,
+                                title: entry.value, initialDate: DateTime.tryParse(controller.text));
+                            if (date != null && mounted) {
+                              setState(() => controller.text = date.toIso8601String().split('T').first);
+                            }
+                          },
+                          icon: const Icon(Icons.calendar_today_outlined, size: 17),
+                          label: Text(_extras[entry.key]!.text.isEmpty
+                              ? entry.value
+                              : '${entry.value}: ${formatJalaliIso(_extras[entry.key]!.text)}'),
+                        )
+                      else
+                        _field(entry.value, _extras[entry.key]!, _extraError(entry.key),
+                            key: ValueKey('admin_${entry.key}'),
+                            type: entry.key == 'phone' ? TextInputType.phone :
+                                entry.key == 'postal_code' ? TextInputType.number : TextInputType.text),
+                      if (entry.key == 'birth_date' && _extraError(entry.key) != null)
+                        Text(_extraError(entry.key)!, style: const TextStyle(color: AsoudColors.danger)),
+                    ],
+                  ])),
                 if (_error != null)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 6),
@@ -369,7 +428,7 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
                         dimension: 20,
                         child: CircularProgressIndicator(
                             strokeWidth: 2, color: Colors.white))
-                    : const Text('تأیید مشخصات و ورود به خانه'),
+                    : Text(widget.editingPersonnelFile ? 'ذخیره اطلاعات' : 'تأیید مشخصات و ورود به خانه'),
               ),
             ),
           ),

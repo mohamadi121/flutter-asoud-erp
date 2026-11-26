@@ -21,6 +21,7 @@ class PersonnelFile {
   PersonnelFile._(Map<String, dynamic> json)
       : profileId = _string(json['profile_id']),
         canEdit = _bool(json['can_edit']),
+        adminIdentity = _bool(json['admin_identity']),
         revision = _string(json['revision']),
         header = PersonnelHeader.fromJson(_object(json['header'])),
         personal = PersonalInfo.fromJson(_object(json['personal'])),
@@ -39,6 +40,7 @@ class PersonnelFile {
 
   final String profileId, revision;
   final bool canEdit;
+  final bool adminIdentity;
   final PersonnelHeader header;
   final PersonalInfo personal;
   final OrganizationInfo organization;
@@ -545,6 +547,7 @@ class EmployeeHome {
   EmployeeHome._(Map<String, dynamic> json)
       : profileId = json['profile_id']?.toString(),
         employee = _string(json['employee']),
+        adminIdentity = _bool(json['admin_identity']),
         name = _string(json['name']),
         designation = _string(json['designation']),
         departmentName = _string(json['department_name']),
@@ -560,6 +563,7 @@ class EmployeeHome {
 
   final String? profileId, photoRecord;
   final String employee, name, designation, departmentName, company, date;
+  final bool adminIdentity;
   final HomeCounts counts;
   final CheckinSummary? lastCheckin;
   final List<Announcement> announcements;
