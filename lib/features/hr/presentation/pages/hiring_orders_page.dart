@@ -9,6 +9,7 @@ import '../../../../core/utils/failure_message.dart';
 import '../../../../core/widgets/asoud_jalali_picker.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../../core/widgets/states.dart';
+import '../../../../core/widgets/template_text.dart';
 import '../../data/hiring_order_repository.dart';
 import '../cubit/hiring_orders_cubit.dart';
 import '../widgets/hr_document_print.dart';
@@ -78,10 +79,23 @@ class _HiringOrdersViewState extends State<_HiringOrdersView> {
   int? _expandedArticleIndex;
   int? _editingArticleIndex;
   final _articleTitleController = TextEditingController();
-  final _articleBodyController = TextEditingController();
+  final _articleBodyController = TemplateTextController(_hiringFieldLabels);
   bool _showNewArticleForm = false;
   final _newArticleTitleController = TextEditingController();
-  final _newArticleBodyController = TextEditingController();
+  final _newArticleBodyController = TemplateTextController(_hiringFieldLabels);
+
+  static const _hiringFieldLabels = <String, String>{
+    '{{employee_name}}': 'نام و نام خانوادگی پرسنل',
+    '{{employee_number}}': 'کد پرسنلی',
+    '{{employment_type}}': 'نوع استخدام / همکاری',
+    '{{effective_date}}': 'تاریخ اجرای حکم',
+    '{{department}}': 'واحد سازمانی',
+    '{{designation}}': 'عنوان شغلی',
+    '{{location}}': 'محل خدمت',
+    '{{company_name}}': 'نام قانونی شرکت',
+    '{{legal_representative}}': 'نام نماینده قانونی',
+    '{{legal_representative_role}}': 'سمت نماینده قانونی',
+  };
 
   @override
   void dispose() {
@@ -97,14 +111,14 @@ class _HiringOrdersViewState extends State<_HiringOrdersView> {
       _editingArticleIndex = index;
       _expandedArticleIndex = index;
       _articleTitleController.text = _builderArticles[index]['title'] ?? '';
-      _articleBodyController.text = _builderArticles[index]['body'] ?? '';
+      _articleBodyController.loadSource(_builderArticles[index]['body'] ?? '');
       _showNewArticleForm = false;
     });
   }
 
   void _saveEditArticle() {
     final title = _articleTitleController.text.trim();
-    final body = _articleBodyController.text.trim();
+    final body = _articleBodyController.source.trim();
     if (title.isEmpty || body.isEmpty) return;
     setState(() {
       _builderArticles[_editingArticleIndex!]['title'] = title;
@@ -115,7 +129,7 @@ class _HiringOrdersViewState extends State<_HiringOrdersView> {
 
   void _addNewArticle() {
     final title = _newArticleTitleController.text.trim();
-    final body = _newArticleBodyController.text.trim();
+    final body = _newArticleBodyController.source.trim();
     if (title.isEmpty || body.isEmpty) return;
     setState(() {
       final newId = 'custom_art_${DateTime.now().millisecondsSinceEpoch}';
