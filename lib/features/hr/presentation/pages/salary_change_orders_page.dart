@@ -120,6 +120,22 @@ class _SalaryChangeOrdersViewState extends State<_SalaryChangeOrdersView> {
     '{{legal_representative_role}}': 'سمت نماینده قانونی',
   };
 
+  // Picker field (bracketed label) -> the {{key}} token the backend
+  // render_article_body resolves. Fields without a key stay plain [label].
+  static const _salaryFieldTokens = <String, String>{
+    '[نام و نام خانوادگی پرسنل]': '{{employee_name}}',
+    '[کد پرسنلی]': '{{employee_number}}',
+    '[علت تغییر حقوق]': '{{reason}}',
+    '[نوع تغییر حقوق]': '{{change_type}}',
+    '[عنوان شغلی]': '{{designation}}',
+    '[واحد سازمانی]': '{{department}}',
+    '[تاریخ اجرای تغییر]': '{{effective_date}}',
+    '[تاریخ صدور حکم]': '{{issue_date}}',
+    '[نام قانونی شرکت]': '{{company_name}}',
+    '[نام نماینده قانونی]': '{{legal_representative}}',
+    '[سمت نماینده قانونی]': '{{legal_representative_role}}',
+  };
+
   void _beginEditArticle(int index) {
     setState(() {
       _editingArticleIndex = index;
@@ -298,16 +314,22 @@ class _SalaryChangeOrdersViewState extends State<_SalaryChangeOrdersView> {
                                     label: Text(f, style: const TextStyle(fontSize: 11)),
                                     avatar: const Icon(Icons.add, size: 16, color: AsoudColors.primary),
                                     onPressed: () {
-                                      final text = controller.text;
-                                      final sel = controller.selection;
-                                      if (sel.isValid && sel.start >= 0 && sel.end >= sel.start) {
-                                        final newText = text.replaceRange(sel.start, sel.end, f);
-                                        controller.value = TextEditingValue(
-                                          text: newText,
-                                          selection: TextSelection.collapsed(offset: sel.start + f.length),
-                                        );
+                                      final token = _salaryFieldTokens[f];
+                                      if (token != null &&
+                                          controller is TemplateTextController) {
+                                        controller.insertToken(token);
                                       } else {
-                                        controller.text = text.isEmpty ? f : '$text $f';
+                                        final text = controller.text;
+                                        final sel = controller.selection;
+                                        if (sel.isValid && sel.start >= 0 && sel.end >= sel.start) {
+                                          final newText = text.replaceRange(sel.start, sel.end, f);
+                                          controller.value = TextEditingValue(
+                                            text: newText,
+                                            selection: TextSelection.collapsed(offset: sel.start + f.length),
+                                          );
+                                        } else {
+                                          controller.text = text.isEmpty ? f : '$text $f';
+                                        }
                                       }
                                       Navigator.of(ctx).pop();
                                     },

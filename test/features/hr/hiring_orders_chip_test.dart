@@ -23,11 +23,12 @@ Map<String, dynamic> _published(String body) => {
       ],
     };
 
-Widget _widget(_Repository repository, {double width = 390}) => MaterialApp(
+Widget _widget(_Repository repository, {double width = 390, double height = 900}) =>
+    MaterialApp(
       builder: (context, child) => Directionality(
         textDirection: TextDirection.rtl,
         child: MediaQuery(
-          data: MediaQueryData(size: Size(width, 900)),
+          data: MediaQueryData(size: Size(width, height)),
           child: child!,
         ),
       ),
@@ -51,7 +52,9 @@ Future<void> _openEditor(tester, _Repository repository, String body) async {
   when(() => repository.payrollCatalog(company: 'شرکت تست'))
       .thenAnswer((_) async => []);
 
-  await tester.pumpWidget(_widget(repository));
+  await tester.binding.setSurfaceSize(const Size(390, 1800));
+  addTearDown(() => tester.binding.setSurfaceSize(null));
+  await tester.pumpWidget(_widget(repository, height: 1800));
   await tester.pumpAndSettle();
   await tester.tap(find.text('قالب حکم استخدام'));
   await tester.pumpAndSettle();
@@ -84,6 +87,17 @@ void main() {
     expect(_bodyController(tester).source, body);
   });
 
+  testWidgets('inserting through the picker stores {{key}} and shows the chip',
+      (tester) async {
+    await _openEditor(tester, repository, 'متن ماده');
+    await tester.tap(find.text('درج فیلد در متن ماده'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('[نام و نام خانوادگی پرسنل]'));
+    await tester.pumpAndSettle();
+    expect(find.text('نام و نام خانوادگی پرسنل'), findsOneWidget);
+    expect(_bodyController(tester).source, 'متن ماده{{employee_name}}');
+  });
+
   testWidgets('inserting a field at the cursor in the middle of Persian text',
       (tester) async {
     const body = 'متن قبل و متن بعد';
@@ -98,7 +112,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('[کد پرسنلی]'));
     await tester.pumpAndSettle();
-    expect(controller.source, 'متن قبل [کد پرسنلی]و متن بعد');
+    expect(controller.source, 'متن قبل {{employee_number}}و متن بعد');
   });
 
   testWidgets('deleting the chip leaves the surrounding text intact',
@@ -157,7 +171,54 @@ void main() {
     expect(_bodyController(tester).source, _defaultBody);
   });
 
-  testWidgets('new article form inserts a field at the cursor', (tester) async {
+  testWidgets('saving an edited article stores the {{key}} token, not markers',
+      (tester) async {
+    Map<String, dynamic>? saved;
+    when(() => repository.saveTemplate(
+          company: 'شرکت تست',
+          revision: any(named: 'revision'),
+          template: any(named: 'template'),
+        )).thenAnswer((invocation) async {
+          saved = invocation.namedArguments[#template] as Map<String, dynamic>;
+          return {'revision': 1};
+        });
+    when(() => repository.publishTemplate(
+          company: 'شرکت تست',
+          revision: any(named: 'revision'),
+        )).thenAnswer((_) async => {'revision': 1, 'template': {}});
+
+    await _openEditor(tester, repository, 'متن ماده');
+    await tester.tap(find.text('درج فیلد در متن ماده'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('[نام و نام خانوادگی پرسنل]'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ذخیره تغییرات'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('انتشار و ذخیره نسخه نهایی قالب'));
+    await tester.pumpAndSettle();
+
+    final articles = saved!['articles'] as List;
+    final body = (articles.first as Map)['body'] as String;
+    expect(body, 'متن ماده{{employee_name}}');
+    expect(body.codeUnits.any((u) => u >= 0xe000 && u <= 0xf8ff), isFalse);
+  });
+
+  testWidgets('saving a new article stores the {{key}} token, not markers',
+      (tester) async {
+    Map<String, dynamic>? saved;
+    when(() => repository.saveTemplate(
+          company: 'شرکت تست',
+          revision: any(named: 'revision'),
+          template: any(named: 'template'),
+        )).thenAnswer((invocation) async {
+          saved = invocation.namedArguments[#template] as Map<String, dynamic>;
+          return {'revision': 1};
+        });
+    when(() => repository.publishTemplate(
+          company: 'شرکت تست',
+          revision: any(named: 'revision'),
+        )).thenAnswer((_) async => {'revision': 1, 'template': {}});
+
     when(() => repository.listOrders(
           company: 'شرکت تست',
           search: any(named: 'search'),
@@ -170,11 +231,16 @@ void main() {
     when(() => repository.payrollCatalog(company: 'شرکت تست'))
         .thenAnswer((_) async => []);
 
-    await tester.pumpWidget(_widget(repository));
+    await tester.binding.setSurfaceSize(const Size(390, 1800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(_widget(repository, height: 1800));
     await tester.pumpAndSettle();
     await tester.tap(find.text('قالب حکم استخدام'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('افزودن ماده جدید'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+        find.widgetWithText(TextFormField, 'عنوان ماده جدید'), 'ماده آزمایشی');
     await tester.pumpAndSettle();
     final field = find.widgetWithText(TextFormField, 'متن ماده جدید');
     await tester.enterText(field, 'متن');
@@ -187,7 +253,17 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('[کد پرسنلی]'));
     await tester.pumpAndSettle();
-    expect(controller.source, 'متن[کد پرسنلی]');
+    await tester.tap(find.text('افزودن ماده'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('انتشار و ذخیره نسخه نهایی قالب'));
+    await tester.pumpAndSettle();
+
+    final articles = saved!['articles'] as List;
+    final newArticle =
+        articles.firstWhere((a) => (a as Map)['title'] == 'ماده آزمایشی');
+    final body = newArticle['body'] as String;
+    expect(body, 'متن{{employee_number}}');
+    expect(body.codeUnits.any((u) => u >= 0xe000 && u <= 0xf8ff), isFalse);
   });
 
   testWidgets('builder renders at 320 px without overflow', (tester) async {
