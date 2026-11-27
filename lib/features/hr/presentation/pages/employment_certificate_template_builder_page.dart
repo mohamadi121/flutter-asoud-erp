@@ -6,6 +6,7 @@ import '../../../../core/utils/failure_message.dart';
 import '../../../../core/utils/jalali_date.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../../core/widgets/states.dart';
+import '../../../../core/widgets/template_text.dart';
 import '../../data/employment_certificate_repository.dart';
 
 class EmploymentCertificateTemplateBuilderPage extends StatefulWidget {
@@ -114,11 +115,15 @@ class _EmploymentCertificateTemplateBuilderPageState extends State<EmploymentCer
     'سایر مزایا': '{{payroll.other}}',
   };
 
+  static final _fieldLabels = {
+    for (final entry in _tokenMap.entries) entry.value: entry.key,
+  };
+
   final _editTitleController = TextEditingController();
-  final _editBodyController = TextEditingController();
+  final _editBodyController = TemplateTextController(_fieldLabels);
 
   final _newTitleController = TextEditingController();
-  final _newBodyController = TextEditingController();
+  final _newBodyController = TemplateTextController(_fieldLabels);
   bool _showNewClauseForm = false;
 
   @override
@@ -167,14 +172,14 @@ class _EmploymentCertificateTemplateBuilderPageState extends State<EmploymentCer
       _editingIndex = index;
       _expandedClauses.add(index);
       _editTitleController.text = _clauses[index].title;
-      _editBodyController.text = _clauses[index].body;
+      _editBodyController.loadSource(_clauses[index].body);
       _showNewClauseForm = false;
     });
   }
 
   void _saveEditClause() {
     final title = _editTitleController.text.trim();
-    final body = _editBodyController.text.trim();
+    final body = _editBodyController.source.trim();
     if (title.isEmpty || body.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('عنوان و متن بند را کامل کنید.')));
       return;
@@ -186,20 +191,7 @@ class _EmploymentCertificateTemplateBuilderPageState extends State<EmploymentCer
     });
   }
 
-  void _insertPlaceholder(TextEditingController controller, String token) {
-    final text = controller.text;
-    final selection = controller.selection;
-    final start = selection.start >= 0 ? selection.start : text.length;
-    final end = selection.end >= 0 ? selection.end : text.length;
-
-    final newText = text.replaceRange(start, end, token);
-    controller.value = TextEditingValue(
-      text: newText,
-      selection: TextSelection.collapsed(offset: start + token.length),
-    );
-  }
-
-  void _showPlaceholderPicker(TextEditingController controller) {
+  void _showPlaceholderPicker(TemplateTextController controller) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -276,7 +268,7 @@ class _EmploymentCertificateTemplateBuilderPageState extends State<EmploymentCer
                                 child: const Text('درج', style: TextStyle(fontSize: 11, color: AsoudColors.primary)),
                               ),
                               onTap: () {
-                                _insertPlaceholder(controller, token);
+                                controller.insertToken(token);
                                 Navigator.pop(ctx);
                               },
                             );
@@ -296,7 +288,7 @@ class _EmploymentCertificateTemplateBuilderPageState extends State<EmploymentCer
 
   void _addNewClause() {
     final title = _newTitleController.text.trim();
-    final body = _newBodyController.text.trim();
+    final body = _newBodyController.source.trim();
     if (title.isEmpty || body.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('عنوان و متن بند جدید را وارد کنید.')));
       return;
@@ -501,7 +493,12 @@ class _EmploymentCertificateTemplateBuilderPageState extends State<EmploymentCer
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('بندهای متن گواهی', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    const Expanded(
+                      child: Text('بندهای متن گواهی',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                          overflow: TextOverflow.ellipsis),
+                    ),
+                    const SizedBox(width: 8),
                     Text('${_clauses.length} بند', style: const TextStyle(fontSize: 11, color: AsoudColors.muted)),
                   ],
                 ),
