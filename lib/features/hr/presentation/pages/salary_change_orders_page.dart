@@ -7,6 +7,7 @@ import '../../../../core/utils/jalali_date.dart';
 import '../../../../core/widgets/asoud_jalali_picker.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../../core/widgets/states.dart';
+import '../../../../core/widgets/template_text.dart';
 import '../../data/salary_change_order_repository.dart';
 import '../cubit/salary_change_orders_cubit.dart';
 import '../widgets/hr_document_print.dart';
@@ -100,24 +101,54 @@ class _SalaryChangeOrdersViewState extends State<_SalaryChangeOrdersView> {
   int? _expandedArticleIndex;
   int? _editingArticleIndex;
   final _builderArticleTitleController = TextEditingController();
-  final _builderArticleBodyController = TextEditingController();
+  final _builderArticleBodyController = TemplateTextController(_salaryFieldLabels);
   bool _showNewArticleForm = false;
   final _newArticleTitleController = TextEditingController();
-  final _newArticleBodyController = TextEditingController();
+  final _newArticleBodyController = TemplateTextController(_salaryFieldLabels);
+
+  static const _salaryFieldLabels = <String, String>{
+    '{{employee_name}}': 'نام و نام خانوادگی پرسنل',
+    '{{employee_number}}': 'کد پرسنلی',
+    '{{reason}}': 'علت تغییر حقوق',
+    '{{change_type}}': 'نوع تغییر حقوق',
+    '{{designation}}': 'عنوان شغلی',
+    '{{department}}': 'واحد سازمانی',
+    '{{effective_date}}': 'تاریخ اجرای تغییر',
+    '{{issue_date}}': 'تاریخ صدور حکم',
+    '{{company_name}}': 'نام قانونی شرکت',
+    '{{legal_representative}}': 'نام نماینده قانونی',
+    '{{legal_representative_role}}': 'سمت نماینده قانونی',
+  };
+
+  // Picker field (bracketed label) -> the {{key}} token the backend
+  // render_article_body resolves. Fields without a key stay plain [label].
+  static const _salaryFieldTokens = <String, String>{
+    '[نام و نام خانوادگی پرسنل]': '{{employee_name}}',
+    '[کد پرسنلی]': '{{employee_number}}',
+    '[علت تغییر حقوق]': '{{reason}}',
+    '[نوع تغییر حقوق]': '{{change_type}}',
+    '[عنوان شغلی]': '{{designation}}',
+    '[واحد سازمانی]': '{{department}}',
+    '[تاریخ اجرای تغییر]': '{{effective_date}}',
+    '[تاریخ صدور حکم]': '{{issue_date}}',
+    '[نام قانونی شرکت]': '{{company_name}}',
+    '[نام نماینده قانونی]': '{{legal_representative}}',
+    '[سمت نماینده قانونی]': '{{legal_representative_role}}',
+  };
 
   void _beginEditArticle(int index) {
     setState(() {
       _editingArticleIndex = index;
       _expandedArticleIndex = index;
       _builderArticleTitleController.text = _builderArticles[index]['title'] ?? '';
-      _builderArticleBodyController.text = _builderArticles[index]['body'] ?? '';
+      _builderArticleBodyController.loadSource(_builderArticles[index]['body'] ?? '');
       _showNewArticleForm = false;
     });
   }
 
   void _saveEditArticle() {
     final title = _builderArticleTitleController.text.trim();
-    final body = _builderArticleBodyController.text.trim();
+    final body = _builderArticleBodyController.source.trim();
     if (title.isEmpty || body.isEmpty) return;
     setState(() {
       _builderArticles[_editingArticleIndex!]['title'] = title;
@@ -128,7 +159,7 @@ class _SalaryChangeOrdersViewState extends State<_SalaryChangeOrdersView> {
 
   void _addNewArticle() {
     final title = _newArticleTitleController.text.trim();
-    final body = _newArticleBodyController.text.trim();
+    final body = _newArticleBodyController.source.trim();
     if (title.isEmpty || body.isEmpty) return;
     setState(() {
       final newId = 'custom_art_${DateTime.now().millisecondsSinceEpoch}';
@@ -283,16 +314,22 @@ class _SalaryChangeOrdersViewState extends State<_SalaryChangeOrdersView> {
                                     label: Text(f, style: const TextStyle(fontSize: 11)),
                                     avatar: const Icon(Icons.add, size: 16, color: AsoudColors.primary),
                                     onPressed: () {
-                                      final text = controller.text;
-                                      final sel = controller.selection;
-                                      if (sel.isValid && sel.start >= 0 && sel.end >= sel.start) {
-                                        final newText = text.replaceRange(sel.start, sel.end, f);
-                                        controller.value = TextEditingValue(
-                                          text: newText,
-                                          selection: TextSelection.collapsed(offset: sel.start + f.length),
-                                        );
+                                      final token = _salaryFieldTokens[f];
+                                      if (token != null &&
+                                          controller is TemplateTextController) {
+                                        controller.insertToken(token);
                                       } else {
-                                        controller.text = text.isEmpty ? f : '$text $f';
+                                        final text = controller.text;
+                                        final sel = controller.selection;
+                                        if (sel.isValid && sel.start >= 0 && sel.end >= sel.start) {
+                                          final newText = text.replaceRange(sel.start, sel.end, f);
+                                          controller.value = TextEditingValue(
+                                            text: newText,
+                                            selection: TextSelection.collapsed(offset: sel.start + f.length),
+                                          );
+                                        } else {
+                                          controller.text = text.isEmpty ? f : '$text $f';
+                                        }
                                       }
                                       Navigator.of(ctx).pop();
                                     },

@@ -5,6 +5,7 @@ import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/failure_message.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../../core/widgets/states.dart';
+import '../../../../core/widgets/template_text.dart';
 import '../../data/personnel_introduction_letter_repository.dart';
 
 class PersonnelIntroductionLetterTemplateBuilderPage extends StatefulWidget {
@@ -45,12 +46,49 @@ class _PersonnelIntroductionLetterTemplateBuilderPageState
   int? _expandedIndex = 0;
   int? _editingIndex;
   final _editTitleController = TextEditingController();
-  final _editBodyController = TextEditingController();
+  final _editBodyController = TemplateTextController(_fieldLabels);
 
   // New clause
   bool _showNewClauseForm = false;
   final _newTitleController = TextEditingController();
-  final _newBodyController = TextEditingController();
+  final _newBodyController = TemplateTextController(_fieldLabels);
+
+  static const _fieldGroups = <String, List<Map<String, String>>>{
+    'personnel': [
+      {'label': 'نام و نام خانوادگی پرسنل', 'token': '{{employee.employee_name}}'},
+      {'label': 'کد پرسنلی', 'token': '{{employee.employee_number}}'},
+      {'label': 'کد ملی', 'token': '{{employee.national_id}}'},
+      {'label': 'عنوان شغلی', 'token': '{{employee.designation}}'},
+      {'label': 'واحد سازمانی', 'token': '{{employee.department}}'},
+      {'label': 'تاریخ استخدام', 'token': '{{employee.date_of_joining}}'},
+      {'label': 'محل خدمت', 'token': '{{employee.work_location}}'},
+      {'label': 'شماره همراه', 'token': '{{employee.cell_number}}'},
+      {'label': 'نشانی محل سکونت', 'token': '{{employee.current_address}}'},
+    ],
+    'company': [
+      {'label': 'نام قانونی شرکت', 'token': '{{company.company_name}}'},
+      {'label': 'نام نماینده قانونی', 'token': '{{company.representative}}'},
+      {'label': 'سمت نماینده قانونی', 'token': '{{company.representative_position}}'},
+      {'label': 'نشانی شرکت', 'token': '{{company.address}}'},
+      {'label': 'تلفن شرکت', 'token': '{{company.phone}}'},
+      {'label': 'شناسه ملی شرکت', 'token': '{{company.national_id}}'},
+    ],
+    'letter': [
+      {'label': 'نام مرجع دریافت‌کننده', 'token': '{{letter.recipient}}'},
+      {'label': 'هدف معرفی‌نامه', 'token': '{{letter.purpose}}'},
+      {'label': 'توضیحات اختصاصی معرفی‌نامه', 'token': '{{letter.notes}}'},
+      {'label': 'شماره معرفی‌نامه', 'token': '{{letter.number}}'},
+      {'label': 'تاریخ صدور معرفی‌نامه', 'token': '{{letter.issue_date}}'},
+      {'label': 'تاریخ اعتبار معرفی‌نامه', 'token': '{{letter.validity_date}}'},
+      {'label': 'نام بانک مقصد', 'token': '{{letter.bank_name}}'},
+      {'label': 'نام شعبه مقصد', 'token': '{{letter.branch_name}}'},
+    ],
+  };
+
+  static final _fieldLabels = {
+    for (final fields in _fieldGroups.values)
+      for (final field in fields) field['token']!: field['label']!,
+  };
 
   // Preview sample inputs
   final _previewRecipientController = TextEditingController(text: 'بانک ملت ـ شعبه مرکزی');
@@ -120,14 +158,14 @@ class _PersonnelIntroductionLetterTemplateBuilderPageState
       _editingIndex = index;
       _expandedIndex = index;
       _editTitleController.text = _clauses[index].title;
-      _editBodyController.text = _clauses[index].body;
+      _editBodyController.loadSource(_clauses[index].body);
       _showNewClauseForm = false;
     });
   }
 
   void _saveEditClause() {
     final title = _editTitleController.text.trim();
-    final body = _editBodyController.text.trim();
+    final body = _editBodyController.source.trim();
     if (title.isEmpty || body.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('عنوان و متن بند را کامل کنید.')),
@@ -143,7 +181,7 @@ class _PersonnelIntroductionLetterTemplateBuilderPageState
 
   void _addNewClause() {
     final title = _newTitleController.text.trim();
-    final body = _newBodyController.text.trim();
+    final body = _newBodyController.source.trim();
     if (title.isEmpty || body.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('عنوان و متن بند را کامل کنید.')),
@@ -171,20 +209,7 @@ class _PersonnelIntroductionLetterTemplateBuilderPageState
     });
   }
 
-  void _insertPlaceholder(TextEditingController controller, String token) {
-    final text = controller.text;
-    final selection = controller.selection;
-    final start = selection.start >= 0 ? selection.start : text.length;
-    final end = selection.end >= 0 ? selection.end : text.length;
-
-    final newText = text.replaceRange(start, end, token);
-    controller.value = TextEditingValue(
-      text: newText,
-      selection: TextSelection.collapsed(offset: start + token.length),
-    );
-  }
-
-  void _showPlaceholderPicker(TextEditingController controller) {
+  void _showPlaceholderPicker(TemplateTextController controller) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -195,41 +220,9 @@ class _PersonnelIntroductionLetterTemplateBuilderPageState
         String query = '';
         String activeCategory = 'personnel';
 
-        final Map<String, List<Map<String, String>>> fieldGroups = {
-          'personnel': [
-            {'label': 'نام و نام خانوادگی پرسنل', 'token': '{{employee.employee_name}}'},
-            {'label': 'کد پرسنلی', 'token': '{{employee.employee_number}}'},
-            {'label': 'کد ملی', 'token': '{{employee.national_id}}'},
-            {'label': 'عنوان شغلی', 'token': '{{employee.designation}}'},
-            {'label': 'واحد سازمانی', 'token': '{{employee.department}}'},
-            {'label': 'تاریخ استخدام', 'token': '{{employee.date_of_joining}}'},
-            {'label': 'محل خدمت', 'token': '{{employee.work_location}}'},
-            {'label': 'شماره همراه', 'token': '{{employee.cell_number}}'},
-            {'label': 'نشانی محل سکونت', 'token': '{{employee.current_address}}'},
-          ],
-          'company': [
-            {'label': 'نام قانونی شرکت', 'token': '{{company.company_name}}'},
-            {'label': 'نام نماینده قانونی', 'token': '{{company.representative}}'},
-            {'label': 'سمت نماینده قانونی', 'token': '{{company.representative_position}}'},
-            {'label': 'نشانی شرکت', 'token': '{{company.address}}'},
-            {'label': 'تلفن شرکت', 'token': '{{company.phone}}'},
-            {'label': 'شناسه ملی شرکت', 'token': '{{company.national_id}}'},
-          ],
-          'letter': [
-            {'label': 'نام مرجع دریافت‌کننده', 'token': '{{letter.recipient}}'},
-            {'label': 'هدف معرفی‌نامه', 'token': '{{letter.purpose}}'},
-            {'label': 'توضیحات اختصاصی معرفی‌نامه', 'token': '{{letter.notes}}'},
-            {'label': 'شماره معرفی‌نامه', 'token': '{{letter.number}}'},
-            {'label': 'تاریخ صدور معرفی‌نامه', 'token': '{{letter.issue_date}}'},
-            {'label': 'تاریخ اعتبار معرفی‌نامه', 'token': '{{letter.validity_date}}'},
-            {'label': 'نام بانک مقصد', 'token': '{{letter.bank_name}}'},
-            {'label': 'نام شعبه مقصد', 'token': '{{letter.branch_name}}'},
-          ],
-        };
-
         return StatefulBuilder(
           builder: (context, setModalState) {
-            final activeList = fieldGroups[activeCategory] ?? [];
+            final activeList = _fieldGroups[activeCategory] ?? [];
             final filtered = activeList.where((f) {
               final q = query.toLowerCase().trim();
               return f['label']!.toLowerCase().contains(q) || f['token']!.toLowerCase().contains(q);
@@ -312,7 +305,7 @@ class _PersonnelIntroductionLetterTemplateBuilderPageState
                                     label: Text(f['label']!, style: const TextStyle(fontSize: 11)),
                                     avatar: const Icon(Icons.add, size: 16, color: AsoudColors.primary),
                                     onPressed: () {
-                                      _insertPlaceholder(controller, f['token']!);
+                                      controller.insertToken(f['token']!);
                                       Navigator.of(ctx).pop();
                                     },
                                   );

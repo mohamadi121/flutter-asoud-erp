@@ -11,6 +11,11 @@ class TemplateTextController extends TextEditingController {
   }
 
   void loadSource(String source) {
+    // Loading a fresh body invalidates every marker allocated for the previous
+    // body; otherwise a literal private-use char in the new body would decode
+    // back into the old body's token in [source].
+    _tokens.clear();
+    _next = 0xe000;
     final reserved = source.codeUnits.toSet();
     text = source.replaceAllMapped(_token, (match) {
       final raw = match[0]!;
