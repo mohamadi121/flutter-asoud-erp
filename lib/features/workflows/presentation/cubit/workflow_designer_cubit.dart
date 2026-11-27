@@ -121,10 +121,15 @@ class WorkflowDesignerCubit extends Cubit<WorkflowDesignerState> {
       );
       emit(
           state.copyWith(status: WorkflowDesignerStatus.ready, design: design));
-    } catch (_) {
+    } catch (error) {
+      // A Condition route carries the chosen output; the server's Persian
+      // reason (for example a missing or duplicate output) is more useful
+      // than the generic sentence.
       emit(state.copyWith(
         status: WorkflowDesignerStatus.failure,
-        message: 'ایجاد مسیر ممکن نشد.',
+        message: condition.isEmpty
+            ? 'ایجاد مسیر ممکن نشد.'
+            : failureDetail(error),
       ));
     }
   }

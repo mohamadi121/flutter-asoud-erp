@@ -371,6 +371,22 @@ class _DesignerViewState extends State<_DesignerView> {
     final cubit = context.read<WorkflowDesignerCubit>();
     final messenger = ScaffoldMessenger.of(context);
     try {
+      if (from.type == WorkflowStageType.condition) {
+        final result = await showDialog<bool>(
+          context: context,
+          builder: (dialog) => _ConditionOutputDialog(
+              from: from,
+              to: to,
+              transitions: cubit.state.design!.transitions),
+        );
+        if (result == null || !context.mounted) return;
+        await cubit.connectStages(
+            fromStage: from.id,
+            toStage: to.id,
+            action: result ? 'شرط برقرار است' : 'شرط برقرار نیست',
+            condition: {'result': result});
+        return;
+      }
       final action = await showDialog<String>(
         context: context,
         builder: (dialog) => _ConnectRouteDialog(from: from, to: to),
@@ -445,6 +461,93 @@ class _ConnectRouteDialogState extends State<_ConnectRouteDialog> {
               child: const Text('ایجاد مسیر')),
         ],
       );
+}
+
+/// Asks which output of a Condition stage the new route belongs to. The
+/// server stores the choice as `condition['result']` (true/false) and
+/// replaces the destination of an existing route with the same output.
+class _ConditionOutputDialog extends StatefulWidget {
+  const _ConditionOutputDialog(
+      {required this.from, required this.to, required this.transitions});
+  final WorkflowStage from, to;
+  final List<WorkflowTransition> transitions;
+
+  @override
+  State<_ConditionOutputDialog> createState() => _ConditionOutputDialogState();
+}
+
+class _ConditionOutputDialogState extends State<_ConditionOutputDialog> {
+  bool? _selected;
+
+  bool _used(bool result) => widget.transitions.any((edge) =>
+      edge.fromStage == widget.from.id &&
+      edge.condition['result'] is bool &&
+      edge.condition['result'] == result);
+
+  @override
+  Widget build(BuildContext context) {
+    final usedTrue = _used(true);
+    final usedFalse = _used(false);
+    final bothUsed = usedTrue && usedFalse;
+    return AlertDialog(
+      title: const Text('اتصال خروجی شرط'),
+      content: SingleChildScrollView(
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('مسیر جدید از «${widget.from.title}» به «${widget.to.title}» ساخته می‌شود.'),
+          const SizedBox(height: 12),
+          ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(
+                _selected == true
+                    ? Icons.radio_button_checked
+                    : Icons.radio_button_off,
+                color: usedTrue || _selected != true
+                    ? AsoudColors.muted
+                    : AsoudColors.primary,
+                size: 20),
+            title: const Text('شرط برقرار است'),
+            subtitle: usedTrue
+                ? const Text('این خروجی قبلا‌ً به یک مرحله متصل شده است.')
+                : null,
+            onTap: usedTrue ? null : () => setState(() => _selected = true),
+          ),
+          ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(
+                _selected == false
+                    ? Icons.radio_button_checked
+                    : Icons.radio_button_off,
+                color: usedFalse || _selected != false
+                    ? AsoudColors.muted
+                    : AsoudColors.primary,
+                size: 20),
+            title: const Text('شرط برقرار نیست'),
+            subtitle: usedFalse
+                ? const Text('این خروجی قبلا‌ً به یک مرحله متصل شده است.')
+                : null,
+            onTap: usedFalse ? null : () => setState(() => _selected = false),
+          ),
+          if (bothUsed)
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: Text('هر دو خروجی این شرط قبلا‌ً متصل شده‌اند؛ برای تغییر، مسیر موجود را حذف کنید.'),
+            ),
+        ]),
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('انصراف')),
+        FilledButton(
+            onPressed: bothUsed || _selected == null
+                ? null
+                : () => Navigator.pop(context, _selected),
+            child: const Text('ایجاد مسیر')),
+      ],
+    );
+  }
 }
 
 class _DraftBanner extends StatelessWidget {
