@@ -172,5 +172,48 @@ void main() {
       expect(find.text('نام مرجع دریافت‌کننده'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
+
+    testWidgets('new clause saves the chip as the {{token}} source, not marker text', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 1200));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final repo = FakePersonnelIntroductionLetterRepository();
+      await tester.pumpWidget(_wrap(
+        const PersonnelIntroductionLetterTemplateBuilderPage(company: 'شرکت نمونه'),
+        repo: repo,
+      ));
+      await tester.pumpAndSettle();
+
+      // Open the new-clause form.
+      await tester.tap(find.text('افزودن بند جدید'));
+      await tester.pumpAndSettle();
+
+      // Fill the title and body, then insert a chip at the start of the body.
+      await tester.enterText(find.byType(TextField).first, 'بند جدید تستی');
+      await tester.enterText(find.byType(TextField).last, 'متن جدید');
+      final controller = _bodyController(tester);
+      controller.selection = TextSelection.collapsed(offset: 0);
+
+      await tester.scrollUntilVisible(find.text('درج فیلد در متن بند جدید'), 200,
+          scrollable: find.byType(Scrollable).first);
+      await tester.tap(find.text('درج فیلد در متن بند جدید'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ActionChip, 'کد پرسنلی'));
+      await tester.pumpAndSettle();
+
+      // Save the new clause, then persist the draft so the repo reflects it.
+      await tester.scrollUntilVisible(find.text('افزودن بند'), 200,
+          scrollable: find.byType(Scrollable).first);
+      await tester.tap(find.text('افزودن بند'));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(find.text('ذخیره پیش‌نویس قالب'), 200,
+          scrollable: find.byType(Scrollable).first);
+      await tester.tap(find.text('ذخیره پیش‌نویس قالب'));
+      await tester.pumpAndSettle();
+
+      final stored = repo.template.clauses.last.body;
+      expect(stored, '{{employee.employee_number}}متن جدید');
+      // No private-use marker character may leak into the stored text.
+      expect(stored.codeUnits.any((u) => u >= 0xe000 && u <= 0xf8ff), isFalse);
+    });
   });
 }
