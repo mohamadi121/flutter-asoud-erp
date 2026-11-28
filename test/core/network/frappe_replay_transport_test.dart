@@ -157,8 +157,10 @@ void main() {
   });
 
   /// Replays one mutation against a server answering with a `failure()`
-  /// envelope: `{ok: false, error: {code, message}, meta}`.
-  Future<ApiException> replayFailure(String code, String message) async {
+  /// envelope: `{ok: false, error: {code, message}, meta}`. [message] may be
+  /// null to omit the `message` key (the server sent a code without a
+  /// sentence).
+  Future<ApiException> replayFailureEnvelope(String code, String? message) async {
     final client = FrappeClient(
       baseUrl: _server,
       dio: _fakeDio(<_Sent>[], onMutation: (options, handler) async {
@@ -168,7 +170,10 @@ void main() {
           data: {
             'message': {
               'ok': false,
-              'error': {'code': code, 'message': message},
+              'error': {
+                'code': code,
+                if (message != null) 'message': message,
+              },
               'meta': {'api_version': 'v1'},
             },
           },
@@ -189,6 +194,11 @@ void main() {
     fail('the replay should have failed');
   }
 
+  /// Replays one mutation against a server answering with a `failure()`
+  /// envelope: `{ok: false, error: {code, message}, meta}`.
+  Future<ApiException> replayFailure(String code, String message) =>
+      replayFailureEnvelope(code, message);
+
   test('REQUEST_IN_PROGRESS قابل تلاش دوباره است و پیام سرور حفظ می‌شود',
       () async {
     final error = await replayFailure(
@@ -196,6 +206,25 @@ void main() {
 
     expect(isRetryableOfflineFailure(error), isTrue);
     expect(error.message, 'این درخواست در حال پردازش است.');
+  });
+
+  test('an ok:false envelope surfaces the server Persian sentence', () async {
+    final error = await replayFailure(
+        'NATIVE_NOT_RETRYABLE', 'سند این درخواست قابل تلاش مجدد نیست.');
+
+    expect(error.kind, ApiFailureKind.validation);
+    expect(error.message, 'سند این درخواست قابل تلاش مجدد نیست.');
+    expect(isRetryableOfflineFailure(error), isFalse);
+  });
+
+  test('an ok:false envelope without a message keeps the generic sentence',
+      () async {
+    final error = await replayFailureEnvelope('NATIVE_NOT_RETRYABLE', null);
+
+    expect(error.kind, ApiFailureKind.validation);
+    expect(error.message,
+        'عملیات در سرور تکمیل نشد. اطلاعات واردشده را بررسی کنید.');
+    expect(isRetryableOfflineFailure(error), isFalse);
   });
 
   for (final code in [
