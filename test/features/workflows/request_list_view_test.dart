@@ -379,15 +379,17 @@ void main() {
     await tester.tap(find.byTooltip('درخواست جدید'));
     expect(created, 1);
 
+    // The floating «درخواست جدید» button is gone: create happens through the
+    // centre «ایجاد», so a list with a create label shows no FAB and no header
+    // create button.
     await tester.pumpWidget(_app(RequestListView(
         repository: repo,
         title: 'x',
         onCreate: () => created++,
         createLabel: 'درخواست جدید')));
     await tester.pumpAndSettle();
-    expect(find.byType(FloatingActionButton), findsOneWidget);
-    await tester.tap(find.text('درخواست جدید'));
-    expect(created, 2);
+    expect(find.byType(FloatingActionButton), findsNothing);
+    expect(find.byTooltip('درخواست جدید'), findsNothing);
   });
 
   testWidgets('renders at 320 without overflow', (tester) async {

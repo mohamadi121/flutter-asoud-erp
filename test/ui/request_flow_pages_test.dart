@@ -113,10 +113,11 @@ void main() {
       sent = Map.from(call.positionalArguments.first as Map);
       return _request();
     });
-    await tester.pumpWidget(
-        _app(GenericRequestsPage(company: 'شرکت نمونه', repository: repo)));
+    // The centre «ایجاد» is the single create entry; the list no longer has
+    // a floating «درخواست جدید» button, so the sheet opens via createOnOpen.
+    await tester.pumpWidget(_app(GenericRequestsPage(
+        company: 'شرکت نمونه', repository: repo, createOnOpen: true)));
     await tester.pumpAndSettle();
-    await _tap(tester, find.text('درخواست جدید'));
     await _tap(tester, find.text('درخواست خرید'));
 
     expect(find.text('فرم درخواست خرید'), findsOneWidget);
@@ -197,11 +198,14 @@ void main() {
       'چاپ درخواست',
       'خروجی PDF',
       'مشاهده گردش کار',
-      'لغو درخواست'
     ]) {
       expect(find.text(item), findsOneWidget, reason: item);
     }
-    await _tap(tester, find.text('لغو درخواست'));
+    // «انصراف درخواست» lives only in the bottom bar, not the ⋮ menu.
+    expect(find.text('لغو درخواست'), findsNothing);
+    await tester.tapAt(Offset.zero);
+    await tester.pumpAndSettle();
+    await _tap(tester, find.text('انصراف درخواست'));
     // The detail page has its own comment box; the reason box is the dialog's.
     await tester.enterText(
         find.descendant(

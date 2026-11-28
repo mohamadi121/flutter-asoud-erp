@@ -312,8 +312,6 @@ class _RequestDetailScaffoldState extends State<RequestDetailScaffold> {
             MaterialPageRoute<void>(
                 builder: (_) => WorkflowInstanceDetailPage(
                     instance: '${data!['workflow_instance']}')));
-      case 'cancel':
-        await cancel();
       case 'void':
         await voidDocument();
       case 'reissue':
@@ -450,14 +448,6 @@ class _RequestDetailScaffoldState extends State<RequestDetailScaffold> {
                         child: ListTile(
                             leading: Icon(Icons.replay_rounded),
                             title: Text('صدور مجدد'))),
-                  if (canCancel)
-                    const PopupMenuItem(
-                        value: 'cancel',
-                        child: ListTile(
-                            leading: Icon(Icons.delete_outline_rounded,
-                                color: AsoudColors.danger),
-                            title: Text('لغو درخواست',
-                                style: TextStyle(color: AsoudColors.danger)))),
                 ],
               ),
       ),

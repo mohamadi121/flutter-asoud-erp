@@ -172,7 +172,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('ویرایش (قبل از تأیید)'),
           edit ? findsOneWidget : findsNothing);
-      expect(find.text('لغو درخواست'), cancel ? findsOneWidget : findsNothing);
+      // «انصراف درخواست» lives only in the bottom bar, not the ⋮ menu.
+      expect(find.text('لغو درخواست'), findsNothing);
       await tester.tapAt(Offset.zero);
       await tester.pumpAndSettle();
     }

@@ -142,8 +142,6 @@ class _GenericRequestsPageState extends State<GenericRequestsPage> {
             ),
           ],
         ),
-        createLabel: 'درخواست جدید',
-        onCreate: _create,
       );
 }
 
