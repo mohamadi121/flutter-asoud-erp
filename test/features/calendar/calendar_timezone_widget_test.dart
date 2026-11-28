@@ -40,6 +40,7 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
 
+      // On 2026-03-21, America/New_York is in Daylight Saving Time (EDT = UTC-4)
       await tester.pumpWidget(
         MaterialApp(
           theme: AsoudTheme.light,
@@ -60,8 +61,8 @@ void main() {
       expect(tester.takeException(), isNull);
       // Raw IANA id America/New_York should NOT be shown
       expect(find.textContaining('America/New_York'), findsNothing);
-      // Persian formatted name must be shown: «نیویورک (UTC-5:00)»
-      expect(find.text('منطقه زمانی: نیویورک (UTC-5:00)'), findsOneWidget);
+      // Persian formatted name with Persian digits and dynamic DST offset must be shown: «نیویورک (UTC-۴:۰۰)»
+      expect(find.text('منطقه زمانی: نیویورک (UTC-۴:۰۰)'), findsOneWidget);
     });
   }
 }

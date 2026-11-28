@@ -3,32 +3,63 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('formatPersianTimeZone', () {
-    test('maps Asia/Tehran to تهران (UTC+3:30)', () {
-      expect(formatPersianTimeZone('Asia/Tehran'), 'تهران (UTC+3:30)');
+    test('maps Asia/Tehran to تهران (UTC+۳:۳۰) consistently regardless of season', () {
+      final winter = DateTime(2026, 1, 15);
+      final summer = DateTime(2026, 7, 15);
+      expect(formatPersianTimeZone('Asia/Tehran', now: winter), 'تهران (UTC+۳:۳۰)');
+      expect(formatPersianTimeZone('Asia/Tehran', now: summer), 'تهران (UTC+۳:۳۰)');
     });
 
-    test('maps America/New_York to نیویورک (UTC-5:00)', () {
-      expect(formatPersianTimeZone('America/New_York'), 'نیویورک (UTC-5:00)');
+    test('computes DST correctly for America/New_York (UTC-5 in winter, UTC-4 in summer)', () {
+      final winter = DateTime(2026, 1, 15);
+      final summer = DateTime(2026, 7, 15);
+      expect(formatPersianTimeZone('America/New_York', now: winter), 'نیویورک (UTC-۵:۰۰)');
+      expect(formatPersianTimeZone('America/New_York', now: summer), 'نیویورک (UTC-۴:۰۰)');
     });
 
-    test('maps common regions across continents', () {
-      expect(formatPersianTimeZone('Asia/Dubai'), 'دبی (UTC+4:00)');
-      expect(formatPersianTimeZone('Europe/London'), 'لندن (UTC+0:00)');
-      expect(formatPersianTimeZone('Europe/Paris'), 'پاریس (UTC+1:00)');
-      expect(formatPersianTimeZone('Asia/Tokyo'), 'توکیو (UTC+9:00)');
-      expect(formatPersianTimeZone('UTC'), 'هماهنگ جهانی (UTC)');
+    test('computes half-hour offset for Asia/Kolkata (UTC+۵:۳۰)', () {
+      final date = DateTime(2026, 4, 1);
+      expect(formatPersianTimeZone('Asia/Kolkata', now: date), 'کلکته / دهلی نو (UTC+۵:۳۰)');
     });
 
-    test('falls back to raw id for unknown time zones', () {
-      expect(formatPersianTimeZone('Custom/NonExistent_Zone'), 'Custom/NonExistent_Zone');
-      expect(formatPersianTimeZone('Mars/Curiosity'), 'Mars/Curiosity');
+    test('computes 45-minute offset for Asia/Kathmandu (UTC+۵:۴۵)', () {
+      final date = DateTime(2026, 4, 1);
+      expect(formatPersianTimeZone('Asia/Kathmandu', now: date), 'کاتماندو (UTC+۵:۴۵)');
+    });
+
+    test('maps common regions across continents with Persian digits in offset', () {
+      final winter = DateTime(2026, 1, 15);
+      expect(formatPersianTimeZone('Asia/Dubai', now: winter), 'دبی (UTC+۴:۰۰)');
+      expect(formatPersianTimeZone('Europe/London', now: winter), 'لندن (UTC+۰:۰۰)');
+      expect(formatPersianTimeZone('Asia/Tokyo', now: winter), 'توکیو (UTC+۹:۰۰)');
+      expect(formatPersianTimeZone('UTC', now: winter), 'هماهنگ جهانی (UTC)');
+      expect(formatPersianTimeZone('GMT', now: winter), 'گرینویچ (GMT)');
+    });
+
+    test('handles unknown id with computable offset as منطقه زمانی نامشخص (UTC...) and non-computable as منطقه زمانی نامشخص', () {
+      final date = DateTime(2026, 1, 15);
+      // Valid IANA timezone not in _persianCityNames map (e.g. Pacific/Fiji or America/Phoenix)
+      expect(
+        formatPersianTimeZone('America/Phoenix', now: date),
+        'منطقه زمانی نامشخص (UTC-۷:۰۰)',
+      );
+      // Completely bogus ID
+      expect(
+        formatPersianTimeZone('Custom/NonExistent_Zone', now: date),
+        'منطقه زمانی نامشخص',
+      );
+      expect(
+        formatPersianTimeZone('Mars/Curiosity', now: date),
+        'منطقه زمانی نامشخص',
+      );
     });
 
     test('handles null and whitespace gracefully', () {
       expect(formatPersianTimeZone(null), '');
       expect(formatPersianTimeZone(''), '');
       expect(formatPersianTimeZone('   '), '');
-      expect(formatPersianTimeZone('  Asia/Tehran  '), 'تهران (UTC+3:30)');
+      final date = DateTime(2026, 1, 15);
+      expect(formatPersianTimeZone('  Asia/Tehran  ', now: date), 'تهران (UTC+۳:۳۰)');
     });
   });
 }

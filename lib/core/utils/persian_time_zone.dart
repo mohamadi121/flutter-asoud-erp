@@ -1,97 +1,155 @@
-/// Maps common IANA time zone identifiers to readable Persian descriptions
-/// including their standard UTC offsets, e.g. «تهران (UTC+3:30)».
-/// Unknown identifiers fall back to the raw time zone id.
-String formatPersianTimeZone(String? timeZone) {
+import 'package:timezone/data/latest.dart' as zones;
+import 'package:timezone/timezone.dart' as tz;
+
+import 'jalali_date.dart';
+
+bool _timeZonesInitialized = false;
+
+void _ensureTimeZonesInitialized() {
+  if (!_timeZonesInitialized) {
+    try {
+      zones.initializeTimeZones();
+      _timeZonesInitialized = true;
+    } catch (_) {
+      // Ignored: fallback logic will handle uninitialized or failed state
+    }
+  }
+}
+
+/// Computes the current UTC offset string formatted in Persian digits, e.g. `UTC+۳:۳۰` or `UTC-۴:۰۰`.
+/// Returns null if timezone offset cannot be determined.
+String? _computeUtcOffset(String timeZoneId, DateTime at) {
+  _ensureTimeZonesInitialized();
+  try {
+    final location = tz.getLocation(timeZoneId);
+    // tz.TZDateTime represents the instant in the given location
+    final tzDate = tz.TZDateTime.from(at, location);
+    final offsetMillis = tzDate.timeZoneOffset.inMilliseconds;
+    final isNegative = offsetMillis < 0;
+    final absMinutes = (offsetMillis.abs() / 60000).round();
+    final hours = absMinutes ~/ 60;
+    final minutes = absMinutes % 60;
+
+    final sign = isNegative ? '-' : '+';
+    final minuteStr = minutes.toString().padLeft(2, '0');
+    final rawFormatted = 'UTC$sign$hours:$minuteStr';
+    return toPersianDigits(rawFormatted);
+  } catch (_) {
+    return null;
+  }
+}
+
+/// Maps IANA time zone identifiers to readable Persian descriptions
+/// including their computed current UTC offsets, e.g. «تهران (UTC+۳:۳۰)».
+/// If the time zone name is unknown, returns «منطقه زمانی نامشخص (UTC+...)» or «منطقه زمانی نامشخص».
+String formatPersianTimeZone(String? timeZone, {DateTime? now}) {
   if (timeZone == null || timeZone.trim().isEmpty) {
     return '';
   }
   final trimmed = timeZone.trim();
-  final mapped = _commonIanaTimeZones[trimmed];
-  if (mapped != null) {
-    return mapped;
+  final at = now ?? DateTime.now();
+
+  final persianName = _persianCityNames[trimmed];
+  final offset = _computeUtcOffset(trimmed, at);
+
+  if (persianName != null) {
+    // Special UTC / GMT cases
+    if (trimmed == 'UTC' || trimmed == 'GMT' || trimmed == 'Etc/UTC' || trimmed == 'Etc/GMT') {
+      return persianName;
+    }
+    if (offset != null) {
+      return '$persianName ($offset)';
+    }
+    return persianName;
   }
-  return trimmed;
+
+  // Unknown ID fallback
+  if (offset != null) {
+    return 'منطقه زمانی نامشخص ($offset)';
+  }
+  return 'منطقه زمانی نامشخص';
 }
 
-/// Common IANA time zone IDs mapped to Persian name with UTC offset.
-/// The specification explicitly asks for: «تهران (UTC+3:30)»
-const _commonIanaTimeZones = <String, String>{
+/// Common IANA time zone IDs mapped to their Persian names without hard-coded offsets.
+const _persianCityNames = <String, String>{
   // Iran & Middle East
-  'Asia/Tehran': 'تهران (UTC+3:30)',
-  'Asia/Dubai': 'دبی (UTC+4:00)',
-  'Asia/Baghdad': 'بغداد (UTC+3:00)',
-  'Asia/Riyadh': 'ریاض (UTC+3:00)',
-  'Asia/Kabul': 'کابل (UTC+4:30)',
-  'Asia/Baku': 'باکو (UTC+4:00)',
-  'Asia/Yerevan': 'ایروان (UTC+4:00)',
-  'Asia/Tbilisi': 'تفلیس (UTC+4:00)',
-  'Asia/Muscat': 'مسقط (UTC+4:00)',
-  'Asia/Kuwait': 'کویت (UTC+3:00)',
-  'Asia/Doha': 'دوحه (UTC+3:00)',
-  'Asia/Bahrain': 'بحرین (UTC+3:00)',
-  'Asia/Damascus': 'دمشق (UTC+3:00)',
-  'Asia/Beirut': 'بیروت (UTC+2:00)',
-  'Asia/Amman': 'امان (UTC+3:00)',
-  'Asia/Jerusalem': 'قدس (UTC+2:00)',
+  'Asia/Tehran': 'تهران',
+  'Asia/Dubai': 'دبی',
+  'Asia/Baghdad': 'بغداد',
+  'Asia/Riyadh': 'ریاض',
+  'Asia/Kabul': 'کابل',
+  'Asia/Baku': 'باکو',
+  'Asia/Yerevan': 'ایروان',
+  'Asia/Tbilisi': 'تفلیس',
+  'Asia/Muscat': 'مسقط',
+  'Asia/Kuwait': 'کویت',
+  'Asia/Doha': 'دوحه',
+  'Asia/Bahrain': 'بحرین',
+  'Asia/Damascus': 'دمشق',
+  'Asia/Beirut': 'بیروت',
+  'Asia/Amman': 'امان',
+  'Asia/Jerusalem': 'قدس',
 
   // Asia / Central / East / South
-  'Asia/Istanbul': 'استانبول (UTC+3:00)',
-  'Europe/Istanbul': 'استانبول (UTC+3:00)',
-  'Asia/Karachi': 'کراچی (UTC+5:00)',
-  'Asia/Tashkent': 'تاشکند (UTC+5:00)',
-  'Asia/Ashgabat': 'عشق‌آباد (UTC+5:00)',
-  'Asia/Dushanbe': 'دوشنبه (UTC+5:00)',
-  'Asia/Bishkek': 'بیشکک (UTC+6:00)',
-  'Asia/Almaty': 'آلماتی (UTC+6:00)',
-  'Asia/Kolkata': 'کلکته / دهلی نو (UTC+5:30)',
-  'Asia/Calcutta': 'کلکته / دهلی نو (UTC+5:30)',
-  'Asia/Dhaka': 'داکا (UTC+6:00)',
-  'Asia/Bangkok': 'بانکوک (UTC+7:00)',
-  'Asia/Jakarta': 'جاکارتا (UTC+7:00)',
-  'Asia/Shanghai': 'شانگهای / پکن (UTC+8:00)',
-  'Asia/Hong_Kong': 'هنگ‌کنگ (UTC+8:00)',
-  'Asia/Singapore': 'سنگاپور (UTC+8:00)',
-  'Asia/Kuala_Lumpur': 'کوالالامپور (UTC+8:00)',
-  'Asia/Seoul': 'سئول (UTC+9:00)',
-  'Asia/Tokyo': 'توکیو (UTC+9:00)',
+  'Asia/Kathmandu': 'کاتماندو',
+  'Asia/Katmandu': 'کاتماندو',
+  'Asia/Istanbul': 'استانبول',
+  'Europe/Istanbul': 'استانبول',
+  'Asia/Karachi': 'کراچی',
+  'Asia/Tashkent': 'تاشکند',
+  'Asia/Ashgabat': 'عشق‌آباد',
+  'Asia/Dushanbe': 'دوشنبه',
+  'Asia/Bishkek': 'بیشکک',
+  'Asia/Almaty': 'آلماتی',
+  'Asia/Kolkata': 'کلکته / دهلی نو',
+  'Asia/Calcutta': 'کلکته / دهلی نو',
+  'Asia/Dhaka': 'داکا',
+  'Asia/Bangkok': 'بانکوک',
+  'Asia/Jakarta': 'جاکارتا',
+  'Asia/Shanghai': 'شانگهای / پکن',
+  'Asia/Hong_Kong': 'هنگ‌کنگ',
+  'Asia/Singapore': 'سنگاپور',
+  'Asia/Kuala_Lumpur': 'کوالالامپور',
+  'Asia/Seoul': 'سئول',
+  'Asia/Tokyo': 'توکیو',
 
   // Europe
-  'Europe/London': 'لندن (UTC+0:00)',
-  'Europe/Paris': 'پاریس (UTC+1:00)',
-  'Europe/Berlin': 'برلین (UTC+1:00)',
-  'Europe/Rome': 'رم (UTC+1:00)',
-  'Europe/Madrid': 'مادرید (UTC+1:00)',
-  'Europe/Amsterdam': 'آمستردام (UTC+1:00)',
-  'Europe/Brussels': 'بروکسل (UTC+1:00)',
-  'Europe/Vienna': 'وین (UTC+1:00)',
-  'Europe/Stockholm': 'استکهلم (UTC+1:00)',
-  'Europe/Oslo': 'اسلو (UTC+1:00)',
-  'Europe/Copenhagen': 'کپنهاگ (UTC+1:00)',
-  'Europe/Zurich': 'زوریخ (UTC+1:00)',
-  'Europe/Athens': 'آتن (UTC+2:00)',
-  'Europe/Helsinki': 'هلسینکی (UTC+2:00)',
-  'Europe/Kyiv': 'کی‌یف (UTC+2:00)',
-  'Europe/Moscow': 'مسکو (UTC+3:00)',
+  'Europe/London': 'لندن',
+  'Europe/Paris': 'پاریس',
+  'Europe/Berlin': 'برلین',
+  'Europe/Rome': 'رم',
+  'Europe/Madrid': 'مادرید',
+  'Europe/Amsterdam': 'آمستردام',
+  'Europe/Brussels': 'بروکسل',
+  'Europe/Vienna': 'وین',
+  'Europe/Stockholm': 'استکهلم',
+  'Europe/Oslo': 'اسلو',
+  'Europe/Copenhagen': 'کپنهاگ',
+  'Europe/Zurich': 'زوریخ',
+  'Europe/Athens': 'آتن',
+  'Europe/Helsinki': 'هلسینکی',
+  'Europe/Kyiv': 'کی‌یف',
+  'Europe/Moscow': 'مسکو',
 
   // Americas
-  'America/New_York': 'نیویورک (UTC-5:00)',
-  'America/Chicago': 'شیکاگو (UTC-6:00)',
-  'America/Denver': 'دنور (UTC-7:00)',
-  'America/Los_Angeles': 'لس‌آنجلس (UTC-8:00)',
-  'America/Toronto': 'تورنتو (UTC-5:00)',
-  'America/Vancouver': 'ونکوور (UTC-8:00)',
-  'America/Mexico_City': 'مکزیکوسیتی (UTC-6:00)',
-  'America/Sao_Paulo': 'سائوپائولو (UTC-3:00)',
-  'America/Buenos_Aires': 'بوئنوس‌آیرس (UTC-3:00)',
+  'America/New_York': 'نیویورک',
+  'America/Chicago': 'شیکاگو',
+  'America/Denver': 'دنور',
+  'America/Los_Angeles': 'لس‌آنجلس',
+  'America/Toronto': 'تورنتو',
+  'America/Vancouver': 'ونکوور',
+  'America/Mexico_City': 'مکزیکوسیتی',
+  'America/Sao_Paulo': 'سائوپائولو',
+  'America/Buenos_Aires': 'بوئنوس‌آیرس',
 
   // Australia & Pacific
-  'Australia/Sydney': 'سیدنی (UTC+10:00)',
-  'Australia/Melbourne': 'ملبورن (UTC+10:00)',
-  'Pacific/Auckland': 'اوکلند (UTC+12:00)',
+  'Australia/Sydney': 'سیدنی',
+  'Australia/Melbourne': 'ملبورن',
+  'Pacific/Auckland': 'اوکلند',
 
   // Africa
-  'Africa/Cairo': 'قاهره (UTC+2:00)',
-  'Africa/Johannesburg': 'ژوهانسبورگ (UTC+2:00)',
+  'Africa/Cairo': 'قاهره',
+  'Africa/Johannesburg': 'ژوهانسبورگ',
 
   // UTC / GMT
   'UTC': 'هماهنگ جهانی (UTC)',

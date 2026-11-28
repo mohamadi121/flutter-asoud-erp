@@ -588,7 +588,7 @@ class _AsoudCalendarState extends State<AsoudCalendar> {
                           () => repository.readAlert('${alert['id']}'))),
             )),
           Text(
-            'منطقه زمانی: ${data['timezone'] != null ? formatPersianTimeZone('${data['timezone']}') : 'زمان محلی دستگاه (آفلاین)'}',
+            'منطقه زمانی: ${data['timezone'] != null ? formatPersianTimeZone('${data['timezone']}', now: widget.now) : 'زمان محلی دستگاه (آفلاین)'}',
             style: const TextStyle(fontSize: 11),
           ),
           Text(

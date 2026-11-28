@@ -213,7 +213,7 @@ void main() {
     expect(find.text('تعداد روز *'), findsNothing);
     await tap(tester, 'تنظیمات تکمیلی');
     expect(find.text('اگر تاریخ فرم تغییر کند'), findsOneWidget);
-    expect(find.text('منطقه زمانی: تهران (UTC+3:30) (تنظیم سامانه؛ دفتر تنظیم اختصاصی ندارد)'), findsOneWidget);
+    expect(find.text('منطقه زمانی: تهران (UTC+۳:۳۰) (تنظیم سامانه؛ دفتر تنظیم اختصاصی ندارد)'), findsOneWidget);
     await tap(tester, 'اعتبارسنجی و ذخیره');
     final sent = verify(() => repository.save('wf', 'wait', captureAny())).captured.single as Map;
     expect(sent['offset_days'], 0);
