@@ -62,6 +62,35 @@ void main() {
     expect(isRetryableOfflineFailure(error), isFalse);
   });
 
+  test('a 417 with an English-only server message shows the generic Persian sentence',
+      () async {
+    final client = _client(417, {
+      '_server_messages': _messages([
+        {'message': 'This request is not editable.', 'title': 'REQUEST_NOT_EDITABLE'}
+      ]),
+    });
+    addTearDown(client.close);
+    final error = await _failure(client);
+    expect(error.statusCode, 417);
+    expect(error.kind, ApiFailureKind.validation);
+    expect(error.message, 'اطلاعات ارسال‌شده معتبر نیست.');
+    expect(error.code, 'REQUEST_NOT_EDITABLE');
+  });
+
+  test('a 417 with a Persian server message keeps it', () async {
+    final client = _client(417, {
+      '_server_messages': _messages([
+        {'message': 'درخواست قابل ویرایش نیست.', 'title': 'REQUEST_NOT_EDITABLE'}
+      ]),
+    });
+    addTearDown(client.close);
+    final error = await _failure(client);
+    expect(error.statusCode, 417);
+    expect(error.kind, ApiFailureKind.validation);
+    expect(error.message, 'درخواست قابل ویرایش نیست.');
+    expect(error.code, 'REQUEST_NOT_EDITABLE');
+  });
+
   test('markup is stripped and an already decoded list is accepted', () async {
     final client = _client(417, {
       '_server_messages': [

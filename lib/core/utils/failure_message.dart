@@ -78,3 +78,14 @@ String failureDetail(Object? failure) {
   }
   return failureMessage(failure);
 }
+
+/// The server's own sentence, shown only when it is written for the user —
+/// i.e. it contains at least one Persian/Arabic letter (U+0600–U+06FF).
+/// Otherwise [fallback] is returned, so an English-only server sentence never
+/// reaches the screen. Applied at the source (where a validation
+/// [ApiException] is built from a server sentence) so every direct `e.message`
+/// use downstream is safe.
+String persianOrFallback(String? text, String fallback) {
+  final message = text ?? '';
+  return RegExp(r'[؀-ۿ]').hasMatch(message) ? message : fallback;
+}
