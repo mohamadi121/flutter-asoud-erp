@@ -227,6 +227,17 @@ void main() {
     expect(isRetryableOfflineFailure(error), isFalse);
   });
 
+  test('an ok:false envelope with an English-only message shows the generic Persian sentence',
+      () async {
+    final error = await replayFailure(
+        'NATIVE_NOT_RETRYABLE', 'This document cannot be retried.');
+
+    expect(error.kind, ApiFailureKind.validation);
+    expect(error.message,
+        'عملیات در سرور تکمیل نشد. اطلاعات واردشده را بررسی کنید.');
+    expect(isRetryableOfflineFailure(error), isFalse);
+  });
+
   for (final code in [
     'REQUEST_KEY_CONFLICT',
     'INVALID_REQUEST_KEY',
