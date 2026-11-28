@@ -156,6 +156,42 @@ void main() {
 
     await tester.tap(_button('تأیید'));
     await tester.pumpAndSettle();
+    // A single tap must not approve: the decision bar asks for confirmation.
+    expect(find.text('تأیید اقدام'), findsOneWidget);
+    expect(repository.calls, isEmpty);
+
+    await tester.tap(find.text('تأیید و ثبت'));
+    await tester.pumpAndSettle();
+    expect(repository.calls, hasLength(1));
+    expect(repository.calls.single.action, 'Approve');
+  });
+
+  testWidgets('انصراف از دیالوگ تأیید اقدام را ثبت نمی‌کند', (tester) async {
+    final repository = await _open(tester, 390);
+
+    await tester.tap(_button('تأیید'));
+    await tester.pumpAndSettle();
+    expect(find.text('تأیید اقدام'), findsOneWidget);
+
+    await tester.tap(find.text('انصراف'));
+    await tester.pumpAndSettle();
+    expect(repository.calls, isEmpty);
+    // The decision bar is still there, ready for a real decision.
+    expect(_button('تأیید'), findsOneWidget);
+  });
+
+  testWidgets('روی عرض ۳۲۰ دیالوگ تأیید بدون سرریز باز می‌شود',
+      (tester) async {
+    final repository = await _open(tester, 320);
+
+    await tester.tap(_button('تأیید'));
+    await tester.pumpAndSettle();
+    expect(find.text('تأیید اقدام'), findsOneWidget);
+    expect(find.text('تأیید و ثبت'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.text('تأیید و ثبت'));
+    await tester.pumpAndSettle();
     expect(repository.calls, hasLength(1));
     expect(repository.calls.single.action, 'Approve');
   });

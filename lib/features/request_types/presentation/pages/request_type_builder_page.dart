@@ -7,11 +7,13 @@ import '../../../workflows/domain/entities/workflow_definition.dart';
 import '../../../workflows/domain/repositories/workflow_repository.dart';
 import '../cubit/request_type_builder_cubit.dart';
 import '../../domain/request_templates.dart';
+import '../widgets/request_access_step.dart';
 import '../widgets/request_form_preview_step.dart';
 import '../widgets/request_form_step.dart';
 import '../widgets/request_info_step.dart';
 
-/// Three-step builder; access remains in workflow/security administration.
+/// Builder for a request type. User-made types end with an access step (who
+/// may submit); system templates are locked, so they stop at the preview.
 class RequestTypeBuilderPage extends StatelessWidget {
   const RequestTypeBuilderPage(
       {this.company, this.existing, this.template, super.key});
@@ -41,13 +43,21 @@ class _BuilderViewState extends State<_BuilderView> {
   final infoForm = GlobalKey<FormState>();
 
   void _primary(RequestTypeBuilderCubit cubit, int step) {
+    final isSystem = cubit.state.definition?.isSystemTemplate == true;
     switch (step) {
       case 0:
         if (infoForm.currentState?.validate() ?? false) cubit.saveInfo();
       case 1:
         cubit.saveForm();
       case 2:
-        cubit.finish();
+        if (isSystem) {
+          cubit.finish();
+        } else {
+          cubit.loadRoles();
+          cubit.continueToAccess();
+        }
+      case 3:
+        cubit.saveAccess();
       default:
         return;
     }
@@ -68,6 +78,8 @@ class _BuilderViewState extends State<_BuilderView> {
         },
         builder: (context, state) {
           final cubit = context.read<RequestTypeBuilderCubit>();
+          final isSystem = state.definition?.isSystemTemplate == true;
+          final lastStep = isSystem ? 2 : 3;
           return Directionality(
             textDirection: TextDirection.rtl,
             child: Scaffold(
@@ -78,6 +90,14 @@ class _BuilderViewState extends State<_BuilderView> {
               body: Column(children: [
                 RequestStepIndicator(
                   step: state.step,
+                  labels: isSystem
+                      ? const ['اطلاعات کلی', 'فرم درخواست', 'پیش‌نمایش']
+                      : const [
+                          'اطلاعات کلی',
+                          'فرم درخواست',
+                          'پیش‌نمایش',
+                          'دسترسی'
+                        ],
                   onStepSelected: (target) {
                     if (target < state.step) {
                       cubit.goToStep(target);
@@ -93,7 +113,7 @@ class _BuilderViewState extends State<_BuilderView> {
                           0 => RequestInfoStep(formKey: infoForm),
                           1 => const RequestFormStep(),
                           2 => const RequestFormPreviewStep(),
-                          _ => const RequestFormPreviewStep(),
+                          _ => const RequestAccessStep(),
                         },
                 ),
               ]),
@@ -102,7 +122,7 @@ class _BuilderViewState extends State<_BuilderView> {
                 child: AsoudBottomActions(
                   primaryLabel: state.saving
                       ? 'در حال ذخیره...'
-                      : state.step == 2
+                      : state.step == lastStep
                           ? 'ذخیره و پایان'
                           : 'ادامه',
                   onPrimary: state.saving || state.loading
@@ -120,11 +140,13 @@ class _BuilderViewState extends State<_BuilderView> {
 
 class RequestStepIndicator extends StatelessWidget {
   const RequestStepIndicator(
-      {required this.step, this.onStepSelected, super.key});
+      {required this.step,
+      this.labels = const ['اطلاعات کلی', 'فرم درخواست', 'پیش‌نمایش'],
+      this.onStepSelected,
+      super.key});
   final int step;
+  final List<String> labels;
   final ValueChanged<int>? onStepSelected;
-
-  static const labels = ['اطلاعات کلی', 'فرم درخواست', 'پیش‌نمایش'];
 
   @override
   Widget build(BuildContext context) => Padding(
