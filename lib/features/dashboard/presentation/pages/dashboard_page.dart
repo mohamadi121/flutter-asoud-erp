@@ -7,6 +7,7 @@ import '../../../../core/auth/capabilities.dart';
 import '../../../../core/network/frappe_client.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/theme/asoud_tile_colors.dart';
 import '../../../../core/utils/jalali_date.dart';
 import '../../../../core/utils/persian_server_values.dart';
 import '../../../../core/widgets/asoud_ui.dart';
@@ -912,42 +913,42 @@ class _QuickActions extends StatelessWidget {
         'دریافت و پرداخت',
         'نقد و بانک',
         Icons.payments_outlined,
-        AsoudColors.success,
+        AsoudTileColors.base,
         onPayments
       ),
       (
         'فاکتور فروش',
         'صدور و پیگیری',
         Icons.description_outlined,
-        AsoudColors.primary,
+        AsoudTileColors.base,
         onSalesInvoice
       ),
       (
         'ثبت درخواست',
         'گردش کار و فرم‌ها',
         Icons.shopping_cart_checkout_rounded,
-        AsoudColors.warning,
+        AsoudTileColors.base,
         onPurchaseRequest
       ),
       (
         'ثبت حسابداری',
         'اسناد مالی',
         Icons.receipt_long_outlined,
-        AsoudColors.purple,
+        AsoudTileColors.base,
         onAccounting
       ),
       (
         'ایجاد سند',
         'الگوهای آماده',
         Icons.post_add_rounded,
-        AsoudColors.danger,
+        AsoudTileColors.base,
         onDocuments
       ),
       (
         'طرف حساب‌ها',
         'مشتریان و تأمین‌کنندگان',
         Icons.people_outline_rounded,
-        AsoudColors.cyan,
+        AsoudTileColors.base,
         onParties
       ),
     ];
@@ -969,7 +970,7 @@ class _QuickActions extends StatelessWidget {
               child: Row(children: [
                 AsoudIconBox(
                     icon: item.$3,
-                    color: enabled ? item.$4 : AsoudColors.muted,
+                    color: enabled ? item.$4 : AsoudTileColors.disabled,
                     size: 34),
                 const SizedBox(width: 7),
                 Expanded(

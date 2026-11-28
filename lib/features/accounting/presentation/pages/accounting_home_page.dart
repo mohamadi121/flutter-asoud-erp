@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/theme/asoud_tile_colors.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../reports/presentation/pages/ledger_page.dart';
 import '../../../reports/presentation/pages/trial_balance_page.dart';
@@ -23,14 +24,14 @@ class AccountingHomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const actions = [
-      ('سند حسابداری', Icons.receipt_long_rounded, Color(0xFFFFB547)),
-      ('سرفصل حساب‌ها', Icons.account_tree_rounded, Color(0xFF5C6BC0)),
-      ('تراز آزمایشی', Icons.balance_rounded, Color(0xFF26A69A)),
-      ('دفتر کل', Icons.menu_book_rounded, Color(0xFF42A5F5)),
-      ('مرور حساب‌ها', Icons.manage_search_rounded, Color(0xFFEF6C5B)),
-      ('گزارش‌های مالی', Icons.analytics_rounded, Color(0xFF7E57C2)),
-      ('گروه تفصیلی شناور', Icons.hub_outlined, Color(0xFF00ACC1)),
-      ('مدیریت اشخاص', Icons.people_alt_outlined, Color(0xFF1769F6)),
+      ('سند حسابداری', Icons.receipt_long_rounded, AsoudTileColors.base),
+      ('سرفصل حساب‌ها', Icons.account_tree_rounded, AsoudTileColors.base),
+      ('تراز آزمایشی', Icons.balance_rounded, AsoudTileColors.base),
+      ('دفتر کل', Icons.menu_book_rounded, AsoudTileColors.base),
+      ('مرور حساب‌ها', Icons.manage_search_rounded, AsoudTileColors.base),
+      ('گزارش‌های مالی', Icons.analytics_rounded, AsoudTileColors.base),
+      ('گروه تفصیلی شناور', Icons.hub_outlined, AsoudTileColors.base),
+      ('مدیریت اشخاص', Icons.people_alt_outlined, AsoudTileColors.base),
     ];
     return Scaffold(
       appBar: const AsoudHeader(
@@ -87,7 +88,7 @@ class AccountingHomePage extends StatelessWidget {
                   enabled: enabled,
                   leading: AsoudIconBox(
                       icon: action.$2,
-                      color: enabled ? action.$3 : AsoudColors.muted),
+                      color: enabled ? action.$3 : AsoudTileColors.disabled),
                   title: Text(action.$1,
                       style: TextStyle(
                           fontWeight: FontWeight.w700,

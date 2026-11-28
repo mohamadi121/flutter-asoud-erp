@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/network/frappe_client.dart';
 import '../../core/theme/asoud_colors.dart';
+import '../../core/theme/asoud_tile_colors.dart';
 import '../../core/utils/jalali_date.dart';
 import '../../core/utils/persian_time_zone.dart';
 import '../../core/widgets/asoud_jalali_picker.dart';
@@ -276,37 +277,21 @@ class _AsoudCalendarState extends State<AsoudCalendar> {
     final holiday = date.weekday == DateTime.friday ||
         rows.any((r) => ['Official', 'Organization'].contains(r['kind']));
     final overdue = rows.any((r) => r['overdue'] == true && r['done'] != true);
-    final deadline =
-        rows.any((r) => r['deadline'] == true && r['done'] != true);
-    final event =
-        rows.any((r) => ['Event', 'Meeting', 'Mission'].contains(r['kind']));
-    final reminder =
-        rows.any((r) => r['kind'] == 'Reminder' && r['done'] != true);
-    final completed = rows.isNotEmpty && rows.every((r) => r['done'] == true);
-    final background = overdue
-        ? const Color(0xFFFCE7EA)
-        : deadline
-            ? const Color(0xFFE3F5EB)
-            : event
-                ? const Color(0xFFEAF3FF)
-                : reminder
-                    ? const Color(0xFFF1E9FF)
-                    : completed
-                        ? const Color(0xFFE3F5EB)
-                        : const Color(0xFFF6F8FC);
-    final foreground = chosen ? Colors.white : const Color(0xFF172B50);
+    final background = AsoudTileColors.dayBackground(
+        selected: chosen, overdue: overdue, holiday: holiday, today: isToday);
+    final foreground = AsoudTileColors.dayForeground(selected: chosen);
     return Semantics(
       label:
           '${formatJalaliLong(date)}${isToday ? '، امروز' : ''}${holiday ? '، تعطیل' : ''}',
       selected: chosen,
       button: true,
       child: Material(
-        color: chosen ? const Color(0xFF2878DE) : background,
+        color: background,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
           side: BorderSide(
               color: isToday || chosen
-                  ? const Color(0xFF2878DE)
+                  ? AsoudColors.primary
                   : AsoudColors.border,
               width: isToday ? 2 : 1),
         ),
