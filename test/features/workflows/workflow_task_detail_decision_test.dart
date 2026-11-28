@@ -105,10 +105,16 @@ Future<_CaptureRepository> _open(WidgetTester tester, double width) async {
   return repository;
 }
 
-Finder _button(String label) => find.widgetWithText(FilledButton, label);
+/// «رد» is an outlined button (a warning, distinct from the filled «تأیید»
+/// and «بازگشت»); the other two are filled. The finder returns the concrete
+/// button type so the enabled/disabled checks keep working.
+Finder _button(String label) =>
+    label == 'رد'
+        ? find.widgetWithText(OutlinedButton, label)
+        : find.widgetWithText(FilledButton, label);
 
 bool _enabled(WidgetTester tester, String label) =>
-    tester.widget<FilledButton>(_button(label)).onPressed != null;
+    tester.widget<ButtonStyleButton>(_button(label)).onPressed != null;
 
 void main() {
   testWidgets('سه دکمهٔ تصمیم هم‌رده و دلیل اجباری برای رد/بازگشت',
@@ -119,6 +125,11 @@ void main() {
     expect(_button('رد'), findsOneWidget);
     expect(_button('بازگشت'), findsOneWidget);
     expect(find.text('برای رد یا بازگشت، نوشتن دلیل الزامی است.'), findsOneWidget);
+
+    // «رد» حاشیه‌دار است تا از «بازگشت» (پررنگ) و «تأیید» (پررنگ) متمایز دیده شود.
+    expect(find.widgetWithText(OutlinedButton, 'رد'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'بازگشت'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'تأیید'), findsOneWidget);
 
     // بدون دلیل، اقدام‌های مخرب مسدودند
     expect(_enabled(tester, 'تأیید'), isTrue);

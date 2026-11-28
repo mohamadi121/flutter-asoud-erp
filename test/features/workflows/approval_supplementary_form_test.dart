@@ -192,7 +192,12 @@ Future<_FakeTaskRepository> _pump(
   return repository;
 }
 
-Finder _button(String label) => find.widgetWithText(FilledButton, label);
+/// «رد» is an outlined button (a warning, distinct from the filled «تأیید»);
+/// the other decision buttons are filled.
+Finder _button(String label) =>
+    label == 'رد'
+        ? find.widgetWithText(OutlinedButton, label)
+        : find.widgetWithText(FilledButton, label);
 
 /// The decision bar's reason field (hint «دلیل / توضیح»), distinct from the
 /// supplementary form's own text inputs.

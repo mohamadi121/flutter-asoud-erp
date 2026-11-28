@@ -4,14 +4,22 @@ import '../theme/asoud_colors.dart';
 
 class AsoudHeader extends StatelessWidget implements PreferredSizeWidget {
   const AsoudHeader(
-      {required this.title, this.subtitle, this.action, super.key});
+      {required this.title,
+      this.subtitle,
+      this.subtitleWidget,
+      this.action,
+      super.key});
 
   final String title;
   final String? subtitle;
+
+  /// Replaces the [subtitle] text (e.g. an [AsoudIdChip] for a Latin id).
+  final Widget? subtitleWidget;
   final Widget? action;
 
   @override
-  Size get preferredSize => Size.fromHeight(subtitle == null ? 76 : 94);
+  Size get preferredSize =>
+      Size.fromHeight(subtitle == null && subtitleWidget == null ? 76 : 98);
 
   @override
   Widget build(BuildContext context) => SafeArea(
@@ -24,7 +32,7 @@ class AsoudHeader extends StatelessWidget implements PreferredSizeWidget {
                   icon: Icons.chevron_right_rounded,
                   onTap: () => Navigator.of(context).maybePop())
             else
-              const SizedBox(width: 40),
+              const SizedBox(width: 48),
             const SizedBox(width: 10),
             Expanded(
               child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -36,14 +44,17 @@ class AsoudHeader extends StatelessWidget implements PreferredSizeWidget {
                         fontSize: 17,
                         height: 1.3,
                         fontWeight: FontWeight.w800)),
-                if (subtitle != null) ...[
+                if (subtitleWidget != null) ...[
+                  const SizedBox(height: 2),
+                  subtitleWidget!,
+                ] else if (subtitle != null) ...[
                   const SizedBox(height: 2),
                   Text(subtitle!,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,
                       style: const TextStyle(
-                          fontSize: 10, height: 1.4, color: AsoudColors.muted)),
+                          fontSize: 12, height: 1.4, color: AsoudColors.muted)),
                 ],
               ]),
             ),
@@ -63,13 +74,13 @@ class _HeaderButton extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Container(
-          width: 40,
-          height: 40,
+          width: 48,
+          height: 48,
           decoration: BoxDecoration(
               color: const Color(0xFFF6F8FC),
               border: Border.all(color: AsoudColors.border),
               borderRadius: BorderRadius.circular(12)),
-          child: Icon(icon, size: 20),
+          child: Icon(icon, size: 22),
         ),
       );
 }
@@ -88,6 +99,30 @@ class AsoudIconBox extends StatelessWidget {
             color: color.withValues(alpha: .1),
             borderRadius: BorderRadius.circular(11)),
         child: Icon(icon, color: color, size: size * .5),
+      );
+}
+
+/// A small left-to-right secondary chip for a Latin identifier (a request
+/// number such as `REQ-00008` or an instance id such as `WFI-...`). It is
+/// deliberately quiet so the identifier reads as metadata, never as a title.
+class AsoudIdChip extends StatelessWidget {
+  const AsoudIdChip(this.id, {super.key});
+  final String id;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+            color: const Color(0xFFF6F8FC),
+            border: Border.all(color: AsoudColors.border),
+            borderRadius: BorderRadius.circular(8)),
+        child: Text(id,
+            textDirection: TextDirection.ltr,
+            style: const TextStyle(
+                fontSize: 11,
+                height: 1.3,
+                fontWeight: FontWeight.w700,
+                color: AsoudColors.muted)),
       );
 }
 

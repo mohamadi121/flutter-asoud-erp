@@ -102,6 +102,8 @@ void main() {
 
     await tester.tap(find.text('رد'));
     await tester.pumpAndSettle();
+    // The sheet's confirm button (a filled button labelled «رد») is disabled
+    // until a reason is typed.
     var submit = tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'رد').last);
     expect(submit.onPressed, isNull);
     await tester.enterText(find.byType(TextField), 'مقدور نیست');

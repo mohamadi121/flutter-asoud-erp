@@ -151,9 +151,10 @@ class _ActionCardState extends State<_ActionCard> {
                         _busy ? null : () => _decide('Return', 'بازگرداندن'),
                     child: const Text('بازگرداندن')),
               if (task['allow_reject'] == true)
-                FilledButton(
-                    style: FilledButton.styleFrom(
-                        backgroundColor: AsoudColors.danger),
+                OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                        foregroundColor: AsoudColors.danger,
+                        side: const BorderSide(color: AsoudColors.danger)),
                     onPressed: _busy ? null : () => _decide('Reject', 'رد'),
                     child: const Text('رد')),
             ]),
