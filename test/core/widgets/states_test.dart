@@ -106,10 +106,16 @@ void main() {
             const ApiException(kind: ApiFailureKind.forbidden, message: 'x')),
         'اجازه دسترسی به این بخش را ندارید');
     expect(
-        failureMessage(
-            const ApiException(kind: ApiFailureKind.validation, message: 'x')),
-        'x',
-        reason: 'پیام ۴۱۷ سرور به‌جای جملهٔ عمومی نمایش داده می‌شود');
+        failureMessage(const ApiException(
+            kind: ApiFailureKind.validation, message: 'نام معتبر نیست.')),
+        'نام معتبر نیست.',
+        reason: 'پیام فارسی ۴۱۷ سرور به‌جای جملهٔ عمومی نمایش داده می‌شود');
+    expect(
+        failureMessage(const ApiException(
+            kind: ApiFailureKind.validation,
+            message: 'ASOUD setup does not exist for this company')),
+        'اطلاعات واردشده را بررسی کنید.',
+        reason: 'متن انگلیسیِ خالص نمایش داده نمی‌شود');
     expect(
         failureMessage(const ApiException(
             kind: ApiFailureKind.validation, message: '   ')),

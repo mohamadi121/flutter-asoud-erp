@@ -164,7 +164,7 @@ void main() {
       formFields: const [],
       saveError: const ApiException(
           kind: ApiFailureKind.validation,
-          message: 'Workflow stages and transitions are not complete',
+          message: 'مرحلهٔ فرم درخواست کامل نیست.',
           statusCode: 417),
     );
     await _pump(tester, repository);
@@ -173,9 +173,9 @@ void main() {
     await _continue(tester);
 
     expect(
-        find.text('Workflow stages and transitions are not complete'),
+        find.text('مرحلهٔ فرم درخواست کامل نیست.'),
         findsOneWidget,
-        reason: 'دلیل واقعی ۴۱۷ سرور به‌جای جملهٔ عمومی نمایش داده می‌شود');
+        reason: 'دلیل واقعی فارسی ۴۱۷ سرور به‌جای جملهٔ عمومی نمایش داده می‌شود');
     expect(find.text('اطلاعات واردشده را بررسی کنید.'), findsNothing);
     expect(find.text('پیش‌نمایش فرم درخواست'), findsNothing);
     expect(repository.saveCalls, 1);

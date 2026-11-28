@@ -19,8 +19,14 @@ const oversizedResponseFailureMessage = 'پاسخ سرور بیش از حد بز
 ///
 /// Validation refusals (HTTP 417) carry the server's own sentence in
 /// [ApiException.message] (see `docs/api/README.md` in the backend repo: the
-/// 417 `_server_messages` entry is written for the user), so it is shown
-/// verbatim instead of the generic «اطلاعات واردشده را بررسی کنید.»
+/// 417 `_server_messages` entry is written for the user). It is shown verbatim
+/// only when it is a Persian sentence — i.e. it contains at least one
+/// Arabic/Persian letter (U+0600–U+06FF). The backend still has English-only
+/// error strings (e.g. `ValueError` messages), and the app rule is that every
+/// failure shown to a user is Persian, so an English-only 417 falls back to
+/// the generic «اطلاعات واردشده را بررسی کنید.»
+final _hasArabicLetter = RegExp(r'[\u0600-\u06FF]');
+
 String failureMessage(Object? failure) {
   if (failure is String) {
     final message = failure.trim();
@@ -29,9 +35,11 @@ String failureMessage(Object? failure) {
   if (failure is! ApiException) {
     return _genericFailure;
   }
-  if (failure.kind == ApiFailureKind.validation &&
-      failure.message.trim().isNotEmpty) {
-    return failure.message.trim();
+  if (failure.kind == ApiFailureKind.validation) {
+    final message = failure.message.trim();
+    if (message.isNotEmpty && _hasArabicLetter.hasMatch(message)) {
+      return message;
+    }
   }
   return switch (failure.kind) {
     ApiFailureKind.invalidCredentials => 'نام کاربری یا گذرواژه درست نیست.',

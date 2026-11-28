@@ -7,18 +7,44 @@ void main() {
       () {
     const failure = ApiException(
         kind: ApiFailureKind.validation,
+        message: 'شرکت انتخاب‌شده وجود ندارد.',
+        statusCode: 417);
+    expect(
+        failureMessage(failure),
+        'شرکت انتخاب‌شده وجود ندارد.',
+        reason: 'دلیل واقعی فارسی سرور باید به کاربر برسد');
+    expect(failureMessage(failure), isNot('اطلاعات واردشده را بررسی کنید.'));
+  });
+
+  test('خطای اعتبارسنجی انگلیسیِ خالص به جملهٔ عمومی برمی‌گردد', () {
+    const failure = ApiException(
+        kind: ApiFailureKind.validation,
         message: 'ASOUD setup does not exist for this company',
         statusCode: 417);
     expect(
         failureMessage(failure),
-        'ASOUD setup does not exist for this company',
-        reason: 'دلیل واقعی سرور باید به کاربر برسد، نه «اطلاعات واردشده را بررسی کنید.»');
-    expect(failureMessage(failure), isNot('اطلاعات واردشده را بررسی کنید.'));
+        'اطلاعات واردشده را بررسی کنید.',
+        reason: 'هر شکست باید جملهٔ فارسی باشد؛ متن انگلیسیِ خالص نمایش داده نمی‌شود');
+  });
+
+  test('متن ترکیبی (فارسی با کلمهٔ انگلیسی یا کد) به‌صورت خام نمایش داده می‌شود',
+      () {
+    const failure = ApiException(
+        kind: ApiFailureKind.validation,
+        message: 'درخواست REQ-0001 هنوز در انتظار است.',
+        statusCode: 417);
+    expect(failureMessage(failure), 'درخواست REQ-0001 هنوز در انتظار است.');
   });
 
   test('خطای اعتبارسنجی بدون پیام سرور به جملهٔ عمومی برمی‌گردد', () {
     const failure = ApiException(
         kind: ApiFailureKind.validation, message: '', statusCode: 417);
+    expect(failureMessage(failure), 'اطلاعات واردشده را بررسی کنید.');
+  });
+
+  test('خطای اعتبارسنجی با پیام فقط فاصله به جملهٔ عمومی برمی‌گردد', () {
+    const failure = ApiException(
+        kind: ApiFailureKind.validation, message: '   ', statusCode: 417);
     expect(failureMessage(failure), 'اطلاعات واردشده را بررسی کنید.');
   });
 
