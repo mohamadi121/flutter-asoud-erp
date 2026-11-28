@@ -5,7 +5,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/jalali_date.dart';
-import '../../../../core/widgets/asoud_bottom_bar.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../../core/widgets/states.dart';
 import '../../domain/entities/office.dart';
@@ -109,22 +108,6 @@ class _OfficesViewState extends State<_OfficesView> {
             ),
           ),
           body: SafeArea(child: _body(context, state)),
-          bottomNavigationBar: AsoudBottomBar(
-            selectedIndex: 2,
-            onSelected: (index) {
-              if (index != 2) _unavailable(context);
-            },
-            items: const [
-              AsoudBottomBarItem(icon: Icons.home_outlined, label: 'خانه'),
-              AsoudBottomBarItem(icon: Icons.list_alt_rounded, label: 'منوها'),
-              AsoudBottomBarItem(
-                  icon: Icons.business_outlined,
-                  selectedIcon: Icons.business_rounded,
-                  label: 'دفترها'),
-              AsoudBottomBarItem(
-                  icon: Icons.bar_chart_rounded, label: 'گزارش‌ها'),
-            ],
-          ),
         ),
       );
 
@@ -266,10 +249,6 @@ class _OfficesViewState extends State<_OfficesView> {
       },
     )));
   }
-
-  void _unavailable(BuildContext context) =>
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('این قابلیت هنوز به سرور متصل نشده است.')));
 
   Future<void> _showActions(BuildContext context, Office office) =>
       showModalBottomSheet<void>(

@@ -10,6 +10,7 @@ import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/jalali_date.dart';
 import '../../../../core/utils/persian_server_values.dart';
 import '../../../../core/widgets/asoud_ui.dart';
+import '../../../../core/widgets/coming_soon_badge.dart';
 import '../../../../core/widgets/states.dart';
 import '../../../accounting/presentation/pages/accounting_home_page.dart';
 import '../../../employee/domain/employee_mode.dart';
@@ -504,10 +505,6 @@ class _DashboardPageState extends State<DashboardPage> {
                           CartablePage(company: widget.officeName ?? ''),
                     ),
                   );
-                } else if (index != 0) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                    content: Text('این بخش هنوز به سرور متصل نشده است.'),
-                  ));
                 }
               },
               destinations: const [
@@ -990,7 +987,7 @@ class _QuickActions extends StatelessWidget {
                                   : AsoudColors.muted.withValues(alpha: .6))),
                       if (!enabled) ...[
                         const SizedBox(height: 2),
-                        const _SoonBadge(),
+                        const ComingSoonBadge(),
                       ],
                     ],
                   ),
@@ -1002,23 +999,6 @@ class _QuickActions extends StatelessWidget {
       }).toList(),
     );
   }
-}
-
-class _SoonBadge extends StatelessWidget {
-  const _SoonBadge();
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-        decoration: BoxDecoration(
-          color: AsoudColors.warning.withValues(alpha: .12),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: const Text('به‌زودی',
-            style: TextStyle(
-                fontSize: 8,
-                color: AsoudColors.warning,
-                fontWeight: FontWeight.w800)),
-      );
 }
 
 class _UnavailablePage extends StatelessWidget {
