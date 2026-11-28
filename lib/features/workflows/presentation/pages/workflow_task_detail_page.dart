@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/utils/file_name_label.dart';
 import '../../../../core/utils/persian_server_values.dart';
 import '../../../../core/utils/persian_format.dart';
 import '../../../../core/widgets/asoud_ui.dart';
@@ -172,8 +173,22 @@ WorkflowTaskDataSection _receiptSection(WorkflowTaskDetail detail) =>
                   key: value.key,
                   label: value.label,
                   value: formatJalaliIso(value.value.toString()))
-              : value,
+              : WorkflowTaskDataValue(
+                  key: value.key,
+                  label: value.label,
+                  value: _documentValueDisplay(value)),
     ]);
+
+/// The display value of a document value: an Attach/Attach Image value is
+/// shown by its file name, never the raw `/private/files/...` path. Other
+/// fieldtypes (and an unknown or missing one) keep the raw value.
+dynamic _documentValueDisplay(WorkflowTaskDataValue value) {
+  if (value.fieldtype == 'Attach' || value.fieldtype == 'Attach Image') {
+    final text = fileNamesLabel(value.value);
+    if (text.isNotEmpty) return text;
+  }
+  return value.value;
+}
 
 void _openRequest(BuildContext context, WorkflowTaskDetail detail) {
   final repository = GenericRequestRepository(
@@ -579,7 +594,7 @@ class _TechnicalRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final text = _rawValue(value.value);
+    final text = _rawValue(_documentValueDisplay(value));
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(

@@ -163,30 +163,7 @@ class FrappeWorkflowTaskRepository
       summary: _instance(item),
       canRestart: item['can_restart'] == true || item['can_restart'] == 1,
       activities: rawActivities is List
-          ? rawActivities.whereType<Map>().map((raw) {
-              final activity = Map<String, dynamic>.from(raw);
-              return WorkflowTaskActivity(
-                actor: activity['actor']?.toString() ?? '',
-                action: activity['action']?.toString() ?? '',
-                comment: activity['comment']?.toString() ?? '',
-                createdOn:
-                    DateTime.tryParse(activity['created_on']?.toString() ?? ''),
-                stageTitle: activity['stage_title']?.toString() ?? '',
-                actorName: activity['actor_name']?.toString() ?? '',
-                before: activity['before'] is Map
-                    ? Map<String, dynamic>.from(activity['before'] as Map)
-                    : const {},
-                after: activity['after'] is Map
-                    ? Map<String, dynamic>.from(activity['after'] as Map)
-                    : const {},
-                labels: activity['labels'] is Map
-                    ? {
-                        for (final entry in (activity['labels'] as Map).entries)
-                          '${entry.key}': '${entry.value}'
-                      }
-                    : const {},
-              );
-            }).toList(growable: false)
+          ? rawActivities.whereType<Map>().map(_activity).toList(growable: false)
           : const [],
     );
   }
@@ -314,16 +291,7 @@ class FrappeWorkflowTaskRepository
           ? Map<String, dynamic>.from(item['draft'] as Map)
           : const {},
       activities: rawHistory is List
-          ? rawHistory.whereType<Map>().map((raw) {
-              final value = Map<String, dynamic>.from(raw);
-              return WorkflowTaskActivity(
-                actor: value['actor']?.toString() ?? '',
-                action: value['action']?.toString() ?? '',
-                comment: value['comment']?.toString() ?? '',
-                createdOn:
-                    DateTime.tryParse(value['created_on']?.toString() ?? ''),
-              );
-            }).toList(growable: false)
+          ? rawHistory.whereType<Map>().map(_activity).toList(growable: false)
           : const [],
       allowReject: config['allow_reject'] == true,
       allowReturn: config['allow_return'] == true,
@@ -361,6 +329,7 @@ class FrappeWorkflowTaskRepository
                 key: value['key']?.toString() ?? '',
                 label: value['label']?.toString() ?? '',
                 value: value['value'],
+                fieldtype: value['fieldtype']?.toString(),
               );
             }).toList(growable: false)
           : const [],
@@ -415,6 +384,34 @@ class FrappeWorkflowTaskRepository
     if (data is! Map) throw StateError('Invalid attachment response');
     return data['file_url']?.toString() ?? '';
   }
+}
+
+/// One activity/history row of `get_workflow_instance` or `get_workflow_task`.
+/// The additive keys (`actor_name`, `before`, `after`, `labels`) are parsed
+/// defensively: an older server omits them and the row falls back to the raw
+/// actor and no change lines.
+WorkflowTaskActivity _activity(Map<dynamic, dynamic> raw) {
+  final value = Map<String, dynamic>.from(raw);
+  return WorkflowTaskActivity(
+    actor: value['actor']?.toString() ?? '',
+    action: value['action']?.toString() ?? '',
+    comment: value['comment']?.toString() ?? '',
+    createdOn: DateTime.tryParse(value['created_on']?.toString() ?? ''),
+    stageTitle: value['stage_title']?.toString() ?? '',
+    actorName: value['actor_name']?.toString() ?? '',
+    before: value['before'] is Map
+        ? Map<String, dynamic>.from(value['before'] as Map)
+        : const {},
+    after: value['after'] is Map
+        ? Map<String, dynamic>.from(value['after'] as Map)
+        : const {},
+    labels: value['labels'] is Map
+        ? {
+            for (final entry in (value['labels'] as Map).entries)
+              '${entry.key}': '${entry.value}'
+          }
+        : const {},
+  );
 }
 
 WorkflowInstanceSummary _instance(Map<String, dynamic> item) =>

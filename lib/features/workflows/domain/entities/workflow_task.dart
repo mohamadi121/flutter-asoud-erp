@@ -111,11 +111,17 @@ class WorkflowTaskDataValue extends Equatable {
     required this.key,
     required this.label,
     required this.value,
+    this.fieldtype,
   });
   final String key, label;
   final dynamic value;
+
+  /// The server field type of the value (`Attach`, `Attach Image`, `Data`,
+  /// …); null when the server does not send it (older server or a value that
+  /// is not a form field).
+  final String? fieldtype;
   @override
-  List<Object?> get props => [key, label, value];
+  List<Object?> get props => [key, label, value, fieldtype];
 }
 
 class WorkflowTaskDataSection extends Equatable {
