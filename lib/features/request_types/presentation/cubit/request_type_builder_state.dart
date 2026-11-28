@@ -1,6 +1,7 @@
 part of 'request_type_builder_cubit.dart';
 
-/// Steps: general info, fields, layout preview.
+/// Steps: general info, fields, layout preview, and (user-made types only)
+/// access — who may submit.
 class RequestTypeBuilderState extends Equatable {
   const RequestTypeBuilderState({
     this.step = 0,

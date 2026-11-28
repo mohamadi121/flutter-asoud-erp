@@ -260,7 +260,10 @@ class RequestTypeBuilderCubit extends Cubit<RequestTypeBuilderState> {
 
   void continueToAccess() => emit(state.copyWith(step: 3, clearMessage: true));
 
-  /// Save presentation without changing initiator roles or granting access.
+  /// Ends the builder for a locked system template: saves the form layout and
+  /// completes without touching initiator roles (a system template's access is
+  /// fixed). User-made types instead end with [saveAccess], which sets who may
+  /// submit.
   Future<void> finish() async {
     final definition = state.definition;
     if (definition?.isSystemTemplate == true) {
