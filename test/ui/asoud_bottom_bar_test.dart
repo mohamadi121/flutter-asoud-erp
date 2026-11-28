@@ -119,35 +119,37 @@ void main() {
     expect(first.dx, greaterThan(last.dx));
   });
 
-  testWidgets('offices page از AsoudBottomBar با چهار مقصد استفاده می‌کند',
-      (tester) async {
-    await tester.binding.setSurfaceSize(const Size(390, 844));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    await tester.pumpWidget(
-      RepositoryProvider<OfficeRepository>.value(
-        value: FakeOfficeRepository(),
-        child: MaterialApp(
-          locale: const Locale('fa'),
-          theme: AsoudTheme.light,
-          home: const Directionality(
-            textDirection: TextDirection.rtl,
-            child: OfficesPage(
-              initialState: OfficesState(status: OfficesStatus.empty),
+  for (final width in [320.0, 390.0]) {
+    testWidgets(
+        'offices page بدون نوار پایینِ بی‌کار رندر می‌شود در عرض $width',
+        (tester) async {
+      await tester.binding.setSurfaceSize(Size(width, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        RepositoryProvider<OfficeRepository>.value(
+          value: FakeOfficeRepository(),
+          child: MaterialApp(
+            locale: const Locale('fa'),
+            theme: AsoudTheme.light,
+            home: const Directionality(
+              textDirection: TextDirection.rtl,
+              child: OfficesPage(
+                initialState: OfficesState(status: OfficesStatus.empty),
+              ),
             ),
           ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      await tester.pumpAndSettle();
 
-    final bar = find.byType(AsoudBottomBar);
-    expect(bar, findsOneWidget);
-    expect(find.text('خانه'), findsOneWidget);
-    expect(find.text('منوها'), findsOneWidget);
-    expect(find.text('دفترها'), findsOneWidget);
-    expect(find.text('گزارش‌ها'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
+      // The dead bottom bar (خانه/منوها/گزارش‌ها) fired a misleading
+      // «هنوز به سرور متصل نشده» snackbar, so it is removed entirely.
+      expect(find.byType(AsoudBottomBar), findsNothing);
+      expect(find.text('منوها'), findsNothing);
+      expect(find.text('این قابلیت هنوز به سرور متصل نشده است.'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   testWidgets('workflow bar از AsoudBottomBar با پنج مقصد استفاده می‌کند',
       (tester) async {

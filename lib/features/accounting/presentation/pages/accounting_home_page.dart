@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/theme/asoud_tile_colors.dart';
 import '../../../../core/widgets/asoud_ui.dart';
+import '../../../../core/widgets/coming_soon_badge.dart';
 import '../../../reports/presentation/pages/ledger_page.dart';
 import '../../../reports/presentation/pages/trial_balance_page.dart';
 import 'chart_setup_page.dart';
@@ -94,7 +95,11 @@ class AccountingHomePage extends StatelessWidget {
                           fontWeight: FontWeight.w700,
                           color: enabled ? null : AsoudColors.muted)),
                   trailing: comingSoon
-                      ? const _ComingSoonBadge()
+                      ? const ComingSoonBadge(
+                          fontSize: 10,
+                          padding:
+                              EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        )
                       : enabled
                           ? const Icon(Icons.chevron_left_rounded)
                           : null,
@@ -105,21 +110,4 @@ class AccountingHomePage extends StatelessWidget {
           ])),
     );
   }
-}
-
-class _ComingSoonBadge extends StatelessWidget {
-  const _ComingSoonBadge();
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(
-          color: AsoudColors.warning.withValues(alpha: .12),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: const Text('به‌زودی',
-            style: TextStyle(
-                fontSize: 10,
-                color: AsoudColors.warning,
-                fontWeight: FontWeight.w800)),
-      );
 }
