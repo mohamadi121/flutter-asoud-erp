@@ -640,9 +640,13 @@ class FrappeClient implements FrappeApiClient {
       );
     }
     if (envelope['ok'] != true || !envelope.containsKey('data')) {
-      throw const ApiException(
+      // The server's own Persian sentence (the `failure()` envelope's
+      // `error.message`) is the real reason; the generic sentence stays only
+      // when the server sent none or an English-only sentence.
+      throw ApiException(
         kind: ApiFailureKind.validation,
-        message: 'عملیات در سرور تکمیل نشد. اطلاعات واردشده را بررسی کنید.',
+        message: persianOrFallback(_errorMessage(envelope),
+            'عملیات در سرور تکمیل نشد. اطلاعات واردشده را بررسی کنید.'),
       );
     }
 
@@ -835,12 +839,14 @@ class FrappeClient implements FrappeApiClient {
     }
     if (statusCode == 417) {
       // Business validation (`frappe.throw`): the first server message is
-      // written for the user. Nothing is read from any other status.
+      // written for the user. Nothing is read from any other status. An
+      // English-only sentence is replaced by the generic Persian one.
       final server = _serverMessage(error.response?.data);
       if (server != null) {
         return ApiException(
           kind: ApiFailureKind.validation,
-          message: server.message,
+          message: persianOrFallback(server.message,
+              'اطلاعات ارسال‌شده معتبر نیست.'),
           statusCode: statusCode,
           code: server.code,
         );

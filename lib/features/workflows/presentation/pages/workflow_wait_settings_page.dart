@@ -8,6 +8,7 @@ import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/failure_message.dart';
 import '../../../../core/utils/jalali_date.dart';
 import '../../../../core/utils/persian_format.dart';
+import '../../../../core/utils/persian_time_zone.dart';
 import '../../../../core/widgets/asoud_form.dart';
 import '../../../../core/widgets/asoud_jalali_picker.dart';
 import '../../../../core/widgets/asoud_ui.dart';
@@ -213,7 +214,7 @@ class _WorkflowWaitSettingsPageState extends State<WorkflowWaitSettingsPage> {
   @override
   Widget build(BuildContext context) => Directionality(textDirection: TextDirection.rtl, child: Scaffold(
     backgroundColor: AsoudColors.background,
-    appBar: const PreferredSize(preferredSize: Size.fromHeight(94), child: ColoredBox(color: Color(0xffe9edf8),
+    appBar: const PreferredSize(preferredSize: Size.fromHeight(AsoudHeader.heightWithSubtitle), child: ColoredBox(color: Color(0xffe9edf8),
         child: AsoudHeader(title: 'انتظار و زمان‌بندی', subtitle: 'تنظیمات مرحله گردش‌کار'))),
     body: loading ? const Center(child: CircularProgressIndicator()) : Form(key: form, child: SingleChildScrollView(
       padding: AsoudFormStyle.pagePadding, child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -272,7 +273,7 @@ class _WorkflowWaitSettingsPageState extends State<WorkflowWaitSettingsPage> {
           dropdown('past', 'اگر زمان انتظار گذشته باشد', past, const {'Continue': 'ادامه فوری فرایند', 'Error': 'توقف و ثبت خطا'}, (v) => past = v),
           if (type == 'FormDate') dropdown('changed', 'اگر تاریخ فرم تغییر کند', changedDate,
               const {'Keep': 'حفظ زمان تعیین‌شده قبلی', 'Recalculate': 'محاسبه مجدد زمان انتظار'}, (v) => changedDate = v),
-          Text('منطقه زمانی: ${metadata?['time_zone'] ?? 'دریافت نشده'}${metadata?['zone_source'] == 'System' ? ' (تنظیم سامانه؛ دفتر تنظیم اختصاصی ندارد)' : ''}', style: const TextStyle(fontSize: 12)),
+          Text('منطقه زمانی: ${metadata?['time_zone'] != null ? formatPersianTimeZone('${metadata!['time_zone']}') : 'دریافت نشده'}${metadata?['zone_source'] == 'System' ? ' (تنظیم سامانه؛ دفتر تنظیم اختصاصی ندارد)' : ''}', style: const TextStyle(fontSize: 12)),
           const SizedBox(height: 8), const Text('با لغو یا خاتمهٔ فرایند، انتظار قبلی دیگر ادامه‌ای ایجاد نمی‌کند.', style: TextStyle(fontSize: 11)),
         ]),
         notice('خلاصه زمان‌بندی\n$summary\nادامه در نوبت پردازش سرور انجام می‌شود، نه الزاماً همان ثانیه.'),

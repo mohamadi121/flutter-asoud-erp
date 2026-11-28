@@ -106,6 +106,11 @@ void main() {
     expect(workflowActivityLabel('Start'), 'شروع');
     expect(workflowActivityLabel('wait stage'), 'انتظار');
   });
+
+  test('server-written Note and Created Output actions get Persian labels', () {
+    expect(workflowActivityLabel('Note'), 'یادداشت ثبت شد');
+    expect(workflowActivityLabel('Created Output'), 'سند خروجی ایجاد شد');
+  });
   test('نتیجهٔ اقدام‌ها به رنگ/آیکون درست نگاشت می‌شود', () {
     expect(workflowActivityOutcome('Approve'),
         WorkflowActivityOutcome.approved);

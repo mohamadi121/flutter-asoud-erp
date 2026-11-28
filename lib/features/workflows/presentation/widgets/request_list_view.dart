@@ -3,10 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
-import '../../../../core/utils/failure_message.dart';
 import '../../../../core/utils/jalali_date.dart';
 import '../../../../core/widgets/asoud_form.dart';
 import '../../../../core/widgets/asoud_ui.dart';
+import '../../../../core/widgets/states.dart';
 import '../../data/generic_request_repository.dart';
 import '../../domain/entities/request_models.dart';
 import '../pages/request_flow_pages.dart';
@@ -365,13 +365,6 @@ class RequestListViewState extends State<RequestListView> {
                   onPressed: widget.onCreate,
                   icon: const Icon(Icons.add_rounded)),
         ),
-        floatingActionButton:
-            widget.onCreate != null && widget.createLabel != null
-                ? FloatingActionButton.extended(
-                    icon: const Icon(Icons.add),
-                    label: Text(widget.createLabel!),
-                    onPressed: widget.onCreate)
-                : null,
         body: RefreshIndicator(
           onRefresh: reload,
           child: ListView(
@@ -392,14 +385,8 @@ class RequestListViewState extends State<RequestListView> {
                 const Padding(
                     padding: EdgeInsets.all(40),
                     child: Center(child: CircularProgressIndicator()))
-              else if (_error != null && _items.isEmpty)
-                _state(
-                    failureIsForbidden(_error)
-                        ? Icons.lock_outline_rounded
-                        : Icons.cloud_off_rounded,
-                    failureMessage(_error),
-                    action: failureCanRetry(_error) ? 'تلاش دوباره' : null,
-                    onAction: () => _load())
+              else if (_error case final failure? when _items.isEmpty)
+                ErrorState(failure: failure, onRetry: () => _load())
               else if (_items.isEmpty)
                 _state(
                     searching ? Icons.search_off_rounded : Icons.inbox_outlined,

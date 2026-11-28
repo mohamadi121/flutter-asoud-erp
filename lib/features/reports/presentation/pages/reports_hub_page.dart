@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/auth/capabilities.dart';
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/theme/asoud_tile_colors.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../../core/widgets/states.dart';
 import 'ledger_page.dart';
@@ -39,14 +40,14 @@ class ReportsHubPage extends StatelessWidget {
                   'دفتر کل',
                   'گردش یک حساب با مانده افتتاحیه و اختتامیه',
                   Icons.menu_book_rounded,
-                  const Color(0xFF42A5F5),
+                  AsoudTileColors.base,
                   const LedgerPage(title: 'دفتر کل'),
                 ),
                 (
                   'تراز آزمایشی',
                   'مانده بدهکار و بستانکار همه حساب‌ها در یک دوره',
                   Icons.balance_rounded,
-                  const Color(0xFF26A69A),
+                  AsoudTileColors.base,
                   const TrialBalancePage(),
                 ),
               ];

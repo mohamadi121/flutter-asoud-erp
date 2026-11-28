@@ -4,17 +4,40 @@ import '../theme/asoud_colors.dart';
 
 class AsoudHeader extends StatelessWidget implements PreferredSizeWidget {
   const AsoudHeader(
-      {required this.title, this.subtitle, this.action, super.key});
+      {required this.title,
+      this.subtitle,
+      this.subtitleWidget,
+      this.action,
+      super.key});
 
   final String title;
   final String? subtitle;
+
+  /// Replaces the [subtitle] text (e.g. an [AsoudIdChip] for a Latin id).
+  final Widget? subtitleWidget;
   final Widget? action;
 
-  @override
-  Size get preferredSize => Size.fromHeight(subtitle == null ? 76 : 94);
+  /// Header height with no subtitle.
+  static const double height = 76;
+
+  /// Header height when a subtitle (or subtitle widget) is present.
+  static const double heightWithSubtitle = 98;
 
   @override
-  Widget build(BuildContext context) => SafeArea(
+  Size get preferredSize => Size.fromHeight(
+      subtitle == null && subtitleWidget == null ? height : heightWithSubtitle);
+
+  @override
+  Widget build(BuildContext context) {
+    // The bar height is fixed, so cap its text scaling: at large system font
+    // sizes a 2-line title plus a wrapping subtitle would otherwise overflow
+    // the bar at 320 px. Clamping (rather than forcing one subtitle line)
+    // leaves normal-scale headers pixel-identical.
+    final media = MediaQuery.of(context);
+    final textScaler = media.textScaler.clamp(maxScaleFactor: 1.0);
+    return MediaQuery(
+      data: media.copyWith(textScaler: textScaler),
+      child: SafeArea(
         bottom: false,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
@@ -24,7 +47,7 @@ class AsoudHeader extends StatelessWidget implements PreferredSizeWidget {
                   icon: Icons.chevron_right_rounded,
                   onTap: () => Navigator.of(context).maybePop())
             else
-              const SizedBox(width: 40),
+              const SizedBox(width: 48),
             const SizedBox(width: 10),
             Expanded(
               child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -36,22 +59,27 @@ class AsoudHeader extends StatelessWidget implements PreferredSizeWidget {
                         fontSize: 17,
                         height: 1.3,
                         fontWeight: FontWeight.w800)),
-                if (subtitle != null) ...[
+                if (subtitleWidget != null) ...[
+                  const SizedBox(height: 2),
+                  subtitleWidget!,
+                ] else if (subtitle != null) ...[
                   const SizedBox(height: 2),
                   Text(subtitle!,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,
                       style: const TextStyle(
-                          fontSize: 10, height: 1.4, color: AsoudColors.muted)),
+                          fontSize: 12, height: 1.4, color: AsoudColors.muted)),
                 ],
               ]),
             ),
             const SizedBox(width: 10),
-            SizedBox(width: 40, child: action),
+            SizedBox(width: 48, child: action),
           ]),
         ),
-      );
+      ),
+    );
+  }
 }
 
 class _HeaderButton extends StatelessWidget {
@@ -63,13 +91,13 @@ class _HeaderButton extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Container(
-          width: 40,
-          height: 40,
+          width: 48,
+          height: 48,
           decoration: BoxDecoration(
               color: const Color(0xFFF6F8FC),
               border: Border.all(color: AsoudColors.border),
               borderRadius: BorderRadius.circular(12)),
-          child: Icon(icon, size: 20),
+          child: Icon(icon, size: 22),
         ),
       );
 }
@@ -90,6 +118,45 @@ class AsoudIconBox extends StatelessWidget {
         child: Icon(icon, color: color, size: size * .5),
       );
 }
+
+/// A small left-to-right secondary chip for a Latin identifier (a request
+/// number such as `REQ-00008` or an instance id such as `WFI-...`). It is
+/// deliberately quiet so the identifier reads as metadata, never as a title.
+class AsoudIdChip extends StatelessWidget {
+  const AsoudIdChip(this.id, {super.key});
+  final String id;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+            color: const Color(0xFFF6F8FC),
+            border: Border.all(color: AsoudColors.border),
+            borderRadius: BorderRadius.circular(8)),
+        child: Text(id,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textDirection: TextDirection.ltr,
+            style: const TextStyle(
+                fontSize: 11,
+                height: 1.3,
+                fontWeight: FontWeight.w700,
+                color: AsoudColors.muted)),
+      );
+}
+
+/// The «رد» (reject) decision button: an outlined warning button so it reads
+/// differently from the filled «تأیید»/«بازگشت». When disabled (no reason yet)
+/// it dims to 38 % so it does not look tappable.
+ButtonStyle asoudRejectButtonStyle() => OutlinedButton.styleFrom(
+      foregroundColor: AsoudColors.danger,
+      disabledForegroundColor: AsoudColors.danger.withValues(alpha: .38),
+      side: WidgetStateBorderSide.resolveWith(
+          (states) => BorderSide(
+              color: states.contains(WidgetState.disabled)
+                  ? AsoudColors.danger.withValues(alpha: .38)
+                  : AsoudColors.danger)),
+    );
 
 class AsoudBottomActions extends StatelessWidget {
   const AsoudBottomActions(

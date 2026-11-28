@@ -61,6 +61,9 @@ class _TaskDetailView extends StatelessWidget {
                   ? persianWorkflowStageTitle(detail!.task.title)
                   : 'جزئیات کار',
               subtitle: detail?.task.instance,
+              subtitleWidget: detail?.task.instance.isNotEmpty == true
+                  ? AsoudIdChip(detail!.task.instance)
+                  : null,
             ),
             body: detail == null
                 ? state.status == WorkflowTaskDetailStatus.failure
@@ -211,6 +214,30 @@ class _DecisionBarState extends State<_DecisionBar> {
   bool get _hasReason => _reason.text.trim().isNotEmpty;
 
   Future<void> _decide(String action) async {
+    // Approve is irreversible and needs no reason, so it asks for an explicit
+    // confirmation before it is sent; reject and return already require a
+    // written reason.
+    if (action == 'Approve' || action == 'Complete') {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('تأیید اقدام'),
+          content: const Text(
+              'با لمس «تأیید» تصمیم شما برای این مرحله ثبت می‌شود و قابل بازگشت نیست. ادامه می‌دهید؟'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('انصراف'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('تأیید و ثبت'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+    }
     final comment = action == 'Approve' ? null : _reason.text.trim();
     final done = await context
         .read<WorkflowTaskDetailCubit>()
@@ -239,10 +266,8 @@ class _DecisionBarState extends State<_DecisionBar> {
         child: Text(approveLabel),
       ),
       if (detail.allowReject)
-        FilledButton(
-          style: FilledButton.styleFrom(
-              backgroundColor: AsoudColors.danger,
-              foregroundColor: Colors.white),
+        OutlinedButton(
+          style: asoudRejectButtonStyle(),
           onPressed: saving || !_hasReason ? null : () => _decide('Reject'),
           child: const Text('رد'),
         ),

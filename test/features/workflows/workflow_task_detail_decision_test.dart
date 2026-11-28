@@ -1,3 +1,4 @@
+import 'package:asoud_erp/core/theme/asoud_colors.dart';
 import 'package:asoud_erp/core/theme/asoud_theme.dart';
 import 'package:asoud_erp/features/workflows/domain/entities/workflow_task.dart';
 import 'package:asoud_erp/features/workflows/domain/repositories/workflow_task_repository.dart';
@@ -105,10 +106,16 @@ Future<_CaptureRepository> _open(WidgetTester tester, double width) async {
   return repository;
 }
 
-Finder _button(String label) => find.widgetWithText(FilledButton, label);
+/// «رد» is an outlined button (a warning, distinct from the filled «تأیید»
+/// and «بازگشت»); the other two are filled. The finder returns the concrete
+/// button type so the enabled/disabled checks keep working.
+Finder _button(String label) =>
+    label == 'رد'
+        ? find.widgetWithText(OutlinedButton, label)
+        : find.widgetWithText(FilledButton, label);
 
 bool _enabled(WidgetTester tester, String label) =>
-    tester.widget<FilledButton>(_button(label)).onPressed != null;
+    tester.widget<ButtonStyleButton>(_button(label)).onPressed != null;
 
 void main() {
   testWidgets('سه دکمهٔ تصمیم هم‌رده و دلیل اجباری برای رد/بازگشت',
@@ -119,6 +126,11 @@ void main() {
     expect(_button('رد'), findsOneWidget);
     expect(_button('بازگشت'), findsOneWidget);
     expect(find.text('برای رد یا بازگشت، نوشتن دلیل الزامی است.'), findsOneWidget);
+
+    // «رد» حاشیه‌دار است تا از «بازگشت» (پررنگ) و «تأیید» (پررنگ) متمایز دیده شود.
+    expect(find.widgetWithText(OutlinedButton, 'رد'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'بازگشت'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'تأیید'), findsOneWidget);
 
     // بدون دلیل، اقدام‌های مخرب مسدودند
     expect(_enabled(tester, 'تأیید'), isTrue);
@@ -135,6 +147,20 @@ void main() {
     expect(repository.calls, hasLength(1));
     expect(repository.calls.single.action, 'Reject');
     expect(repository.calls.single.comment, 'بودجه کافی نیست');
+  });
+
+  testWidgets('«رد» غیرفعال رنگ کم‌رنگ‌تری از حالت فعال دارد', (tester) async {
+    await _open(tester, 390);
+    Color fg(Set<WidgetState> states) => tester
+        .widget<OutlinedButton>(find.widgetWithText(OutlinedButton, 'رد'))
+        .style!
+        .foregroundColor!
+        .resolve(states)!;
+    final enabled = fg(const {});
+    final disabled = fg(const {WidgetState.disabled});
+    expect(enabled, AsoudColors.danger);
+    expect(disabled, AsoudColors.danger.withValues(alpha: .38));
+    expect(disabled, isNot(enabled));
   });
 
   testWidgets('روی عرض ۳۲۰ دکمه‌ها بدون سرریز روی هم می‌نشینند',
@@ -155,6 +181,42 @@ void main() {
     final repository = await _open(tester, 390);
 
     await tester.tap(_button('تأیید'));
+    await tester.pumpAndSettle();
+    // A single tap must not approve: the decision bar asks for confirmation.
+    expect(find.text('تأیید اقدام'), findsOneWidget);
+    expect(repository.calls, isEmpty);
+
+    await tester.tap(find.text('تأیید و ثبت'));
+    await tester.pumpAndSettle();
+    expect(repository.calls, hasLength(1));
+    expect(repository.calls.single.action, 'Approve');
+  });
+
+  testWidgets('انصراف از دیالوگ تأیید اقدام را ثبت نمی‌کند', (tester) async {
+    final repository = await _open(tester, 390);
+
+    await tester.tap(_button('تأیید'));
+    await tester.pumpAndSettle();
+    expect(find.text('تأیید اقدام'), findsOneWidget);
+
+    await tester.tap(find.text('انصراف'));
+    await tester.pumpAndSettle();
+    expect(repository.calls, isEmpty);
+    // The decision bar is still there, ready for a real decision.
+    expect(_button('تأیید'), findsOneWidget);
+  });
+
+  testWidgets('روی عرض ۳۲۰ دیالوگ تأیید بدون سرریز باز می‌شود',
+      (tester) async {
+    final repository = await _open(tester, 320);
+
+    await tester.tap(_button('تأیید'));
+    await tester.pumpAndSettle();
+    expect(find.text('تأیید اقدام'), findsOneWidget);
+    expect(find.text('تأیید و ثبت'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.text('تأیید و ثبت'));
     await tester.pumpAndSettle();
     expect(repository.calls, hasLength(1));
     expect(repository.calls.single.action, 'Approve');

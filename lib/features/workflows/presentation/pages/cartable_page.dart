@@ -9,6 +9,7 @@ import '../../../../core/utils/persian_server_values.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../domain/entities/workflow_task.dart';
 import '../../domain/repositories/workflow_task_repository.dart';
+import '../widgets/request_status.dart' show stoppedOutcomeLabel;
 import 'workflow_instance_detail_page.dart';
 import 'workflow_task_detail_page.dart';
 import 'workflow_tasks_page.dart';
@@ -718,7 +719,9 @@ class _Item {
       ? directiveLabel(directiveData!['status'] as String)
       : summary == null
           ? 'وضعیت گردش دریافت نشده'
-          : persianWorkflowStatus(summary!.status);
+          : stoppedOutcomeLabel(
+                  status: summary!.status, endOutcome: summary!.endOutcome) ??
+              persianWorkflowStatus(summary!.status);
   String get sender => directiveData?['sender'] as String? ?? '';
   String get recipients => directiveData != null
       ? directiveRows(directiveData!['executors'])

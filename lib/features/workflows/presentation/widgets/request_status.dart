@@ -16,6 +16,20 @@ Color requestStatusColor(RequestStatusKey key) => switch (key) {
       RequestStatusKey.draft => AsoudColors.warning,
     };
 
+/// The «متوقف شد» label when a Failed request or instance ended in a designed
+/// Stop (`end_outcome == 'Stopped'`); null for every other combination. Shared
+/// by the request status chip and the cartable so the two never drift.
+String? stoppedOutcomeLabel({
+  required String status,
+  required String endOutcome,
+  String statusKey = '',
+}) {
+  if ((status == 'Failed' || statusKey == 'failed') && endOutcome == 'Stopped') {
+    return 'متوقف شد';
+  }
+  return null;
+}
+
 /// Label and color of a request's status for chips and print. Client-only
 /// states come first («ذخیره روی گوشی», «در انتظار همگام‌سازی»); then
 /// `status_key` / `status_label`; rows without a `status_key` use the legacy
@@ -24,8 +38,10 @@ Color requestStatusColor(RequestStatusKey key) => switch (key) {
   final key = '${data['status_key'] ?? ''}';
   final status = '${data['status'] ?? ''}';
   final endOutcome = '${data['end_outcome'] ?? ''}';
-  if ((status == 'Failed' || key == 'failed') && endOutcome == 'Stopped') {
-    return ('متوقف شد', AsoudColors.muted);
+  final stopped = stoppedOutcomeLabel(
+      status: status, endOutcome: endOutcome, statusKey: key);
+  if (stopped != null) {
+    return (stopped, AsoudColors.muted);
   }
   if (data['local_preview'] == true) {
     return ('ذخیره روی گوشی', AsoudColors.primary);

@@ -16,6 +16,17 @@ const oversizedResponseFailureMessage = 'پاسخ سرور بیش از حد بز
 /// Accepts an [ApiException] or a non-empty string. Strings are passed through
 /// unchanged so cubits that already format a specific Persian reason keep their
 /// wording instead of being replaced by the generic message.
+///
+/// Validation refusals (HTTP 417) carry the server's own sentence in
+/// [ApiException.message] (see `docs/api/README.md` in the backend repo: the
+/// 417 `_server_messages` entry is written for the user). It is shown verbatim
+/// only when it is a Persian sentence — i.e. it contains at least one
+/// Arabic/Persian letter (U+0600–U+06FF). The backend still has English-only
+/// error strings (e.g. `ValueError` messages), and the app rule is that every
+/// failure shown to a user is Persian, so an English-only 417 falls back to
+/// the generic «اطلاعات واردشده را بررسی کنید.»
+final _hasArabicLetter = RegExp(r'[\u0600-\u06FF]');
+
 String failureMessage(Object? failure) {
   if (failure is String) {
     final message = failure.trim();
@@ -23,6 +34,12 @@ String failureMessage(Object? failure) {
   }
   if (failure is! ApiException) {
     return _genericFailure;
+  }
+  if (failure.kind == ApiFailureKind.validation) {
+    final message = failure.message.trim();
+    if (message.isNotEmpty && _hasArabicLetter.hasMatch(message)) {
+      return message;
+    }
   }
   return switch (failure.kind) {
     ApiFailureKind.invalidCredentials => 'نام کاربری یا گذرواژه درست نیست.',
@@ -77,4 +94,15 @@ String failureDetail(Object? failure) {
     return failure.message.trim();
   }
   return failureMessage(failure);
+}
+
+/// The server's own sentence, shown only when it is written for the user —
+/// i.e. it contains at least one Persian/Arabic letter (U+0600–U+06FF).
+/// Otherwise [fallback] is returned, so an English-only server sentence never
+/// reaches the screen. Applied at the source (where a validation
+/// [ApiException] is built from a server sentence) so every direct `e.message`
+/// use downstream is safe.
+String persianOrFallback(String? text, String fallback) {
+  final message = text ?? '';
+  return RegExp(r'[؀-ۿ]').hasMatch(message) ? message : fallback;
 }

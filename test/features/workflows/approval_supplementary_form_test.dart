@@ -192,7 +192,12 @@ Future<_FakeTaskRepository> _pump(
   return repository;
 }
 
-Finder _button(String label) => find.widgetWithText(FilledButton, label);
+/// «رد» is an outlined button (a warning, distinct from the filled «تأیید»);
+/// the other decision buttons are filled.
+Finder _button(String label) =>
+    label == 'رد'
+        ? find.widgetWithText(OutlinedButton, label)
+        : find.widgetWithText(FilledButton, label);
 
 /// The decision bar's reason field (hint «دلیل / توضیح»), distinct from the
 /// supplementary form's own text inputs.
@@ -223,6 +228,8 @@ void main() {
     await tester.pump();
     await tester.tap(_button('تأیید'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('تأیید و ثبت'));
+    await tester.pumpAndSettle();
     expect(repository.completeCalls, hasLength(1));
     final call = repository.completeCalls.single;
     expect(call.action, 'Approve');
@@ -250,6 +257,8 @@ void main() {
     await tester.pump();
     await tester.tap(_button('تأیید'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('تأیید و ثبت'));
+    await tester.pumpAndSettle();
     expect(find.text('فیلد الزامی است.'), findsOneWidget);
     expect(_button('تأیید'), findsOneWidget);
     expect(repository.completeCalls, isEmpty);
@@ -270,6 +279,8 @@ void main() {
       (tester) async {
     final repository = await _pump(tester, 390, _legacyDetail());
     await tester.tap(_button('تأیید'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('تأیید و ثبت'));
     await tester.pumpAndSettle();
     expect(repository.plainCompleteActions, ['Approve']);
     expect(repository.completeCalls, isEmpty);
@@ -307,6 +318,8 @@ void main() {
     await tester.enterText(find.byType(TextFormField), 'بررسی شد');
     await tester.pump();
     await tester.tap(_button('تأیید'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('تأیید و ثبت'));
     await tester.pumpAndSettle();
     // The offline preview cannot record the supplementary form; the exact
     // Persian reason (an ApiException) survives failureDetail and is shown.

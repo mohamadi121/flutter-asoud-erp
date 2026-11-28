@@ -7,9 +7,11 @@ import '../../../../core/auth/capabilities.dart';
 import '../../../../core/network/frappe_client.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/theme/asoud_tile_colors.dart';
 import '../../../../core/utils/jalali_date.dart';
 import '../../../../core/utils/persian_server_values.dart';
 import '../../../../core/widgets/asoud_ui.dart';
+import '../../../../core/widgets/coming_soon_badge.dart';
 import '../../../../core/widgets/states.dart';
 import '../../../accounting/presentation/pages/accounting_home_page.dart';
 import '../../../employee/domain/employee_mode.dart';
@@ -504,10 +506,6 @@ class _DashboardPageState extends State<DashboardPage> {
                           CartablePage(company: widget.officeName ?? ''),
                     ),
                   );
-                } else if (index != 0) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                    content: Text('این بخش هنوز به سرور متصل نشده است.'),
-                  ));
                 }
               },
               destinations: const [
@@ -912,42 +910,42 @@ class _QuickActions extends StatelessWidget {
         'دریافت و پرداخت',
         'نقد و بانک',
         Icons.payments_outlined,
-        AsoudColors.success,
+        AsoudTileColors.base,
         onPayments
       ),
       (
         'فاکتور فروش',
         'صدور و پیگیری',
         Icons.description_outlined,
-        AsoudColors.primary,
+        AsoudTileColors.base,
         onSalesInvoice
       ),
       (
         'ثبت درخواست',
         'گردش کار و فرم‌ها',
         Icons.shopping_cart_checkout_rounded,
-        AsoudColors.warning,
+        AsoudTileColors.base,
         onPurchaseRequest
       ),
       (
         'ثبت حسابداری',
         'اسناد مالی',
         Icons.receipt_long_outlined,
-        AsoudColors.purple,
+        AsoudTileColors.base,
         onAccounting
       ),
       (
         'ایجاد سند',
         'الگوهای آماده',
         Icons.post_add_rounded,
-        AsoudColors.danger,
+        AsoudTileColors.base,
         onDocuments
       ),
       (
         'طرف حساب‌ها',
         'مشتریان و تأمین‌کنندگان',
         Icons.people_outline_rounded,
-        AsoudColors.cyan,
+        AsoudTileColors.base,
         onParties
       ),
     ];
@@ -969,7 +967,7 @@ class _QuickActions extends StatelessWidget {
               child: Row(children: [
                 AsoudIconBox(
                     icon: item.$3,
-                    color: enabled ? item.$4 : AsoudColors.muted,
+                    color: enabled ? item.$4 : AsoudTileColors.disabled,
                     size: 34),
                 const SizedBox(width: 7),
                 Expanded(
@@ -990,7 +988,7 @@ class _QuickActions extends StatelessWidget {
                                   : AsoudColors.muted.withValues(alpha: .6))),
                       if (!enabled) ...[
                         const SizedBox(height: 2),
-                        const _SoonBadge(),
+                        const ComingSoonBadge(),
                       ],
                     ],
                   ),
@@ -1002,23 +1000,6 @@ class _QuickActions extends StatelessWidget {
       }).toList(),
     );
   }
-}
-
-class _SoonBadge extends StatelessWidget {
-  const _SoonBadge();
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-        decoration: BoxDecoration(
-          color: AsoudColors.warning.withValues(alpha: .12),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: const Text('به‌زودی',
-            style: TextStyle(
-                fontSize: 8,
-                color: AsoudColors.warning,
-                fontWeight: FontWeight.w800)),
-      );
 }
 
 class _UnavailablePage extends StatelessWidget {

@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/auth/capabilities.dart';
 import '../../../../core/theme/asoud_colors.dart';
+import '../../../../core/theme/asoud_tile_colors.dart';
 import '../../../../core/widgets/asoud_ui.dart';
 import '../../../../core/widgets/states.dart';
 import '../../../../core/utils/persian_server_values.dart';
@@ -111,7 +112,7 @@ class _HrHome extends StatelessWidget {
                   const SizedBox(height: 16),
                   const AsoudSectionTitle(title: 'خدمات منابع انسانی'),
                   _Action('پروفایل من', 'اطلاعات کاری و مدیر مستقیم',
-                      Icons.account_circle_outlined, AsoudColors.primary, () {
+                      Icons.account_circle_outlined, AsoudTileColors.base, () {
                     if (data.employee.partyProfile.isEmpty) {
                       _push(context, HrProfilePage(employee: data.employee));
                       return;
@@ -131,7 +132,7 @@ class _HrHome extends StatelessWidget {
                   'لیست پرسنل',
                   'مشاهده، ایجاد و ویرایش اطلاعات پرسنلی',
                   Icons.people_alt_outlined,
-                  AsoudColors.warning,
+                  AsoudTileColors.base,
                   () => _push(context, PersonnelPage(company: company)),
                 ),
                 HrDocumentActions(company: company),
@@ -139,7 +140,7 @@ class _HrHome extends StatelessWidget {
                   'تیم و ساختار سازمانی',
                   'همکاران، واحدها و مسیر سازمانی',
                   Icons.account_tree_outlined,
-                  AsoudColors.cyan,
+                  AsoudTileColors.base,
                   () => _push(context, OrganizationPage(company: company)),
                 ),
                 if (data.managerAccess) ...[
@@ -147,7 +148,7 @@ class _HrHome extends StatelessWidget {
                     'درخواست‌های مرخصی',
                     'مشاهده درخواست‌ها و وضعیت مرخصی',
                     Icons.beach_access_outlined,
-                    AsoudColors.cyan,
+                    AsoudTileColors.base,
                     () =>
                         _push(context, LeaveRequestsListPage(company: company)),
                   ),
@@ -155,7 +156,7 @@ class _HrHome extends StatelessWidget {
                     'حضور و غیاب',
                     'مشاهده سوابق حضور و ثبت ورود و خروج',
                     Icons.schedule_rounded,
-                    AsoudColors.success,
+                    AsoudTileColors.base,
                     () => _push(
                       context,
                       MyAttendancePage(
@@ -170,21 +171,21 @@ class _HrHome extends StatelessWidget {
                   'گزارش کار روزانه',
                   'فعالیت‌ها، پیش‌نویس و بازخورد',
                   Icons.fact_check_outlined,
-                  AsoudColors.success,
+                  AsoudTileColors.base,
                   () => _push(context, WorkReportsPage(company: company)),
                 ),
                 _Action(
                   'مکاتبات داخلی',
                   'نامه، درخواست و اقدام سازمانی',
                   Icons.mark_email_unread_outlined,
-                  AsoudColors.purple,
+                  AsoudTileColors.base,
                   () => _push(context, HrCommunicationsPage(company: company)),
                 ),
                 _Action(
                   'اعلان‌های منابع انسانی',
                   'رویدادها و مهلت‌های مهم',
                   Icons.notifications_active_outlined,
-                  AsoudColors.warning,
+                  AsoudTileColors.base,
                   () => _push(context, HrNotificationsPage(company: company)),
                 ),
               ],
@@ -224,20 +225,20 @@ class _ManagerHrHome extends StatelessWidget {
               'لیست پرسنل',
               'مشاهده، ایجاد و ویرایش اطلاعات پرسنلی',
               Icons.people_alt_outlined,
-              AsoudColors.warning,
+              AsoudTileColors.base,
               () => _push(context, PersonnelPage(company: company))),
           HrDocumentActions(company: company),
           _Action(
               'درخواست‌های مرخصی',
               'مشاهده درخواست‌ها و وضعیت مرخصی',
               Icons.beach_access_outlined,
-              AsoudColors.cyan,
+              AsoudTileColors.base,
               () => _push(context, LeaveRequestsListPage(company: company))),
           _Action(
               'حضور و غیاب',
               'مشاهده سوابق حضور و ثبت ورود و خروج',
               Icons.schedule_rounded,
-              AsoudColors.success,
+              AsoudTileColors.base,
               () => _push(
                   context,
                   MyAttendancePage(
@@ -247,13 +248,13 @@ class _ManagerHrHome extends StatelessWidget {
               'گزارش کار روزانه',
               'فعالیت‌ها، پیش‌نویس و بازخورد',
               Icons.fact_check_outlined,
-              AsoudColors.success,
+              AsoudTileColors.base,
               () => _push(context, WorkReportsPage(company: company))),
           _Action(
               'اعلان‌های منابع انسانی',
               'رویدادها و مهلت‌های مهم',
               Icons.notifications_active_outlined,
-              AsoudColors.warning,
+              AsoudTileColors.base,
               () => _push(context, HrNotificationsPage(company: company))),
         ],
       );
@@ -295,7 +296,7 @@ class _OfflineHrHome extends StatelessWidget {
             'ساختار سازمانی',
             'جایگاه‌ها، بالادست و انتصاب پرسنل',
             Icons.account_tree_outlined,
-            AsoudColors.primary,
+            AsoudTileColors.base,
             () => Navigator.push(
                 context,
                 MaterialPageRoute<void>(
@@ -305,7 +306,7 @@ class _OfflineHrHome extends StatelessWidget {
             'لیست پرسنل',
             'ثبت و ویرایش اطلاعات پرسنل به‌صورت محلی',
             Icons.people_alt_outlined,
-            AsoudColors.cyan,
+            AsoudTileColors.base,
             () => Navigator.push(
                 context,
                 MaterialPageRoute<void>(
@@ -316,7 +317,7 @@ class _OfflineHrHome extends StatelessWidget {
             'گزارش کار روزانه',
             'ثبت پیش‌نویس و نگهداری روی گوشی',
             Icons.fact_check_outlined,
-            AsoudColors.success,
+            AsoudTileColors.base,
             () => Navigator.push(
                 context,
                 MaterialPageRoute<void>(
@@ -327,7 +328,7 @@ class _OfflineHrHome extends StatelessWidget {
             'مکاتبات داخلی',
             'ثبت پیش‌نویس آفلاین برای همگام‌سازی بعدی',
             Icons.mark_email_unread_outlined,
-            AsoudColors.purple,
+            AsoudTileColors.base,
             () => Navigator.push(
                 context,
                 MaterialPageRoute<void>(
@@ -820,32 +821,32 @@ class _HrDocumentActionsState extends State<HrDocumentActions> {
       return Column(children: [
         if (caps.canManageContractTemplates)
           _Action('قالب‌های قرارداد', 'طراحی و انتشار قالب قرارداد کار',
-            Icons.article_outlined, AsoudColors.primary,
+            Icons.article_outlined, AsoudTileColors.base,
             () => _open(HrContractBuilderPage(company: company,
               repository: ServerHrContractTemplateRepository(context.read<FrappeApiClient>()),
               canManageTemplate: caps.canManageContractTemplates))),
         if (caps.canIssueHrDocuments) ...[
           _Action('قراردادهای پرسنلی', 'صدور، پیگیری و چاپ قراردادهای کار',
-            Icons.badge_outlined, AsoudColors.primary,
+            Icons.badge_outlined, AsoudTileColors.base,
             () => _open(HrContractsPage(company: company,
               repository: ServerHrContractsRepository(context.read<FrappeApiClient>()),
               templateRepository: ServerHrContractTemplateRepository(context.read<FrappeApiClient>()),
               canManageTemplate: caps.canManageContractTemplates))),
           _Action('گواهی‌های اشتغال به کار', 'صدور، مشاهده و چاپ اسناد پرسنلی',
-            Icons.description_outlined, AsoudColors.primary,
+            Icons.description_outlined, AsoudTileColors.base,
             () => _open(EmploymentCertificatesPage(company: company,
               canManageTemplate: caps.canManageCertificateTemplates))),
           _Action('احکام استخدام', 'صدور، پیگیری و چاپ احکام کارگزینی',
-            Icons.assignment_outlined, AsoudColors.primary,
+            Icons.assignment_outlined, AsoudTileColors.base,
             () => _open(HiringOrdersPage(company: company, capabilities: caps))),
           _Action('معرفی‌نامه‌های پرسنلی', 'صدور، مشاهده و چاپ معرفی‌نامه‌ها',
-            Icons.assignment_ind_outlined, AsoudColors.primary,
+            Icons.assignment_ind_outlined, AsoudTileColors.base,
             () => _open(PersonnelIntroductionLettersPage(company: company,
               canManageTemplate: caps.canManageIntroductionTemplates))),
         ],
         if (caps.canReadSalaryOrders)
           _Action('احکام تغییر حقوق و مزایا', 'صدور، مقایسه، گردش‌کار و اعمال احکام حقوقی',
-            Icons.request_quote_outlined, AsoudColors.primary,
+            Icons.request_quote_outlined, AsoudTileColors.base,
             () => _open(SalaryChangeOrdersPage(company: company,
               canIssue: caps.canManageSalaryTemplates,
               canDesign: caps.canManageSalaryTemplates,

@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/asoud_colors.dart';
 import '../../../../core/utils/failure_message.dart';
+import '../../../../core/widgets/asoud_ui.dart';
 import '../../domain/entities/request_models.dart';
 import '../../domain/repositories/workflow_task_repository.dart';
 import '../pages/workflow_task_detail_page.dart';
@@ -151,9 +152,8 @@ class _ActionCardState extends State<_ActionCard> {
                         _busy ? null : () => _decide('Return', 'بازگرداندن'),
                     child: const Text('بازگرداندن')),
               if (task['allow_reject'] == true)
-                FilledButton(
-                    style: FilledButton.styleFrom(
-                        backgroundColor: AsoudColors.danger),
+                OutlinedButton(
+                    style: asoudRejectButtonStyle(),
                     onPressed: _busy ? null : () => _decide('Reject', 'رد'),
                     child: const Text('رد')),
             ]),

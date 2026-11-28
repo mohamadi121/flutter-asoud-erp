@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/offline/offline_failure.dart';
+import '../../../../core/utils/file_name_label.dart';
 import '../../form_repository.dart';
 
 Widget? buildFileInput({
@@ -21,6 +22,9 @@ Widget? buildFileInput({
     return null;
   }
   final policy = repository is FormAttachmentPolicy ? repository as FormAttachmentPolicy : null;
+  final subtitle = policy != null
+      ? policy.fileLabel(value)
+      : (value == null || value == '' ? 'فایل انتخاب نشده' : fileNamesLabel(value));
 
   return Column(
     children: [
@@ -28,7 +32,7 @@ Widget? buildFileInput({
         color: Colors.transparent,
         child: ListTile(
           title: Text(label),
-          subtitle: Text(policy?.fileLabel(value) ?? '${value ?? 'فایل انتخاب نشده'}'),
+          subtitle: Text(subtitle),
           trailing: value == null
               ? null
               : IconButton(

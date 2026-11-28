@@ -99,7 +99,7 @@ class _EmployeeShellState extends State<EmployeeShell> {
                   selectedIcon: Icon(Icons.home_rounded),
                   label: 'خانه'),
               NavigationDestination(
-                  icon: Icon(Icons.description_outlined), label: 'عملیات'),
+                  icon: Icon(Icons.description_outlined), label: 'درخواست‌ها'),
               NavigationDestination(
                   icon: DecoratedBox(
                       decoration: BoxDecoration(
@@ -135,12 +135,6 @@ class _MoreTab extends StatelessWidget {
         .push(MaterialPageRoute<void>(builder: (_) => page));
     final items = <(String, IconData, Color, VoidCallback)>[
       (
-        'کارتابل',
-        Icons.assignment_ind_outlined,
-        AsoudColors.primary,
-        () => push(CartablePage(company: company))
-      ),
-      (
         'پرونده من',
         Icons.badge_outlined,
         AsoudColors.cyan,
@@ -165,7 +159,7 @@ class _MoreTab extends StatelessWidget {
         () => push(WorkReportsPage(company: company))
       ),
       (
-        'اعلان‌ها',
+        'اعلان‌های من',
         Icons.notifications_none_rounded,
         AsoudColors.primary,
         () => push(const WorkflowNotificationsPage())
@@ -177,7 +171,7 @@ class _MoreTab extends StatelessWidget {
         () => push(const AccountSecurityPage())
       ),
       (
-        'اطلاعیه‌ها',
+        'اطلاعیه‌های سازمان',
         Icons.campaign_outlined,
         AsoudColors.purple,
         () => push(AnnouncementsPage(

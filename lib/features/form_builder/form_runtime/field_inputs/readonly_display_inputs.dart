@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/utils/file_name_label.dart';
 import '../../../../core/utils/jalali_date.dart';
 import '../../form_repository.dart';
 import '../rules_engine.dart';
@@ -32,7 +33,9 @@ Widget? buildReadonlyDisplayInput({
         ? formatJalaliDateTimeIso('$value')
         : ['Boolean', 'Checkbox'].contains(type)
             ? (value == true ? 'بله' : 'خیر')
-            : '${value ?? ''}';
+            : ['File', 'Image', 'Signature'].contains(type)
+                ? fileNamesLabel(value)
+                : '${value ?? ''}';
     return Material(
       color: Colors.transparent,
       child: ListTile(title: Text(label), subtitle: Text(text)),

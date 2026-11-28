@@ -208,19 +208,51 @@ void main() {
     await tester.pumpWidget(_app(EmployeeShell(
         company: 'Tabaan', files: _Files(), selfService: _SelfService())));
     await tester.pumpAndSettle();
-    for (final label in ['خانه', 'عملیات', 'ایجاد', 'کارتابل', 'بیشتر']) {
+    for (final label in ['خانه', 'درخواست‌ها', 'ایجاد', 'کارتابل', 'بیشتر']) {
       expect(find.widgetWithText(NavigationDestination, label), findsOneWidget,
           reason: label);
     }
     await tester.tap(find.widgetWithText(NavigationDestination, 'بیشتر'));
     await tester.pumpAndSettle();
-    for (final label in ['کارتابل', 'پرونده من', 'مدارک من', 'اطلاعیه‌ها']) {
+    for (final label in [
+      'پرونده من',
+      'مدارک من',
+      'اعلان‌های من',
+      'اطلاعیه‌های سازمان'
+    ]) {
       expect(find.widgetWithText(ListTile, label), findsOneWidget,
           reason: label);
     }
+    // «کارتابل» is a bottom destination, not a duplicate row in «بیشتر».
+    expect(find.widgetWithText(ListTile, 'کارتابل'), findsNothing);
     await tester.tap(find.text('حضور و غیاب'));
     await tester.pumpAndSettle();
     expect(find.byType(MyAttendancePage), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('more tab renders without overflow at 320 px', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(320, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(_app(EmployeeShell(
+        company: 'Tabaan', files: _Files(), selfService: _SelfService())));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(NavigationDestination, 'بیشتر'));
+    await tester.pumpAndSettle();
+    // Every row of the more tab is visible and the tab title is present.
+    for (final label in [
+      'پرونده من',
+      'مدارک من',
+      'حضور و غیاب',
+      'گزارش کار',
+      'اعلان‌های من',
+      'حساب کاربری · امنیت حساب',
+      'اطلاعیه‌های سازمان'
+    ]) {
+      await tester.scrollUntilVisible(find.text(label), 150,
+          scrollable: find.byType(Scrollable).first);
+      expect(find.text(label), findsOneWidget, reason: label);
+    }
     expect(tester.takeException(), isNull);
   });
 
