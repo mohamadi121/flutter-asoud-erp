@@ -16,7 +16,11 @@ class PersonnelState {
   final List<Map<String, dynamic>> rows;
   final bool loading, canEdit;
   final bool offline, pendingSync, syncFailed;
-  final String? error;
+
+  /// The raw failure of the last list load, kept so the page can show the
+  /// shared error state (forbidden vs network vs server) instead of an
+  /// empty-looking list.
+  final Object? error;
   final String query, department, status;
   static bool matchesStatus(Map<String, dynamic> row, String status) =>
       status == 'all' ||
@@ -70,11 +74,9 @@ class PersonnelCubit extends Cubit<PersonnelState> {
           query: previous.query,
           department: previous.department,
           status: previous.status));
-    } catch (_) {
+    } catch (error) {
       if (!isClosed) {
-        emit(const PersonnelState(
-            error:
-                'دریافت لیست پرسنل ممکن نشد؛ اتصال و دسترسی را بررسی کنید.'));
+        emit(PersonnelState(error: error));
       }
     }
   }
