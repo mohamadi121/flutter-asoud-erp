@@ -1,4 +1,5 @@
 
+import 'package:asoud_erp/core/network/api_exception.dart';
 import 'package:asoud_erp/core/theme/asoud_theme.dart';
 import 'package:asoud_erp/core/offline/local_record.dart';
 import 'package:asoud_erp/features/workflows/data/generic_request_repository.dart';
@@ -280,12 +281,28 @@ void main() {
   testWidgets('empty and error states offer a retry', (tester) async {
     final repo = _Repo([])..failure = StateError('boom');
     await _open(tester, repo);
+    expect(find.text('دریافت اطلاعات ناموفق بود'), findsOneWidget);
     expect(find.text('تلاش دوباره'), findsOneWidget);
     repo.failure = null;
     await tester.tap(find.text('تلاش دوباره'));
     await tester.pumpAndSettle();
     expect(find.text('هنوز درخواستی ثبت نشده است.'), findsOneWidget);
     expect(find.text('تلاش دوباره'), findsNothing);
+  });
+
+  testWidgets('خطای دسترسی فهرست درخواست‌ها دکمهٔ تلاش دوباره ندارد و در ۳۲۰ پیکسل بدون سرریز است',
+      (tester) async {
+    tester.view.physicalSize = const Size(320, 780);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final repo = _Repo([])..failure = const ApiException(
+        kind: ApiFailureKind.forbidden, message: '403');
+    await _open(tester, repo);
+    expect(find.text('دسترسی محدود است'), findsOneWidget);
+    expect(find.text('اجازه دسترسی به این بخش را ندارید'), findsOneWidget);
+    expect(find.text('تلاش دوباره'), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('a custom empty text and card builder are used', (tester) async {
