@@ -138,15 +138,14 @@ void main() {
         company: 'شرکت', files: HomeFiles(), selfService: SelfService())));
     await tester.pumpAndSettle();
     expect(find.byType(NavigationDestination), findsNWidgets(5));
-    for (final label in ['خانه', 'عملیات', 'ایجاد', 'کارتابل', 'بیشتر']) {
+    for (final label in ['خانه', 'درخواست‌ها', 'ایجاد', 'کارتابل', 'بیشتر']) {
       expect(find.widgetWithText(NavigationDestination, label), findsOneWidget);
     }
     await tester.tap(find.widgetWithText(NavigationDestination, 'بیشتر'));
     await tester.pumpAndSettle();
     for (final label in [
-      'کارتابل',
-      'اطلاعیه‌ها',
-      'اعلان‌ها',
+      'اطلاعیه‌های سازمان',
+      'اعلان‌های من',
       'مدارک من',
       'پرونده من',
       'حضور و غیاب',
@@ -154,6 +153,8 @@ void main() {
     ]) {
       expect(find.widgetWithText(ListTile, label), findsOneWidget);
     }
+    // «کارتابل» is a bottom destination, not a duplicate row in «بیشتر».
+    expect(find.widgetWithText(ListTile, 'کارتابل'), findsNothing);
     await tester.tap(find.text('پرونده من'));
     await tester.pumpAndSettle();
     expect(find.byType(MyInfoPage), findsOneWidget);
