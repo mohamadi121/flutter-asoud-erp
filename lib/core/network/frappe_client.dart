@@ -640,9 +640,13 @@ class FrappeClient implements FrappeApiClient {
       );
     }
     if (envelope['ok'] != true || !envelope.containsKey('data')) {
-      throw const ApiException(
+      // The server's own Persian sentence (the `failure()` envelope's
+      // `error.message`) is the real reason; the generic sentence stays only
+      // when the server sent none. Display guarding stays in `failureMessage`.
+      throw ApiException(
         kind: ApiFailureKind.validation,
-        message: 'عملیات در سرور تکمیل نشد. اطلاعات واردشده را بررسی کنید.',
+        message: _errorMessage(envelope) ??
+            'عملیات در سرور تکمیل نشد. اطلاعات واردشده را بررسی کنید.',
       );
     }
 
