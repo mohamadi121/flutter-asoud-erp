@@ -61,6 +61,9 @@ class _TaskDetailView extends StatelessWidget {
                   ? persianWorkflowStageTitle(detail!.task.title)
                   : 'جزئیات کار',
               subtitle: detail?.task.instance,
+              subtitleWidget: detail?.task.instance.isNotEmpty == true
+                  ? AsoudIdChip(detail!.task.instance)
+                  : null,
             ),
             body: detail == null
                 ? state.status == WorkflowTaskDetailStatus.failure
@@ -263,10 +266,8 @@ class _DecisionBarState extends State<_DecisionBar> {
         child: Text(approveLabel),
       ),
       if (detail.allowReject)
-        FilledButton(
-          style: FilledButton.styleFrom(
-              backgroundColor: AsoudColors.danger,
-              foregroundColor: Colors.white),
+        OutlinedButton(
+          style: asoudRejectButtonStyle(),
           onPressed: saving || !_hasReason ? null : () => _decide('Reject'),
           child: const Text('رد'),
         ),

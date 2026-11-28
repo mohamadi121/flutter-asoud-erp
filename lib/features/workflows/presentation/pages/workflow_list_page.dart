@@ -442,11 +442,10 @@ class _WorkflowCardState extends State<_WorkflowCard> {
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                             fontSize: 12, fontWeight: FontWeight.w900)),
-                    const SizedBox(height: 2),
-                    Text(item.code,
-                        textDirection: TextDirection.ltr,
-                        style: const TextStyle(
-                            fontSize: 9, color: AsoudColors.muted)),
+                    if (!item.code.startsWith('SYS-')) ...[
+                      const SizedBox(height: 4),
+                      AsoudIdChip(item.code),
+                    ],
                     const SizedBox(height: 5),
                     Text(_subtitle(item),
                         maxLines: 1,

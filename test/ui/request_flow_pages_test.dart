@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:asoud_erp/core/theme/asoud_theme.dart';
+import 'package:asoud_erp/core/widgets/asoud_ui.dart';
 import 'package:asoud_erp/features/workflows/data/generic_request_repository.dart';
 import 'package:asoud_erp/features/workflows/domain/entities/request_models.dart';
 import 'package:asoud_erp/features/workflows/domain/entities/workflow_task.dart';
@@ -220,6 +221,25 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('detail number chip fits at 320 px without overflow',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(320, 1100));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final repo = _Repo();
+    when(() => repo.detail('PR-1403-025')).thenAnswer((_) async => _request());
+    when(() => repo.options()).thenAnswer((_) async => [_type]);
+    await tester.pumpWidget(_app(RequestDetailPage(
+        name: 'PR-1403-025', repository: repo, tasks: _Tasks())));
+    await tester.pumpAndSettle();
+
+    // The request number is a small secondary LTR chip, not a title.
+    expect(
+        find.ancestor(
+            of: find.text('PR-1403-025'), matching: find.byType(AsoudIdChip)),
+        findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('completed requests only print, export and show the workflow',
       (tester) async {
     final repo = _Repo();
@@ -331,6 +351,12 @@ void main() {
     expect(find.textContaining('LOCAL-12345'), findsWidgets);
     await _tap(tester, find.text('مشاهده جزئیات درخواست'));
     expect(find.text('LOCAL-12345'), findsOneWidget);
+    // The request number is a small secondary LTR chip, not a title.
+    expect(
+        find.ancestor(
+            of: find.text('LOCAL-12345'),
+            matching: find.byType(AsoudIdChip)),
+        findsOneWidget);
     expect(find.text('ذخیره روی گوشی'), findsOneWidget);
     expect(find.text('درخواست خرید'), findsOneWidget); // title from the type
     await _tap(tester, find.byTooltip('عملیات'));

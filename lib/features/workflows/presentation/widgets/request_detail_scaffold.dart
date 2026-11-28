@@ -793,22 +793,25 @@ class _RequestDetailScaffoldState extends State<RequestDetailScaffold> {
             ),
           _card([
             Row(children: [
-              Expanded(
-                  child: Text(number,
-                      textDirection: TextDirection.ltr,
-                      textAlign: TextAlign.start,
-                      style: const TextStyle(
-                          fontSize: 15, fontWeight: FontWeight.w900))),
               Flexible(
-                  child: Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      alignment: WrapAlignment.end,
-                      children: [
-                    RequestStatusChip(value),
-                    if (detail.native.hasStatus)
-                      RequestNativeChip(detail.native),
-                  ])),
+                  child: number == '—' || number.isEmpty
+                      ? const Text('—',
+                          style: TextStyle(
+                              fontSize: 13, color: AsoudColors.muted))
+                      : AsoudIdChip(number)),
+              const SizedBox(width: 8),
+              Expanded(
+                  child: Align(
+                      alignment: AlignmentDirectional.centerEnd,
+                      child: Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          alignment: WrapAlignment.end,
+                          children: [
+                            RequestStatusChip(value),
+                            if (detail.native.hasStatus)
+                              RequestNativeChip(detail.native),
+                          ]))),
             ]),
             const SizedBox(height: 6),
             Text(detail.subject,
