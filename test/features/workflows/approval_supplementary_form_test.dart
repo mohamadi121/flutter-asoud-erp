@@ -223,6 +223,8 @@ void main() {
     await tester.pump();
     await tester.tap(_button('تأیید'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('تأیید و ثبت'));
+    await tester.pumpAndSettle();
     expect(repository.completeCalls, hasLength(1));
     final call = repository.completeCalls.single;
     expect(call.action, 'Approve');
@@ -250,6 +252,8 @@ void main() {
     await tester.pump();
     await tester.tap(_button('تأیید'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('تأیید و ثبت'));
+    await tester.pumpAndSettle();
     expect(find.text('فیلد الزامی است.'), findsOneWidget);
     expect(_button('تأیید'), findsOneWidget);
     expect(repository.completeCalls, isEmpty);
@@ -270,6 +274,8 @@ void main() {
       (tester) async {
     final repository = await _pump(tester, 390, _legacyDetail());
     await tester.tap(_button('تأیید'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('تأیید و ثبت'));
     await tester.pumpAndSettle();
     expect(repository.plainCompleteActions, ['Approve']);
     expect(repository.completeCalls, isEmpty);
@@ -307,6 +313,8 @@ void main() {
     await tester.enterText(find.byType(TextFormField), 'بررسی شد');
     await tester.pump();
     await tester.tap(_button('تأیید'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('تأیید و ثبت'));
     await tester.pumpAndSettle();
     // The offline preview cannot record the supplementary form; the exact
     // Persian reason (an ApiException) survives failureDetail and is shown.
