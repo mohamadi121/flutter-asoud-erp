@@ -365,13 +365,6 @@ class RequestListViewState extends State<RequestListView> {
                   onPressed: widget.onCreate,
                   icon: const Icon(Icons.add_rounded)),
         ),
-        floatingActionButton:
-            widget.onCreate != null && widget.createLabel != null
-                ? FloatingActionButton.extended(
-                    icon: const Icon(Icons.add),
-                    label: Text(widget.createLabel!),
-                    onPressed: widget.onCreate)
-                : null,
         body: RefreshIndicator(
           onRefresh: reload,
           child: ListView(

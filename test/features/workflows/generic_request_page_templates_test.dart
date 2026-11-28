@@ -186,8 +186,16 @@ void main() {
         dateFrom: any(named: 'dateFrom'),
         dateTo: any(named: 'dateTo'))).called(greaterThan(0));
 
-    // The new-request sheet lists the system templates first.
-    await tester.tap(find.text('درخواست جدید'));
+    // The new-request sheet lists the system templates first. The list no
+    // longer has a floating «درخواست جدید» button; the sheet opens through the
+    // centre «ایجاد» (createOnOpen).
+    // A fresh key forces a new State so createOnOpen's post-frame callback
+    // runs (re-pumping the same widget would reuse the State and skip it).
+    await tester.pumpWidget(_app(GenericRequestsPage(
+        key: const ValueKey('create-on-open'),
+        company: 'Wind Power LLC',
+        repository: repo,
+        createOnOpen: true)));
     await tester.pumpAndSettle();
     final titles = [
       for (final tile in tester.widgetList<ListTile>(find.descendant(

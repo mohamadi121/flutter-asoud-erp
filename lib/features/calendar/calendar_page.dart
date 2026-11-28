@@ -435,18 +435,18 @@ class _AsoudCalendarState extends State<AsoudCalendar> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                widget.compact ? 'برنامه هفتگی من' : 'تقویم من',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
+        if (widget.compact)
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'برنامه هفتگی من',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
-            ),
-            if (widget.compact)
               TextButton(
                 onPressed: () async {
                   await Navigator.push(
@@ -472,8 +472,8 @@ class _AsoudCalendarState extends State<AsoudCalendar> {
                 },
                 child: const Text('تقویم کامل'),
               ),
-          ],
-        ),
+            ],
+          ),
         Row(
           children: [
             IconButton(
@@ -793,14 +793,6 @@ class _AsoudCalendarState extends State<AsoudCalendar> {
                   child: ListView(
                     padding: const EdgeInsets.all(16),
                     children: [
-                      Align(
-                        alignment: AlignmentDirectional.centerStart,
-                        child: TextButton.icon(
-                          onPressed: () => Navigator.pop(context),
-                          icon: const Icon(Icons.arrow_back),
-                          label: const Text('بازگشت به خانه'),
-                        ),
-                      ),
                       _content(),
                     ],
                   ),
