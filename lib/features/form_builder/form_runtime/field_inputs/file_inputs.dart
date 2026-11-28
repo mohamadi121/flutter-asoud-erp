@@ -4,24 +4,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/offline/offline_failure.dart';
+import '../../../../core/utils/file_name_label.dart';
 import '../../form_repository.dart';
-
-/// The display name of a stored file reference: the last segment of a path
-/// (`/private/files/.../report.pdf` → `report.pdf`), or the value itself when
-/// it is already a name (a local preview label, a file name).
-String _fileNames(dynamic value) {
-  if (value == null || value == '') return 'فایل انتخاب نشده';
-  final names = value is List ? value : [value];
-  return names
-      .map((name) {
-        final text = '$name';
-        final slash = text.lastIndexOf('/');
-        return slash >= 0 && slash < text.length - 1
-            ? text.substring(slash + 1)
-            : text;
-      })
-      .join('، ');
-}
 
 Widget? buildFileInput({
   required BuildContext context,
@@ -40,7 +24,7 @@ Widget? buildFileInput({
   final policy = repository is FormAttachmentPolicy ? repository as FormAttachmentPolicy : null;
   final subtitle = policy != null
       ? policy.fileLabel(value)
-      : _fileNames(value);
+      : (value == null || value == '' ? 'فایل انتخاب نشده' : fileNamesLabel(value));
 
   return Column(
     children: [

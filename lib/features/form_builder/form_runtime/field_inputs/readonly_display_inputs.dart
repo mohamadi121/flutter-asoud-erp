@@ -1,25 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/utils/file_name_label.dart';
 import '../../../../core/utils/jalali_date.dart';
 import '../../form_repository.dart';
 import '../rules_engine.dart';
-
-/// The display name of a stored file reference: the last segment of a path
-/// (`/private/files/.../report.pdf` → `report.pdf`), or the value itself when
-/// it is already a name (a local preview label, a file name).
-String _fileNames(dynamic value) {
-  if (value == null || value == '') return '';
-  final names = value is List ? value : [value];
-  return names
-      .map((name) {
-        final text = '$name';
-        final slash = text.lastIndexOf('/');
-        return slash >= 0 && slash < text.length - 1
-            ? text.substring(slash + 1)
-            : text;
-      })
-      .join('، ');
-}
 
 Widget? buildReadonlyDisplayInput({
   required FormMap f,
@@ -50,7 +34,7 @@ Widget? buildReadonlyDisplayInput({
         : ['Boolean', 'Checkbox'].contains(type)
             ? (value == true ? 'بله' : 'خیر')
             : ['File', 'Image', 'Signature'].contains(type)
-                ? _fileNames(value)
+                ? fileNamesLabel(value)
                 : '${value ?? ''}';
     return Material(
       color: Colors.transparent,
