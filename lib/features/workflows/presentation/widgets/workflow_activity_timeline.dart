@@ -58,6 +58,8 @@ String workflowActivityLabel(String action) {
     'Blocked' => 'مانع انجام اقدام ثبت شد',
     'Draft Saved' => 'پیش‌نویس اقدام ذخیره شد',
     'Claimed Elsewhere' => 'اقدام توسط فرد دیگری دریافت شد',
+    'Note' => 'یادداشت ثبت شد',
+    'Created Output' => 'سند خروجی ایجاد شد',
     _ => () {
         final label = requestActionLabel(trimmed);
         return label != trimmed ? label : persianWorkflowStageTitle(trimmed);
