@@ -6,27 +6,34 @@ import 'package:flutter_test/flutter_test.dart';
 
 /// A page whose app bar is an [AsoudHeader]; pushed so the back button shows.
 class _HeaderPage extends StatelessWidget {
-  const _HeaderPage({this.subtitle, this.subtitleWidget});
+  const _HeaderPage({this.title = 'عنوان صفحه', this.subtitle, this.subtitleWidget});
+  final String title;
   final String? subtitle;
   final Widget? subtitleWidget;
 
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AsoudHeader(
-            title: 'عنوان صفحه',
+            title: title,
             subtitle: subtitle,
             subtitleWidget: subtitleWidget),
         body: const SizedBox.shrink(),
       );
 }
 
-Future<void> _open(WidgetTester tester, double width, _HeaderPage page) async {
+Future<void> _open(WidgetTester tester, double width, _HeaderPage page,
+    {TextScaler? textScaler}) async {
   tester.view.physicalSize = Size(width, 760);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
   await tester.pumpWidget(MaterialApp(
     theme: AsoudTheme.light,
+    builder: textScaler == null
+        ? null
+        : (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+            child: child!),
     home: Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -82,5 +89,18 @@ void main() {
     expect(text.textDirection, TextDirection.ltr);
     expect(text.style?.fontSize, 11);
     expect(text.style?.color, AsoudColors.muted);
+  });
+
+  testWidgets('هدر با عنوان دوخطی و زیرعنوان در ۳۲۰ پیکسل و فونت بزرگ سرریز نمی‌کند',
+      (tester) async {
+    await _open(
+        tester,
+        320,
+        const _HeaderPage(
+            title: 'عنوان بلند مرحلهٔ گردش کار که به دو خط می‌رسد',
+            subtitle: 'زیرعنوان کوتاه'),
+        textScaler: TextScaler.linear(1.3));
+    expect(find.text('زیرعنوان کوتاه'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }

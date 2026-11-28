@@ -213,7 +213,7 @@ class _WorkflowWaitSettingsPageState extends State<WorkflowWaitSettingsPage> {
   @override
   Widget build(BuildContext context) => Directionality(textDirection: TextDirection.rtl, child: Scaffold(
     backgroundColor: AsoudColors.background,
-    appBar: const PreferredSize(preferredSize: Size.fromHeight(94), child: ColoredBox(color: Color(0xffe9edf8),
+    appBar: const PreferredSize(preferredSize: Size.fromHeight(AsoudHeader.heightWithSubtitle), child: ColoredBox(color: Color(0xffe9edf8),
         child: AsoudHeader(title: 'انتظار و زمان‌بندی', subtitle: 'تنظیمات مرحله گردش‌کار'))),
     body: loading ? const Center(child: CircularProgressIndicator()) : Form(key: form, child: SingleChildScrollView(
       padding: AsoudFormStyle.pagePadding, child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [

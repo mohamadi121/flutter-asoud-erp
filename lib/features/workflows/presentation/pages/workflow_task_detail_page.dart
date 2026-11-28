@@ -243,9 +243,7 @@ class _DecisionBarState extends State<_DecisionBar> {
       ),
       if (detail.allowReject)
         OutlinedButton(
-          style: OutlinedButton.styleFrom(
-              foregroundColor: AsoudColors.danger,
-              side: const BorderSide(color: AsoudColors.danger)),
+          style: asoudRejectButtonStyle(),
           onPressed: saving || !_hasReason ? null : () => _decide('Reject'),
           child: const Text('رد'),
         ),

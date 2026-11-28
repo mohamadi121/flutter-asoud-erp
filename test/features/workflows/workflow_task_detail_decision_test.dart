@@ -1,3 +1,4 @@
+import 'package:asoud_erp/core/theme/asoud_colors.dart';
 import 'package:asoud_erp/core/theme/asoud_theme.dart';
 import 'package:asoud_erp/features/workflows/domain/entities/workflow_task.dart';
 import 'package:asoud_erp/features/workflows/domain/repositories/workflow_task_repository.dart';
@@ -146,6 +147,20 @@ void main() {
     expect(repository.calls, hasLength(1));
     expect(repository.calls.single.action, 'Reject');
     expect(repository.calls.single.comment, 'بودجه کافی نیست');
+  });
+
+  testWidgets('«رد» غیرفعال رنگ کم‌رنگ‌تری از حالت فعال دارد', (tester) async {
+    await _open(tester, 390);
+    Color fg(Set<WidgetState> states) => tester
+        .widget<OutlinedButton>(find.widgetWithText(OutlinedButton, 'رد'))
+        .style!
+        .foregroundColor!
+        .resolve(states)!;
+    final enabled = fg(const {});
+    final disabled = fg(const {WidgetState.disabled});
+    expect(enabled, AsoudColors.danger);
+    expect(disabled, AsoudColors.danger.withValues(alpha: .38));
+    expect(disabled, isNot(enabled));
   });
 
   testWidgets('روی عرض ۳۲۰ دکمه‌ها بدون سرریز روی هم می‌نشینند',

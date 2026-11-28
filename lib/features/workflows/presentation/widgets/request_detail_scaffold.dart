@@ -803,11 +803,12 @@ class _RequestDetailScaffoldState extends State<RequestDetailScaffold> {
             ),
           _card([
             Row(children: [
-              number == '—' || number.isEmpty
-                  ? const Text('—',
-                      style: TextStyle(
-                          fontSize: 13, color: AsoudColors.muted))
-                  : AsoudIdChip(number),
+              Flexible(
+                  child: number == '—' || number.isEmpty
+                      ? const Text('—',
+                          style: TextStyle(
+                              fontSize: 13, color: AsoudColors.muted))
+                      : AsoudIdChip(number)),
               const SizedBox(width: 8),
               Expanded(
                   child: Align(

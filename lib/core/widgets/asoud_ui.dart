@@ -17,12 +17,27 @@ class AsoudHeader extends StatelessWidget implements PreferredSizeWidget {
   final Widget? subtitleWidget;
   final Widget? action;
 
-  @override
-  Size get preferredSize =>
-      Size.fromHeight(subtitle == null && subtitleWidget == null ? 76 : 98);
+  /// Header height with no subtitle.
+  static const double height = 76;
+
+  /// Header height when a subtitle (or subtitle widget) is present.
+  static const double heightWithSubtitle = 98;
 
   @override
-  Widget build(BuildContext context) => SafeArea(
+  Size get preferredSize => Size.fromHeight(
+      subtitle == null && subtitleWidget == null ? height : heightWithSubtitle);
+
+  @override
+  Widget build(BuildContext context) {
+    // The bar height is fixed, so cap its text scaling: at large system font
+    // sizes a 2-line title plus a wrapping subtitle would otherwise overflow
+    // the bar at 320 px. Clamping (rather than forcing one subtitle line)
+    // leaves normal-scale headers pixel-identical.
+    final media = MediaQuery.of(context);
+    final textScaler = media.textScaler.clamp(maxScaleFactor: 1.0);
+    return MediaQuery(
+      data: media.copyWith(textScaler: textScaler),
+      child: SafeArea(
         bottom: false,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
@@ -59,10 +74,12 @@ class AsoudHeader extends StatelessWidget implements PreferredSizeWidget {
               ]),
             ),
             const SizedBox(width: 10),
-            SizedBox(width: 40, child: action),
+            SizedBox(width: 48, child: action),
           ]),
         ),
-      );
+      ),
+    );
+  }
 }
 
 class _HeaderButton extends StatelessWidget {
@@ -117,6 +134,8 @@ class AsoudIdChip extends StatelessWidget {
             border: Border.all(color: AsoudColors.border),
             borderRadius: BorderRadius.circular(8)),
         child: Text(id,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             textDirection: TextDirection.ltr,
             style: const TextStyle(
                 fontSize: 11,
@@ -125,6 +144,19 @@ class AsoudIdChip extends StatelessWidget {
                 color: AsoudColors.muted)),
       );
 }
+
+/// The «رد» (reject) decision button: an outlined warning button so it reads
+/// differently from the filled «تأیید»/«بازگشت». When disabled (no reason yet)
+/// it dims to 38 % so it does not look tappable.
+ButtonStyle asoudRejectButtonStyle() => OutlinedButton.styleFrom(
+      foregroundColor: AsoudColors.danger,
+      disabledForegroundColor: AsoudColors.danger.withValues(alpha: .38),
+      side: WidgetStateBorderSide.resolveWith(
+          (states) => BorderSide(
+              color: states.contains(WidgetState.disabled)
+                  ? AsoudColors.danger.withValues(alpha: .38)
+                  : AsoudColors.danger)),
+    );
 
 class AsoudBottomActions extends StatelessWidget {
   const AsoudBottomActions(
