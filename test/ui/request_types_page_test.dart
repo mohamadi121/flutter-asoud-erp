@@ -49,7 +49,7 @@ void main() {
   });
 
   for (final width in [320.0, 390.0]) {
-    testWidgets('builds a request type in three steps at $width',
+    testWidgets('builds a request type in four steps at $width',
         (tester) async {
       await tester.binding.setSurfaceSize(Size(width, 800));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -115,7 +115,11 @@ void main() {
           dropdown.items!.map((item) => item.value).toList(), ['کالا', 'خدمت']);
       expect(choice.validator!(null), isNull,
           reason: 'فیلد بدون فعال‌کردن گزینه الزامی باید اختیاری بماند.');
-      expect(find.text('دسترسی ثبت درخواست'), findsNothing);
+
+      // A user-made type ends with the access step (who may submit).
+      await tapText(tester, 'ادامه');
+      expect(find.text('دسترسی ثبت درخواست'), findsOneWidget);
+      await tapText(tester, 'کارشناس');
       await tapText(tester, 'ذخیره و پایان');
 
       expect(find.byType(RequestTypesPage), findsOneWidget);
