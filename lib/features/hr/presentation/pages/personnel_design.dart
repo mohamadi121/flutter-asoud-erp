@@ -215,12 +215,8 @@ class _PersonnelList extends StatelessWidget {
                           pending: state.pendingSync,
                           failed: state.syncFailed),
                     if (state.loading) const LinearProgressIndicator(),
-                    if (state.error != null)
-                      ListTile(
-                          title: Text(state.error!),
-                          trailing: IconButton(
-                              onPressed: cubit.load,
-                              icon: const Icon(Icons.refresh))),
+                    if (state.error case final failure?)
+                      ErrorState(failure: failure, onRetry: cubit.load),
                     if (!state.loading &&
                         state.error == null &&
                         state.visible.isEmpty)
