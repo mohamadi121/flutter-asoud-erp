@@ -145,6 +145,10 @@ class _RequestDetailScaffoldState extends State<RequestDetailScaffold> {
   String? error;
   bool loading = true;
 
+  /// The signed-in user holds a role that may retry a failed native document
+  /// (System/HR/Purchase Manager); fetched only when the request needs it.
+  bool _canRetry = false;
+
   /// Legacy rows (no `can_edit`) are editable while the instance is running.
   bool get running =>
       data != null &&
@@ -227,6 +231,7 @@ class _RequestDetailScaffoldState extends State<RequestDetailScaffold> {
         summary = instance?.summary;
         activities = instance?.activities ?? const [];
       });
+      await _refreshRetryRole();
     } catch (e) {
       if (mounted) {
         setState(
@@ -318,11 +323,61 @@ class _RequestDetailScaffoldState extends State<RequestDetailScaffold> {
         await voidDocument();
       case 'reissue':
         await reissueDocument();
+      case 'retry_native':
+        await retryNativeDocument();
     }
   }
 
   RequestVoidRepository get _voids =>
       widget.voidRepository ?? RequestVoidRepository(widget.repository.client);
+
+  /// Whether the signed-in user may retry a failed native document. The server
+  /// allows System/HR/Purchase Managers; the button is hidden for everyone else
+  /// so they never tap into a 403.
+  bool get _retryVisible =>
+      _canRetry &&
+      !widget.readOnly &&
+      detail?.native.failed == true;
+
+  /// Fetches the current user's roles only when this request has a failed
+  /// native document; a failure (offline, preview) leaves the button hidden.
+  Future<void> _refreshRetryRole() async {
+    final detail = this.detail;
+    if (detail == null || !detail.native.failed) {
+      _canRetry = false;
+      return;
+    }
+    try {
+      final user = await widget.repository.client.getCurrentUser();
+      if (!mounted) return;
+      setState(() {
+        _canRetry =
+            user.hasRole('System Manager') ||
+            user.hasRole('HR Manager') ||
+            user.hasRole('Purchase Manager');
+      });
+    } catch (_) {
+      if (mounted) setState(() => _canRetry = false);
+    }
+  }
+
+  Future<void> retryNativeDocument() async {
+    if (_busy) return;
+    final ok = await showDialog<bool>(
+        context: context, builder: (_) => const _RetryNativeDialog());
+    if (ok != true) return;
+    _busy = true;
+    try {
+      await _voids.retryNative(widget.name);
+      _message('تلاش دوبارهٔ ایجاد سند انجام شد.');
+      await load();
+    } catch (e) {
+      if (e is QueuedOfflineException) return _message(e.message);
+      _message(_voidFailure(e));
+    } finally {
+      _busy = false;
+    }
+  }
 
   /// The server's Persian sentence for a refused action (417), else the
   /// shared per-kind failure message (permission, timeout, no connection).
@@ -450,6 +505,12 @@ class _RequestDetailScaffoldState extends State<RequestDetailScaffold> {
                         child: ListTile(
                             leading: Icon(Icons.replay_rounded),
                             title: Text('صدور مجدد'))),
+                  if (_retryVisible)
+                    const PopupMenuItem(
+                        value: 'retry_native',
+                        child: ListTile(
+                            leading: Icon(Icons.refresh_rounded),
+                            title: Text('تلاش مجدد'))),
                   if (canCancel)
                     const PopupMenuItem(
                         value: 'cancel',
@@ -1085,6 +1146,30 @@ class _ReissueDialog extends StatelessWidget {
               key: const ValueKey('reissue-confirm-button'),
               onPressed: () => Navigator.pop(context, true),
               child: const Text('صدور مجدد')),
+        ],
+      );
+}
+
+/// Confirms a retry of a failed native document; pops true.
+class _RetryNativeDialog extends StatelessWidget {
+  const _RetryNativeDialog();
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        title: const Text('تلاش مجدد'),
+        content: const SingleChildScrollView(
+          child: Text(
+              'ایجاد سند ERP برای این درخواست قبلاً ناموفق بود. دوباره تلاش می‌شود و نتیجهٔ جدید در همین صفحه نمایش داده می‌شود.',
+              style: TextStyle(fontSize: 13, height: 1.7)),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('انصراف')),
+          FilledButton(
+              key: const ValueKey('retry-native-confirm-button'),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('تلاش مجدد')),
         ],
       );
 }

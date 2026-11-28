@@ -1,9 +1,10 @@
 import '../../../core/network/frappe_client.dart';
 
-/// HR Manager actions on the native document of an executed request
-/// (`asoud_erp.api.v1.workflow_request.void_native_document` and
-/// `reissue_native_document`, docs/api/form-execution.md «Void and reissue»).
-/// Both return the same detail map as `get_request`. A write made while offline
+/// Manager actions on the native document of an executed request
+/// (`asoud_erp.api.v1.workflow_request.void_native_document`,
+/// `reissue_native_document` and `create_native_document`,
+/// docs/api/form-execution.md «Void and reissue»).
+/// All return the same detail map as `get_request`. A write made while offline
 /// is queued by the client and throws `QueuedOfflineException`.
 class RequestVoidRepository {
   const RequestVoidRepository(this.client);
@@ -19,6 +20,11 @@ class RequestVoidRepository {
   /// Runs the executor again after a void.
   Future<Map<String, dynamic>> reissue(String name) =>
       _call('reissue_native_document', {'name': name});
+
+  /// Retries the native document of an approved request whose first attempt
+  /// failed (`native_status=Failed`); the server re-runs the executor.
+  Future<Map<String, dynamic>> retryNative(String name) =>
+      _call('create_native_document', {'name': name});
 
   Future<Map<String, dynamic>> _call(
       String method, Map<String, dynamic> data) async {

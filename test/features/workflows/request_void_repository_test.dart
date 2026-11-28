@@ -23,4 +23,16 @@ void main() {
             data: {'name': 'REQ-1'}))
         .called(1);
   });
+
+  test('retryNative calls the create_native_document endpoint', () async {
+    final client = _MockClient();
+    when(() => client.callAsoudMethod(any(), data: any(named: 'data')))
+        .thenAnswer((_) async => {'name': 'REQ-1'});
+    final repository = RequestVoidRepository(client);
+    expect(await repository.retryNative('REQ-1'), {'name': 'REQ-1'});
+    verify(() => client.callAsoudMethod(
+            'asoud_erp.api.v1.workflow_request.create_native_document',
+            data: {'name': 'REQ-1'}))
+        .called(1);
+  });
 }

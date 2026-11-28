@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:asoud_erp/core/network/api_exception.dart';
+import 'package:asoud_erp/core/network/frappe_client.dart';
 import 'package:asoud_erp/core/theme/asoud_theme.dart';
 import 'package:asoud_erp/core/utils/failure_message.dart';
 import 'package:asoud_erp/features/workflows/data/generic_request_repository.dart';
@@ -34,7 +35,9 @@ Map<String, dynamic> _execution(String state, String label,
 
 const _reason = 'سند به اشتباه صادر شده است.';
 
-Map<String, dynamic> _request(Map<String, dynamic> execution) => {
+Map<String, dynamic> _request(Map<String, dynamic> execution,
+        {Map<String, dynamic>? native}) =>
+    {
       ...Map<String, dynamic>.from(requestData('get_request_purchase') as Map),
       'status_key': 'approved',
       'status_label': 'تأیید شده',
@@ -42,11 +45,25 @@ Map<String, dynamic> _request(Map<String, dynamic> execution) => {
       'can_edit': false,
       'can_cancel': false,
       'execution': execution,
+      if (native != null) 'native': native,
     };
 
+/// A client whose signed-in user holds [roles]; only `getCurrentUser` is used
+/// by the detail scaffold (the retry-role check).
+class _FakeClient extends Fake implements FrappeApiClient {
+  _FakeClient(this.roles);
+  final List<String> roles;
+  @override
+  Future<FrappeUserContext> getCurrentUser() async => FrappeUserContext(
+      userId: 'u-1', fullName: 'مدیر', roles: roles);
+}
+
 class _Repo extends Fake implements GenericRequestRepository {
-  _Repo(this.current);
+  _Repo(this.current, {this.roles = const []});
   Map<String, dynamic> current;
+  final List<String> roles;
+  @override
+  FrappeApiClient get client => _FakeClient(roles);
   @override
   Future<Map<String, dynamic>> detail(String name) async =>
       Map<String, dynamic>.from(current);
@@ -106,13 +123,21 @@ class _Voids extends Fake implements RequestVoidRepository {
         _execution('succeeded', 'اجرا انجام شد', canVoid: true));
     return repo.current;
   }
+
+  @override
+  Future<Map<String, dynamic>> retryNative(String name) async {
+    calls.add('retry:$name');
+    if (failure != null) throw failure!;
+    repo.current = _request(_execution('succeeded', 'اجرا انجام شد'));
+    return repo.current;
+  }
 }
 
 Future<(_Repo, _Voids)> _open(WidgetTester tester, Map<String, dynamic> data,
-    {double width = 390}) async {
+    {double width = 390, List<String> roles = const []}) async {
   await tester.binding.setSurfaceSize(Size(width, 2400));
   addTearDown(() => tester.binding.setSurfaceSize(null));
-  final repo = _Repo(data);
+  final repo = _Repo(data, roles: roles);
   final voids = _Voids(repo);
   await tester.pumpWidget(MaterialApp(
     theme: AsoudTheme.light,
@@ -256,6 +281,67 @@ void main() {
           await tester.pump(const Duration(seconds: 5));
           await tester.pumpAndSettle();
         }
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets('a failed native document offers a retry to a manager',
+          (tester) async {
+        final (repo, voids) = await _open(
+            tester,
+            _request(_execution('failed', 'اجرا ناموفق بود؛ درخواست تأیید شده است'),
+                native: {
+                  'doctype': 'Material Request',
+                  'name': 'MAT-0001',
+                  'status': 'Failed',
+                  'error': 'انبار تعریف نشده است.'
+                }),
+            width: width,
+            roles: const ['HR Manager']);
+        await _menu(tester);
+        expect(find.text('تلاش مجدد'), findsOneWidget);
+        await tester.tap(find.text('تلاش مجدد'));
+        await tester.pumpAndSettle();
+        // Dismissing the confirmation sends nothing.
+        await tester.tap(find.text('انصراف'));
+        await tester.pumpAndSettle();
+        expect(voids.calls, isEmpty);
+        await _menu(tester);
+        await tester.tap(find.text('تلاش مجدد'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('retry-native-confirm-button')));
+        await tester.pumpAndSettle();
+        expect(voids.calls, ['retry:${repo.current['name']}']);
+        expect(find.text('تلاش دوبارهٔ ایجاد سند انجام شد.'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets('a non-manager sees no retry for a failed native document',
+          (tester) async {
+        await _open(
+            tester,
+            _request(_execution('failed', 'اجرا ناموفق بود؛ درخواست تأیید شده است'),
+                native: {
+                  'doctype': 'Material Request',
+                  'name': 'MAT-0001',
+                  'status': 'Failed',
+                  'error': 'انبار تعریف نشده است.'
+                }),
+            width: width,
+            roles: const ['Employee']);
+        await _menu(tester);
+        expect(find.text('تلاش مجدد'), findsNothing);
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets('a request without a failed native document has no retry',
+          (tester) async {
+        await _open(
+            tester,
+            _request(_execution('succeeded', 'اجرا انجام شد', canVoid: true)),
+            width: width,
+            roles: const ['HR Manager']);
+        await _menu(tester);
+        expect(find.text('تلاش مجدد'), findsNothing);
         expect(tester.takeException(), isNull);
       });
     });
