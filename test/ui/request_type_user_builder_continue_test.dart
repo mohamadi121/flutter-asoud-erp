@@ -172,7 +172,11 @@ void main() {
     await _continue(tester);
     await _continue(tester);
 
-    expect(find.text('اطلاعات واردشده را بررسی کنید.'), findsOneWidget);
+    expect(
+        find.text('Workflow stages and transitions are not complete'),
+        findsOneWidget,
+        reason: 'دلیل واقعی ۴۱۷ سرور به‌جای جملهٔ عمومی نمایش داده می‌شود');
+    expect(find.text('اطلاعات واردشده را بررسی کنید.'), findsNothing);
     expect(find.text('پیش‌نمایش فرم درخواست'), findsNothing);
     expect(repository.saveCalls, 1);
     expect(tester.takeException(), isNull);

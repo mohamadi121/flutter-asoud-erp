@@ -16,6 +16,11 @@ const oversizedResponseFailureMessage = 'پاسخ سرور بیش از حد بز
 /// Accepts an [ApiException] or a non-empty string. Strings are passed through
 /// unchanged so cubits that already format a specific Persian reason keep their
 /// wording instead of being replaced by the generic message.
+///
+/// Validation refusals (HTTP 417) carry the server's own sentence in
+/// [ApiException.message] (see `docs/api/README.md` in the backend repo: the
+/// 417 `_server_messages` entry is written for the user), so it is shown
+/// verbatim instead of the generic «اطلاعات واردشده را بررسی کنید.»
 String failureMessage(Object? failure) {
   if (failure is String) {
     final message = failure.trim();
@@ -23,6 +28,10 @@ String failureMessage(Object? failure) {
   }
   if (failure is! ApiException) {
     return _genericFailure;
+  }
+  if (failure.kind == ApiFailureKind.validation &&
+      failure.message.trim().isNotEmpty) {
+    return failure.message.trim();
   }
   return switch (failure.kind) {
     ApiFailureKind.invalidCredentials => 'نام کاربری یا گذرواژه درست نیست.',

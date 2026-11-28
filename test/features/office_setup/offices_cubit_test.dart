@@ -66,10 +66,10 @@ void main() {
       act: (cubit) => cubit.selectDefault(_office),
       verify: (cubit) {
         expect(cubit.state.changingDefault, isFalse);
-        expect(cubit.state.message,
-            failureMessage(const ApiException(
-                kind: ApiFailureKind.validation,
-                message: 'ASOUD setup does not exist for this company')));
+        expect(
+            cubit.state.message,
+            'ASOUD setup does not exist for this company',
+            reason: 'دلیل واقعی ۴۱۷ سرور به‌جای جملهٔ عمومی نمایش داده می‌شود');
         expect(cubit.state.message, isNot('تغییر دفتر فعال انجام نشد.'));
       },
     );

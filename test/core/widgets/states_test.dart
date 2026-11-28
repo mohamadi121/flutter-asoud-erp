@@ -108,6 +108,11 @@ void main() {
     expect(
         failureMessage(
             const ApiException(kind: ApiFailureKind.validation, message: 'x')),
+        'x',
+        reason: 'پیام ۴۱۷ سرور به‌جای جملهٔ عمومی نمایش داده می‌شود');
+    expect(
+        failureMessage(const ApiException(
+            kind: ApiFailureKind.validation, message: '   ')),
         'اطلاعات واردشده را بررسی کنید.');
   });
 
